@@ -1,6 +1,8 @@
 from utils.exception import SaxoException
+from utils.configuration import Configuration
 
 import requests
+from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
@@ -10,9 +12,9 @@ SAXO_URL = "https://gateway.saxobank.com/sim/openapi/"
 
 class SaxoClient:
 
-    def __init__(self) -> None:
+    def __init__(self, configuration : Configuration) -> None:
         self.session = requests.Session()
-        self.session.headers.update({"Authorization": f"Bearer "})
+        self.session.headers.update({"Authorization": f"Bearer {configuration.access_token}"})
         self.session.headers.update({"Content-Type": "application/json"})
         retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
         adapter = HTTPAdapter(max_retries=retries)
@@ -20,7 +22,7 @@ class SaxoClient:
 
     def get_stock(self, code:str, market:str) -> Dict:
         response = self.session.get(f"{SAXO_URL}ref/v1/instruments/?Keywords={code}:{market}&AssetTypes=Stock")
-        response.raise_for_status()
+        self._check_response(response)
         data = response.json()["Data"]
         if len(data) > 1:
             codes = map(lambda x: x["Symbol"], data)
@@ -29,10 +31,16 @@ class SaxoClient:
 
     def get_total_amount(self) -> float:
         response = self.session.get(f"{SAXO_URL}port/v1/balances/me")
-        response.raise_for_status()
+        self._check_response(response)
         return response.json()["TotalValue"]
 
     def get_positions(self) -> List[Dict]:
         response = self.session.get(f"{SAXO_URL}/port/v1/positions/me/?top=50")
-        response.raise_for_status()
+        self._check_response(response)
         return response.json()
+    
+    @staticmethod
+    def _check_response(response: Response) -> None:
+        if response.status_code == 401:
+            raise SaxoException("The access_token is expired")
+        response.raise_for_status()

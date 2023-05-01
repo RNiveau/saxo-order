@@ -8,7 +8,6 @@ class Configuration:
         if os.path.isfile("access_token"):
             with open("access_token", 'r') as f:
                 self.access_token = f.read().strip()
-                print(self.access_token)
 
     @property
     def app_key(self) -> str:
