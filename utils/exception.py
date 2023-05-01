@@ -1,0 +1,2 @@
+class SaxoException(Exception):
+    pass

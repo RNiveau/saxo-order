@@ -1,4 +1,5 @@
 import click
+from client.saxo import SaxoClient
 
 @click.command()
 @click.option('--price', type=float, required=True, help='The price of the order')
@@ -9,4 +10,8 @@ def set_order(price, code, order_type):
     # Your code to handle the order goes here
 
 if __name__ == '__main__':
-    set_order()
+    #set_order()
+    client = SaxoClient()
+    print(client.get_stock("cap", "xpar"))
+    print(client.get_total_amount())
+    print(client.get_positions())
