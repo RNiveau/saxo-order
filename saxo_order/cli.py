@@ -64,8 +64,9 @@ def set_order(price, code, country_code, quantity, order_type, buy_or_sell):
 
 
 @click.command()
+@click.option("--write", type=click.Choice(["y", "n"]), help="Write the access token ?")
 @catch_exception(handle=SaxoException)
-def auth():
+def auth(write):
     auth_client = SaxoAuthClient(Configuration())
     print(auth_client.login())
     url = input("What's the url provide by saxo ?\n")
@@ -74,7 +75,8 @@ def auth():
         print("The url doesn't contain a code")
         exit(1)
     access_token = auth_client.access_token(match.group(1))
-    should_write = input("Do you want to save the access token ? (Y/n)\n")
-    if should_write == "Y" or should_write == "y":
+    if write is None:
+        should_write = input("Do you want to save the access token ? (Y/n)\n")
+    if write == "y" or should_write == "Y" or should_write == "y":
         with open("access_token", "w") as f:
             f.write(f"{access_token}\n")
