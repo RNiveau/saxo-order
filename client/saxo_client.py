@@ -36,6 +36,8 @@ class SaxoClient:
             raise SaxoException(
                 f"Stock {code}:{market} has more than one entry, check it: {codes}"
             )
+        if len(data) == 0:
+            raise SaxoException(f"Stock {code}:{market} doesn't exist")
         return data[0]
 
     def get_total_amount(self) -> float:
@@ -56,10 +58,12 @@ class SaxoClient:
     def set_order(
         self,
         account_key: str,
+        stock_code: int,
         price: float,
         quantiy: int,
         order: str,
-        stop_price: Optional[float],
+        direction: str,
+        stop_price: Optional[float] = None,
     ) -> None:
         if order == "limit":
             order_type = "Limit"
@@ -71,12 +75,12 @@ class SaxoClient:
             "AccountKey": account_key,
             "Amount": quantiy,
             "AssetType": "Stock",
-            "BuySell": "Buy",
+            "BuySell": direction.capitalize(),
             "OrderDuration": {"DurationType": "GoodTillCancel"},
             "ManualOrder": True,
             "OrderPrice": price,
             "OrderType": order_type,
-            "Uic": 112807,
+            "Uic": stock_code,
         }
         if order_type == "StopLimit":
             data["OrderPrice"] = stop_price
