@@ -53,8 +53,9 @@ def catch_exception(func=None, *, handle):
 def set_order(price, code, country_code, quantity, order_type, buy_or_sell):
     client = SaxoClient(Configuration())
     stock = client.get_stock(code=code, market=country_code)
+    account_key = select_account(client)
     client.set_order(
-        account_key="pblq5VW3dXTuCost|ihUfw==",
+        account_key=account_key,
         price=price,
         quantiy=quantity,
         order=order_type,
@@ -64,8 +65,12 @@ def set_order(price, code, country_code, quantity, order_type, buy_or_sell):
 
 
 @click.command()
-@click.option("--limit-price", type=float, required=True, help="The limit price of the order")
-@click.option("--stop-price", type=float, required=True, help="The stop price of the order")
+@click.option(
+    "--limit-price", type=float, required=True, help="The limit price of the order"
+)
+@click.option(
+    "--stop-price", type=float, required=True, help="The stop price of the order"
+)
 @click.option("--code", type=str, required=True, help="The code of the stock")
 @click.option(
     "--country-code",
@@ -81,8 +86,9 @@ def set_order(price, code, country_code, quantity, order_type, buy_or_sell):
 def set_stop_limit_order(limit_price, stop_price, code, country_code, quantity):
     client = SaxoClient(Configuration())
     stock = client.get_stock(code=code, market=country_code)
+    account_key = select_account(client)
     client.set_order(
-        account_key="pblq5VW3dXTuCost|ihUfw==",
+        account_key=account_key,
         price=limit_price,
         stop_price=stop_price,
         quantiy=quantity,
@@ -90,7 +96,6 @@ def set_stop_limit_order(limit_price, stop_price, code, country_code, quantity):
         direction="buy",
         stock_code=stock["Identifier"],
     )
-
 
 
 @click.command()
@@ -110,3 +115,18 @@ def auth(write):
     if write == "y" or should_write == "Y" or should_write == "y":
         with open("access_token", "w") as f:
             f.write(f"{access_token}\n")
+
+
+def select_account(client: SaxoClient) -> str:
+    accounts = client.get_accounts()
+    prompt = "Select the account (select with ID):\n"
+    for account in accounts["Data"]:
+        if "DisplayName" in account:
+            prompt += f"- {account['DisplayName']} | {account['AccountId']}\n"
+        else:
+            prompt += f"- NoName | {account['AccountId']}\n"
+    id = input(prompt)
+    account = list(filter(lambda x: x["AccountId"] == id, accounts["Data"]))
+    if len(account) != 1:
+        raise SaxoException("Wrong account selection")
+    return account[0]["AccountKey"]

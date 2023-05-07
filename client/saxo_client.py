@@ -50,7 +50,7 @@ class SaxoClient:
         self._check_response(response)
         return response.json()
 
-    def accounts(self):
+    def get_accounts(self):
         response = self.session.get(f"{SAXO_URL}/port/v1/accounts/me")
         self._check_response(response)
         return response.json()
