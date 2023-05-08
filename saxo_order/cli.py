@@ -24,6 +24,13 @@ def catch_exception(func=None, *, handle):
 
 
 @click.command()
+@click.option(
+    "--config",
+    type=str,
+    required=True,
+    default="config.yml",
+    help="The path to config file",
+)
 @click.option("--price", type=float, required=True, help="The price of the order")
 @click.option("--code", type=str, required=True, help="The code of the stock")
 @click.option(
@@ -50,8 +57,8 @@ def catch_exception(func=None, *, handle):
     help="The direction of the order",
 )
 @catch_exception(handle=SaxoException)
-def set_order(price, code, country_code, quantity, order_type, buy_or_sell):
-    client = SaxoClient(Configuration())
+def set_order(config, price, code, country_code, quantity, order_type, buy_or_sell):
+    client = SaxoClient(Configuration(config))
     stock = client.get_stock(code=code, market=country_code)
     account_key = select_account(client)
     client.set_order(
@@ -65,6 +72,13 @@ def set_order(price, code, country_code, quantity, order_type, buy_or_sell):
 
 
 @click.command()
+@click.option(
+    "--config",
+    type=str,
+    required=True,
+    default="config.yml",
+    help="The path to config file",
+)
 @click.option(
     "--limit-price", type=float, required=True, help="The limit price of the order"
 )
@@ -83,8 +97,8 @@ def set_order(price, code, country_code, quantity, order_type, buy_or_sell):
     "--quantity", type=int, required=True, help="The wanted quantity of stocks"
 )
 @catch_exception(handle=SaxoException)
-def set_stop_limit_order(limit_price, stop_price, code, country_code, quantity):
-    client = SaxoClient(Configuration())
+def set_stop_limit_order(config, limit_price, stop_price, code, country_code, quantity):
+    client = SaxoClient(Configuration(config))
     stock = client.get_stock(code=code, market=country_code)
     account_key = select_account(client)
     client.set_order(
@@ -99,10 +113,17 @@ def set_stop_limit_order(limit_price, stop_price, code, country_code, quantity):
 
 
 @click.command()
+@click.option(
+    "--config",
+    type=str,
+    required=True,
+    default="config.yml",
+    help="The path to config file",
+)
 @click.option("--write", type=click.Choice(["y", "n"]), help="Write the access token ?")
 @catch_exception(handle=SaxoException)
-def auth(write):
-    auth_client = SaxoAuthClient(Configuration())
+def auth(config, write):
+    auth_client = SaxoAuthClient(Configuration(config))
     print(auth_client.login())
     url = input("What's the url provide by saxo ?\n")
     match = re.search(r"\?code=([\w-]+)", url)

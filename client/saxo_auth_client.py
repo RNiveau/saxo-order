@@ -8,8 +8,6 @@ from requests.adapters import HTTPAdapter
 
 from typing import Dict, List
 
-SAXO_AUTH_URL = "https://sim.logonvalidation.net/"
-
 
 class SaxoAuthClient:
     def __init__(self, configuration: Configuration) -> None:
@@ -17,13 +15,11 @@ class SaxoAuthClient:
         self.session.headers.update(
             {"Content-Type": "application/x-www-form-urlencoded"}
         )
-        self.session.headers.update({"Host": "sim.logonvalidation.net"})
-
         self.configuration = configuration
 
     def login(self) -> str:
         response = self.session.get(
-            f"{SAXO_AUTH_URL}/authorize?response_type=code&client_id={self.configuration.app_key}"
+            f"{self.configuration.auth_url}authorize?response_type=code&client_id={self.configuration.app_key}"
             "&state=y90dsygas98dygoidsahf8sa&redirect_uri=http%3A%2F%2Flocalhost",
             allow_redirects=False,
         )
@@ -37,7 +33,7 @@ class SaxoAuthClient:
             )
         ).decode("utf-8")
         response = self.session.post(
-            f"{SAXO_AUTH_URL}token",
+            f"{self.configuration.auth_url}token",
             data=f"grant_type=authorization_code&code={code}&redirect_uri=http%3A%2F%2Flocalhost",
             headers={"Authorization": f"Basic {auth_str}"},
         )

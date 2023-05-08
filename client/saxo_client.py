@@ -8,8 +8,6 @@ from requests.packages.urllib3.util.retry import Retry
 
 from typing import Dict, List, Optional
 
-SAXO_URL = "https://gateway.saxobank.com/sim/openapi/"
-
 
 class SaxoClient:
     def __init__(self, configuration: Configuration) -> None:
@@ -27,7 +25,7 @@ class SaxoClient:
 
     def get_stock(self, code: str, market: str) -> Dict:
         response = self.session.get(
-            f"{SAXO_URL}ref/v1/instruments/?Keywords={code}:{market}&AssetTypes=Stock"
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={code}:{market}&AssetTypes=Stock"
         )
         self._check_response(response)
         data = response.json()["Data"]
@@ -41,17 +39,21 @@ class SaxoClient:
         return data[0]
 
     def get_total_amount(self) -> float:
-        response = self.session.get(f"{SAXO_URL}port/v1/balances/me")
+        response = self.session.get(f"{self.configuration.saxo_url}port/v1/balances/me")
         self._check_response(response)
         return response.json()["TotalValue"]
 
     def get_positions(self) -> List[Dict]:
-        response = self.session.get(f"{SAXO_URL}/port/v1/positions/me/?top=50")
+        response = self.session.get(
+            f"{self.configuration.saxo_url}/port/v1/positions/me/?top=50"
+        )
         self._check_response(response)
         return response.json()
 
     def get_accounts(self):
-        response = self.session.get(f"{SAXO_URL}/port/v1/accounts/me")
+        response = self.session.get(
+            f"{self.configuration.saxo_url}/port/v1/accounts/me"
+        )
         self._check_response(response)
         return response.json()
 
@@ -85,10 +87,18 @@ class SaxoClient:
         if order_type == "StopLimit":
             data["OrderPrice"] = stop_price
             data["StopLimitPrice"] = price
-        print(self.session.post(f"{SAXO_URL}trade/v2/orders", json=data).text)
+
+        response = self.session.post(
+            f"{self.configuration.saxo_url}trade/v2/orders", json=data
+        )
+        self._check_response(response)
+        print(response.json())
 
     @staticmethod
     def _check_response(response: Response) -> None:
         if response.status_code == 401:
             raise SaxoException("The access_token is expired")
+        json = response.json()
+        if "ErrorInfo" in json:
+            raise SaxoException(json["ErrorInfo"]["Message"])
         response.raise_for_status()
