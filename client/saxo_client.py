@@ -39,9 +39,18 @@ class SaxoClient:
         return data[0]
 
     def get_total_amount(self) -> float:
-        response = self.session.get(f"{self.configuration.saxo_url}port/v1/balances/me")
+        response = self.session.get(
+            f"{self.configuration.saxo_url}/port/v1/balances/me"
+        )
         self._check_response(response)
         return response.json()["TotalValue"]
+
+    def get_open_orders(self) -> List:
+        response = self.session.get(
+            f"{self.configuration.saxo_url}/port/v1/orders/me/?$top=50"
+        )
+        self._check_response(response)
+        return response.json()
 
     def get_positions(self) -> List[Dict]:
         response = self.session.get(
