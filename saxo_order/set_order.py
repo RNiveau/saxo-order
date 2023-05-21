@@ -3,7 +3,7 @@ import click
 from client.saxo_client import SaxoClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from saxo_order import catch_exception, select_account
+from saxo_order import catch_exception, select_account, validate_buy_order
 
 
 @click.command()
@@ -43,9 +43,11 @@ from saxo_order import catch_exception, select_account
 def set_order(config, price, code, country_code, quantity, order_type, buy_or_sell):
     client = SaxoClient(Configuration(config))
     stock = client.get_stock(code=code, market=country_code)
-    account_key = select_account(client)
+    account = select_account(client)
+    if buy_or_sell == "buy":
+        validate_buy_order(account, client, price, quantity)
     client.set_order(
-        account_key=account_key,
+        account_key=account.key,
         price=price,
         quantiy=quantity,
         order=order_type,

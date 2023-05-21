@@ -1,10 +1,10 @@
 from utils.exception import SaxoException
 from utils.configuration import Configuration
+from model import Account
 
 import requests
 from requests import Response
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter, Retry
 
 from typing import Dict, List, Optional
 
@@ -39,32 +39,38 @@ class SaxoClient:
         return data[0]
 
     def get_total_amount(self) -> float:
-        response = self.session.get(
-            f"{self.configuration.saxo_url}/port/v1/balances/me"
-        )
+        response = self.session.get(f"{self.configuration.saxo_url}port/v1/balances/me")
         self._check_response(response)
         return response.json()["TotalValue"]
 
     def get_open_orders(self) -> List:
         response = self.session.get(
-            f"{self.configuration.saxo_url}/port/v1/orders/me/?$top=50"
+            f"{self.configuration.saxo_url}port/v1/orders/me/?$top=50"
         )
         self._check_response(response)
-        return response.json()
+        return response.json()["Data"]
 
     def get_positions(self) -> List[Dict]:
         response = self.session.get(
-            f"{self.configuration.saxo_url}/port/v1/positions/me/?top=50"
+            f"{self.configuration.saxo_url}port/v1/positions/me/?top=50"
         )
         self._check_response(response)
         return response.json()
 
     def get_accounts(self):
-        response = self.session.get(
-            f"{self.configuration.saxo_url}/port/v1/accounts/me"
-        )
+        response = self.session.get(f"{self.configuration.saxo_url}port/v1/accounts/me")
         self._check_response(response)
         return response.json()
+
+    def get_account(self, account_key: str, client_key: str) -> Account:
+        response = self.session.get(
+            f"{self.configuration.saxo_url}port/v1/balances/?AccountKey={account_key}&ClientKey={client_key}"
+        )
+        self._check_response(response)
+        account = response.json()
+        return Account(
+            account_key, account["TotalValue"], account["CashAvailableForTrading"]
+        )
 
     def set_order(
         self,

@@ -1,10 +1,8 @@
 import base64
 
-from utils.exception import SaxoException
 from utils.configuration import Configuration
 
 import requests
-from requests.adapters import HTTPAdapter
 
 from typing import Dict, List
 

@@ -15,7 +15,12 @@ from saxo_order import catch_exception
     default="config.yml",
     help="The path to config file",
 )
-@click.option("--write", default="y", type=click.Choice(["y", "n"]), help="Write the access token ?")
+@click.option(
+    "--write",
+    default="y",
+    type=click.Choice(["y", "n"]),
+    help="Write the access token ?",
+)
 @catch_exception(handle=SaxoException)
 def auth(config, write):
     auth_client = SaxoAuthClient(Configuration(config))
