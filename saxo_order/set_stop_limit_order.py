@@ -3,7 +3,8 @@ import click
 from client.saxo_client import SaxoClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from saxo_order import catch_exception, select_account, validate_buy_order
+from saxo_order import catch_exception, select_account, validate_buy_order, update_order
+from model import Order
 
 
 @click.command()
@@ -36,7 +37,9 @@ def set_stop_limit_order(config, limit_price, stop_price, code, country_code, qu
     client = SaxoClient(Configuration(config))
     stock = client.get_stock(code=code, market=country_code)
     account = select_account(client)
-    validate_buy_order(account, client, limit_price, quantity)
+    order = Order(code=code, price=limit_price, quantity=quantity)
+    update_order(order)
+    validate_buy_order(account, client, order)
     client.set_order(
         account_key=account.key,
         price=limit_price,

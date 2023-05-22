@@ -5,7 +5,7 @@ from typing import List
 
 from client.saxo_client import SaxoClient
 from utils.exception import SaxoException
-from model import Account
+from model import Account, Order
 
 
 def catch_exception(func=None, *, handle):
@@ -54,17 +54,15 @@ def get_stop_objective() -> tuple:
     return (stop, objective)
 
 
-def validate_ratio(price: float, stop: float, objective: float) -> bool:
-    return ((objective - price) / (price - stop)) >= 1.5
+def validate_ratio(order: Order) -> bool:
+    return ((order.objective - order.price) / (order.price - order.stop)) >= 1.5
 
 
-def validate_max_order(price: float, quantity: int, total_amount: float) -> bool:
-    return price * quantity < total_amount * 0.1
+def validate_max_order(order: Order, total_amount: float) -> bool:
+    return order.price * order.quantity < total_amount * 0.1
 
 
-def validate_fund(
-    account: Account, price: float, quantity: int, open_orders: List
-) -> bool:
+def validate_fund(account: Account, order: Order, open_orders: List) -> bool:
     buy_orders = list(
         filter(
             lambda x: x["AccountKey"] == account.key and x["BuySell"] == "Buy",
@@ -72,36 +70,34 @@ def validate_fund(
         )
     )
     sum_buy_orders = sum(map(lambda x: x["Amount"] * x["Price"], buy_orders))
-    return quantity * price < account.fund - sum_buy_orders
+    return order.quantity * order.price < account.fund - sum_buy_orders
 
 
 def apply_rules(
     account: Account,
-    price: float,
-    stop: float,
-    objective: float,
-    quantity: int,
+    order: Order,
     total_amount: float,
     open_orders: List,
 ) -> None:
-    if validate_ratio(price, stop, objective) is False:
+    if validate_ratio(order) is False:
         return "Ratio earn / lost must be greater than 1.5"
-    if validate_fund(account, price, quantity, open_orders) is False:
+    if validate_fund(account, order, open_orders) is False:
         return "Not enough money for this order"
-    if validate_max_order(price, quantity, total_amount) is False:
+    if validate_max_order(order, total_amount) is False:
         return f"A position can't be greater than 10% of the fund ({total_amount})"
     return None
 
 
-def validate_buy_order(
-    account: Account, client: SaxoClient, price: float, quantity: int
-) -> None:
+def update_order(order: Order):
     stop, objective = get_stop_objective()
+    order.stop = stop
+    order.objective = objective
+
+
+def validate_buy_order(account: Account, client: SaxoClient, order: Order) -> None:
     open_orders = client.get_open_orders()
     total_amount = client.get_total_amount()
-    error = apply_rules(
-        account, price, stop, objective, quantity, total_amount, open_orders
-    )
+    error = apply_rules(account, order, total_amount, open_orders)
     if error is not None:
         print(error)
         raise click.Abort(error)
