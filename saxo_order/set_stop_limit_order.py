@@ -37,7 +37,9 @@ def set_stop_limit_order(config, limit_price, stop_price, code, country_code, qu
     client = SaxoClient(Configuration(config))
     stock = client.get_stock(code=code, market=country_code)
     account = select_account(client)
-    order = Order(code=code, price=limit_price, quantity=quantity)
+    order = Order(
+        code=code, name=stock["Description"], price=limit_price, quantity=quantity
+    )
     update_order(order)
     validate_buy_order(account, client, order)
     client.set_order(
@@ -49,3 +51,4 @@ def set_stop_limit_order(config, limit_price, stop_price, code, country_code, qu
         direction="buy",
         stock_code=stock["Identifier"],
     )
+    print(order.csv())

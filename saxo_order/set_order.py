@@ -44,7 +44,7 @@ from model import Order
 def set_order(config, price, code, country_code, quantity, order_type, buy_or_sell):
     client = SaxoClient(Configuration(config))
     stock = client.get_stock(code=code, market=country_code)
-    order = Order(code=code, price=price, quantity=quantity)
+    order = Order(code=code, name=stock["Description"], price=price, quantity=quantity)
     account = select_account(client)
     if buy_or_sell == "buy":
         update_order(order)
@@ -57,3 +57,5 @@ def set_order(config, price, code, country_code, quantity, order_type, buy_or_se
         direction=buy_or_sell,
         stock_code=stock["Identifier"],
     )
+    if buy_or_sell == "buy":
+        print(order.csv())

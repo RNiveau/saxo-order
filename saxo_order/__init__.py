@@ -92,6 +92,7 @@ def update_order(order: Order):
     stop, objective = get_stop_objective()
     order.stop = stop
     order.objective = objective
+    order.comment = input("Comment about this position: ")
 
 
 def validate_buy_order(account: Account, client: SaxoClient, order: Order) -> None:
