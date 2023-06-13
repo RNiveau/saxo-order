@@ -84,6 +84,8 @@ class SaxoClient:
     ) -> None:
         if order == "limit":
             order_type = "Limit"
+        elif order == "stop" and direction == "buy":
+            order_type = "StopIfTraded"
         elif order == "stop":
             order_type = "Stop"
         else:
