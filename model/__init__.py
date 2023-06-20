@@ -1,6 +1,19 @@
 from typing import Optional
 from datetime import datetime
+from enum import StrEnum
 import locale
+
+
+class Direction(StrEnum):
+    BUY = "Buy"
+    SELL = "Sell"
+
+    @staticmethod
+    def get_value(value):
+        for member in Direction:
+            if member.value.lower() == value.lower():
+                return member
+        raise ValueError("Invalid string")
 
 
 class Account:
@@ -21,6 +34,7 @@ class Order:
         stop: Optional[float] = None,
         comment: Optional[str] = None,
         strategy: Optional[str] = None,
+        direction: Optional[Direction] = None,
     ) -> None:
         self.code = code
         self.price = price
@@ -30,6 +44,7 @@ class Order:
         self.objective = objective
         self.comment = comment
         self.strategy = strategy
+        self.direction = direction
 
     def csv(self):
         locale.setlocale(locale.LC_ALL, "fr_FR")

@@ -1,12 +1,12 @@
 from utils.exception import SaxoException
 from utils.configuration import Configuration
-from model import Account
+from model import Account, Order
 
 import requests
 from requests import Response
 from requests.adapters import HTTPAdapter, Retry
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 
 class SaxoClient:
@@ -77,11 +77,11 @@ class SaxoClient:
         account_key: str,
         stock_code: int,
         price: float,
-        quantiy: int,
+        quantity: int,
         order: str,
         direction: str,
         stop_price: Optional[float] = None,
-    ) -> None:
+    ) -> Any:
         if order == "limit":
             order_type = "Limit"
         elif order == "stop" and direction == "buy":
@@ -92,7 +92,7 @@ class SaxoClient:
             order_type = "StopLimit"
         data = {
             "AccountKey": account_key,
-            "Amount": quantiy,
+            "Amount": quantity,
             "AssetType": "Stock",
             "BuySell": direction.capitalize(),
             "OrderDuration": {"DurationType": "GoodTillCancel"},
@@ -109,7 +109,39 @@ class SaxoClient:
             f"{self.configuration.saxo_url}trade/v2/orders", json=data
         )
         self._check_response(response)
-        print(response.json())
+        return response.json()
+
+    def set_oco_order(
+        self, account: Account, limit_order: Order, stop_order: Order, saxo_uic: str
+    ) -> Any:
+        saxo_limit_order = {
+            "AccountKey": account.key,
+            "Amount": limit_order.quantity,
+            "AssetType": "Stock",
+            "BuySell": limit_order.direction,
+            "OrderDuration": {"DurationType": "GoodTillCancel"},
+            "ManualOrder": True,
+            "OrderPrice": limit_order.price,
+            "OrderType": "Limit",
+            "Uic": saxo_uic,
+        }
+        saxo_stop_order = {
+            "AccountKey": account.key,
+            "Amount": stop_order.quantity,
+            "AssetType": "Stock",
+            "BuySell": stop_order.direction,
+            "OrderDuration": {"DurationType": "GoodTillCancel"},
+            "ManualOrder": True,
+            "OrderPrice": stop_order.price,
+            "OrderType": "StopIfTraded",
+            "Uic": saxo_uic,
+        }
+        data = {"Orders": [saxo_limit_order, saxo_stop_order]}
+        response = self.session.post(
+            f"{self.configuration.saxo_url}trade/v2/orders", json=data
+        )
+        self._check_response(response)
+        return response.json()
 
     @staticmethod
     def _check_response(response: Response) -> None:
@@ -118,4 +150,6 @@ class SaxoClient:
         json = response.json()
         if "ErrorInfo" in json:
             raise SaxoException(json["ErrorInfo"]["Message"])
+        if response.status_code == 400:
+            raise SaxoException(json)
         response.raise_for_status()
