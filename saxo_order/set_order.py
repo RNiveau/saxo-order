@@ -15,8 +15,20 @@ from model import Order
     default="config.yml",
     help="The path to config file",
 )
-@click.option("--price", type=float, required=True, help="The price of the order")
-@click.option("--code", type=str, required=True, help="The code of the stock")
+@click.option(
+    "--price",
+    type=float,
+    required=True,
+    help="The price of the order",
+    prompt="What is the price of the order ?",
+)
+@click.option(
+    "--code",
+    type=str,
+    required=True,
+    help="The code of the stock",
+    prompt="What is the code of the product ?",
+)
 @click.option(
     "--country-code",
     type=str,
@@ -25,7 +37,11 @@ from model import Order
     help="The country code of the stock",
 )
 @click.option(
-    "--quantity", type=int, required=True, help="The wanted quantity of stocks"
+    "--quantity",
+    type=int,
+    required=True,
+    help="The wanted quantity of stocks",
+    prompt="What is the quantity of product ?",
 )
 @click.option(
     "--order-type",
@@ -39,6 +55,7 @@ from model import Order
     required=True,
     default="buy",
     help="The direction of the order",
+    prompt="What is the direction of the order ?",
 )
 @catch_exception(handle=SaxoException)
 def set_order(config, price, code, country_code, quantity, order_type, buy_or_sell):

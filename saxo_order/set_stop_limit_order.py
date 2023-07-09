@@ -16,12 +16,26 @@ from model import Order
     help="The path to config file",
 )
 @click.option(
-    "--limit-price", type=float, required=True, help="The limit price of the order"
+    "--limit-price",
+    type=float,
+    required=True,
+    help="The limit price of the order",
+    prompt="What is the price of the limit order ?",
 )
 @click.option(
-    "--stop-price", type=float, required=True, help="The stop price of the order"
+    "--stop-price",
+    type=float,
+    required=True,
+    help="The stop price of the order",
+    prompt="What is the price of the stop order ?",
 )
-@click.option("--code", type=str, required=True, help="The code of the stock")
+@click.option(
+    "--code",
+    type=str,
+    required=True,
+    help="The code of the stock",
+    prompt="What is the code of the product ?",
+)
 @click.option(
     "--country-code",
     type=str,
@@ -30,7 +44,11 @@ from model import Order
     help="The country code of the stock",
 )
 @click.option(
-    "--quantity", type=int, required=True, help="The wanted quantity of stocks"
+    "--quantity",
+    type=int,
+    required=True,
+    help="The wanted quantity of stocks",
+    prompt="What is the quantity of product ?",
 )
 @catch_exception(handle=SaxoException)
 def set_stop_limit_order(config, limit_price, stop_price, code, country_code, quantity):
