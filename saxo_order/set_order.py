@@ -52,7 +52,7 @@ def set_order(config, price, code, country_code, quantity, order_type, buy_or_se
     client.set_order(
         account_key=account.key,
         price=price,
-        quantiy=quantity,
+        quantity=quantity,
         order=order_type,
         direction=buy_or_sell,
         stock_code=stock["Identifier"],
