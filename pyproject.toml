@@ -21,6 +21,7 @@ auth = "saxo_order.auth:auth"
 set-order = "saxo_order.set_order:set_order"
 set-stop-limit-order = "saxo_order.set_stop_limit_order:set_stop_limit_order"
 set-oco-order = "saxo_order.set_oco_order:set_oco_order"
+search = "saxo_order.search:search"
 
 [build-system]
 requires = ["poetry>=0.12"]

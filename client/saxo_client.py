@@ -38,6 +38,16 @@ class SaxoClient:
             raise SaxoException(f"Stock {code}:{market} doesn't exist")
         return data[0]
 
+    def search(self, keyword: str, asset_type: str) -> Dict:
+        response = self.session.get(
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes={asset_type}"
+        )
+        self._check_response(response)
+        data = response.json()["Data"]
+        if len(data) == 0:
+            raise SaxoException(f"Nothing found for {keyword}")
+        return data
+
     def get_total_amount(self) -> float:
         response = self.session.get(f"{self.configuration.saxo_url}port/v1/balances/me")
         self._check_response(response)
