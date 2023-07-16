@@ -49,4 +49,4 @@ class Order:
     def csv(self):
         locale.setlocale(locale.LC_ALL, "fr_FR")
         now = datetime.now().strftime("%d/%m/%Y")
-        return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;{self.stop:n};;{self.objective:n};;;;2,50;;;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"
+        return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;0;{self.stop:n};;{self.objective:n};;;;2,50;;;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"
