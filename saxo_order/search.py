@@ -27,7 +27,7 @@ from model import Order, Direction
     type=str,
     help="The asset type of the search",
     default="",
-    prompt="What is the keyword (Stock, ETF, Turbo, ...)?",
+    prompt="What is the asset type (Stock, ETF, Turbo, ...)?",
 )
 @catch_exception(handle=SaxoException)
 def search(config: str, search: str, asset_type: str):
