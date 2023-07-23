@@ -35,6 +35,7 @@ class Order:
         comment: Optional[str] = None,
         strategy: Optional[str] = None,
         direction: Optional[Direction] = None,
+        type: Optional[str] = "Stock",
     ) -> None:
         self.code = code
         self.price = price
@@ -45,6 +46,7 @@ class Order:
         self.comment = comment
         self.strategy = strategy
         self.direction = direction
+        self.type = type
 
     def csv(self):
         locale.setlocale(locale.LC_ALL, "fr_FR")
