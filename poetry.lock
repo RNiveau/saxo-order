@@ -197,7 +197,7 @@ files = [
 name = "mock"
 version = "5.1.0"
 description = "Rolling backport of unittest.mock for all Pythons"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -495,4 +495,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "e65e5e258283a8ca3077b7a72c973246aa80fb7c35d063bafb0b6b5d9e5fa9c2"
+content-hash = "2facf86ce931e5dc3d07cdfd64a19b7b2c5a93637dbbed0d3505553c394555fa"

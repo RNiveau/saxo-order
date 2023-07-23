@@ -34,7 +34,7 @@ def select_account(client: SaxoClient) -> Account:
                 prompt += f"- NoName | {account['AccountId']}\n"
         id = input(prompt)
     else:
-        id = accounts["Data"][0]['AccountId']
+        id = accounts["Data"][0]["AccountId"]
         print(f"Auto select account {id} as only one account is available")
     account = list(filter(lambda x: x["AccountId"] == id, accounts["Data"]))
     if len(account) != 1:
@@ -66,14 +66,18 @@ def validate_max_order(order: Order, total_amount: float) -> bool:
     return order.price * order.quantity < total_amount * 0.1
 
 
-def validate_fund(account: Account, order: Order, open_orders: List) -> bool:
+def get_account_open_orders(account: Account, open_orders: List) -> float:
     buy_orders = list(
         filter(
             lambda x: x["AccountKey"] == account.key and x["BuySell"] == "Buy",
             open_orders,
         )
     )
-    sum_buy_orders = sum(map(lambda x: x["Amount"] * x["Price"], buy_orders))
+    return sum(map(lambda x: x["Amount"] * x["Price"], buy_orders))
+
+
+def validate_fund(account: Account, order: Order, open_orders: List) -> bool:
+    sum_buy_orders = get_account_open_orders(account=account, open_orders=open_orders)
     return order.quantity * order.price < account.fund - sum_buy_orders
 
 

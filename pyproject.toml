@@ -19,6 +19,7 @@ pytest-mock = "^3.11.1"
 mock = "^5.1.0"
 
 [tool.poetry.scripts]
+available_funds = "saxo_order.available_funds:available_funds"
 auth = "saxo_order.auth:auth"
 set-order = "saxo_order.set_order:set_order"
 set-stop-limit-order = "saxo_order.set_stop_limit_order:set_stop_limit_order"
