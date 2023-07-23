@@ -25,13 +25,17 @@ def catch_exception(func=None, *, handle):
 
 def select_account(client: SaxoClient) -> Account:
     accounts = client.get_accounts()
-    prompt = "Select the account (select with ID):\n"
-    for account in accounts["Data"]:
-        if "DisplayName" in account:
-            prompt += f"- {account['DisplayName']} | {account['AccountId']}\n"
-        else:
-            prompt += f"- NoName | {account['AccountId']}\n"
-    id = input(prompt)
+    if len(accounts["Data"]) > 1:
+        prompt = "Select the account (select with ID):\n"
+        for account in accounts["Data"]:
+            if "DisplayName" in account:
+                prompt += f"- {account['DisplayName']} | {account['AccountId']}\n"
+            else:
+                prompt += f"- NoName | {account['AccountId']}\n"
+        id = input(prompt)
+    else:
+        id = accounts["Data"][0]['AccountId']
+        print(f"Auto select account {id} as only one account is available")
     account = list(filter(lambda x: x["AccountId"] == id, accounts["Data"]))
     if len(account) != 1:
         raise SaxoException("Wrong account selection")
