@@ -3,18 +3,18 @@ import click
 from client.saxo_client import SaxoClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from saxo_order import catch_exception, select_account, validate_buy_order, update_order
+from saxo_order import (
+    catch_exception,
+    select_account,
+    validate_buy_order,
+    update_order,
+    config_option,
+)
 from model import Order, Direction
 
 
+@config_option
 @click.command()
-@click.option(
-    "--config",
-    type=str,
-    required=True,
-    default="config.yml",
-    help="The path to config file",
-)
 @click.option(
     "--search",
     type=str,

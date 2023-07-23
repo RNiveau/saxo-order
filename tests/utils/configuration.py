@@ -1,5 +1,6 @@
 from utils.configuration import Configuration
 
+
 class MockConfiguration(Configuration):
     def __init__(self):
         pass

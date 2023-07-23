@@ -4,17 +4,11 @@ import re
 from client.saxo_auth_client import SaxoAuthClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from saxo_order import catch_exception
+from saxo_order import catch_exception, config_option
 
 
+@config_option
 @click.command()
-@click.option(
-    "--config",
-    type=str,
-    required=True,
-    default="config.yml",
-    help="The path to config file",
-)
 @click.option(
     "--write",
     default="y",
