@@ -22,17 +22,10 @@ from model import Order, Direction
     help="The keyword for search",
     prompt="What is the keyword ?",
 )
-@click.option(
-    "--asset-type",
-    type=str,
-    help="The asset type of the search",
-    default="",
-    prompt="What is the asset type (Stock, ETF, Turbo, ...)?",
-)
 @catch_exception(handle=SaxoException)
 def search(config: str, search: str, asset_type: str):
     client = SaxoClient(Configuration(config))
-    for data in client.search(keyword=search, asset_type=asset_type):
+    for data in client.search(keyword=search):
         print(
             f"{data['Description']}: code: {data['Symbol']}, type: {data['AssetType']}"
         )

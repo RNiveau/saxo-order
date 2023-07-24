@@ -38,9 +38,9 @@ class SaxoClient:
             raise SaxoException(f"Stock {code}:{market} doesn't exist")
         return data[0]
 
-    def search(self, keyword: str, asset_type: str) -> Dict:
+    def search(self, keyword: str) -> Dict
         response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes={asset_type}"
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes=Stock,MiniFuture"
         )
         self._check_response(response)
         data = response.json()["Data"]
