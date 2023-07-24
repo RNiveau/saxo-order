@@ -1,6 +1,6 @@
 from utils.exception import SaxoException
 from utils.configuration import Configuration
-from model import Account, Order
+from model import Account, Order, OrderType, Direction
 
 import requests
 from requests import Response
@@ -23,9 +23,9 @@ class SaxoClient:
         adapter = HTTPAdapter(max_retries=retries)
         self.session.mount("https://", adapter)
 
-    def get_stock(self, code: str, market: str) -> Dict:
+    def get_asset(self, code: str, market: str) -> Dict:
         response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={code}:{market}&AssetTypes=Stock"
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={code}:{market}&AssetTypes=Stock,MiniFuture"
         )
         self._check_response(response)
         data = response.json()["Data"]
@@ -38,7 +38,7 @@ class SaxoClient:
             raise SaxoException(f"Stock {code}:{market} doesn't exist")
         return data[0]
 
-    def search(self, keyword: str) -> Dict
+    def search(self, keyword: str) -> Dict:
         response = self.session.get(
             f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes=Stock,MiniFuture"
         )
@@ -84,36 +84,33 @@ class SaxoClient:
 
     def set_order(
         self,
-        account_key: str,
-        stock_code: int,
-        price: float,
-        quantity: int,
-        order: str,
-        direction: str,
+        account: Account,
+        order: Order,
+        saxo_uic: int,
         stop_price: Optional[float] = None,
     ) -> Any:
-        if order == "limit":
+        if order.type == OrderType.LIMIT:
             order_type = "Limit"
-        elif order == "stop" and direction == "buy":
+        elif order.type == OrderType.STOP and order.direction == Direction.BUY:
             order_type = "StopIfTraded"
-        elif order == "stop":
+        elif order.type == OrderType.STOP:
             order_type = "Stop"
         else:
             order_type = "StopLimit"
         data = {
-            "AccountKey": account_key,
-            "Amount": quantity,
-            "AssetType": "Stock",
-            "BuySell": direction.capitalize(),
+            "AccountKey": account.key,
+            "Amount": order.quantity,
+            "AssetType": order.asset_type,
+            "BuySell": order.direction,
             "OrderDuration": {"DurationType": "GoodTillCancel"},
             "ManualOrder": True,
-            "OrderPrice": price,
+            "OrderPrice": order.price,
             "OrderType": order_type,
-            "Uic": stock_code,
+            "Uic": saxo_uic,
         }
-        if order_type == "StopLimit":
+        if order.type == OrderType.STOP_LIMIT:
             data["OrderPrice"] = stop_price
-            data["StopLimitPrice"] = price
+            data["StopLimitPrice"] = order.price
 
         response = self.session.post(
             f"{self.configuration.saxo_url}trade/v2/orders", json=data
@@ -127,7 +124,7 @@ class SaxoClient:
         saxo_limit_order = {
             "AccountKey": account.key,
             "Amount": limit_order.quantity,
-            "AssetType": "Stock",
+            "AssetType": limit_order.type,
             "BuySell": limit_order.direction,
             "OrderDuration": {"DurationType": "GoodTillCancel"},
             "ManualOrder": True,
@@ -138,7 +135,7 @@ class SaxoClient:
         saxo_stop_order = {
             "AccountKey": account.key,
             "Amount": stop_order.quantity,
-            "AssetType": "Stock",
+            "AssetType": stop_order.type,
             "BuySell": stop_order.direction,
             "OrderDuration": {"DurationType": "GoodTillCancel"},
             "ManualOrder": True,

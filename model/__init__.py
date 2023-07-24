@@ -16,8 +16,27 @@ class Direction(StrEnum):
         raise ValueError("Invalid string")
 
 
+class OrderType(StrEnum):
+    LIMIT = "limit"
+    STOP = "stop"
+    OCO = "oco"
+    STOP_LIMIT = "stoplimit"
+
+    @staticmethod
+    def get_value(value):
+        for member in OrderType:
+            if member.value.lower() == value.lower():
+                return member
+        raise ValueError("Invalid string")
+
+
 class Account:
-    def __init__(self, key: str, fund: float, available_fund: float) -> None:
+    def __init__(
+        self,
+        key: str,
+        fund: Optional[float] = None,
+        available_fund: Optional[float] = None,
+    ) -> None:
         self.key = key
         self.fund = fund
         self.available_fund = available_fund
@@ -35,7 +54,8 @@ class Order:
         comment: Optional[str] = None,
         strategy: Optional[str] = None,
         direction: Optional[Direction] = None,
-        type: Optional[str] = "Stock",
+        asset_type: Optional[str] = "Stock",
+        type: Optional[OrderType] = OrderType.LIMIT,
     ) -> None:
         self.code = code
         self.price = price
@@ -46,6 +66,7 @@ class Order:
         self.comment = comment
         self.strategy = strategy
         self.direction = direction
+        self.asset_type = asset_type
         self.type = type
 
     def csv(self):

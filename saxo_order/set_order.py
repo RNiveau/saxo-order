@@ -11,7 +11,7 @@ from saxo_order import (
     command_common_options,
     config_option,
 )
-from model import Order
+from model import Order, OrderType, Direction
 
 
 @config_option
@@ -31,7 +31,7 @@ from model import Order
     default="limit",
 )
 @click.option(
-    "--buy-or-sell",
+    "--direction",
     type=click.Choice(["buy", "sell"]),
     required=True,
     default="buy",
@@ -39,21 +39,26 @@ from model import Order
     prompt="What is the direction of the order ?",
 )
 @catch_exception(handle=SaxoException)
-def set_order(config, price, code, country_code, quantity, order_type, buy_or_sell):
+def set_order(config, price, code, country_code, quantity, order_type, direction):
     client = SaxoClient(Configuration(config))
-    stock = client.get_stock(code=code, market=country_code)
-    order = Order(code=code, name=stock["Description"], price=price, quantity=quantity)
+    asset = client.get_asset(code=code, market=country_code)
+    order = Order(
+        code=code,
+        name=asset["Description"],
+        price=price,
+        quantity=quantity,
+        asset_type=asset["AssetType"],
+        type=OrderType.get_value(order_type),
+        direction=Direction.get_value(direction),
+    )
     account = select_account(client)
-    if buy_or_sell == "buy":
+    if Direction.BUY == order.direction:
         update_order(order)
         validate_buy_order(account, client, order)
     client.set_order(
-        account_key=account.key,
-        price=price,
-        quantity=quantity,
-        order=order_type,
-        direction=buy_or_sell,
-        stock_code=stock["Identifier"],
+        account=account,
+        order=order,
+        saxo_uic=asset["Identifier"],
     )
-    if buy_or_sell == "buy":
+    if Direction.BUY == order.direction:
         print(order.csv())

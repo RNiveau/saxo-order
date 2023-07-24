@@ -9,10 +9,12 @@ from saxo_order import (
     validate_buy_order,
     update_order,
     command_common_options,
+    config_option,
 )
-from model import Order, Direction
+from model import Order, Direction, OrderType
 
 
+@config_option
 @command_common_options
 @click.command()
 @click.option(
@@ -57,20 +59,24 @@ def set_oco_order(
     quantity: int,
 ):
     client = SaxoClient(Configuration(config))
-    stock = client.get_stock(code=code, market=country_code)
+    asset = client.get_asset(code=code, market=country_code)
     limit_order = Order(
         code=code,
-        name=stock["Description"],
+        name=asset["Description"],
         price=limit_price,
         quantity=quantity,
         direction=Direction.get_value(limit_direction),
+        asset_type=asset["AssetType"],
+        type=OrderType.OCO,
     )
     stop_order = Order(
         code=code,
-        name=stock["Description"],
+        name=asset["Description"],
         price=stop_price,
         quantity=quantity,
         direction=Direction.get_value(stop_direction),
+        asset_type=asset["AssetType"],
+        type=OrderType.OCO,
     )
     account = select_account(client)
     if stop_direction == "buy":
@@ -80,7 +86,7 @@ def set_oco_order(
         account=account,
         limit_order=limit_order,
         stop_order=stop_order,
-        saxo_uic=stock["Identifier"],
+        saxo_uic=asset["Identifier"],
     )
     if stop_direction == "buy":
         print(stop_order.csv())

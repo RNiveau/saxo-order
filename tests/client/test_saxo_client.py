@@ -3,20 +3,20 @@ from typing import List
 
 from client.saxo_client import SaxoClient
 from tests.utils.configuration import MockConfiguration
-from model import Account, Order
+from model import Account, Order, OrderType, Direction
 import requests
 
 
 class TestSaxoClient:
     @pytest.mark.parametrize(
-        "stock_code, price, quantity, order, direction, stop_price, expected",
+        "stock_code, price, quantity, type, direction, stop_price, expected",
         [
             (
                 "aca",
                 10,
                 9,
-                "limit",
-                "buy",
+                OrderType.LIMIT,
+                Direction.BUY,
                 None,
                 {
                     "Amount": 9,
@@ -30,8 +30,8 @@ class TestSaxoClient:
                 "aca",
                 10,
                 9,
-                "stop",
-                "buy",
+                OrderType.STOP,
+                Direction.BUY,
                 100,
                 {
                     "Amount": 9,
@@ -45,8 +45,8 @@ class TestSaxoClient:
                 "aca",
                 10,
                 9,
-                "stop",
-                "sell",
+                OrderType.STOP,
+                Direction.SELL,
                 None,
                 {
                     "Amount": 9,
@@ -60,8 +60,8 @@ class TestSaxoClient:
                 "aca",
                 10,
                 9,
-                "other",
-                "buy",
+                OrderType.STOP_LIMIT,
+                Direction.BUY,
                 8,
                 {
                     "Amount": 9,
@@ -79,8 +79,8 @@ class TestSaxoClient:
         stock_code: int,
         price: float,
         quantity: int,
-        order: str,
-        direction: str,
+        type: OrderType,
+        direction: Direction,
         stop_price: float,
         expected: dict,
         mocker,
@@ -98,13 +98,18 @@ class TestSaxoClient:
                 "ManualOrder": True,
             }
         )
-        client.set_order(
-            account_key="account",
+        order = Order(
+            asset_type="Stock",
+            code=stock_code,
             direction=direction,
-            order=order,
+            type=type,
             price=price,
             quantity=quantity,
-            stock_code=stock_code,
+        )
+        client.set_order(
+            account=Account(key="account"),
+            order=order,
+            saxo_uic=stock_code,
             stop_price=stop_price,
         )
         requests.Session.post.assert_called_once_with(mocker.ANY, json=expected)

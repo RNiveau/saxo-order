@@ -11,7 +11,7 @@ from saxo_order import (
     command_common_options,
     config_option,
 )
-from model import Order
+from model import Order, OrderType, Direction
 
 
 @config_option
@@ -34,20 +34,23 @@ from model import Order
 @catch_exception(handle=SaxoException)
 def set_stop_limit_order(config, limit_price, stop_price, code, country_code, quantity):
     client = SaxoClient(Configuration(config))
-    stock = client.get_stock(code=code, market=country_code)
+    asset = client.get_asset(code=code, market=country_code)
     account = select_account(client)
     order = Order(
-        code=code, name=stock["Description"], price=limit_price, quantity=quantity
+        code=code,
+        name=asset["Description"],
+        price=limit_price,
+        quantity=quantity,
+        asset_type=asset["AssetType"],
+        type=OrderType.STOP_LIMIT,
+        direction=Direction.BUY,
     )
     update_order(order)
     validate_buy_order(account, client, order)
     client.set_order(
-        account_key=account.key,
-        price=limit_price,
+        account=account,
         stop_price=stop_price,
-        quantiy=quantity,
-        order="stoplimit",
-        direction="buy",
-        stock_code=stock["Identifier"],
+        order=order,
+        saxo_uic=asset["Identifier"],
     )
     print(order.csv())
