@@ -29,3 +29,11 @@ class Configuration:
     @property
     def saxo_url(self) -> str:
         return self.config["saxo_url"]
+
+    @property
+    def spreadsheet_id(self) -> str:
+        return self.config["spreadsheet_id"]
+
+    @property
+    def gsheet_creds_path(self) -> str:
+        return "gsheet-creds.json"
