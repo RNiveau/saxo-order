@@ -100,7 +100,7 @@ class TestValiderOrder:
     ):
         assert (
             saxo_order.validate_fund(
-                Account("key", fund, 0),
+                Account("key", "name", fund, 0),
                 Order("", price=price, quantity=quantity),
                 open_orders,
             )

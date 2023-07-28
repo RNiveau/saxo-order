@@ -34,10 +34,12 @@ class Account:
     def __init__(
         self,
         key: str,
+        name: str,
         fund: Optional[float] = None,
         available_fund: Optional[float] = None,
     ) -> None:
         self.key = key
+        self.name = name
         self.fund = fund
         self.available_fund = available_fund
 

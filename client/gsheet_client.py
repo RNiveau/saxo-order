@@ -3,7 +3,7 @@ import json
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from typing import Dict
-from model import Order
+from model import Order, Account
 from datetime import datetime
 import locale
 
@@ -27,35 +27,46 @@ class GSheetClient:
                 return sheet["properties"]["sheetId"]
         return None
 
-    def save_order(self, order: Order) -> Dict:
+    def _get_number_rows(self):
+        spreadsheet = (
+            self.client.spreadsheets().get(spreadsheetId=self.spreadsheet_id).execute()
+        )
+        sheets = spreadsheet.get("sheets", [])
+        for sheet in sheets:
+            if sheet["properties"]["title"] == self.sheet_name:
+                return sheet["properties"]["gridProperties"]["rowCount"]
+        return None
+
+    def save_order(self, account: Account, order: Order) -> Dict:
         locale.setlocale(locale.LC_ALL, "fr_FR")
         now = datetime.now().strftime("%d/%m/%Y")
+        number_rows = self._get_number_rows() + 1
         row = [
             order.name,
             order.code.upper(),
             order.price,
             order.quantity,
-            "",
+            f"=C{number_rows}*D{number_rows}",
             "",
             0,
             order.stop,
             "",
             order.objective,
-            "",
+            f"=(J{number_rows}-C{number_rows})/(C{number_rows}-H{number_rows})",
             "",
             "",
             2.5,
             "",
-            "",
+            f"=E{number_rows}+N{number_rows}+O{number_rows}",
             now,
-            "",
+            "CASH",
             "",
             "",
             "",
             "",
             "",
             "Achat",
-            "",
+            f"{account.name}",
             order.strategy,
             "",
             "",
@@ -74,7 +85,7 @@ class GSheetClient:
             .append(
                 spreadsheetId=self.spreadsheet_id,
                 range=f"{self.sheet_name}!A:A",
-                valueInputOption="RAW",
+                valueInputOption="USER_ENTERED",
                 insertDataOption="INSERT_ROWS",
                 body={"values": [row]},
             )

@@ -78,8 +78,9 @@ class SaxoClient:
         )
         self._check_response(response)
         account = response.json()
+        name = "NoName" if "DisplayName" not in account else account["DisplayName"]
         return Account(
-            account_key, account["TotalValue"], account["CashAvailableForTrading"]
+            account_key, name, account["TotalValue"], account["CashAvailableForTrading"]
         )
 
     def set_order(

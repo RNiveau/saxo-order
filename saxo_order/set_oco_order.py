@@ -1,6 +1,7 @@
 import click
 
 from client.saxo_client import SaxoClient
+from client.gsheet_client import GSheetClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from saxo_order import (
@@ -58,7 +59,8 @@ def set_oco_order(
     country_code: str,
     quantity: int,
 ):
-    client = SaxoClient(Configuration(config))
+    configuration = Configuration(config)
+    client = SaxoClient(Configuration(configuration))
     asset = client.get_asset(code=code, market=country_code)
     limit_order = Order(
         code=code,
@@ -89,4 +91,10 @@ def set_oco_order(
         saxo_uic=asset["Identifier"],
     )
     if stop_direction == "buy":
+        gsheet_client = GSheetClient(
+            key_path=configuration.gsheet_creds_path,
+            spreadsheet_id=configuration.spreadsheet_id,
+        )
+        result = gsheet_client.save_order(account, stop_order)
+        print(f"Row {result['updates']['updatedRange']} appended.")
         print(stop_order.csv())

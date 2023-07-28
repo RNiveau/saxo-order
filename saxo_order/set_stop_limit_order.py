@@ -1,6 +1,7 @@
 import click
 
 from client.saxo_client import SaxoClient
+from client.gsheet_client import GSheetClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from saxo_order import (
@@ -33,7 +34,8 @@ from model import Order, OrderType, Direction
 )
 @catch_exception(handle=SaxoException)
 def set_stop_limit_order(config, limit_price, stop_price, code, country_code, quantity):
-    client = SaxoClient(Configuration(config))
+    configuration = Configuration(config)
+    client = SaxoClient(configuration)
     asset = client.get_asset(code=code, market=country_code)
     account = select_account(client)
     order = Order(
@@ -53,4 +55,10 @@ def set_stop_limit_order(config, limit_price, stop_price, code, country_code, qu
         order=order,
         saxo_uic=asset["Identifier"],
     )
+    gsheet_client = GSheetClient(
+        key_path=configuration.gsheet_creds_path,
+        spreadsheet_id=configuration.spreadsheet_id,
+    )
+    result = gsheet_client.save_order(account, order)
+    print(f"Row {result['updates']['updatedRange']} appended.")
     print(order.csv())

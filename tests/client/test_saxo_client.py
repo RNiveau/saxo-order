@@ -107,7 +107,7 @@ class TestSaxoClient:
             quantity=quantity,
         )
         client.set_order(
-            account=Account(key="account"),
+            account=Account(key="account", name="account"),
             order=order,
             saxo_uic=stock_code,
             stop_price=stop_price,
