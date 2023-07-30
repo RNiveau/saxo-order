@@ -60,7 +60,7 @@ def set_oco_order(
     quantity: int,
 ):
     configuration = Configuration(config)
-    client = SaxoClient(Configuration(configuration))
+    client = SaxoClient(configuration)
     asset = client.get_asset(code=code, market=country_code)
     limit_order = Order(
         code=code,

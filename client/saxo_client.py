@@ -125,7 +125,7 @@ class SaxoClient:
         saxo_limit_order = {
             "AccountKey": account.key,
             "Amount": limit_order.quantity,
-            "AssetType": limit_order.type,
+            "AssetType": limit_order.asset_type,
             "BuySell": limit_order.direction,
             "OrderDuration": {"DurationType": "GoodTillCancel"},
             "ManualOrder": True,
@@ -136,7 +136,7 @@ class SaxoClient:
         saxo_stop_order = {
             "AccountKey": account.key,
             "Amount": stop_order.quantity,
-            "AssetType": stop_order.type,
+            "AssetType": stop_order.asset_type,
             "BuySell": stop_order.direction,
             "OrderDuration": {"DurationType": "GoodTillCancel"},
             "ManualOrder": True,
