@@ -30,6 +30,12 @@ class OrderType(StrEnum):
         raise ValueError("Invalid string")
 
 
+class Taxes:
+    def __init__(self, cost: float, taxes: float) -> None:
+        self.cost = cost
+        self.taxes = taxes
+
+
 class Account:
     def __init__(
         self,
@@ -58,6 +64,7 @@ class Order:
         direction: Optional[Direction] = None,
         asset_type: Optional[str] = "Stock",
         type: Optional[OrderType] = OrderType.LIMIT,
+        taxes: Optional[Taxes] = None,
     ) -> None:
         self.code = code
         self.price = price
@@ -70,8 +77,9 @@ class Order:
         self.direction = direction
         self.asset_type = asset_type
         self.type = type
+        self.taxes = taxes
 
     def csv(self):
         locale.setlocale(locale.LC_ALL, "fr_FR")
         now = datetime.now().strftime("%d/%m/%Y")
-        return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;0;{self.stop:n};;{self.objective:n};;;;2,50;;;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"
+        return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;0;{self.stop:n};;{self.objective:n};;;;{self.taxes.cost};{self.taxes.taxes};;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"

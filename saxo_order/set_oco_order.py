@@ -81,7 +81,7 @@ def set_oco_order(
         type=OrderType.OCO,
     )
     account = select_account(client)
-    if stop_direction == "buy":
+    if stop_order.direction == Direction.BUY:
         update_order(stop_order)
         validate_buy_order(account, client, stop_order)
     client.set_oco_order(
@@ -90,7 +90,7 @@ def set_oco_order(
         stop_order=stop_order,
         saxo_uic=asset["Identifier"],
     )
-    if stop_direction == "buy":
+    if stop_order.direction == Direction.BUY:
         gsheet_client = GSheetClient(
             key_path=configuration.gsheet_creds_path,
             spreadsheet_id=configuration.spreadsheet_id,

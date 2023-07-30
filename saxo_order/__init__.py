@@ -5,7 +5,7 @@ from typing import List
 
 from client.saxo_client import SaxoClient
 from utils.exception import SaxoException
-from model import Account, Order
+from model import Account, Order, Taxes
 
 
 def catch_exception(func=None, *, handle):
@@ -101,6 +101,7 @@ def update_order(order: Order):
     order.stop = stop
     order.objective = objective
     order.comment = input("Comment about this position: ")
+    order.taxes = calculate_taxes(order)
 
 
 def validate_buy_order(account: Account, client: SaxoClient, order: Order) -> None:
@@ -145,3 +146,12 @@ def command_common_options(func):
         prompt="What is the quantity of product ?",
     )(func)
     return func
+
+
+def calculate_taxes(order: Order) -> Taxes:
+    total = order.price * order.quantity
+    cost = 2.5
+    if total >= 1000:
+        cost = 5
+    taxes = 0.003 * total
+    return Taxes(cost, taxes)
