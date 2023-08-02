@@ -1,7 +1,7 @@
 import pytest
 from typing import List
 
-import saxo_order
+import saxo_order.service as service
 from model import Account, Order
 
 
@@ -14,7 +14,7 @@ class TestValiderOrder:
         self, price: float, stop: float, objective: float, expected: bool
     ):
         assert (
-            saxo_order.validate_ratio(
+            service.validate_ratio(
                 Order("", price=price, stop=stop, objective=objective)
             )
             == expected
@@ -28,7 +28,7 @@ class TestValiderOrder:
         self, price: float, quantity: int, total_amount: float, expected: bool
     ):
         assert (
-            saxo_order.validate_max_order(
+            service.validate_max_order(
                 Order("", price=price, quantity=quantity), total_amount
             )
             == expected
@@ -99,7 +99,7 @@ class TestValiderOrder:
         expected: bool,
     ):
         assert (
-            saxo_order.validate_fund(
+            service.validate_fund(
                 Account("key", "name", fund, 0),
                 Order("", price=price, quantity=quantity),
                 open_orders,

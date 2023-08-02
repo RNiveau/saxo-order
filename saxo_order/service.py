@@ -1,10 +1,5 @@
-import click
-
-from functools import wraps, partial
 from typing import List
 
-from client.saxo_client import SaxoClient
-from utils.exception import SaxoException
 from model import Account, Order, Taxes
 
 
@@ -44,23 +39,6 @@ def apply_rules(
     if validate_max_order(order, total_amount) is False:
         return f"A position can't be greater than 10% of the fund ({total_amount})"
     return None
-
-
-def update_order(order: Order):
-    stop, objective = get_stop_objective()
-    order.stop = stop
-    order.objective = objective
-    order.comment = input("Comment about this position: ")
-    order.taxes = calculate_taxes(order)
-
-
-def validate_buy_order(account: Account, client: SaxoClient, order: Order) -> None:
-    open_orders = client.get_open_orders()
-    total_amount = client.get_total_amount()
-    error = apply_rules(account, order, total_amount, open_orders)
-    if error is not None:
-        print(error)
-        raise click.Abort(error)
 
 
 def calculate_taxes(order: Order) -> Taxes:

@@ -48,6 +48,7 @@ class GSheetClient:
             order.quantity,
             f"=C{number_rows}*D{number_rows}",
             "",
+            "",
             0,
             order.stop,
             "",

@@ -3,11 +3,7 @@ import click
 from client.saxo_client import SaxoClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from saxo_order import (
-    catch_exception,
-    config_option,
-)
-from model import Order, Direction
+from saxo_order.commands import catch_exception, config_option
 
 
 @config_option

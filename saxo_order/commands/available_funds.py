@@ -4,11 +4,10 @@ from client.saxo_client import SaxoClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from saxo_order import (
-    catch_exception,
     select_account,
-    config_option,
     get_account_open_orders,
 )
+from saxo_order.commands import catch_exception, config_option
 
 
 @config_option

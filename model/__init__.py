@@ -50,6 +50,18 @@ class Account:
         self.available_fund = available_fund
 
 
+class Underlying:
+    def __init__(
+        self,
+        price: float,
+        stop: Optional[float] = None,
+        objective: Optional[float] = None,
+    ) -> None:
+        self.price = price
+        self.stop = stop
+        self.objective = objective
+
+
 class Order:
     def __init__(
         self,
@@ -65,6 +77,7 @@ class Order:
         asset_type: Optional[str] = "Stock",
         type: Optional[OrderType] = OrderType.LIMIT,
         taxes: Optional[Taxes] = None,
+        underlying: Optional[Underlying] = None,
     ) -> None:
         self.code = code
         self.price = price
@@ -78,6 +91,7 @@ class Order:
         self.asset_type = asset_type
         self.type = type
         self.taxes = taxes
+        self.underlying = underlying
 
     def csv(self):
         locale.setlocale(locale.LC_ALL, "fr_FR")
