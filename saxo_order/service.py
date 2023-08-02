@@ -4,6 +4,11 @@ from model import Account, Order, Taxes
 
 
 def validate_ratio(order: Order) -> bool:
+    if order.asset_type != "Stock":
+        return (
+            (order.underlying.objective - order.underlying.price)
+            / (order.underlying.price - order.underlying.stop)
+        ) >= 1.5
     return ((order.objective - order.price) / (order.price - order.stop)) >= 1.5
 
 

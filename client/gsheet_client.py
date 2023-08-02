@@ -47,18 +47,28 @@ class GSheetClient:
             order.price,
             order.quantity,
             f"=C{number_rows}*D{number_rows}",
-            "",
-            "",
-            0,
-            order.stop,
-            "",
-            order.objective,
-            f"=(J{number_rows}-C{number_rows})/(C{number_rows}-H{number_rows})",
+        ]
+        row.append("" if order.underlying is None else order.underlying.price)
+        row += ["", 0]
+        row.append(order.stop if order.underlying is None else order.underlying.stop)
+        row.append("")
+        row.append(
+            order.objective if order.underlying is None else order.underlying.objective
+        )
+        if order.underlying is None:
+            row.append(
+                f"=(K{number_rows}-C{number_rows})/(C{number_rows}-I{number_rows})"
+            )
+        else:
+            row.append(
+                f"=(K{number_rows}-F{number_rows})/(F{number_rows}-I{number_rows})"
+            )
+        row += [
             "",
             "",
             order.taxes.cost,
             order.taxes.taxes,
-            f"=E{number_rows}+N{number_rows}+O{number_rows}",
+            f"=E{number_rows}+O{number_rows}+P{number_rows}",
             now,
             "CASH",
             "",

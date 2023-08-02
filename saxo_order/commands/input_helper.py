@@ -1,9 +1,10 @@
 import click
 
 from client.saxo_client import SaxoClient
-from model import Account, Order
+from model import Account, Order, Underlying
 from saxo_order.service import apply_rules, calculate_taxes
 from utils.exception import SaxoException
+
 
 def select_account(client: SaxoClient) -> Account:
     accounts = client.get_accounts()
@@ -41,9 +42,16 @@ def get_stop_objective() -> tuple:
 
 
 def update_order(order: Order):
+    if order.asset_type != "Stock":
+        price = float(input("What is the price of the underlying ?"))
+        underlying = Underlying(price)
     stop, objective = get_stop_objective()
     order.stop = stop
     order.objective = objective
+    if order.asset_type != "Stock":
+        underlying.stop = stop
+        underlying.objective = objective
+        order.underlying = underlying
     order.comment = input("Comment about this position: ")
     order.taxes = calculate_taxes(order)
 

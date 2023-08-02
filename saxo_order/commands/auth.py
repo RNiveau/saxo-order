@@ -4,7 +4,7 @@ import re
 from client.saxo_auth_client import SaxoAuthClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from saxo_order import catch_exception, config_option
+from saxo_order.commands import catch_exception, config_option
 
 
 @config_option
