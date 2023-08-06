@@ -2,7 +2,7 @@ import pytest
 from typing import List
 
 import saxo_order.service as service
-from model import Account, Order
+from model import Account, Order, Underlying
 
 
 class TestValiderOrder:
@@ -18,6 +18,19 @@ class TestValiderOrder:
                 Order("", price=price, stop=stop, objective=objective)
             )
             == expected
+        )
+
+    def test_validate_underlying_ratio(self):
+        assert (
+            service.validate_ratio(
+                Order(
+                    "",
+                    price=12,
+                    underlying=Underlying(price=10, stop=9, objective=12),
+                    asset_type="Etf",
+                )
+            )
+            is True
         )
 
     @pytest.mark.parametrize(

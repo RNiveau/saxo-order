@@ -2,7 +2,7 @@ import os
 import json
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
-from typing import Dict
+from typing import Dict, List
 from model import Order, Account
 from datetime import datetime
 import locale
@@ -37,7 +37,7 @@ class GSheetClient:
                 return sheet["properties"]["gridProperties"]["rowCount"]
         return None
 
-    def save_order(self, account: Account, order: Order) -> Dict:
+    def _generate_row(self, account: Account, order: Order) -> List:
         locale.setlocale(locale.LC_ALL, "fr_FR")
         now = datetime.now().strftime("%d/%m/%Y")
         number_rows = self._get_number_rows() + 1
@@ -90,6 +90,9 @@ class GSheetClient:
             "",
             order.comment,
         ]
+        return row
+
+    def save_order(self, account: Account, order: Order) -> Dict:
         result = (
             self.client.spreadsheets()
             .values()
@@ -98,7 +101,7 @@ class GSheetClient:
                 range=f"{self.sheet_name}!A:A",
                 valueInputOption="USER_ENTERED",
                 insertDataOption="INSERT_ROWS",
-                body={"values": [row]},
+                body={"values": [self._generate_row(account, order)]},
             )
             .execute()
         )
