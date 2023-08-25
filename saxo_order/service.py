@@ -3,13 +3,14 @@ from typing import List
 from model import Account, Order, Taxes
 
 
-def validate_ratio(order: Order) -> bool:
+def validate_ratio(order: Order) -> tuple:
     if order.asset_type != "Stock":
-        return (
-            (order.underlying.objective - order.underlying.price)
-            / (order.underlying.price - order.underlying.stop)
-        ) >= 1.5
-    return ((order.objective - order.price) / (order.price - order.stop)) >= 1.5
+        ratio = (order.underlying.objective - order.underlying.price) / (
+            order.underlying.price - order.underlying.stop
+        )
+        return ratio >= 1.5, ratio
+    ratio = (order.objective - order.price) / (order.price - order.stop)
+    return ratio >= 1.5, ratio
 
 
 def validate_max_order(order: Order, total_amount: float) -> bool:
@@ -37,8 +38,9 @@ def apply_rules(
     total_amount: float,
     open_orders: List,
 ) -> None:
-    if validate_ratio(order) is False:
-        return "Ratio earn / lost must be greater than 1.5"
+    ratio = validate_ratio(order)
+    if ratio[0] is False:
+        return f"Ratio earn / lost must be greater than 1.5 ({ratio[1]})"
     if validate_fund(account, order, open_orders) is False:
         return "Not enough money for this order"
     if validate_max_order(order, total_amount) is False:

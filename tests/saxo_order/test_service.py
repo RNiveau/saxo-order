@@ -16,7 +16,7 @@ class TestValiderOrder:
         assert (
             service.validate_ratio(
                 Order("", price=price, stop=stop, objective=objective)
-            )
+            )[0]
             == expected
         )
 
@@ -29,7 +29,7 @@ class TestValiderOrder:
                     underlying=Underlying(price=10, stop=9, objective=12),
                     asset_type="Etf",
                 )
-            )
+            )[0]
             is True
         )
 
