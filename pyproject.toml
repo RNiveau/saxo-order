@@ -19,6 +19,8 @@ pytest = "^7.3.1"
 mypy = "^1.5.0"
 pytest-mock = "^3.11.1"
 mock = "^5.1.0"
+google-api-python-client-stubs = "^1.17.0"
+google-auth-stubs = "^0.2.0"
 
 [tool.poetry.scripts]
 available_funds = "saxo_order.commands.available_funds:available_funds"
