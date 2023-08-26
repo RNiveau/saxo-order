@@ -3,11 +3,9 @@ import click
 from client.saxo_client import SaxoClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from saxo_order import (
-    select_account,
-    get_account_open_orders,
-)
+from saxo_order.service import get_account_open_orders
 from saxo_order.commands import catch_exception, config_option
+from saxo_order.commands.input_helper import select_account
 
 
 @config_option

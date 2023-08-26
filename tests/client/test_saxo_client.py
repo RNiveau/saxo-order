@@ -12,7 +12,7 @@ class TestSaxoClient:
         "stock_code, price, quantity, type, direction, stop_price, expected",
         [
             (
-                "aca",
+                12345,
                 10,
                 9,
                 OrderType.LIMIT,
@@ -21,13 +21,13 @@ class TestSaxoClient:
                 {
                     "Amount": 9,
                     "OrderPrice": 10,
-                    "Uic": "aca",
+                    "Uic": 12345,
                     "OrderType": "Limit",
                     "BuySell": "Buy",
                 },
             ),
             (
-                "aca",
+                12345,
                 10,
                 9,
                 OrderType.STOP,
@@ -36,13 +36,13 @@ class TestSaxoClient:
                 {
                     "Amount": 9,
                     "OrderPrice": 10,
-                    "Uic": "aca",
+                    "Uic": 12345,
                     "OrderType": "StopIfTraded",
                     "BuySell": "Buy",
                 },
             ),
             (
-                "aca",
+                12345,
                 10,
                 9,
                 OrderType.STOP,
@@ -51,13 +51,13 @@ class TestSaxoClient:
                 {
                     "Amount": 9,
                     "OrderPrice": 10,
-                    "Uic": "aca",
+                    "Uic": 12345,
                     "OrderType": "Stop",
                     "BuySell": "Sell",
                 },
             ),
             (
-                "aca",
+                12345,
                 10,
                 9,
                 OrderType.STOP_LIMIT,
@@ -66,7 +66,7 @@ class TestSaxoClient:
                 {
                     "Amount": 9,
                     "OrderPrice": 8,
-                    "Uic": "aca",
+                    "Uic": 12345,
                     "OrderType": "StopLimit",
                     "BuySell": "Buy",
                     "StopLimitPrice": 10,
@@ -100,7 +100,7 @@ class TestSaxoClient:
         )
         order = Order(
             asset_type="Stock",
-            code=stock_code,
+            code=str(stock_code),
             direction=direction,
             type=type,
             price=price,
@@ -112,4 +112,5 @@ class TestSaxoClient:
             saxo_uic=stock_code,
             stop_price=stop_price,
         )
+
         requests.Session.post.assert_called_once_with(mocker.ANY, json=expected)

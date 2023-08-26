@@ -2,8 +2,8 @@ import os
 import json
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
-from typing import Dict, List
-from model import Order, Account
+from typing import Dict, List, Any
+from model import Order, Account, Taxes
 from datetime import datetime
 import locale
 
@@ -38,6 +38,8 @@ class GSheetClient:
         return None
 
     def _generate_row(self, account: Account, order: Order) -> List:
+        if order.taxes is None:
+            order.taxes = Taxes(0, 0)
         locale.setlocale(locale.LC_ALL, "fr_FR")
         now = datetime.now().strftime("%d/%m/%Y")
         number_rows = self._get_number_rows() + 1
@@ -92,7 +94,7 @@ class GSheetClient:
         ]
         return row
 
-    def save_order(self, account: Account, order: Order) -> Dict:
+    def save_order(self, account: Account, order: Order) -> Any:
         result = (
             self.client.spreadsheets()
             .values()
@@ -111,7 +113,7 @@ class GSheetClient:
         )
         sheet_id = self._get_sheet_id()
 
-        requests = [
+        requests: Any = [
             {
                 "repeatCell": {
                     "range": {

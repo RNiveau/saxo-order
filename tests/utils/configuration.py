@@ -3,7 +3,7 @@ from utils.configuration import Configuration
 
 class MockConfiguration(Configuration):
     def __init__(self):
-        pass
+        self.access_token = "access_token"
 
     @property
     def app_key(self) -> str:
@@ -20,7 +20,3 @@ class MockConfiguration(Configuration):
     @property
     def saxo_url(self) -> str:
         return "saxo_url"
-
-    @property
-    def access_token(self) -> str:
-        return "access_token"

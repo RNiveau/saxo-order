@@ -41,8 +41,8 @@ class Account:
         self,
         key: str,
         name: str,
-        fund: Optional[float] = None,
-        available_fund: Optional[float] = None,
+        fund: float = 0,
+        available_fund: float = 0,
     ) -> None:
         self.key = key
         self.name = name
@@ -54,8 +54,8 @@ class Underlying:
     def __init__(
         self,
         price: float,
-        stop: Optional[float] = None,
-        objective: Optional[float] = None,
+        stop: float = 0,
+        objective: float = 0,
     ) -> None:
         self.price = price
         self.stop = stop
@@ -67,15 +67,15 @@ class Order:
         self,
         code: str,
         price: float,
-        name: Optional[str] = None,
-        quantity: Optional[int] = None,
+        name: str = "",
+        quantity: int = 0,
         objective: Optional[float] = None,
         stop: Optional[float] = None,
         comment: Optional[str] = None,
         strategy: Optional[str] = None,
         direction: Optional[Direction] = None,
-        asset_type: Optional[str] = "Stock",
-        type: Optional[OrderType] = OrderType.LIMIT,
+        asset_type: str = "Stock",
+        type: OrderType = OrderType.LIMIT,
         taxes: Optional[Taxes] = None,
         underlying: Optional[Underlying] = None,
     ) -> None:
