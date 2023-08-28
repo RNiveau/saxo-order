@@ -123,6 +123,8 @@ class SaxoClient:
         if order.type == OrderType.STOP_LIMIT:
             data["OrderPrice"] = stop_price
             data["StopLimitPrice"] = order.price
+        if order.type == OrderType.MARKET:
+            data["OrderDuration"]["DurationType"] = "DayOrder"
 
         response = self.session.post(
             f"{self.configuration.saxo_url}trade/v2/orders", json=data
