@@ -21,6 +21,7 @@ class OrderType(StrEnum):
     STOP = "stop"
     OCO = "oco"
     STOP_LIMIT = "stoplimit"
+    MARKET = "market"
 
     @staticmethod
     def get_value(value):
@@ -96,4 +97,7 @@ class Order:
     def csv(self):
         locale.setlocale(locale.LC_ALL, "fr_FR")
         now = datetime.now().strftime("%d/%m/%Y")
-        return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;0;{self.stop:n};;{self.objective:n};;;;{self.taxes.cost};{self.taxes.taxes};;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"
+        objective = self.objective if self.objective is not None else 0
+        stop = self.stop if self.stop is not None else 0
+        taxes = self.taxes if self.taxes is not None else Taxes(0, 0)
+        return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;0;{stop:n};;{objective:n};;;;{taxes.cost};{taxes.taxes};;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"

@@ -25,9 +25,10 @@ from model import Order, OrderType, Direction
 )
 @click.option(
     "--order-type",
-    type=click.Choice(["limit", "stop"]),
+    type=click.Choice(["limit", "stop", "market"]),
     help="The order type",
     default="limit",
+    prompt="What is the order type ?",
 )
 @click.option(
     "--direction",
@@ -40,8 +41,10 @@ from model import Order, OrderType, Direction
 @catch_exception(handle=SaxoException)
 def set_order(config, price, code, country_code, quantity, order_type, direction):
     configuration = Configuration(config)
-    client = SaxoClient(configuration)
-    asset = client.get_asset(code=code, market=country_code)
+    saxo_client = SaxoClient(configuration)
+    asset = saxo_client.get_asset(code=code, market=country_code)
+    if OrderType.MARKET == OrderType.get_value(order_type):
+        price = saxo_client.get_price(asset["Identifier"], asset["AssetType"])
     order = Order(
         code=code,
         name=asset["Description"],
@@ -51,11 +54,11 @@ def set_order(config, price, code, country_code, quantity, order_type, direction
         type=OrderType.get_value(order_type),
         direction=Direction.get_value(direction),
     )
-    account = select_account(client)
+    account = select_account(saxo_client)
     if Direction.BUY == order.direction:
         update_order(order)
-        validate_buy_order(account, client, order)
-    client.set_order(
+        validate_buy_order(account, saxo_client, order)
+    saxo_client.set_order(
         account=account,
         order=order,
         saxo_uic=asset["Identifier"],

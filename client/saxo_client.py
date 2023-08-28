@@ -83,6 +83,14 @@ class SaxoClient:
             account_key, name, account["TotalValue"], account["CashAvailableForTrading"]
         )
 
+    def get_price(self, saxo_uic: int, asset_type: str) -> float:
+        response = self.session.get(
+            f"{self.configuration.saxo_url}trade/v1/infoprices/?Uic={saxo_uic}&AssetType={asset_type}"
+        )
+        self._check_response(response)
+        price = response.json()
+        return price["Quote"]["Ask"]
+
     def set_order(
         self,
         account: Account,
@@ -96,6 +104,8 @@ class SaxoClient:
             order_type = "StopIfTraded"
         elif order.type == OrderType.STOP:
             order_type = "Stop"
+        elif order.type == OrderType.MARKET:
+            order_type = "Market"
         else:
             order_type = "StopLimit"
         data = {
@@ -105,10 +115,11 @@ class SaxoClient:
             "BuySell": order.direction,
             "OrderDuration": {"DurationType": "GoodTillCancel"},
             "ManualOrder": True,
-            "OrderPrice": order.price,
             "OrderType": order_type,
             "Uic": saxo_uic,
         }
+        if order.type != OrderType.MARKET:
+            data["OrderPrice"] = order.price
         if order.type == OrderType.STOP_LIMIT:
             data["OrderPrice"] = stop_price
             data["StopLimitPrice"] = order.price
