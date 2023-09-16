@@ -35,14 +35,14 @@ class TestGsheetClient:
         assert row[4] == "=C2*D2"
         assert row[5] == ""
         assert row[8] == 9
-        assert row[10] == 12
-        assert row[11] == "=(K2-C2)/(C2-I2)"
-        assert row[14] == 5
-        assert row[15] == 10
-        assert row[16] == "=E2+O2+P2"
-        assert row[25] == "name"
-        assert row[26] is None
-        assert row[36] == "comment"
+        assert row[11] == 12
+        assert row[12] == "=(K2-C2)/(C2-I2)"
+        assert row[15] == 5
+        assert row[16] == 10
+        assert row[17] == "=E2+O2+P2"
+        assert row[26] == "name"
+        assert row[27] is None
+        assert row[37] == "comment"
 
     def test_underlying_generate_row(self):
         client = MockGsheetClient()
@@ -67,11 +67,11 @@ class TestGsheetClient:
         assert row[4] == "=C2*D2"
         assert row[5] == 1000
         assert row[8] == 999
-        assert row[10] == 2000
-        assert row[11] == "=(K2-F2)/(F2-I2)"
-        assert row[14] == 5
-        assert row[15] == 10
-        assert row[16] == "=E2+O2+P2"
-        assert row[25] == "name"
-        assert row[26] is None
-        assert row[36] == "comment"
+        assert row[11] == 2000
+        assert row[12] == "=(K2-F2)/(F2-I2)"
+        assert row[15] == 5
+        assert row[16] == 10
+        assert row[17] == "=E2+O2+P2"
+        assert row[26] == "name"
+        assert row[27] is None
+        assert row[37] == "comment"

@@ -54,6 +54,7 @@ class GSheetClient:
         row += ["", 0]
         row.append(order.stop if order.underlying is None else order.underlying.stop)
         row.append("")
+        row.append("")
         row.append(
             order.objective if order.underlying is None else order.underlying.objective
         )

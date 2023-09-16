@@ -100,4 +100,4 @@ class Order:
         objective = self.objective if self.objective is not None else 0
         stop = self.stop if self.stop is not None else 0
         taxes = self.taxes if self.taxes is not None else Taxes(0, 0)
-        return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;0;{stop:n};;{objective:n};;;;{taxes.cost};{taxes.taxes};;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"
+        return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;0;{stop:n};;;{objective:n};;;;{taxes.cost};{taxes.taxes};;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"
