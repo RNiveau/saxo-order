@@ -77,10 +77,18 @@ class SaxoClient:
             f"{self.configuration.saxo_url}port/v1/balances/?AccountKey={account_key}&ClientKey={client_key}"
         )
         self._check_response(response)
+        account_balance = response.json()
+        response = self.session.get(
+            f"{self.configuration.saxo_url}port/v1/accounts/{account_key}"
+        )
+        self._check_response(response)
         account = response.json()
         name = "NoName" if "DisplayName" not in account else account["DisplayName"]
         return Account(
-            account_key, name, account["TotalValue"], account["CashAvailableForTrading"]
+            account_key,
+            name,
+            account_balance["TotalValue"],
+            account_balance["CashAvailableForTrading"],
         )
 
     def get_price(self, saxo_uic: int, asset_type: str) -> float:
