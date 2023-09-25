@@ -25,7 +25,7 @@ class SaxoClient:
 
     def get_asset(self, code: str, market: str) -> Dict:
         response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={code}:{market}&AssetTypes=Stock,MiniFuture,Etf"
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={code}:{market}&AssetTypes=Stock,MiniFuture,Etf,WarrantOpenEndKnockOut"
         )
         self._check_response(response)
         data = response.json()["Data"]
@@ -40,7 +40,7 @@ class SaxoClient:
 
     def search(self, keyword: str) -> Dict:
         response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes=Stock,MiniFuture,Etf"
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes=Stock,MiniFuture,Etf,WarrantOpenEndKnockOut"
         )
         self._check_response(response)
         data = response.json()["Data"]
