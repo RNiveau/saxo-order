@@ -8,6 +8,7 @@ from saxo_order.commands.input_helper import (
     select_account,
     validate_buy_order,
     update_order,
+    confirm_order,
 )
 from saxo_order.commands import catch_exception, config_option, command_common_options
 from model import Order, Direction, OrderType
@@ -82,6 +83,7 @@ def set_oco_order(
     if stop_order.direction == Direction.BUY:
         update_order(stop_order)
         validate_buy_order(account, client, stop_order)
+        confirm_order(client, stop_order)
     client.set_oco_order(
         account=account,
         limit_order=limit_order,

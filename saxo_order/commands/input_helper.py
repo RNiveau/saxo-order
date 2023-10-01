@@ -2,7 +2,7 @@ import click
 
 from client.saxo_client import SaxoClient
 from model import Account, Order, Underlying
-from saxo_order.service import apply_rules, calculate_taxes
+from saxo_order.service import apply_rules, calculate_taxes, get_lost, get_earn
 from utils.exception import SaxoException
 
 
@@ -63,3 +63,10 @@ def validate_buy_order(account: Account, client: SaxoClient, order: Order) -> No
     if error is not None:
         print(error)
         raise click.Abort(error)
+
+
+def confirm_order(client: SaxoClient, order: Order) -> None:
+    total = client.get_total_amount()
+    print(get_lost(total, order))
+    print(get_earn(total, order))
+    click.confirm("Do you want to continue?", abort=True)

@@ -57,3 +57,13 @@ def calculate_taxes(order: Order) -> Taxes:
         cost = 5
     taxes = 0.003 * total
     return Taxes(cost, taxes)
+
+
+def get_lost(total_funds: float, order: Order) -> str:
+    lost = order.quantity * (order.price - order.stop)
+    return f"Lost: {lost} ({((order.price - order.stop) / order.price) * 100:.2f} %) ({(lost / total_funds) * 100:.2f} % of funds)"
+
+
+def get_earn(total_funds: float, order: Order) -> str:
+    earn = order.quantity * (order.objective - order.price)
+    return f"Earn: {earn} ({((order.objective - order.price) / order.price) * 100:.2f} %) ({(earn / total_funds) * 100:.2f} % of funds)"

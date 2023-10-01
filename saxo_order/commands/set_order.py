@@ -8,6 +8,7 @@ from saxo_order.commands.input_helper import (
     select_account,
     validate_buy_order,
     update_order,
+    confirm_order,
 )
 from saxo_order.commands import catch_exception, config_option, command_common_options
 from model import Order, OrderType, Direction
@@ -58,6 +59,7 @@ def set_order(config, price, code, country_code, quantity, order_type, direction
     if Direction.BUY == order.direction:
         update_order(order)
         validate_buy_order(account, saxo_client, order)
+        confirm_order(saxo_client, order)
     saxo_client.set_order(
         account=account,
         order=order,

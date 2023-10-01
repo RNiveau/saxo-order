@@ -10,10 +10,10 @@ class TestSetOrder:
     @pytest.mark.parametrize(
         "price, code, quantity, order_type, direction, expected",
         [
-            (10, "aca", 100, "limit", "buy", [1, 1, 1, 0]),
-            (10, "aca", 100, "limit", "sell", [0, 0, 0, 0]),
-            (10, "aca", 100, "market", "buy", [1, 1, 1, 1]),
-            (10, "aca", 100, "market", "sell", [0, 0, 0, 1]),
+            (10, "aca", 100, "limit", "buy", [1, 1, 1, 0, 1]),
+            (10, "aca", 100, "limit", "sell", [0, 0, 0, 0, 0]),
+            (10, "aca", 100, "market", "buy", [1, 1, 1, 1, 1]),
+            (10, "aca", 100, "market", "sell", [0, 0, 0, 1, 0]),
         ],
     )
     def test_set_order(
@@ -41,6 +41,9 @@ class TestSetOrder:
         mocker.patch("saxo_order.commands.set_order.select_account", return_value={})
         validate_buy_order = mocker.patch(
             "saxo_order.commands.set_order.validate_buy_order", return_value={}
+        )
+        confirm_order = mocker.patch(
+            "saxo_order.commands.set_order.confirm_order", return_value={}
         )
         update_order = mocker.patch(
             "saxo_order.commands.set_order.update_order", return_value={}
@@ -74,3 +77,4 @@ class TestSetOrder:
         assert update_order.call_count == expected[1]
         assert save_order.call_count == expected[2]
         assert get_price.call_count == expected[3]
+        assert confirm_order.call_count == expected[4]

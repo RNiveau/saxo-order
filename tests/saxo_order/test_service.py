@@ -119,3 +119,17 @@ class TestValiderOrder:
             )
             == expected
         )
+
+    def test_get_lost(self):
+        assert (
+            service.get_lost(10000, Order(code="aca", price=10, stop=9, quantity=10))
+            == "Lost: 10 (10.00 %) (0.10 % of funds)"
+        )
+
+    def test_get_earn(self):
+        assert (
+            service.get_earn(
+                10000, Order(code="aca", price=10, objective=12, quantity=10)
+            )
+            == "Earn: 20 (20.00 %) (0.20 % of funds)"
+        )

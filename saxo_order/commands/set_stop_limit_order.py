@@ -8,6 +8,7 @@ from saxo_order.commands.input_helper import (
     select_account,
     validate_buy_order,
     update_order,
+    confirm_order,
 )
 from saxo_order.commands import catch_exception, config_option, command_common_options
 from model import Order, OrderType, Direction
@@ -47,6 +48,7 @@ def set_stop_limit_order(config, limit_price, stop_price, code, country_code, qu
     )
     update_order(order)
     validate_buy_order(account, client, order)
+    confirm_order(client, order)
     client.set_order(
         account=account,
         stop_price=stop_price,
