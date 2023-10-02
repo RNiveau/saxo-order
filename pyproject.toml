@@ -9,7 +9,7 @@ python = "^3.11"
 click = "^8.0.1"
 requests = "^2.31.0"
 pyyaml = "^6.0"
-types-requests = "^2.31.0.6"
+types-requests = "^2.31.0.7"
 google-api-python-client = "^2.101.0"
 google-auth-oauthlib = "^1.1.0"
 
