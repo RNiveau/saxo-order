@@ -60,11 +60,11 @@ class GSheetClient:
         )
         if order.underlying is None:
             row.append(
-                f"=(K{number_rows}-C{number_rows})/(C{number_rows}-I{number_rows})"
+                f"=(L{number_rows}-C{number_rows})/(C{number_rows}-I{number_rows})"
             )
         else:
             row.append(
-                f"=(K{number_rows}-F{number_rows})/(F{number_rows}-I{number_rows})"
+                f"=(L{number_rows}-F{number_rows})/(F{number_rows}-I{number_rows})"
             )
         row += [
             "",

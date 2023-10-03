@@ -36,7 +36,7 @@ class TestGsheetClient:
         assert row[5] == ""
         assert row[8] == 9
         assert row[11] == 12
-        assert row[12] == "=(K2-C2)/(C2-I2)"
+        assert row[12] == "=(L2-C2)/(C2-I2)"
         assert row[15] == 5
         assert row[16] == 10
         assert row[17] == "=E2+O2+P2"
@@ -68,7 +68,7 @@ class TestGsheetClient:
         assert row[5] == 1000
         assert row[8] == 999
         assert row[11] == 2000
-        assert row[12] == "=(K2-F2)/(F2-I2)"
+        assert row[12] == "=(L2-F2)/(F2-I2)"
         assert row[15] == 5
         assert row[16] == 10
         assert row[17] == "=E2+O2+P2"
