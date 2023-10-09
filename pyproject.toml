@@ -19,7 +19,7 @@ pytest = "^7.4.2"
 mypy = "^1.5.0"
 pytest-mock = "^3.11.1"
 mock = "^5.1.0"
-google-api-python-client-stubs = "^1.17.0"
+google-api-python-client-stubs = "^1.18.0"
 google-auth-stubs = "^0.2.0"
 
 [tool.poetry.scripts]
