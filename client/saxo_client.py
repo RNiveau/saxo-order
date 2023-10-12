@@ -119,7 +119,7 @@ class SaxoClient:
             order_type = "Market"
         else:
             order_type = "StopLimit"
-        data = {
+        data: Dict[str, Any] = {
             "AccountKey": account.key,
             "Amount": order.quantity,
             "AssetType": order.asset_type,
