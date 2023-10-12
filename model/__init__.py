@@ -16,6 +16,18 @@ class Direction(StrEnum):
         raise ValueError("Invalid string")
 
 
+class TriggerOrder(StrEnum):
+    ABOVE = "above"
+    BELLOW = "below"
+
+    @staticmethod
+    def get_value(value):
+        for member in TriggerOrder:
+            if member.value.lower() == value.lower():
+                return member
+        raise ValueError("Invalid string")
+
+
 class OrderType(StrEnum):
     LIMIT = "limit"
     STOP = "stop"
@@ -79,6 +91,7 @@ class Order:
         type: OrderType = OrderType.LIMIT,
         taxes: Optional[Taxes] = None,
         underlying: Optional[Underlying] = None,
+        conditional: bool = False,
     ) -> None:
         self.code = code
         self.price = price
@@ -93,6 +106,7 @@ class Order:
         self.type = type
         self.taxes = taxes
         self.underlying = underlying
+        self.conditional = conditional
 
     def csv(self):
         locale.setlocale(locale.LC_ALL, "fr_FR")
@@ -101,3 +115,13 @@ class Order:
         stop = self.stop if self.stop is not None else 0
         taxes = self.taxes if self.taxes is not None else Taxes(0, 0)
         return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;0;{stop:n};;;{objective:n};;;;{taxes.cost};{taxes.taxes};;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"
+
+
+class ConditionalOrder:
+    def __init__(
+        self, saxo_uic: int, trigger: TriggerOrder, price: float, asset_type: str
+    ) -> None:
+        self.saxo_uic = saxo_uic
+        self.trigger = trigger
+        self.price = price
+        self.asset_type = asset_type

@@ -8,12 +8,13 @@ from click.testing import CliRunner
 
 class TestSetOrder:
     @pytest.mark.parametrize(
-        "price, code, quantity, order_type, direction, expected",
+        "price, code, quantity, order_type, direction, conditional, expected",
         [
-            (10, "aca", 100, "limit", "buy", [1, 1, 1, 0, 1]),
-            (10, "aca", 100, "limit", "sell", [0, 0, 0, 0, 0]),
-            (10, "aca", 100, "market", "buy", [1, 1, 1, 1, 1]),
-            (10, "aca", 100, "market", "sell", [0, 0, 0, 1, 0]),
+            (10, "aca", 100, "limit", "buy", "n", [1, 1, 1, 0, 1, 0]),
+            (10, "aca", 100, "limit", "sell", "n", [0, 0, 0, 0, 0, 0]),
+            (10, "aca", 100, "market", "buy", "n", [1, 1, 1, 1, 1, 0]),
+            (10, "aca", 100, "market", "sell", "n", [0, 0, 0, 1, 0, 0]),
+            (10, "aca", 100, "market", "buy", "y", [1, 1, 1, 1, 1, 1]),
         ],
     )
     def test_set_order(
@@ -21,8 +22,9 @@ class TestSetOrder:
         price: float,
         code: str,
         quantity: int,
-        order_type: OrderType,
-        direction: Direction,
+        order_type: str,
+        direction: str,
+        conditional: str,
         expected: dict,
         mocker,
     ):
@@ -48,6 +50,9 @@ class TestSetOrder:
         update_order = mocker.patch(
             "saxo_order.commands.set_order.update_order", return_value={}
         )
+        get_conditional_order = mocker.patch(
+            "saxo_order.commands.set_order.get_conditional_order", return_value={}
+        )
         mocker.patch.object(
             saxo_service,
             "get_asset",
@@ -70,6 +75,8 @@ class TestSetOrder:
                 order_type,
                 "--direction",
                 direction,
+                "--conditional",
+                conditional,
             ],
         )
         assert result.exit_code == 0
@@ -78,3 +85,4 @@ class TestSetOrder:
         assert save_order.call_count == expected[2]
         assert get_price.call_count == expected[3]
         assert confirm_order.call_count == expected[4]
+        assert get_conditional_order.call_count == expected[5]

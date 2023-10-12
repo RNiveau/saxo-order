@@ -3,13 +3,13 @@ from typing import List
 
 from client.saxo_client import SaxoClient
 from tests.utils.configuration import MockConfiguration
-from model import Account, Order, OrderType, Direction
+from model import Account, Order, OrderType, Direction, ConditionalOrder, TriggerOrder
 import requests
 
 
 class TestSaxoClient:
     @pytest.mark.parametrize(
-        "stock_code, price, quantity, type, direction, stop_price, expected",
+        "stock_code, price, quantity, type, direction, stop_price, conditional_order, expected",
         [
             (
                 12345,
@@ -17,6 +17,7 @@ class TestSaxoClient:
                 9,
                 OrderType.LIMIT,
                 Direction.BUY,
+                None,
                 None,
                 {
                     "Amount": 9,
@@ -34,6 +35,7 @@ class TestSaxoClient:
                 OrderType.STOP,
                 Direction.BUY,
                 100,
+                None,
                 {
                     "Amount": 9,
                     "OrderPrice": 10,
@@ -49,6 +51,7 @@ class TestSaxoClient:
                 9,
                 OrderType.STOP,
                 Direction.SELL,
+                None,
                 None,
                 {
                     "Amount": 9,
@@ -66,6 +69,7 @@ class TestSaxoClient:
                 OrderType.STOP_LIMIT,
                 Direction.BUY,
                 8,
+                None,
                 {
                     "Amount": 9,
                     "OrderPrice": 8,
@@ -83,12 +87,80 @@ class TestSaxoClient:
                 OrderType.MARKET,
                 Direction.BUY,
                 8,
+                None,
                 {
                     "Amount": 9,
                     "Uic": 12345,
                     "OrderType": "Market",
                     "OrderDuration": {"DurationType": "DayOrder"},
                     "BuySell": "Buy",
+                },
+            ),
+            (
+                12345,
+                10,
+                9,
+                OrderType.MARKET,
+                Direction.BUY,
+                8,
+                ConditionalOrder(
+                    1, trigger=TriggerOrder.BELLOW, price=40, asset_type="ETF"
+                ),
+                {
+                    "Amount": 9,
+                    "Uic": 12345,
+                    "OrderType": "Market",
+                    "OrderDuration": {"DurationType": "DayOrder"},
+                    "BuySell": "Buy",
+                    "Orders": [
+                        {
+                            "AccountKey": "account",
+                            "AssetType": "ETF",
+                            "ManualOrder": True,
+                            "BuySell": "Buy",
+                            "OrderType": "TriggerLimit",
+                            "Uic": 1,
+                            "OrderDuration": {"DurationType": "GoodTillCancel"},
+                            "TriggerOrderData": {
+                                "LowerPrice": 40,
+                                "PriceType": "LastTraded",
+                            },
+                        }
+                    ],
+                },
+            ),
+            (
+                12345,
+                10,
+                9,
+                OrderType.LIMIT,
+                Direction.BUY,
+                8,
+                ConditionalOrder(
+                    1, trigger=TriggerOrder.ABOVE, price=40, asset_type="ETF"
+                ),
+                {
+                    "Amount": 9,
+                    "Uic": 12345,
+                    "OrderPrice": 10,
+                    "OrderType": "Limit",
+                    "OrderDuration": {"DurationType": "GoodTillCancel"},
+                    "BuySell": "Buy",
+                    "Orders": [
+                        {
+                            "AccountKey": "account",
+                            "AssetType": "ETF",
+                            "ManualOrder": True,
+                            "BuySell": "Sell",
+                            "OrderType": "TriggerLimit",
+                            "Uic": 1,
+                            "OrderDuration": {"DurationType": "GoodTillCancel"},
+                            "TriggerOrderData": {
+                                "LowerPrice": 40,
+                                "PriceType": "LastTraded",
+                            },
+                        }
+                    ],
                 },
             ),
         ],
@@ -101,6 +173,7 @@ class TestSaxoClient:
         type: OrderType,
         direction: Direction,
         stop_price: float,
+        conditional_order: ConditionalOrder,
         expected: dict,
         mocker,
     ):
@@ -129,6 +202,7 @@ class TestSaxoClient:
             order=order,
             saxo_uic=stock_code,
             stop_price=stop_price,
+            conditional_order=conditional_order,
         )
 
         requests.Session.post.assert_called_once_with(mocker.ANY, json=expected)

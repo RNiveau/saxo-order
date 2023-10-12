@@ -4,7 +4,7 @@ from model import Account, Order, Taxes
 
 
 def validate_ratio(order: Order) -> tuple:
-    if order.asset_type != "Stock" and order.underlying is not None:
+    if order.underlying is not None:
         ratio = (order.underlying.objective - order.underlying.price) / (
             order.underlying.price - order.underlying.stop
         )

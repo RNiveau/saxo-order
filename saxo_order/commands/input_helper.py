@@ -1,9 +1,10 @@
 import click
 
 from client.saxo_client import SaxoClient
-from model import Account, Order, Underlying
+from model import Account, Order, Underlying, ConditionalOrder, TriggerOrder
 from saxo_order.service import apply_rules, calculate_taxes, get_lost, get_earn
 from utils.exception import SaxoException
+from typing import Optional
 
 
 def select_account(client: SaxoClient) -> Account:
@@ -27,8 +28,8 @@ def select_account(client: SaxoClient) -> Account:
 
 def get_stop_objective() -> tuple:
     try:
-        stop = float(input("What is the stop price ?"))
-        objective = float(input("What is the objective price ?"))
+        stop = click.prompt("What is the stop price ?", type=float)
+        objective = click.prompt("What is the objective price ?", type=float)
     except:
         stop = 0
         objective = 0
@@ -41,18 +42,21 @@ def get_stop_objective() -> tuple:
     return (stop, objective)
 
 
-def update_order(order: Order):
-    if order.asset_type != "Stock":
-        price = float(input("What is the price of the underlying ?"))
+def update_order(order: Order, conditional_order: Optional[ConditionalOrder] = None):
+    if order.asset_type != "Stock" or conditional_order is not None:
+        if conditional_order is None:
+            price = click.prompt("What is the price of the underlying ?", type=float)
+        else:
+            price = conditional_order.price
         underlying = Underlying(price)
     stop, objective = get_stop_objective()
     order.stop = stop
     order.objective = objective
-    if order.asset_type != "Stock":
+    if order.asset_type != "Stock" or conditional_order is not None:
         underlying.stop = stop
         underlying.objective = objective
         order.underlying = underlying
-    order.comment = input("Comment about this position: ")
+    order.comment = click.prompt("Comment about this position: ", type=str)
     order.taxes = calculate_taxes(order)
 
 
@@ -70,3 +74,21 @@ def confirm_order(client: SaxoClient, order: Order) -> None:
     print(get_lost(total, order))
     print(get_earn(total, order))
     click.confirm("Do you want to continue?", abort=True)
+
+
+def get_conditional_order(client: SaxoClient) -> ConditionalOrder:
+    code_conditional = click.prompt("What is the code of the condition ?", type=str)
+    price_conditional = click.prompt("What is the price of the condition ?", type=float)
+    trigger = TriggerOrder.get_value(
+        click.prompt(
+            "Trigger the order if we are above or below the price ?",
+            type=click.Choice(["above", "below"]),
+        )
+    )
+    asset_conditional = client.get_asset(code=code_conditional)
+    return ConditionalOrder(
+        saxo_uic=asset_conditional["Identifier"],
+        price=price_conditional,
+        asset_type=asset_conditional["AssetType"],
+        trigger=trigger,
+    )

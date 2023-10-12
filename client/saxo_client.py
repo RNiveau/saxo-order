@@ -1,6 +1,6 @@
 from utils.exception import SaxoException
 from utils.configuration import Configuration
-from model import Account, Order, OrderType, Direction
+from model import Account, Order, OrderType, Direction, ConditionalOrder, TriggerOrder
 
 import requests
 from requests import Response
@@ -23,12 +23,11 @@ class SaxoClient:
         adapter = HTTPAdapter(max_retries=retries)
         self.session.mount("https://", adapter)
 
-    def get_asset(self, code: str, market: str) -> Dict:
-        response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={code}:{market}&AssetTypes=Stock,MiniFuture,Etf,WarrantOpenEndKnockOut"
-        )
-        self._check_response(response)
-        data = response.json()["Data"]
+    def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
+        if market is not None:
+            data = self._find_asset(f"{code}:{market}")
+        else:
+            data = self._find_asset(f"{code}")
         if len(data) > 1:
             codes = map(lambda x: x["Symbol"], data)
             raise SaxoException(
@@ -39,14 +38,17 @@ class SaxoClient:
         return data[0]
 
     def search(self, keyword: str) -> Dict:
-        response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes=Stock,MiniFuture,Etf,WarrantOpenEndKnockOut"
-        )
-        self._check_response(response)
-        data = response.json()["Data"]
+        data = self._find_asset(keyword)
         if len(data) == 0:
             raise SaxoException(f"Nothing found for {keyword}")
         return data
+
+    def _find_asset(self, keyword: str) -> Dict:
+        response = self.session.get(
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes=Stock,MiniFuture,Etf,WarrantOpenEndKnockOut,StockIndex&IncludeNonTradable=true"
+        )
+        self._check_response(response)
+        return response.json()["Data"]
 
     def get_total_amount(self) -> float:
         response = self.session.get(f"{self.configuration.saxo_url}port/v1/balances/me")
@@ -104,6 +106,7 @@ class SaxoClient:
         account: Account,
         order: Order,
         saxo_uic: int,
+        conditional_order: Optional[ConditionalOrder] = None,
         stop_price: Optional[float] = None,
     ) -> Any:
         if order.type == OrderType.LIMIT:
@@ -133,6 +136,25 @@ class SaxoClient:
             data["StopLimitPrice"] = order.price
         if order.type == OrderType.MARKET:
             data["OrderDuration"]["DurationType"] = "DayOrder"
+
+        if conditional_order is not None:
+            data["Orders"] = [
+                {
+                    "AccountKey": account.key,
+                    "OrderType": "TriggerLimit",
+                    "AssetType": conditional_order.asset_type,
+                    "Uic": conditional_order.saxo_uic,
+                    "OrderDuration": {"DurationType": "GoodTillCancel"},
+                    "TriggerOrderData": {
+                        "LowerPrice": conditional_order.price,
+                        "PriceType": "LastTraded",
+                    },
+                    "ManualOrder": True,
+                    "BuySell": Direction.SELL
+                    if conditional_order.trigger == TriggerOrder.ABOVE
+                    else Direction.BUY,
+                }
+            ]
 
         response = self.session.post(
             f"{self.configuration.saxo_url}trade/v2/orders", json=data

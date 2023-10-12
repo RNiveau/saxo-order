@@ -25,8 +25,8 @@ class TestValiderOrder:
             service.validate_ratio(
                 Order(
                     "",
-                    price=12,
-                    underlying=Underlying(price=10, stop=9, objective=12),
+                    price=1,
+                    underlying=Underlying(price=100, stop=99, objective=120),
                     asset_type="Etf",
                 )
             )[0]
