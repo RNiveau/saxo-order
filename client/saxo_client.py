@@ -99,6 +99,9 @@ class SaxoClient:
         )
         self._check_response(response)
         price = response.json()
+        if price["Quote"]["MarketState"] == "Closed":
+            print("Market is closed, price is set to 1")
+            return 1.0
         return price["Quote"]["Ask"]
 
     def set_order(
