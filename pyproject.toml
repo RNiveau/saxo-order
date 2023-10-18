@@ -10,7 +10,7 @@ click = "^8.0.1"
 requests = "^2.31.0"
 pyyaml = "^6.0"
 types-requests = "^2.31.0.9"
-google-api-python-client = "^2.103.0"
+google-api-python-client = "^2.104.0"
 google-auth-oauthlib = "^1.1.0"
 
 [tool.poetry.dev-dependencies]
