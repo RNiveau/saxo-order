@@ -35,5 +35,9 @@ class Configuration:
         return self.config["spreadsheet_id"]
 
     @property
+    def path_recorder(self) -> str:
+        return self.config["path_recorder"]
+
+    @property
     def gsheet_creds_path(self) -> str:
         return "gsheet-creds.json"
