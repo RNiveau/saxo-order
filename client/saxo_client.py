@@ -197,6 +197,23 @@ class SaxoClient:
         self._check_response(response)
         return response.json()
 
+    def get_report(self, account: Account) -> None:
+
+        import http.client as http_client
+        http_client.HTTPConnection.debuglevel = 1
+        import logging
+        logging.basicConfig()
+        logging.getLogger().setLevel(logging.DEBUG)
+        requests_log = logging.getLogger("requests.packages.urllib3")
+        requests_log.setLevel(logging.DEBUG)
+        requests_log.propagate = True
+
+        response = self.session.get(
+            f"{self.configuration.saxo_url}hist/v3/positions/tN2wxOR9SRMxv7Nhq5z19A==/?StandardPeriod=Month&AccountKey={account.key}&AssetTypes=Stock,MiniFuture,Etf,WarrantOpenEndKnockOut")
+        self._check_response(response)
+        print(response.json())
+
+
     @staticmethod
     def _check_response(response: Response) -> None:
         if response.status_code == 401:
