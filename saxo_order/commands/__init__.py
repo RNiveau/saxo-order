@@ -24,6 +24,7 @@ def config_option(func):
         type=str,
         required=True,
         default="config.yml",
+        envvar='SAXO_CONFIG',
         help="The path to config file",
     )(func)
 
