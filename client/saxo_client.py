@@ -1,10 +1,19 @@
 from utils.exception import SaxoException
 from utils.configuration import Configuration
-from model import Account, Order, OrderType, Direction, ConditionalOrder, TriggerOrder
+from model import (
+    Account,
+    Order,
+    OrderType,
+    Direction,
+    ConditionalOrder,
+    TriggerOrder,
+    ReportOrder,
+)
 
 import requests
 from requests import Response
 from requests.adapters import HTTPAdapter, Retry
+from datetime import datetime
 
 from typing import Dict, List, Optional, Any
 
@@ -45,7 +54,7 @@ class SaxoClient:
 
     def _find_asset(self, keyword: str) -> Dict:
         response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes=Stock,MiniFuture,Etf,WarrantOpenEndKnockOut,StockIndex&IncludeNonTradable=true"
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes=Stock,MiniFuture,Etf,WarrantOpenEndKnockOut,StockIndex,CfdOnIndex&IncludeNonTradable=true"
         )
         self._check_response(response)
         return response.json()["Data"]
@@ -54,7 +63,7 @@ class SaxoClient:
         response = self.session.get(f"{self.configuration.saxo_url}port/v1/balances/me")
         self._check_response(response)
         return response.json()["TotalValue"]
-
+ 
     def get_open_orders(self) -> List:
         response = self.session.get(
             f"{self.configuration.saxo_url}port/v1/orders/me/?$top=50"
@@ -87,10 +96,11 @@ class SaxoClient:
         account = response.json()
         name = "NoName" if "DisplayName" not in account else account["DisplayName"]
         return Account(
-            account_key,
-            name,
-            account_balance["TotalValue"],
-            account_balance["CashAvailableForTrading"],
+            key=account_key,
+            name=name,
+            fund=account_balance["TotalValue"],
+            available_fund=account_balance["CashAvailableForTrading"],
+            client_key=client_key,
         )
 
     def get_price(self, saxo_uic: int, asset_type: str) -> float:
@@ -197,22 +207,13 @@ class SaxoClient:
         self._check_response(response)
         return response.json()
 
-    def get_report(self, account: Account) -> None:
-
-        import http.client as http_client
-        http_client.HTTPConnection.debuglevel = 1
-        import logging
-        logging.basicConfig()
-        logging.getLogger().setLevel(logging.DEBUG)
-        requests_log = logging.getLogger("requests.packages.urllib3")
-        requests_log.setLevel(logging.DEBUG)
-        requests_log.propagate = True
-
+    def get_report(self, account: Account, date: str) -> List[Order]:
         response = self.session.get(
-            f"{self.configuration.saxo_url}hist/v3/positions/tN2wxOR9SRMxv7Nhq5z19A==/?StandardPeriod=Month&AccountKey={account.key}&AssetTypes=Stock,MiniFuture,Etf,WarrantOpenEndKnockOut")
+            f"{self.configuration.saxo_url}cs/v1/audit/orderactivities/?ClientKey={account.client_key}&AccountKey={account.key}&status=FinalFill&FromDateTime={date}"
+        )
         self._check_response(response)
-        print(response.json())
-
+        orders = []
+        return orders
 
     @staticmethod
     def _check_response(response: Response) -> None:
