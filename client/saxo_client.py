@@ -33,14 +33,13 @@ class SaxoClient:
         self.session.mount("https://", adapter)
 
     def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
-        if market is not None:
-            data = self._find_asset(f"{code}:{market}")
-        else:
-            data = self._find_asset(f"{code}")
+        symbol = f"{code}:{market}" if market is not None else code
+        data = self._find_asset(symbol)
+        data = list(filter(lambda x: x["Symbol"].lower() == symbol.lower(), data))
         if len(data) > 1:
             codes = map(lambda x: x["Symbol"], data)
             raise SaxoException(
-                f"Stock {code}:{market} has more than one entry, check it: {codes}"
+                f"Stock {code}:{market} has more than one entry, check it: {list(codes)}"
             )
         if len(data) == 0:
             raise SaxoException(f"Stock {code}:{market} doesn't exist")
