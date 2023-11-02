@@ -4,6 +4,27 @@ from enum import StrEnum
 import locale
 
 
+class AssetType(StrEnum):
+    WARRANT = "WarrantOpenEndKnockOut"
+    WARRANT_KNOCK_OUT = "WarrantKnockOut"
+    ETF = "Etf"
+    TURBO = "MiniFuture"
+    STOCK = "Stock"
+    INDEX = "StockIndex"
+    CFDINDEX = "CfdOnIndex"
+
+    @staticmethod
+    def get_value(value):
+        for member in AssetType:
+            if member.value.lower() == value.lower():
+                return member
+        raise ValueError(f"Invalid string: {value}")
+
+    @staticmethod
+    def all_values():
+        return ",".join(AssetType)
+
+
 class Direction(StrEnum):
     BUY = "Buy"
     SELL = "Sell"
@@ -13,7 +34,7 @@ class Direction(StrEnum):
         for member in Direction:
             if member.value.lower() == value.lower():
                 return member
-        raise ValueError("Invalid string")
+        raise ValueError(f"Invalid string: {value}")
 
 
 class TriggerOrder(StrEnum):
@@ -25,7 +46,7 @@ class TriggerOrder(StrEnum):
         for member in TriggerOrder:
             if member.value.lower() == value.lower():
                 return member
-        raise ValueError("Invalid string")
+        raise ValueError(f"Invalid string: {value}")
 
 
 class OrderType(StrEnum):
@@ -40,7 +61,7 @@ class OrderType(StrEnum):
         for member in OrderType:
             if member.value.lower() == value.lower():
                 return member
-        raise ValueError("Invalid string")
+        raise ValueError(f"Invalid string: {value}")
 
 
 class Taxes:
@@ -124,6 +145,7 @@ class ReportOrder(Order):
         self,
         code: str,
         price: float,
+        date: datetime,
         name: str = "",
         quantity: int = 0,
         objective: Optional[float] = None,
@@ -136,7 +158,6 @@ class ReportOrder(Order):
         taxes: Optional[Taxes] = None,
         underlying: Optional[Underlying] = None,
         conditional: bool = False,
-        date: str = "",
     ) -> None:
         super().__init__(
             code,

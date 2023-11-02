@@ -8,6 +8,8 @@ from model import (
     ConditionalOrder,
     TriggerOrder,
     ReportOrder,
+    AssetType,
+    Underlying,
 )
 
 import requests
@@ -53,7 +55,7 @@ class SaxoClient:
 
     def _find_asset(self, keyword: str) -> Dict:
         response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes=Stock,MiniFuture,Etf,WarrantOpenEndKnockOut,StockIndex,CfdOnIndex&IncludeNonTradable=true"
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes={AssetType.all_values()}&IncludeNonTradable=true"
         )
         self._check_response(response)
         return response.json()["Data"]
@@ -62,7 +64,7 @@ class SaxoClient:
         response = self.session.get(f"{self.configuration.saxo_url}port/v1/balances/me")
         self._check_response(response)
         return response.json()["TotalValue"]
- 
+
     def get_open_orders(self) -> List:
         response = self.session.get(
             f"{self.configuration.saxo_url}port/v1/orders/me/?$top=50"
@@ -206,13 +208,64 @@ class SaxoClient:
         self._check_response(response)
         return response.json()
 
-    def get_report(self, account: Account, date: str) -> List[Order]:
+    def get_asset_detail(self, saxo_uic: int, asset_type: str) -> Dict:
+        asset_http = self.session.get(
+            f"{self.configuration.saxo_url}ref/v1/instruments/details?Uics={saxo_uic}&AssetTypes={asset_type}"
+        )
+        self._check_response(asset_http)
+        asset = asset_http.json()
+        if len(asset["Data"]) != 1:
+            raise SaxoException(f"Nothing found for {saxo_uic}")
+        return asset["Data"][0]
+
+    def get_report(self, account: Account, date: str) -> List[ReportOrder]:
         response = self.session.get(
             f"{self.configuration.saxo_url}cs/v1/audit/orderactivities/?ClientKey={account.client_key}&AccountKey={account.key}&status=FinalFill&FromDateTime={date}"
         )
         self._check_response(response)
         orders = []
+        for data in response.json()["Data"]:
+            date = datetime.fromisoformat(data["ActivityTime"])
+            asset = self.get_asset_detail(data["Uic"], data["AssetType"])
+            report_order = ReportOrder(
+                code=asset["Symbol"].split(":")[0],
+                price=data["AveragePrice"],
+                name=asset["Description"],
+                quantity=data["Amount"],
+                direction=Direction.get_value(data["BuySell"]),
+                asset_type=asset["AssetType"],
+                date=date,
+            )
+            if AssetType.get_value(data["AssetType"]) not in [
+                AssetType.STOCK,
+                AssetType.CFDINDEX,
+            ]:
+                underlying_asset_type = (
+                    asset["UnderlyingAssetType"]
+                    if "UnderlyingAssetType" in asset
+                    else None
+                )
+                underlying_close = self.get_historical_price(
+                    asset["UnderlyingUic"],
+                    asset_type=underlying_asset_type,
+                    date=date,
+                )
+                underlying = Underlying(price=underlying_close)
+                report_order.underlying = underlying
+            orders.append(report_order)
         return orders
+
+    def get_historical_price(
+        self, saxo_uic: int, date: datetime, asset_type: str
+    ) -> float:
+        response = self.session.get(
+            f"{self.configuration.saxo_url}chart/v1/charts/?Uic={saxo_uic}&AssetType={asset_type}&Horizon=1&Mode=From&Count=2&Time={date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        )
+        self._check_response(response)
+        data = response.json()["Data"]
+        if len(data) == 0:
+            return 0.0
+        return data[0]["Close"]
 
     @staticmethod
     def _check_response(response: Response) -> None:

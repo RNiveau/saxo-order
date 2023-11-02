@@ -3,7 +3,7 @@ import json
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from typing import Dict, List, Any
-from model import Order, Account, Taxes
+from model import Order, ReportOrder, Account, Taxes, Direction
 from datetime import datetime
 import locale
 
@@ -41,7 +41,11 @@ class GSheetClient:
         if order.taxes is None:
             order.taxes = Taxes(0, 0)
         locale.setlocale(locale.LC_ALL, "fr_FR")
-        now = datetime.now().strftime("%d/%m/%Y")
+        date = (
+            order.date.strftime("%d/%m/%Y")
+            if type(order) == ReportOrder
+            else datetime.now().strftime("%d/%m/%Y")
+        )
         number_rows = self._get_number_rows() + 1
         row = [
             order.name,
@@ -72,7 +76,7 @@ class GSheetClient:
             order.taxes.cost,
             order.taxes.taxes,
             f"=E{number_rows}+O{number_rows}+P{number_rows}",
-            now,
+            date,
             "CASH",
             "",
             "",
@@ -94,6 +98,52 @@ class GSheetClient:
             order.comment,
         ]
         return row
+
+    def update_order(self, account: Account, order: Order, line_to_update: int) -> Any:
+        locale.setlocale(locale.LC_ALL, "fr_FR")
+        if order.taxes is None:
+            order.taxes = Taxes(0, 0)
+        if order.direction == Direction.SELL:
+            requests = [
+                {
+                    "range": f"{self.sheet_name}!U{line_to_update}:Y{line_to_update}",
+                    "values": [
+                        [
+                            order.price,
+                            order.taxes.cost,
+                            f"=U{line_to_update}*D{line_to_update}",
+                            f"=U{line_to_update}*D{line_to_update}-V{line_to_update}",
+                            order.date.strftime("%d/%m/%Y"),
+                        ]
+                    ],
+                },
+                {
+                    "range": f"{self.sheet_name}!AC{line_to_update}:AG{line_to_update}",
+                    "values": [
+                        [
+                            f"=W{line_to_update}-E{line_to_update}",
+                            f"=AC{line_to_update}/E{line_to_update}",
+                            f"=X{line_to_update}-R{line_to_update}",
+                            f"=AE{line_to_update}/E{line_to_update}",
+                            f"=Y{line_to_update}-S{line_to_update}",
+                        ]
+                    ],
+                },
+            ]
+
+            # Batch update the specified ranges with new values
+            batch_update_request = {
+                "valueInputOption": "USER_ENTERED",
+                "data": requests,
+            }
+
+        result = (
+            self.client.spreadsheets()
+            .values()
+            .batchUpdate(spreadsheetId=self.spreadsheet_id, body=batch_update_request)
+            .execute()
+        )
+        return result
 
     def save_order(self, account: Account, order: Order) -> Any:
         result = (
