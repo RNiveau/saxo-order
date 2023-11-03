@@ -11,19 +11,26 @@ def select_account(client: SaxoClient) -> Account:
     accounts = client.get_accounts()
     if len(accounts["Data"]) > 1:
         prompt = "Select the account (select with ID):\n"
-        for account in accounts["Data"]:
+        for index, account in enumerate(accounts["Data"]):
             if "DisplayName" in account:
-                prompt += f"- {account['DisplayName']} | {account['AccountId']}\n"
+                prompt += (
+                    f"[{index + 1}] {account['DisplayName']} | {account['AccountId']}\n"
+                )
             else:
-                prompt += f"- NoName | {account['AccountId']}\n"
+                prompt += f"[{index + 1}] NoName | {account['AccountId']}\n"
         id = input(prompt)
     else:
         id = accounts["Data"][0]["AccountId"]
         print(f"Auto select account {id} as only one account is available")
-    account = list(filter(lambda x: x["AccountId"] == id, accounts["Data"]))
-    if len(account) != 1:
+    if "/" in id:
+        account = list(filter(lambda x: x["AccountId"] == id, accounts["Data"]))
+        if len(account) != 1:
+            raise SaxoException("Wrong account selection")
+        return client.get_account(account[0]["AccountKey"], account[0]["ClientKey"])
+    if int(id) < 1 or int(id) > len(accounts["Data"]):
         raise SaxoException("Wrong account selection")
-    return client.get_account(account[0]["AccountKey"], account[0]["ClientKey"])
+    account = accounts["Data"][int(id) - 1]
+    return client.get_account(account["AccountKey"], account["ClientKey"])
 
 
 def get_stop_objective(validate_input: bool) -> tuple:
