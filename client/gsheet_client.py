@@ -145,7 +145,7 @@ class GSheetClient:
         )
         return result
 
-    def save_order(self, account: Account, order: Order) -> Any:
+    def create_order(self, account: Account, order: Order) -> Any:
         result = (
             self.client.spreadsheets()
             .values()
@@ -163,7 +163,9 @@ class GSheetClient:
             int(result["updates"]["updatedRange"].split(":")[0].split("A")[1]) - 1
         )
         sheet_id = self._get_sheet_id()
-
+        background_color = (
+            None if type(order) == ReportOrder else {"red": 1, "green": 1, "blue": 0}
+        )
         requests: Any = [
             {
                 "repeatCell": {
@@ -175,9 +177,7 @@ class GSheetClient:
                         "endColumnIndex": 1,
                     },
                     "cell": {
-                        "userEnteredFormat": {
-                            "backgroundColor": {"red": 1, "green": 1, "blue": 0}
-                        }
+                        "userEnteredFormat": {"backgroundColor": background_color}
                     },
                     "fields": "userEnteredFormat.backgroundColor",
                 }

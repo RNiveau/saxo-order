@@ -95,6 +95,6 @@ def set_oco_order(
             key_path=configuration.gsheet_creds_path,
             spreadsheet_id=configuration.spreadsheet_id,
         )
-        result = gsheet_client.save_order(account, stop_order)
+        result = gsheet_client.create_order(account, stop_order)
         print(f"Row {result['updates']['updatedRange']} appended.")
         print(stop_order.csv())

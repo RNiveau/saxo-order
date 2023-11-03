@@ -51,7 +51,7 @@ def get_report(config: str, from_date: str, update_gsheet: bool):
             if create_or_update == "c":
                 order = orders[index - 1]
                 update_order(order=order, conditional_order=None, validate_input=False)
-                gsheet_client.save_order(account=account, order=order)
+                gsheet_client.create_order(account=account, order=order)
             else:
                 line_to_update = click.prompt(
                     "Which line needs to be updated ?", type=int
