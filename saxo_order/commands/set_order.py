@@ -85,6 +85,6 @@ def set_order(
             key_path=configuration.gsheet_creds_path,
             spreadsheet_id=configuration.spreadsheet_id,
         )
-        result = gsheet_client.save_order(account, order)
+        result = gsheet_client.create_order(account, order)
         print(f"Row {result['updates']['updatedRange']} appended.")
         print(order.csv())

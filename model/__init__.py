@@ -4,6 +4,27 @@ from enum import StrEnum
 import locale
 
 
+class AssetType(StrEnum):
+    WARRANT = "WarrantOpenEndKnockOut"
+    WARRANT_KNOCK_OUT = "WarrantKnockOut"
+    ETF = "Etf"
+    TURBO = "MiniFuture"
+    STOCK = "Stock"
+    INDEX = "StockIndex"
+    CFDINDEX = "CfdOnIndex"
+
+    @staticmethod
+    def get_value(value):
+        for member in AssetType:
+            if member.value.lower() == value.lower():
+                return member
+        raise ValueError(f"Invalid string: {value}")
+
+    @staticmethod
+    def all_values():
+        return ",".join(AssetType)
+
+
 class Direction(StrEnum):
     BUY = "Buy"
     SELL = "Sell"
@@ -13,7 +34,7 @@ class Direction(StrEnum):
         for member in Direction:
             if member.value.lower() == value.lower():
                 return member
-        raise ValueError("Invalid string")
+        raise ValueError(f"Invalid string: {value}")
 
 
 class TriggerOrder(StrEnum):
@@ -25,7 +46,7 @@ class TriggerOrder(StrEnum):
         for member in TriggerOrder:
             if member.value.lower() == value.lower():
                 return member
-        raise ValueError("Invalid string")
+        raise ValueError(f"Invalid string: {value}")
 
 
 class OrderType(StrEnum):
@@ -40,7 +61,7 @@ class OrderType(StrEnum):
         for member in OrderType:
             if member.value.lower() == value.lower():
                 return member
-        raise ValueError("Invalid string")
+        raise ValueError(f"Invalid string: {value}")
 
 
 class Taxes:
@@ -56,11 +77,13 @@ class Account:
         name: str,
         fund: float = 0,
         available_fund: float = 0,
+        client_key: str = "",
     ) -> None:
         self.key = key
         self.name = name
         self.fund = fund
         self.available_fund = available_fund
+        self.client_key = client_key
 
 
 class Underlying:
@@ -115,6 +138,50 @@ class Order:
         stop = self.stop if self.stop is not None else 0
         taxes = self.taxes if self.taxes is not None else Taxes(0, 0)
         return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;0;{stop:n};;;{objective:n};;;;{taxes.cost};{taxes.taxes};;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"
+
+
+class ReportOrder(Order):
+    def __init__(
+        self,
+        code: str,
+        price: float,
+        date: datetime,
+        open_position: bool,
+        name: str = "",
+        quantity: int = 0,
+        objective: Optional[float] = None,
+        stop: Optional[float] = None,
+        comment: Optional[str] = None,
+        strategy: Optional[str] = None,
+        direction: Optional[Direction] = None,
+        asset_type: str = "Stock",
+        type: OrderType = OrderType.LIMIT,
+        taxes: Optional[Taxes] = None,
+        underlying: Optional[Underlying] = None,
+        conditional: bool = False,
+        stopped: bool = False,
+        be_stopped: bool = False,
+    ) -> None:
+        super().__init__(
+            code,
+            price,
+            name,
+            quantity,
+            objective,
+            stop,
+            comment,
+            strategy,
+            direction,
+            asset_type,
+            type,
+            taxes,
+            underlying,
+            conditional,
+        )
+        self.date = date
+        self.stopped = stopped
+        self.be_stopped = be_stopped
+        self.open_position = open_position
 
 
 class ConditionalOrder:

@@ -8,10 +8,10 @@ def validate_ratio(order: Order) -> tuple:
         ratio = (order.underlying.objective - order.underlying.price) / (
             order.underlying.price - order.underlying.stop
         )
-        return ratio >= 1.5, ratio
+        return ratio >= 1.1, ratio
     if order.objective is not None and order.stop is not None:
         ratio = (order.objective - order.price) / (order.price - order.stop)
-        return ratio >= 1.5, ratio
+        return ratio >= 1.1, ratio
     return False, 0
 
 

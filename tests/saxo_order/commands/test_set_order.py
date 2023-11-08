@@ -59,8 +59,10 @@ class TestSetOrder:
             return_value={"Description": "", "AssetType": "Stock", "Identifier": 12345},
         )
         get_price = mocker.patch.object(saxo_service, "get_price", return_value=10.2)
-        save_order = mocker.patch.object(
-            gsheet_service, "save_order", return_value={"updates": {"updatedRange": 1}}
+        create_order = mocker.patch.object(
+            gsheet_service,
+            "create_order",
+            return_value={"updates": {"updatedRange": 1}},
         )
         result = runner.invoke(
             command.set_order,
@@ -82,7 +84,7 @@ class TestSetOrder:
         assert result.exit_code == 0
         assert validate_buy_order.call_count == expected[0]
         assert update_order.call_count == expected[1]
-        assert save_order.call_count == expected[2]
+        assert create_order.call_count == expected[2]
         assert get_price.call_count == expected[3]
         assert confirm_order.call_count == expected[4]
         assert get_conditional_order.call_count == expected[5]
