@@ -146,6 +146,7 @@ class ReportOrder(Order):
         code: str,
         price: float,
         date: datetime,
+        open_position: bool,
         name: str = "",
         quantity: int = 0,
         objective: Optional[float] = None,
@@ -158,6 +159,8 @@ class ReportOrder(Order):
         taxes: Optional[Taxes] = None,
         underlying: Optional[Underlying] = None,
         conditional: bool = False,
+        stopped: bool = False,
+        be_stopped: bool = False,
     ) -> None:
         super().__init__(
             code,
@@ -176,6 +179,9 @@ class ReportOrder(Order):
             conditional,
         )
         self.date = date
+        self.stopped = stopped
+        self.be_stopped = be_stopped
+        self.open_position = open_position
 
 
 class ConditionalOrder:

@@ -1,12 +1,13 @@
 import pytest
 
 from client.gsheet_client import GSheetClient
-from model import Account, Order, OrderType, Direction, Taxes, Underlying
+from model import Account, Order, ReportOrder, AssetType, Direction, Taxes, Underlying
+from datetime import datetime
 
 
 class MockGsheetClient(GSheetClient):
     def __init__(self) -> None:
-        pass
+        self.sheet_name = ""
 
     def _get_number_rows(self) -> int:
         return 1
@@ -75,3 +76,129 @@ class TestGsheetClient:
         assert row[26] == "name"
         assert row[27] is None
         assert row[37] == "comment"
+
+    def test_update_order_open_buy(self):
+        client = MockGsheetClient()
+        requests = client._generate_open_position_update(
+            ReportOrder(
+                code="code",
+                name="name",
+                price=10,
+                quantity=11,
+                stop=9,
+                comment="comment",
+                objective=12,
+                taxes=Taxes(5, 10),
+                date=datetime.strptime("2023/01/10", "%Y/%m/%d"),
+                open_position=True,
+            ),
+            1,
+        )
+        assert len(requests) == 4
+        assert requests[0]["values"][0][0] == 10
+        assert requests[0]["values"][0][1] == 11
+        assert requests[0]["values"][0][2] == "=C1*D1"
+        assert requests[0]["values"][0][3] == ""
+
+        assert requests[1]["values"][0][0] == 9
+
+        assert requests[2]["values"][0][0] == 12
+        assert requests[2]["values"][0][1] == "=(L1-C1)/(C1-I1)"
+
+        assert requests[3]["values"][0][0] == 5
+        assert requests[3]["values"][0][1] == 10
+        assert requests[3]["values"][0][2] == "=E1+O1+P1"
+        assert requests[3]["values"][0][3] == "10/01/2023"
+        assert requests[3]["values"][0][4] == "CASH"
+
+    def test_update_order_cdf_open_sell(self):
+        client = MockGsheetClient()
+        requests = client._generate_open_position_update(
+            ReportOrder(
+                code="code",
+                name="name",
+                price=10,
+                quantity=11,
+                stop=9,
+                comment="comment",
+                objective=12,
+                taxes=Taxes(5, 10),
+                date=datetime.strptime("2023/01/10", "%Y/%m/%d"),
+                open_position=True,
+                direction=Direction.SELL,
+                asset_type=AssetType.CFDINDEX,
+            ),
+            1,
+        )
+        assert len(requests) == 4
+        assert requests[3]["values"][0][4] == "CFD"
+
+    def test_update_order_close_sell(self):
+        client = MockGsheetClient()
+        requests = client._generate_close_position_update(
+            ReportOrder(
+                code="code",
+                name="name",
+                price=10,
+                quantity=11,
+                stop=9,
+                comment="comment",
+                objective=12,
+                taxes=Taxes(5, 10),
+                date=datetime.strptime("2023/01/10", "%Y/%m/%d"),
+                open_position=False,
+                direction=Direction.SELL,
+                stopped=True,
+            ),
+            1,
+        )
+        assert len(requests) == 3
+        assert requests[0]["values"][0][0] == 1
+        assert requests[0]["values"][0][1] == None
+
+        assert requests[1]["values"][0][0] == 10
+        assert requests[1]["values"][0][1] == 5
+        assert requests[1]["values"][0][2] == "=U1*D1"
+        assert requests[1]["values"][0][3] == "=U1*D1-V1"
+        assert requests[1]["values"][0][4] == "10/01/2023"
+
+        assert requests[2]["values"][0][0] == "=W1-E1"
+        assert requests[2]["values"][0][1] == "=AC1/E1"
+        assert requests[2]["values"][0][2] == "=X1-R1"
+        assert requests[2]["values"][0][3] == "=AE1/E1"
+        assert requests[2]["values"][0][4] == "=Y1-S1"
+
+    def test_update_order_close_buy(self):
+        client = MockGsheetClient()
+        requests = client._generate_close_position_update(
+            ReportOrder(
+                code="code",
+                name="name",
+                price=10,
+                quantity=11,
+                stop=9,
+                comment="comment",
+                objective=12,
+                taxes=Taxes(5, 10),
+                date=datetime.strptime("2023/01/10", "%Y/%m/%d"),
+                open_position=False,
+                direction=Direction.BUY,
+                be_stopped=True,
+            ),
+            1,
+        )
+        assert len(requests) == 3
+        assert requests[0]["values"][0][0] == None
+        assert requests[0]["values"][0][1] == 1
+
+        assert requests[1]["values"][0][0] == 10
+        assert requests[1]["values"][0][1] == 5
+        assert requests[1]["values"][0][2] == "=U1*D1"
+        assert requests[1]["values"][0][3] == "=U1*D1-V1"
+        assert requests[1]["values"][0][4] == "10/01/2023"
+
+        assert requests[2]["values"][0][0] == "=E1-W1"
+        assert requests[2]["values"][0][1] == "=AC1/E1"
+        assert requests[2]["values"][0][2] == "=X1-R1"
+        assert requests[2]["values"][0][3] == "=AE1/E1"
+        assert requests[2]["values"][0][4] == "=Y1-S1"

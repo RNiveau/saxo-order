@@ -48,16 +48,30 @@ def get_report(config: str, from_date: str, update_gsheet: bool):
             create_or_update = click.prompt(
                 "Create or update ?", type=click.Choice(["c", "u"])
             )
+            order = orders[index - 1]
             if create_or_update == "c":
-                order = orders[index - 1]
                 update_order(order=order, conditional_order=None, validate_input=False)
                 gsheet_client.create_order(account=account, order=order)
             else:
                 line_to_update = click.prompt(
                     "Which line needs to be updated ?", type=int
                 )
+                order.open_position = click.prompt(
+                    "This update open a position ?", type=bool, default=False
+                )
+                if order.open_position:
+                    update_order(
+                        order=order, conditional_order=None, validate_input=False
+                    )
+                else:
+                    order.stopped = click.prompt(
+                        "Has the order been stopped ?", type=bool, default=False
+                    )
+                    order.be_stopped = click.prompt(
+                        "Has the order been BE stopped ?", type=bool, default=False
+                    )
                 gsheet_client.update_order(
                     account=account,
-                    order=orders[index - 1],
+                    order=order,
                     line_to_update=line_to_update,
                 )
