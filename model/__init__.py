@@ -146,7 +146,6 @@ class ReportOrder(Order):
         code: str,
         price: float,
         date: datetime,
-        open_position: bool,
         name: str = "",
         quantity: int = 0,
         objective: Optional[float] = None,
@@ -161,6 +160,7 @@ class ReportOrder(Order):
         conditional: bool = False,
         stopped: bool = False,
         be_stopped: bool = False,
+        open_position: bool = True,
     ) -> None:
         super().__init__(
             code,

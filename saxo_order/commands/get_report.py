@@ -6,6 +6,7 @@ from utils.configuration import Configuration
 from utils.exception import SaxoException
 from saxo_order.commands import catch_exception, config_option
 from saxo_order.commands.input_helper import select_account, update_order
+from saxo_order.service import calculate_taxes
 
 
 @config_option
@@ -64,6 +65,7 @@ def get_report(config: str, from_date: str, update_gsheet: bool):
                         order=order, conditional_order=None, validate_input=False
                     )
                 else:
+                    order.taxes = calculate_taxes(order)
                     order.stopped = click.prompt(
                         "Has the order been stopped ?", type=bool, default=False
                     )
@@ -71,7 +73,6 @@ def get_report(config: str, from_date: str, update_gsheet: bool):
                         "Has the order been BE stopped ?", type=bool, default=False
                     )
                 gsheet_client.update_order(
-                    account=account,
                     order=order,
                     line_to_update=line_to_update,
                 )

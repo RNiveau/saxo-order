@@ -138,25 +138,31 @@ class GSheetClient:
         )
         return result
 
-    def _generate_open_position_update(self, order, line_to_update):
-        return [
+    def _generate_open_position_update(self, order: ReportOrder, line_to_update: int):
+        requests = [
             {
                 "range": f"{self.sheet_name}!C{line_to_update}:F{line_to_update}",
                 "values": [self._generate_c_f_block(order, line_to_update)],
-            },
-            {
-                "range": f"{self.sheet_name}!I{line_to_update}",
-                "values": [self._generate_i_column(order)],
-            },
-            {
-                "range": f"{self.sheet_name}!L{line_to_update}:M{line_to_update}",
-                "values": [self._generate_l_m_block(order, line_to_update)],
             },
             {
                 "range": f"{self.sheet_name}!P{line_to_update}:T{line_to_update}",
                 "values": [self._generate_p_t_block(order, line_to_update)],
             },
         ]
+        if order.stop is not None and order.objective is not None:
+            requests.append(
+                {
+                    "range": f"{self.sheet_name}!L{line_to_update}:M{line_to_update}",
+                    "values": [self._generate_l_m_block(order, line_to_update)],
+                }
+            )
+            requests.append(
+                {
+                    "range": f"{self.sheet_name}!I{line_to_update}",
+                    "values": [self._generate_i_column(order)],
+                }
+            )
+        return requests
 
     def _generate_close_position_update(self, order, line_to_update):
         return [

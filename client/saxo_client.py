@@ -233,25 +233,26 @@ class SaxoClient:
                 name=asset["Description"],
                 quantity=data["Amount"],
                 direction=Direction.get_value(data["BuySell"]),
-                asset_type=asset["AssetType"],
+                asset_type=AssetType.get_value(asset["AssetType"]),
                 date=date,
             )
-            if AssetType.get_value(data["AssetType"]) not in [
+            if report_order.asset_type not in [
                 AssetType.STOCK,
                 AssetType.CFDINDEX,
             ]:
-                underlying_asset_type = (
-                    asset["UnderlyingAssetType"]
-                    if "UnderlyingAssetType" in asset
-                    else None
-                )
-                underlying_close = self.get_historical_price(
-                    asset["UnderlyingUic"],
-                    asset_type=underlying_asset_type,
-                    date=date,
-                )
-                underlying = Underlying(price=underlying_close)
-                report_order.underlying = underlying
+                if "UnderlyingUic" in asset:
+                    underlying_asset_type = (
+                        asset["UnderlyingAssetType"]
+                        if "UnderlyingAssetType" in asset
+                        else None
+                    )
+                    underlying_close = self.get_historical_price(
+                        asset["UnderlyingUic"],
+                        asset_type=underlying_asset_type,
+                        date=date,
+                    )
+                    underlying = Underlying(price=underlying_close)
+                    report_order.underlying = underlying
             orders.append(report_order)
         return orders
 
@@ -261,6 +262,9 @@ class SaxoClient:
         response = self.session.get(
             f"{self.configuration.saxo_url}chart/v1/charts/?Uic={saxo_uic}&AssetType={asset_type}&Horizon=1&Mode=From&Count=2&Time={date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         )
+        if response.status_code == 403:
+            print(f"Can't rertrieve information for {saxo_uic} {asset_type}")
+            return 0.0
         self._check_response(response)
         data = response.json()["Data"]
         if len(data) == 0:

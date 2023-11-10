@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from model import Account, Order, Taxes
+from model import Account, Order, Taxes, AssetType
 
 
 def validate_ratio(order: Order) -> tuple:
@@ -55,7 +55,7 @@ def calculate_taxes(order: Order) -> Taxes:
     cost = 2.5
     if total >= 1000:
         cost = 5
-    taxes = 0.003 * total
+    taxes = 0.003 * total if order.asset_type == AssetType.STOCK else 0
     return Taxes(cost, taxes)
 
 

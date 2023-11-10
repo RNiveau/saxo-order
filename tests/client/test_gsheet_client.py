@@ -100,16 +100,43 @@ class TestGsheetClient:
         assert requests[0]["values"][0][2] == "=C1*D1"
         assert requests[0]["values"][0][3] == ""
 
-        assert requests[1]["values"][0][0] == 9
+        assert requests[1]["values"][0][0] == 5
+        assert requests[1]["values"][0][1] == 10
+        assert requests[1]["values"][0][2] == "=E1+O1+P1"
+        assert requests[1]["values"][0][3] == "10/01/2023"
+        assert requests[1]["values"][0][4] == "CASH"
 
         assert requests[2]["values"][0][0] == 12
         assert requests[2]["values"][0][1] == "=(L1-C1)/(C1-I1)"
 
-        assert requests[3]["values"][0][0] == 5
-        assert requests[3]["values"][0][1] == 10
-        assert requests[3]["values"][0][2] == "=E1+O1+P1"
-        assert requests[3]["values"][0][3] == "10/01/2023"
-        assert requests[3]["values"][0][4] == "CASH"
+        assert requests[3]["values"][0][0] == 9
+
+    def test_update_order_open_buy_without_stop(self):
+        client = MockGsheetClient()
+        requests = client._generate_open_position_update(
+            ReportOrder(
+                code="code",
+                name="name",
+                price=10,
+                quantity=11,
+                comment="comment",
+                taxes=Taxes(5, 10),
+                date=datetime.strptime("2023/01/10", "%Y/%m/%d"),
+                open_position=True,
+            ),
+            1,
+        )
+        assert len(requests) == 2
+        assert requests[0]["values"][0][0] == 10
+        assert requests[0]["values"][0][1] == 11
+        assert requests[0]["values"][0][2] == "=C1*D1"
+        assert requests[0]["values"][0][3] == ""
+
+        assert requests[1]["values"][0][0] == 5
+        assert requests[1]["values"][0][1] == 10
+        assert requests[1]["values"][0][2] == "=E1+O1+P1"
+        assert requests[1]["values"][0][3] == "10/01/2023"
+        assert requests[1]["values"][0][4] == "CASH"
 
     def test_update_order_cdf_open_sell(self):
         client = MockGsheetClient()
@@ -131,7 +158,7 @@ class TestGsheetClient:
             1,
         )
         assert len(requests) == 4
-        assert requests[3]["values"][0][4] == "CFD"
+        assert requests[1]["values"][0][4] == "CFD"
 
     def test_update_order_close_sell(self):
         client = MockGsheetClient()
