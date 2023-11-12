@@ -104,7 +104,7 @@ class Order:
         code: str,
         price: float,
         name: str = "",
-        quantity: int = 0,
+        quantity: float = 0,
         objective: Optional[float] = None,
         stop: Optional[float] = None,
         comment: Optional[str] = None,
@@ -131,14 +131,6 @@ class Order:
         self.underlying = underlying
         self.conditional = conditional
 
-    def csv(self):
-        locale.setlocale(locale.LC_ALL, "fr_FR")
-        now = datetime.now().strftime("%d/%m/%Y")
-        objective = self.objective if self.objective is not None else 0
-        stop = self.stop if self.stop is not None else 0
-        taxes = self.taxes if self.taxes is not None else Taxes(0, 0)
-        return f"{self.name};{self.code.upper()};{self.price:n};{self.quantity};;;0;{stop:n};;;{objective:n};;;;{taxes.cost};{taxes.taxes};;{now};;;;;;;Achat;;{self.strategy};;;;;;;;;;{self.comment}"
-
 
 class ReportOrder(Order):
     def __init__(
@@ -147,7 +139,7 @@ class ReportOrder(Order):
         price: float,
         date: datetime,
         name: str = "",
-        quantity: int = 0,
+        quantity: float = 0,
         objective: Optional[float] = None,
         stop: Optional[float] = None,
         comment: Optional[str] = None,

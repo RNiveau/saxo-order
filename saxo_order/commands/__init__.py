@@ -46,7 +46,7 @@ def command_common_options(func):
     )(func)
     func = click.option(
         "--quantity",
-        type=int,
+        type=float,
         required=True,
         help="The wanted quantity of stocks",
         prompt="What is the quantity of product ?",

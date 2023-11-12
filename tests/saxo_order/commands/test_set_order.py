@@ -21,7 +21,7 @@ class TestSetOrder:
         self,
         price: float,
         code: str,
-        quantity: int,
+        quantity: float,
         order_type: str,
         direction: str,
         conditional: str,

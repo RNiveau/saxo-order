@@ -56,6 +56,8 @@ def calculate_taxes(order: Order) -> Taxes:
     if total >= 1000:
         cost = 5
     taxes = 0.003 * total if order.asset_type == AssetType.STOCK else 0
+    if order.asset_type == AssetType.CFDINDEX:
+        cost = 0
     return Taxes(cost, taxes)
 
 

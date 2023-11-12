@@ -99,15 +99,15 @@ class TestSaxoClient:
             (
                 12345,
                 10,
-                9,
+                9.5,
                 OrderType.MARKET,
                 Direction.BUY,
                 8,
                 ConditionalOrder(
-                    1, trigger=TriggerOrder.BELLOW, price=40, asset_type="ETF"
+                    1, trigger=TriggerOrder.BELLOW, price=40.7, asset_type="ETF"
                 ),
                 {
-                    "Amount": 9,
+                    "Amount": 9.5,
                     "Uic": 12345,
                     "OrderType": "Market",
                     "OrderDuration": {"DurationType": "DayOrder"},
@@ -122,7 +122,7 @@ class TestSaxoClient:
                             "Uic": 1,
                             "OrderDuration": {"DurationType": "GoodTillCancel"},
                             "TriggerOrderData": {
-                                "LowerPrice": 40,
+                                "LowerPrice": 40.7,
                                 "PriceType": "LastTraded",
                             },
                         }
@@ -169,7 +169,7 @@ class TestSaxoClient:
         self,
         stock_code: int,
         price: float,
-        quantity: int,
+        quantity: float,
         type: OrderType,
         direction: Direction,
         stop_price: float,

@@ -97,4 +97,3 @@ def set_oco_order(
         )
         result = gsheet_client.create_order(account, stop_order)
         print(f"Row {result['updates']['updatedRange']} appended.")
-        print(stop_order.csv())

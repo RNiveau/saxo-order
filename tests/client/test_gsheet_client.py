@@ -118,7 +118,7 @@ class TestGsheetClient:
                 code="code",
                 name="name",
                 price=10,
-                quantity=11,
+                quantity=11.11,
                 comment="comment",
                 taxes=Taxes(5, 10),
                 date=datetime.strptime("2023/01/10", "%Y/%m/%d"),
@@ -128,7 +128,7 @@ class TestGsheetClient:
         )
         assert len(requests) == 2
         assert requests[0]["values"][0][0] == 10
-        assert requests[0]["values"][0][1] == 11
+        assert requests[0]["values"][0][1] == 11.11
         assert requests[0]["values"][0][2] == "=C1*D1"
         assert requests[0]["values"][0][3] == ""
 

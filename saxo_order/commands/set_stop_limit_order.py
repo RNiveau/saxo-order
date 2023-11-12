@@ -61,4 +61,3 @@ def set_stop_limit_order(config, limit_price, stop_price, code, country_code, qu
     )
     result = gsheet_client.create_order(account, order)
     print(f"Row {result['updates']['updatedRange']} appended.")
-    print(order.csv())

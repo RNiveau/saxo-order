@@ -38,7 +38,7 @@ class TestValiderOrder:
         [(10, 9, 1000, True), (10, 1, 100, False)],
     )
     def test_validate_max_order(
-        self, price: float, quantity: int, total_amount: float, expected: bool
+        self, price: float, quantity: float, total_amount: float, expected: bool
     ):
         assert (
             service.validate_max_order(
@@ -101,13 +101,22 @@ class TestValiderOrder:
                 ],
                 False,
             ),
+            (
+                100,
+                0.5,
+                100,
+                [
+                    {"AccountKey": "key", "BuySell": "Buy", "Amount": 10, "Price": 4},
+                ],
+                True,
+            ),
         ],
     )
     def test_validate_fund(
         self,
         fund: float,
         price: float,
-        quantity: int,
+        quantity: float,
         open_orders: List,
         expected: bool,
     ):

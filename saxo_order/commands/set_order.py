@@ -87,4 +87,3 @@ def set_order(
         )
         result = gsheet_client.create_order(account, order)
         print(f"Row {result['updates']['updatedRange']} appended.")
-        print(order.csv())
