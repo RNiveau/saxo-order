@@ -43,7 +43,7 @@ class TestGsheetClient:
         assert row[17] == "=E2+O2+P2"
         assert row[26] == "name"
         assert row[27] is None
-        assert row[37] == "comment"
+        assert row[38] == "comment"
 
     def test_underlying_generate_row(self):
         client = MockGsheetClient()
@@ -75,7 +75,7 @@ class TestGsheetClient:
         assert row[17] == "=E2+O2+P2"
         assert row[26] == "name"
         assert row[27] is None
-        assert row[37] == "comment"
+        assert row[38] == "comment"
 
     def test_update_order_open_buy(self):
         client = MockGsheetClient()
@@ -190,9 +190,9 @@ class TestGsheetClient:
         assert requests[1]["values"][0][4] == "10/01/2023"
 
         assert requests[2]["values"][0][0] == "=W1-E1"
-        assert requests[2]["values"][0][1] == "=AC1/E1"
+        assert requests[2]["values"][0][1] == "=AD1/E1"
         assert requests[2]["values"][0][2] == "=X1-R1"
-        assert requests[2]["values"][0][3] == "=AE1/E1"
+        assert requests[2]["values"][0][3] == "=AF1/E1"
         assert requests[2]["values"][0][4] == "=Y1-S1"
 
     def test_update_order_close_buy(self):
@@ -225,7 +225,7 @@ class TestGsheetClient:
         assert requests[1]["values"][0][4] == "10/01/2023"
 
         assert requests[2]["values"][0][0] == "=E1-W1"
-        assert requests[2]["values"][0][1] == "=AC1/E1"
+        assert requests[2]["values"][0][1] == "=AD1/E1"
         assert requests[2]["values"][0][2] == "=X1-R1"
-        assert requests[2]["values"][0][3] == "=AE1/E1"
+        assert requests[2]["values"][0][3] == "=AF1/E1"
         assert requests[2]["values"][0][4] == "=Y1-S1"

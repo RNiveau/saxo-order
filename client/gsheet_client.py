@@ -113,6 +113,7 @@ class GSheetClient:
             "",
             "",
             "",
+            "",
             order.comment,
         ]
         return row
@@ -188,15 +189,15 @@ class GSheetClient:
                 ],
             },
             {
-                "range": f"{self.sheet_name}!AC{line_to_update}:AG{line_to_update}",
+                "range": f"{self.sheet_name}!AD{line_to_update}:AH{line_to_update}",
                 "values": [
                     [
                         f"=W{line_to_update}-E{line_to_update}"
                         if order.direction == Direction.SELL
                         else f"=E{line_to_update}-W{line_to_update}",
-                        f"=AC{line_to_update}/E{line_to_update}",
+                        f"=AD{line_to_update}/E{line_to_update}",
                         f"=X{line_to_update}-R{line_to_update}",
-                        f"=AE{line_to_update}/E{line_to_update}",
+                        f"=AF{line_to_update}/E{line_to_update}",
                         f"=Y{line_to_update}-S{line_to_update}",
                     ]
                 ],
