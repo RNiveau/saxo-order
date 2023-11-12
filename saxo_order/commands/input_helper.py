@@ -20,8 +20,8 @@ def select_account(client: SaxoClient) -> Account:
                 prompt += f"[{index + 1}] NoName | {account['AccountId']}\n"
         id = input(prompt)
     else:
-        id = accounts["Data"][0]["AccountId"]
-        print(f"Auto select account {id} as only one account is available")
+        id = "1"
+        print(f"Auto select account {accounts['Data'][0]['AccountId']} as only one account is available")
     if "/" in id:
         account = list(filter(lambda x: x["AccountId"] == id, accounts["Data"]))
         if len(account) != 1:
