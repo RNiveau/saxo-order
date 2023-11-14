@@ -16,6 +16,7 @@ import requests
 from requests import Response
 from requests.adapters import HTTPAdapter, Retry
 from datetime import datetime
+import time
 
 from typing import Dict, List, Optional, Any
 
@@ -239,6 +240,7 @@ class SaxoClient:
             if report_order.asset_type not in [
                 AssetType.STOCK,
                 AssetType.CFDINDEX,
+                AssetType.CFDFUTURE,
             ]:
                 if "UnderlyingUic" in asset:
                     underlying_asset_type = (
@@ -275,6 +277,17 @@ class SaxoClient:
     def _check_response(response: Response) -> None:
         if response.status_code == 401:
             raise SaxoException("The access_token is expired")
+        if (
+            "X-RateLimit-RefDataInstrumentsMinute-Remaining" in response.headers
+            and int(response.headers["X-RateLimit-RefDataInstrumentsMinute-Remaining"])
+            <= 1
+        ):
+            print(
+                f"Rate limiting: wait {response.headers['X-RateLimit-RefDataInstrumentsMinute-Reset']}"
+            )
+            time.sleep(
+                int(response.headers["X-RateLimit-RefDataInstrumentsMinute-Reset"]) + 1
+            )
         json = response.json()
         if "ErrorInfo" in json:
             raise SaxoException(json["ErrorInfo"]["Message"])

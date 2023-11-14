@@ -34,7 +34,11 @@ class GSheetClient:
             if type(order) == ReportOrder
             else datetime.now().strftime("%d/%m/%Y")
         )
-        typ = "CASH" if order.asset_type != AssetType.CFDINDEX else "CFD"
+        typ = (
+            "CASH"
+            if order.asset_type not in [AssetType.CFDINDEX, AssetType.CFDFUTURE]
+            else "CFD"
+        )
         return [
             order.taxes.cost,
             order.taxes.taxes,

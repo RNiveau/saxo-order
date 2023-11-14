@@ -12,6 +12,7 @@ class AssetType(StrEnum):
     STOCK = "Stock"
     INDEX = "StockIndex"
     CFDINDEX = "CfdOnIndex"
+    CFDFUTURE = "CfdOnFutures"
 
     @staticmethod
     def get_value(value):

@@ -21,7 +21,9 @@ def select_account(client: SaxoClient) -> Account:
         id = input(prompt)
     else:
         id = "1"
-        print(f"Auto select account {accounts['Data'][0]['AccountId']} as only one account is available")
+        print(
+            f"Auto select account {accounts['Data'][0]['AccountId']} as only one account is available"
+        )
     if "/" in id:
         account = list(filter(lambda x: x["AccountId"] == id, accounts["Data"]))
         if len(account) != 1:
