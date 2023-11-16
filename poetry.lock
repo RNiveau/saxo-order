@@ -213,13 +213,13 @@ uritemplate = ">=3.0.1,<5"
 
 [[package]]
 name = "google-api-python-client-stubs"
-version = "1.20.1"
+version = "1.21.0"
 description = "Type stubs for google-api-python-client"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "google_api_python_client_stubs-1.20.1-py3-none-any.whl", hash = "sha256:3e1df5c8aab8b62097c1ac2ce7b76f25c0267db4118a392fd2957ff3990cf39d"},
-    {file = "google_api_python_client_stubs-1.20.1.tar.gz", hash = "sha256:4cf954f23089ccee7c04a24db0f3f86f9126584a15f166d543581f5e9669900f"},
+    {file = "google_api_python_client_stubs-1.21.0-py3-none-any.whl", hash = "sha256:4bc212c2e3fbd1cd19bef3ccf3011e248ebf329015d6c0cc5d87b6191234dc83"},
+    {file = "google_api_python_client_stubs-1.21.0.tar.gz", hash = "sha256:1743533bb85d59efe9f88601eeaf0a9d9b79e8796039622febfa285865e9be2e"},
 ]
 
 [package.dependencies]
@@ -841,4 +841,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "539423f67e77f21cb2924ce5d50e1afa69259d9601f141c19de05639230eed32"
+content-hash = "c45fe6682739c2e5199892cfdec63d79073ad186d4eb25f9fa28dd3aa7d984ef"
