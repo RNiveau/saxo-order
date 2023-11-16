@@ -226,6 +226,6 @@ class TestGsheetClient:
 
         assert requests[2]["values"][0][0] == "=E1-W1"
         assert requests[2]["values"][0][1] == "=AD1/E1"
-        assert requests[2]["values"][0][2] == "=X1-R1"
+        assert requests[2]["values"][0][2] == "=R1-X1"
         assert requests[2]["values"][0][3] == "=AF1/E1"
         assert requests[2]["values"][0][4] == "=Y1-S1"

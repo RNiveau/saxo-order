@@ -200,7 +200,9 @@ class GSheetClient:
                         if order.direction == Direction.SELL
                         else f"=E{line_to_update}-W{line_to_update}",
                         f"=AD{line_to_update}/E{line_to_update}",
-                        f"=X{line_to_update}-R{line_to_update}",
+                        f"=R{line_to_update}-X{line_to_update}"
+                        if order.direction == Direction.BUY
+                        else f"=X{line_to_update}-R{line_to_update}",
                         f"=AF{line_to_update}/E{line_to_update}",
                         f"=Y{line_to_update}-S{line_to_update}",
                     ]
