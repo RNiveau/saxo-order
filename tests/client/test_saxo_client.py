@@ -180,6 +180,7 @@ class TestSaxoClient:
         mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json = lambda: {}
+        mock_response.headers = {}
         mocker.patch.object(requests.Session, "post", return_value=mock_response)
         client = SaxoClient(configuration=MockConfiguration())
         expected.update(

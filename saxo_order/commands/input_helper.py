@@ -1,7 +1,7 @@
 import click
 
 from client.saxo_client import SaxoClient
-from model import Account, Order, Underlying, ConditionalOrder, TriggerOrder
+from model import Account, Order, Underlying, ConditionalOrder, TriggerOrder, AssetType
 from saxo_order.service import apply_rules, calculate_taxes, get_lost, get_earn
 from utils.exception import SaxoException
 from typing import Optional
@@ -64,7 +64,12 @@ def update_order(
     conditional_order: Optional[ConditionalOrder] = None,
     validate_input: bool = True,
 ) -> None:
-    if order.asset_type != "Stock" or conditional_order is not None:
+    with_underlying = (
+        order.asset_type
+        not in [AssetType.STOCK, AssetType.CFDFUTURE, AssetType.CFDINDEX]
+        or conditional_order is not None
+    )
+    if with_underlying:
         if conditional_order is None:
             price = click.prompt("What is the price of the underlying ?", type=float)
         else:
@@ -73,7 +78,7 @@ def update_order(
     stop, objective = get_stop_objective(validate_input)
     order.stop = stop
     order.objective = objective
-    if order.asset_type != "Stock" or conditional_order is not None:
+    if with_underlying:
         underlying.stop = stop
         underlying.objective = objective
         order.underlying = underlying
