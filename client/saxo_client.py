@@ -10,6 +10,7 @@ from model import (
     ReportOrder,
     AssetType,
     Underlying,
+    Currency,
 )
 
 import requests
@@ -36,7 +37,7 @@ class SaxoClient:
         self.session.mount("https://", adapter)
 
     def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
-        symbol = f"{code}:{market}" if market is not None else code
+        symbol = f"{code}:{market}" if market is not None and market != "" else code
         data = self._find_asset(symbol)
         data = list(filter(lambda x: x["Symbol"].lower() == symbol.lower(), data))
         if len(data) > 1:
@@ -235,6 +236,7 @@ class SaxoClient:
                 quantity=data["Amount"],
                 direction=Direction.get_value(data["BuySell"]),
                 asset_type=AssetType.get_value(asset["AssetType"]),
+                currency=Currency.get_value(asset["CurrencyCode"]),
                 date=date,
             )
             if report_order.asset_type not in [

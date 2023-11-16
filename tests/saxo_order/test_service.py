@@ -2,7 +2,7 @@ import pytest
 from typing import List
 
 import saxo_order.service as service
-from model import Account, Order, Underlying
+from model import Account, Order, Underlying, Currency
 
 
 class TestValiderOrder:
@@ -142,3 +142,35 @@ class TestValiderOrder:
             )
             == "Earn: 20 (20.00 %) (0.20 % of funds)"
         )
+
+    def test_calculate_currency(self):
+        order = service.calculate_currency(Order("", 10), 0.5)
+        assert order.price == 10
+
+        order = service.calculate_currency(Order("", 10, currency=Currency.USD), 0.5)
+        assert order.price == 5
+
+        order = service.calculate_currency(
+            Order("", 10, stop=5, objective=15, currency=Currency.USD), 0.5
+        )
+        assert order.price == 5
+        assert order.stop == 2.5
+        assert order.objective == 7.5
+
+        order = service.calculate_currency(
+            Order(
+                "",
+                10,
+                stop=5,
+                objective=15,
+                underlying=Underlying(100, 50, 150),
+                currency=Currency.USD,
+            ),
+            0.5,
+        )
+        assert order.price == 5
+        assert order.stop == 2.5
+        assert order.objective == 7.5
+        assert order.underlying.price == 50
+        assert order.underlying.stop == 25
+        assert order.underlying.objective == 75

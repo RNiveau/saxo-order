@@ -37,3 +37,7 @@ class Configuration:
     @property
     def gsheet_creds_path(self) -> str:
         return "gsheet-creds.json"
+
+    @property
+    def usdeur_rate(self) -> float:
+        return float(self.config["usdeur_rate"])

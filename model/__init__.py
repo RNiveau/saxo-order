@@ -1,7 +1,18 @@
 from typing import Optional
 from datetime import datetime
 from enum import StrEnum
-import locale
+
+
+class Currency(StrEnum):
+    EURO = "EUR"
+    USD = "USD"
+
+    @staticmethod
+    def get_value(value):
+        for member in Currency:
+            if member.value.lower() == value.lower():
+                return member
+        raise ValueError(f"Invalid string: {value}")
 
 
 class AssetType(StrEnum):
@@ -116,6 +127,7 @@ class Order:
         taxes: Optional[Taxes] = None,
         underlying: Optional[Underlying] = None,
         conditional: bool = False,
+        currency: Currency = Currency.EURO,
     ) -> None:
         self.code = code
         self.price = price
@@ -131,6 +143,7 @@ class Order:
         self.taxes = taxes
         self.underlying = underlying
         self.conditional = conditional
+        self.currency = currency
 
 
 class ReportOrder(Order):
@@ -151,6 +164,7 @@ class ReportOrder(Order):
         taxes: Optional[Taxes] = None,
         underlying: Optional[Underlying] = None,
         conditional: bool = False,
+        currency: Currency = Currency.EURO,
         stopped: bool = False,
         be_stopped: bool = False,
         open_position: bool = True,
@@ -170,6 +184,7 @@ class ReportOrder(Order):
             taxes,
             underlying,
             conditional,
+            currency,
         )
         self.date = date
         self.stopped = stopped

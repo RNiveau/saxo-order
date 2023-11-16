@@ -12,7 +12,8 @@ from saxo_order.commands.input_helper import (
     get_conditional_order,
 )
 from saxo_order.commands import catch_exception, config_option, command_common_options
-from model import Order, OrderType, Direction, ConditionalOrder, TriggerOrder
+from model import Order, OrderType, Direction, ConditionalOrder, TriggerOrder, Currency
+from saxo_order.service import calculate_currency
 
 
 @config_option
@@ -65,6 +66,7 @@ def set_order(
         asset_type=asset["AssetType"],
         type=OrderType.get_value(order_type),
         direction=Direction.get_value(direction),
+        currency=Currency.get_value(asset["CurrencyCode"]),
     )
     conditional_order = None
     if conditional == "y":
@@ -85,5 +87,6 @@ def set_order(
             key_path=configuration.gsheet_creds_path,
             spreadsheet_id=configuration.spreadsheet_id,
         )
+        calculate_currency(order, configuration.usdeur_rate)
         result = gsheet_client.create_order(account, order)
         print(f"Row {result['updates']['updatedRange']} appended.")

@@ -11,7 +11,8 @@ from saxo_order.commands.input_helper import (
     confirm_order,
 )
 from saxo_order.commands import catch_exception, config_option, command_common_options
-from model import Order, OrderType, Direction
+from model import Order, OrderType, Direction, Currency
+from saxo_order.service import calculate_currency
 
 
 @config_option
@@ -45,6 +46,7 @@ def set_stop_limit_order(config, limit_price, stop_price, code, country_code, qu
         asset_type=asset["AssetType"],
         type=OrderType.STOP_LIMIT,
         direction=Direction.BUY,
+        currency=Currency.get_value(asset["CurrencyCode"]),
     )
     update_order(order)
     validate_buy_order(account, client, order)
@@ -59,5 +61,6 @@ def set_stop_limit_order(config, limit_price, stop_price, code, country_code, qu
         key_path=configuration.gsheet_creds_path,
         spreadsheet_id=configuration.spreadsheet_id,
     )
+    calculate_currency(order, configuration.usdeur_rate)
     result = gsheet_client.create_order(account, order)
     print(f"Row {result['updates']['updatedRange']} appended.")

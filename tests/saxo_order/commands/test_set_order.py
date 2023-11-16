@@ -56,7 +56,12 @@ class TestSetOrder:
         mocker.patch.object(
             saxo_service,
             "get_asset",
-            return_value={"Description": "", "AssetType": "Stock", "Identifier": 12345},
+            return_value={
+                "Description": "",
+                "AssetType": "Stock",
+                "Identifier": 12345,
+                "CurrencyCode": "EUR",
+            },
         )
         get_price = mocker.patch.object(saxo_service, "get_price", return_value=10.2)
         create_order = mocker.patch.object(

@@ -11,7 +11,8 @@ from saxo_order.commands.input_helper import (
     confirm_order,
 )
 from saxo_order.commands import catch_exception, config_option, command_common_options
-from model import Order, Direction, OrderType
+from model import Order, Direction, OrderType, Currency
+from saxo_order.service import calculate_currency
 
 
 @config_option
@@ -69,6 +70,7 @@ def set_oco_order(
         direction=Direction.get_value(limit_direction),
         asset_type=asset["AssetType"],
         type=OrderType.OCO,
+        currency=Currency.get_value(asset["CurrencyCode"]),
     )
     stop_order = Order(
         code=code,
@@ -78,6 +80,7 @@ def set_oco_order(
         direction=Direction.get_value(stop_direction),
         asset_type=asset["AssetType"],
         type=OrderType.OCO,
+        currency=Currency.get_value(asset["CurrencyCode"]),
     )
     account = select_account(client)
     if stop_order.direction == Direction.BUY:
@@ -95,5 +98,6 @@ def set_oco_order(
             key_path=configuration.gsheet_creds_path,
             spreadsheet_id=configuration.spreadsheet_id,
         )
+        calculate_currency(stop_order, configuration.usdeur_rate)
         result = gsheet_client.create_order(account, stop_order)
         print(f"Row {result['updates']['updatedRange']} appended.")
