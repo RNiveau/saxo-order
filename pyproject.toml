@@ -23,13 +23,7 @@ google-api-python-client-stubs = "^1.22.0"
 google-auth-stubs = "^0.2.0"
 
 [tool.poetry.scripts]
-available_funds = "saxo_order.commands.available_funds:available_funds"
-auth = "saxo_order.commands.auth:auth"
-get-report = "saxo_order.commands.get_report:get_report"
-set-order = "saxo_order.commands.set_order:set_order"
-set-stop-limit-order = "saxo_order.commands.set_stop_limit_order:set_stop_limit_order"
-set-oco-order = "saxo_order.commands.set_oco_order:set_oco_order"
-search = "saxo_order.commands.search:search"
+k-order = "saxo_order.commands.k_order:k_order"
 
 [build-system]
 requires = ["poetry>=0.12"]
