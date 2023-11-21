@@ -12,13 +12,13 @@ from saxo_order.commands.input_helper import (
     get_conditional_order,
 )
 from saxo_order.commands import catch_exception, config_option, command_common_options
-from model import Order, OrderType, Direction, ConditionalOrder, TriggerOrder, Currency
+from model import Order, OrderType, Direction, Currency
 from saxo_order.service import calculate_currency
 
 
+@click.command()
 @config_option
 @command_common_options
-@click.command()
 @click.option(
     "--price",
     type=float,

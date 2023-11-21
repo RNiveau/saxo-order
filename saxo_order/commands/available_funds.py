@@ -8,8 +8,8 @@ from saxo_order.commands import catch_exception, config_option
 from saxo_order.commands.input_helper import select_account
 
 
-@config_option
 @click.command()
+@config_option
 @catch_exception(handle=SaxoException)
 def available_funds(config: str):
     client = SaxoClient(Configuration(config))
