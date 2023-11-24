@@ -74,8 +74,10 @@ def calculate_currency(order: Order, currencies_rate: Dict) -> Order:
         order.objective *= rate
     if order.underlying is not None:
         order.underlying.price *= rate
-        order.underlying.stop *= rate
-        order.underlying.objective *= rate
+        if order.underlying.stop is not None:
+            order.underlying.stop *= rate
+        if order.underlying.objective is not None:
+            order.underlying.objective *= rate
     return order
 
 
