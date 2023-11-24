@@ -1,5 +1,6 @@
 import os
 import yaml
+from typing import List, Dict
 
 
 class Configuration:
@@ -39,5 +40,5 @@ class Configuration:
         return "gsheet-creds.json"
 
     @property
-    def usdeur_rate(self) -> float:
-        return float(self.config["usdeur_rate"])
+    def currencies_rate(self) -> Dict:
+        return self.config["currencies_rate"]

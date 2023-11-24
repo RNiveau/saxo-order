@@ -98,6 +98,6 @@ def set_oco_order(
             key_path=configuration.gsheet_creds_path,
             spreadsheet_id=configuration.spreadsheet_id,
         )
-        calculate_currency(stop_order, configuration.usdeur_rate)
+        calculate_currency(stop_order, configuration.currencies_rate)
         result = gsheet_client.create_order(account, stop_order)
         print(f"Row {result['updates']['updatedRange']} appended.")

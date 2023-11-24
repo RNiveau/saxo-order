@@ -6,6 +6,7 @@ from enum import StrEnum
 class Currency(StrEnum):
     EURO = "EUR"
     USD = "USD"
+    JPY = "JPY"
 
     @staticmethod
     def get_value(value):

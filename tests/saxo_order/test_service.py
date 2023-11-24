@@ -144,14 +144,16 @@ class TestValiderOrder:
         )
 
     def test_calculate_currency(self):
-        order = service.calculate_currency(Order("", 10), 0.5)
+        order = service.calculate_currency(Order("", 10), {"usdeur": 0.5})
         assert order.price == 10
 
-        order = service.calculate_currency(Order("", 10, currency=Currency.USD), 0.5)
+        order = service.calculate_currency(
+            Order("", 10, currency=Currency.USD), {"usdeur": 0.5}
+        )
         assert order.price == 5
 
         order = service.calculate_currency(
-            Order("", 10, stop=5, objective=15, currency=Currency.USD), 0.5
+            Order("", 10, stop=5, objective=15, currency=Currency.USD), {"usdeur": 0.5}
         )
         assert order.price == 5
         assert order.stop == 2.5
@@ -166,7 +168,7 @@ class TestValiderOrder:
                 underlying=Underlying(100, 50, 150),
                 currency=Currency.USD,
             ),
-            0.5,
+            {"usdeur": 0.5},
         )
         assert order.price == 5
         assert order.stop == 2.5

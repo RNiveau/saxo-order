@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from model import Account, Order, Taxes, AssetType, Currency
 
@@ -61,17 +61,21 @@ def calculate_taxes(order: Order) -> Taxes:
     return Taxes(cost, taxes)
 
 
-def calculate_currency(order: Order, usdeur_rate: float) -> Order:
+def calculate_currency(order: Order, currencies_rate: Dict) -> Order:
+    rate = 1
     if order.currency == Currency.USD:
-        order.price *= usdeur_rate
-        if order.stop is not None:
-            order.stop *= usdeur_rate
-        if order.objective is not None:
-            order.objective *= usdeur_rate
-        if order.underlying is not None:
-            order.underlying.price *= usdeur_rate
-            order.underlying.stop *= usdeur_rate
-            order.underlying.objective *= usdeur_rate
+        rate = currencies_rate["usdeur"]
+    elif order.currency == Currency.JPY:
+        rate = currencies_rate["jpyeur"]
+    order.price *= rate
+    if order.stop is not None:
+        order.stop *= rate
+    if order.objective is not None:
+        order.objective *= rate
+    if order.underlying is not None:
+        order.underlying.price *= rate
+        order.underlying.stop *= rate
+        order.underlying.objective *= rate
     return order
 
 
