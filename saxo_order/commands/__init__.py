@@ -16,39 +16,3 @@ def catch_exception(func=None, *, handle):
             raise click.Abort()
 
     return wrapper
-
-
-def config_option(func):
-    return click.option(
-        "--config",
-        type=str,
-        required=True,
-        default="config.yml",
-        envvar="SAXO_CONFIG",
-        help="The path to config file",
-    )(func)
-
-
-def command_common_options(func):
-    func = click.option(
-        "--code",
-        type=str,
-        required=True,
-        help="The code of the stock",
-        prompt="What is the code of the product ?",
-    )(func)
-    func = click.option(
-        "--country-code",
-        type=str,
-        required=True,
-        default="xpar",
-        help="The country code of the stock",
-    )(func)
-    func = click.option(
-        "--quantity",
-        type=float,
-        required=True,
-        help="The wanted quantity of stocks",
-        prompt="What is the quantity of product ?",
-    )(func)
-    return func

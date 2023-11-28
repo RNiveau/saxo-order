@@ -11,14 +11,13 @@ from saxo_order.commands.input_helper import (
     confirm_order,
     get_conditional_order,
 )
-from saxo_order.commands import catch_exception, config_option, command_common_options
+from saxo_order.commands import catch_exception
 from model import Order, OrderType, Direction, Currency
 from saxo_order.service import calculate_currency
+from click.core import Context
 
 
-@click.command()
-@config_option
-@command_common_options
+@click.command(name="order")
 @click.option(
     "--price",
     type=float,
@@ -49,20 +48,26 @@ from saxo_order.service import calculate_currency
     help="Set a conditional order",
     prompt="Is it a conditional order ?",
 )
+@click.pass_context
 @catch_exception(handle=SaxoException)
 def set_order(
-    config, price, code, country_code, quantity, order_type, direction, conditional
+    ctx: Context,
+    price: float,
+    order_type: str,
+    direction: str,
+    conditional: bool,
 ):
-    configuration = Configuration(config)
+    code = ctx.obj["code"]
+    configuration = Configuration(ctx.obj["config"])
     saxo_client = SaxoClient(configuration)
-    asset = saxo_client.get_asset(code=code, market=country_code)
+    asset = saxo_client.get_asset(code=code, market=ctx.obj["country_code"])
     if OrderType.MARKET == OrderType.get_value(order_type):
         price = saxo_client.get_price(asset["Identifier"], asset["AssetType"])
     order = Order(
         code=code,
         name=asset["Description"],
         price=price,
-        quantity=quantity,
+        quantity=ctx.obj["quantity"],
         asset_type=asset["AssetType"],
         type=OrderType.get_value(order_type),
         direction=Direction.get_value(direction),
@@ -87,6 +92,6 @@ def set_order(
             key_path=configuration.gsheet_creds_path,
             spreadsheet_id=configuration.spreadsheet_id,
         )
-        calculate_currency(order, configuration.usdeur_rate)
+        calculate_currency(order, configuration.currencies_rate)
         result = gsheet_client.create_order(account, order)
         print(f"Row {result['updates']['updatedRange']} appended.")

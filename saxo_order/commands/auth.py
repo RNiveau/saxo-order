@@ -4,10 +4,10 @@ import re
 from client.saxo_auth_client import SaxoAuthClient
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from saxo_order.commands import catch_exception, config_option
+from saxo_order.commands import catch_exception
+from click.core import Context
 
 
-@config_option
 @click.command()
 @click.option(
     "--write",
@@ -16,8 +16,9 @@ from saxo_order.commands import catch_exception, config_option
     help="Write the access token ?",
 )
 @catch_exception(handle=SaxoException)
-def auth(config, write):
-    auth_client = SaxoAuthClient(Configuration(config))
+@click.pass_context
+def auth(ctx: Context, write: bool):
+    auth_client = SaxoAuthClient(Configuration(ctx.obj["config"]))
     print(auth_client.login())
     url = input("What's the url provide by saxo ?\n")
     match = re.search(r"\?code=([\w-]+)", url)

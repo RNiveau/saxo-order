@@ -10,14 +10,13 @@ from saxo_order.commands.input_helper import (
     update_order,
     confirm_order,
 )
-from saxo_order.commands import catch_exception, config_option, command_common_options
+from saxo_order.commands import catch_exception
 from model import Order, OrderType, Direction, Currency
 from saxo_order.service import calculate_currency
+from click.core import Context
 
 
-@config_option
-@command_common_options
-@click.command()
+@click.command(name="stop-limit-order")
 @click.option(
     "--limit-price",
     type=float,
@@ -32,11 +31,18 @@ from saxo_order.service import calculate_currency
     help="The stop price of the order",
     prompt="What is the price of the stop order ?",
 )
+@click.pass_context
 @catch_exception(handle=SaxoException)
-def set_stop_limit_order(config, limit_price, stop_price, code, country_code, quantity):
-    configuration = Configuration(config)
+def set_stop_limit_order(
+    ctx: Context,
+    limit_price: float,
+    stop_price: float,
+):
+    code = ctx.obj["code"]
+    quantity = ctx.obj["quantity"]
+    configuration = Configuration(ctx.obj["config"])
     client = SaxoClient(configuration)
-    asset = client.get_asset(code=code, market=country_code)
+    asset = client.get_asset(code=code, market=ctx.obj["country_code"])
     account = select_account(client)
     order = Order(
         code=code,
@@ -61,6 +67,6 @@ def set_stop_limit_order(config, limit_price, stop_price, code, country_code, qu
         key_path=configuration.gsheet_creds_path,
         spreadsheet_id=configuration.spreadsheet_id,
     )
-    calculate_currency(order, configuration.usdeur_rate)
+    calculate_currency(order, configuration.currencies_rate)
     result = gsheet_client.create_order(account, order)
     print(f"Row {result['updates']['updatedRange']} appended.")

@@ -2,7 +2,7 @@ import pytest
 
 from client.saxo_client import SaxoClient
 from model import OrderType, Direction
-import saxo_order.commands.set_order as command
+import saxo_order.commands.k_order as command
 from click.testing import CliRunner
 
 
@@ -70,12 +70,16 @@ class TestSetOrder:
             return_value={"updates": {"updatedRange": 1}},
         )
         result = runner.invoke(
-            command.set_order,
+            command.k_order,
             [
+                "--config",
+                "test.yml",
+                "set",
                 "--code",
                 code,
                 "--quantity",
                 quantity,
+                "order",
                 "--price",
                 price,
                 "--order-type",

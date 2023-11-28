@@ -10,14 +10,13 @@ from saxo_order.commands.input_helper import (
     update_order,
     confirm_order,
 )
-from saxo_order.commands import catch_exception, config_option, command_common_options
+from saxo_order.commands import catch_exception
 from model import Order, Direction, OrderType, Currency
 from saxo_order.service import calculate_currency
+from click.core import Context
 
 
-@config_option
-@command_common_options
-@click.command()
+@click.command(name="oco-order")
 @click.option(
     "--limit-price",
     type=float,
@@ -28,7 +27,7 @@ from saxo_order.service import calculate_currency
 @click.option(
     "--limit-direction",
     type=click.Choice(["buy", "sell"]),
-    default="sell",
+    default="buy",
     required=True,
     help="The direction of the limit order",
     prompt="What is the direction of the limit order ?",
@@ -48,20 +47,20 @@ from saxo_order.service import calculate_currency
     help="The direction of the stop order",
     prompt="What is the direction of the stop order ?",
 )
+@click.pass_context
 @catch_exception(handle=SaxoException)
 def set_oco_order(
-    config: str,
+    ctx: Context,
     limit_price: float,
     limit_direction: str,
     stop_price: float,
     stop_direction: str,
-    code: str,
-    country_code: str,
-    quantity: int,
 ):
-    configuration = Configuration(config)
+    code = ctx.obj["code"]
+    quantity = ctx.obj["quantity"]
+    configuration = Configuration(ctx.obj["config"])
     client = SaxoClient(configuration)
-    asset = client.get_asset(code=code, market=country_code)
+    asset = client.get_asset(code=code, market=ctx.obj["country_code"])
     limit_order = Order(
         code=code,
         name=asset["Description"],
