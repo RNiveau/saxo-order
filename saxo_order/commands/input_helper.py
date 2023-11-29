@@ -28,11 +28,11 @@ def select_account(client: SaxoClient) -> Account:
         account = list(filter(lambda x: x["AccountId"] == id, accounts["Data"]))
         if len(account) != 1:
             raise SaxoException("Wrong account selection")
-        return client.get_account(account[0]["AccountKey"], account[0]["ClientKey"])
+        return client.get_account(account[0]["AccountKey"])
     if int(id) < 1 or int(id) > len(accounts["Data"]):
         raise SaxoException("Wrong account selection")
     account = accounts["Data"][int(id) - 1]
-    return client.get_account(account["AccountKey"], account["ClientKey"])
+    return client.get_account(account["AccountKey"])
 
 
 def get_stop_objective(validate_input: bool) -> tuple:

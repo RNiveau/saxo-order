@@ -86,18 +86,21 @@ class SaxoClient:
         self._check_response(response)
         return response.json()
 
-    def get_account(self, account_key: str, client_key: str) -> Account:
-        response = self.session.get(
-            f"{self.configuration.saxo_url}port/v1/balances/?AccountKey={account_key}&ClientKey={client_key}"
-        )
-        self._check_response(response)
-        account_balance = response.json()
+    def get_account(self, account_key: str) -> Account:
         response = self.session.get(
             f"{self.configuration.saxo_url}port/v1/accounts/{account_key}"
         )
         self._check_response(response)
         account = response.json()
         name = "NoName" if "DisplayName" not in account else account["DisplayName"]
+        client_key = account["ClientKey"]
+
+        response = self.session.get(
+            f"{self.configuration.saxo_url}port/v1/balances/?AccountKey={account_key}&ClientKey={client_key}"
+        )
+        self._check_response(response)
+        account_balance = response.json()
+
         return Account(
             key=account_key,
             name=name,

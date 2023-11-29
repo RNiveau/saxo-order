@@ -99,5 +99,5 @@ class TestInputHelper:
         )
         input_mock = mocker.patch("builtins.input", return_value=input_str)
         select_account(saxo_service)
-        get_account.assert_called_once_with(account_key, "ClientKey")
+        get_account.assert_called_once_with(account_key)
         assert input_mock.call_count == called_input

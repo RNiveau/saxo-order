@@ -7,6 +7,7 @@ import saxo_order.commands.search as search
 import saxo_order.commands.set_oco_order as set_oco_order
 import saxo_order.commands.set_order as set_order
 import saxo_order.commands.set_stop_limit_order as set_stop_limit_order
+import saxo_order.commands.shortcuts as shortcurts
 from click.core import Context
 
 
@@ -59,7 +60,21 @@ def set(
     ctx.obj["quantity"] = quantity
 
 
+@click.group()
+@click.option(
+    "--quantity",
+    type=float,
+    required=True,
+    help="The wanted quantity of stocks",
+    prompt="What is the quantity of product ?",
+)
+@click.pass_context
+def shortcut(ctx: Context, quantity: float):
+    ctx.obj["quantity"] = quantity
+
+
 k_order.add_command(set)
+k_order.add_command(shortcut)
 k_order.add_command(auth.auth)
 k_order.add_command(available_funds.available_funds)
 k_order.add_command(get_report.get_report)
@@ -68,3 +83,8 @@ k_order.add_command(search.search)
 set.add_command(set_order.set_order)
 set.add_command(set_oco_order.set_oco_order)
 set.add_command(set_stop_limit_order.set_stop_limit_order)
+
+shortcut.add_command(shortcurts.dax)
+shortcut.add_command(shortcurts.cac)
+shortcut.add_command(shortcurts.sp500)
+shortcut.add_command(shortcurts.russell)
