@@ -65,6 +65,7 @@ class TriggerOrder(StrEnum):
 class OrderType(StrEnum):
     LIMIT = "limit"
     STOP = "stop"
+    OPEN_STOP = "open_stop"
     OCO = "oco"
     STOP_LIMIT = "stoplimit"
     MARKET = "market"

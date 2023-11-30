@@ -27,7 +27,7 @@ from click.core import Context
 )
 @click.option(
     "--order-type",
-    type=click.Choice(["limit", "stop", "market"]),
+    type=click.Choice(["limit", "stop", "open_stop", "market"]),
     help="The order type",
     default="limit",
     prompt="What is the order type ?",

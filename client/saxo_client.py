@@ -130,7 +130,7 @@ class SaxoClient:
     ) -> Any:
         if order.type == OrderType.LIMIT:
             order_type = "Limit"
-        elif order.type == OrderType.STOP and order.direction == Direction.BUY:
+        elif order.type == OrderType.OPEN_STOP:
             order_type = "StopIfTraded"
         elif order.type == OrderType.STOP:
             order_type = "Stop"

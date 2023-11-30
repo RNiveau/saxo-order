@@ -26,7 +26,7 @@ def shortcut_common_options(func):
     )(func)
     func = click.option(
         "--order-type",
-        type=click.Choice(["limit", "stop", "market"]),
+        type=click.Choice(["limit", "stop", "open_stop", "market"]),
         help="The order type",
         default="limit",
         prompt="What is the order type ?",
@@ -106,19 +106,17 @@ def shortcut(ctx: Context, price: float, order_type: str, direction: str, code: 
         filter(lambda x: x["AccountId"] == asset["TradableOn"][0], accounts["Data"])
     )[0]["AccountKey"]
     account = saxo_client.get_account(account_key)
-    if Direction.BUY == order.direction:
-        update_order(order)
-        confirm_order(saxo_client, order)
+    update_order(order)
+    confirm_order(saxo_client, order)
     saxo_client.set_order(
         account=account,
         order=order,
         saxo_uic=saxo_uic,
     )
-    if Direction.BUY == order.direction:
-        gsheet_client = GSheetClient(
-            key_path=configuration.gsheet_creds_path,
-            spreadsheet_id=configuration.spreadsheet_id,
-        )
-        calculate_currency(order, configuration.currencies_rate)
-        result = gsheet_client.create_order(account, order)
-        print(f"Row {result['updates']['updatedRange']} appended.")
+    gsheet_client = GSheetClient(
+        key_path=configuration.gsheet_creds_path,
+        spreadsheet_id=configuration.spreadsheet_id,
+    )
+    calculate_currency(order, configuration.currencies_rate)
+    result = gsheet_client.create_order(account, order)
+    print(f"Row {result['updates']['updatedRange']} appended.")
