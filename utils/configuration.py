@@ -1,6 +1,7 @@
 import os
+from typing import Dict, List
+
 import yaml
-from typing import List, Dict
 
 
 class Configuration:

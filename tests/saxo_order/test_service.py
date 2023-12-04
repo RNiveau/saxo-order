@@ -1,8 +1,9 @@
-import pytest
 from typing import List
 
+import pytest
+
 import saxo_order.service as service
-from model import Account, Order, Underlying, Currency
+from model import Account, Currency, Order, Underlying
 
 
 class TestValiderOrder:

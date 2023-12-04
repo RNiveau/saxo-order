@@ -1,9 +1,9 @@
 import pytest
-
-from client.saxo_client import SaxoClient
-from model import OrderType, Direction
-import saxo_order.commands.k_order as command
 from click.testing import CliRunner
+
+import saxo_order.commands.k_order as command
+from client.saxo_client import SaxoClient
+from model import Direction, OrderType
 
 
 class TestSetOrder:

@@ -1,10 +1,9 @@
 import base64
-
-from utils.configuration import Configuration
+from typing import Dict, List
 
 import requests
 
-from typing import Dict, List
+from utils.configuration import Configuration
 
 
 class SaxoAuthClient:

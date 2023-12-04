@@ -1,6 +1,6 @@
-import click
+from functools import partial, wraps
 
-from functools import wraps, partial
+import click
 
 
 def catch_exception(func=None, *, handle):

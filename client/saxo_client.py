@@ -1,25 +1,25 @@
-from utils.exception import SaxoException
-from utils.configuration import Configuration
-from model import (
-    Account,
-    Order,
-    OrderType,
-    Direction,
-    ConditionalOrder,
-    TriggerOrder,
-    ReportOrder,
-    AssetType,
-    Underlying,
-    Currency,
-)
+import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import requests
 from requests import Response
 from requests.adapters import HTTPAdapter, Retry
-from datetime import datetime
-import time
 
-from typing import Dict, List, Optional, Any
+from model import (
+    Account,
+    AssetType,
+    ConditionalOrder,
+    Currency,
+    Direction,
+    Order,
+    OrderType,
+    ReportOrder,
+    TriggerOrder,
+    Underlying,
+)
+from utils.configuration import Configuration
+from utils.exception import SaxoException
 
 
 class SaxoClient:

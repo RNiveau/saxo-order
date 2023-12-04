@@ -5,8 +5,12 @@ from client.gsheet_client import GSheetClient
 from client.saxo_client import SaxoClient
 from model import Currency, Direction, Order, OrderType
 from saxo_order.commands import catch_exception
-from saxo_order.commands.input_helper import (confirm_order, select_account,
-                                              update_order, validate_buy_order)
+from saxo_order.commands.input_helper import (
+    confirm_order,
+    select_account,
+    update_order,
+    validate_buy_order,
+)
 from saxo_order.service import calculate_currency
 from utils.configuration import Configuration
 from utils.exception import SaxoException

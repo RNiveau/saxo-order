@@ -1,7 +1,7 @@
 import pytest
 
-from saxo_order.commands.input_helper import select_account
 from model import Account
+from saxo_order.commands.input_helper import select_account
 
 
 class TestInputHelper:

@@ -1,13 +1,13 @@
 import click
+from click.core import Context
 
-from client.saxo_client import SaxoClient
 from client.gsheet_client import GSheetClient
-from utils.configuration import Configuration
-from utils.exception import SaxoException
+from client.saxo_client import SaxoClient
 from saxo_order.commands import catch_exception
 from saxo_order.commands.input_helper import select_account, update_order
-from saxo_order.service import calculate_taxes, calculate_currency
-from click.core import Context
+from saxo_order.service import calculate_currency, calculate_taxes
+from utils.configuration import Configuration
+from utils.exception import SaxoException
 
 
 @click.command()

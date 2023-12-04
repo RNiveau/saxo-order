@@ -1,12 +1,12 @@
 import click
+from click.core import Context
 
 from client.saxo_client import SaxoClient
-from utils.configuration import Configuration
-from utils.exception import SaxoException
-from saxo_order.service import get_account_open_orders
 from saxo_order.commands import catch_exception
 from saxo_order.commands.input_helper import select_account
-from click.core import Context
+from saxo_order.service import get_account_open_orders
+from utils.configuration import Configuration
+from utils.exception import SaxoException
 
 
 @click.command()

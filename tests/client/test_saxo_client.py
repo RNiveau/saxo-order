@@ -1,10 +1,11 @@
-import pytest
 from typing import List
 
-from client.saxo_client import SaxoClient
-from tests.utils.configuration import MockConfiguration
-from model import Account, Order, OrderType, Direction, ConditionalOrder, TriggerOrder
+import pytest
 import requests
+
+from client.saxo_client import SaxoClient
+from model import Account, ConditionalOrder, Direction, Order, OrderType, TriggerOrder
+from tests.utils.configuration import MockConfiguration
 
 
 class TestSaxoClient:

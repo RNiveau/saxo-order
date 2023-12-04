@@ -1,10 +1,11 @@
+from typing import Optional
+
 import click
 
 from client.saxo_client import SaxoClient
-from model import Account, Order, Underlying, ConditionalOrder, TriggerOrder, AssetType
-from saxo_order.service import apply_rules, calculate_taxes, get_lost, get_earn
+from model import Account, AssetType, ConditionalOrder, Order, TriggerOrder, Underlying
+from saxo_order.service import apply_rules, calculate_taxes, get_earn, get_lost
 from utils.exception import SaxoException
-from typing import Optional
 
 
 def select_account(client: SaxoClient) -> Account:

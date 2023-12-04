@@ -1,6 +1,6 @@
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
-from model import Account, Order, Taxes, AssetType, Currency
+from model import Account, AssetType, Currency, Order, Taxes
 
 
 def validate_ratio(order: Order) -> tuple:

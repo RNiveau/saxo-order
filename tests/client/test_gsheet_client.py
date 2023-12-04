@@ -1,8 +1,9 @@
+from datetime import datetime
+
 import pytest
 
 from client.gsheet_client import GSheetClient
-from model import Account, Order, ReportOrder, AssetType, Direction, Taxes, Underlying
-from datetime import datetime
+from model import Account, AssetType, Direction, Order, ReportOrder, Taxes, Underlying
 
 
 class MockGsheetClient(GSheetClient):

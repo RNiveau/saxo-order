@@ -1,11 +1,12 @@
-import click
 import re
 
+import click
+from click.core import Context
+
 from client.saxo_auth_client import SaxoAuthClient
+from saxo_order.commands import catch_exception
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from saxo_order.commands import catch_exception
-from click.core import Context
 
 
 @click.command()
