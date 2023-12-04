@@ -1,4 +1,5 @@
 import click
+from click.core import Context
 
 import saxo_order.commands.auth as auth
 import saxo_order.commands.available_funds as available_funds
@@ -8,7 +9,6 @@ import saxo_order.commands.set_oco_order as set_oco_order
 import saxo_order.commands.set_order as set_order
 import saxo_order.commands.set_stop_limit_order as set_stop_limit_order
 import saxo_order.commands.shortcuts as shortcurts
-from click.core import Context
 
 
 @click.group()
@@ -88,3 +88,5 @@ shortcut.add_command(shortcurts.dax)
 shortcut.add_command(shortcurts.cac)
 shortcut.add_command(shortcurts.sp500)
 shortcut.add_command(shortcurts.russell)
+shortcut.add_command(shortcurts.nasdaq)
+shortcut.add_command(shortcurts.nikkei)
