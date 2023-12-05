@@ -37,6 +37,7 @@ class Signal(StrEnum):
     BHH1 = "Breakout h1"
     BHH4 = "Breakout h4"
     BHD = "Breakout daily"
+    ENGLO = "Englobante"
     DOUBLE_TOP = "Double top"
     FIBO = "Fibo 50%"
     NONE = "No signal"

@@ -160,20 +160,34 @@ class TestValiderOrder:
         assert order.stop == 2.5
         assert order.objective == 7.5
 
-        order = service.calculate_currency(
-            Order(
-                "",
-                10,
-                stop=5,
-                objective=15,
-                underlying=Underlying(100, 50, 150),
-                currency=Currency.USD,
-            ),
+        order = Order(
+            "",
+            10,
+            stop=5,
+            objective=15,
+            underlying=Underlying(100, 50, 150),
+            currency=Currency.USD,
+        )
+        new_order = service.calculate_currency(
+            order,
             {"usdeur": 0.5},
         )
-        assert order.price == 5
-        assert order.stop == 2.5
-        assert order.objective == 7.5
-        assert order.underlying.price == 50
-        assert order.underlying.stop == 25
-        assert order.underlying.objective == 75
+        # it's not a bug, I want to call it twice
+        new_order = service.calculate_currency(
+            order,
+            {"usdeur": 0.5},
+        )
+
+        assert order.price == 10
+        assert order.stop == 5
+        assert order.objective == 15
+        assert order.underlying.price == 100
+        assert order.underlying.stop == 50
+        assert order.underlying.objective == 150
+
+        assert new_order.price == 5
+        assert new_order.stop == 2.5
+        assert new_order.objective == 7.5
+        assert new_order.underlying.price == 50
+        assert new_order.underlying.stop == 25
+        assert new_order.underlying.objective == 75

@@ -1,3 +1,4 @@
+import copy
 from typing import Dict, List, Optional
 
 from model import Account, AssetType, Currency, Order, Taxes
@@ -63,22 +64,23 @@ def calculate_taxes(order: Order) -> Taxes:
 
 def calculate_currency(order: Order, currencies_rate: Dict) -> Order:
     rate = 1
+    new_order = copy.deepcopy(order)
     if order.currency == Currency.USD:
         rate = currencies_rate["usdeur"]
     elif order.currency == Currency.JPY:
         rate = currencies_rate["jpyeur"]
-    order.price *= rate
-    if order.stop is not None:
-        order.stop *= rate
-    if order.objective is not None:
-        order.objective *= rate
-    if order.underlying is not None:
-        order.underlying.price *= rate
-        if order.underlying.stop is not None:
-            order.underlying.stop *= rate
-        if order.underlying.objective is not None:
-            order.underlying.objective *= rate
-    return order
+    new_order.price *= rate
+    if new_order.stop is not None:
+        new_order.stop *= rate
+    if new_order.objective is not None:
+        new_order.objective *= rate
+    if new_order.underlying is not None:
+        new_order.underlying.price *= rate
+        if new_order.underlying.stop is not None:
+            new_order.underlying.stop *= rate
+        if new_order.underlying.objective is not None:
+            new_order.underlying.objective *= rate
+    return new_order
 
 
 def get_lost(total_funds: float, order: Order) -> str:
