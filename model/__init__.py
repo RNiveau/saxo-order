@@ -3,6 +3,52 @@ from enum import StrEnum
 from typing import Optional
 
 
+class Strategy(StrEnum):
+    BH = "Breakout haussier"
+    C200 = "Cassure mm200"
+    CONG = "Congestion"
+    DIV = "Dividende"
+    EH = "Engloblante haussière"
+    INTRA = "Intraday"
+    IVT = "IVT"
+    FLUX = "Journée flux"
+    R200 = "Rebond mm200"
+    RES = "Résultat d'entreprise"
+    REVERSE = "Revere"
+    SI = "Stratagème de l'impulsion"
+    SCT = "Support court terme"
+    SMT = "Support moyen terme"
+    SLT = "Support long terme"
+    TF = "Trendfollowing"
+    VS = "Vente cassure de support"
+    VR = "Vente de résistance"
+    VB = "Vente plus bas"
+    YOLO = "Yolo"
+
+    @staticmethod
+    def get_value(value):
+        for member in Strategy:
+            if member.value.lower() == value.lower():
+                return member
+        raise ValueError(f"Invalid string: {value}")
+
+
+class Signal(StrEnum):
+    BHH1 = "Breakout h1"
+    BHH4 = "Breakout h4"
+    BHD = "Breakout daily"
+    DOUBLE_TOP = "Double top"
+    FIBO = "Fibo 50%"
+    NONE = "No signal"
+
+    @staticmethod
+    def get_value(value):
+        for member in Signal:
+            if member.value.lower() == value.lower():
+                return member
+        raise ValueError(f"Invalid string: {value}")
+
+
 class Currency(StrEnum):
     EURO = "EUR"
     USD = "USD"
@@ -122,7 +168,7 @@ class Order:
         objective: Optional[float] = None,
         stop: Optional[float] = None,
         comment: Optional[str] = None,
-        strategy: Optional[str] = None,
+        strategy: Optional[Strategy] = None,
         direction: Optional[Direction] = None,
         asset_type: str = "Stock",
         type: OrderType = OrderType.LIMIT,
@@ -130,6 +176,7 @@ class Order:
         underlying: Optional[Underlying] = None,
         conditional: bool = False,
         currency: Currency = Currency.EURO,
+        signal: Optional[Signal] = None,
     ) -> None:
         self.code = code
         self.price = price
@@ -146,6 +193,7 @@ class Order:
         self.underlying = underlying
         self.conditional = conditional
         self.currency = currency
+        self.signal = signal
 
 
 class ReportOrder(Order):

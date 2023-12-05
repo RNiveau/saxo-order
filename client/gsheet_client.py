@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
-from model import Account, AssetType, Direction, Order, ReportOrder, Taxes
+from model import Account, AssetType, Direction, Order, ReportOrder, Taxes, helper
 
 
 class GSheetClient:
@@ -58,21 +58,24 @@ class GSheetClient:
         ]
 
     def _generate_i_column(self, order: Order) -> List[float]:
-        return [order.stop if order.underlying is None else order.underlying.stop]
+        return [helper.get_stop(order)]
 
     def _generate_l_m_block(self, order: Order, number_rows: int) -> List[float]:
-        block = [
-            order.objective if order.underlying is None else order.underlying.objective
-        ]
-        if order.underlying is None:
-            block.append(
-                f"=(L{number_rows}-C{number_rows})/(C{number_rows}-I{number_rows})"
-            )
+        block = [helper.get_objective(order)]
+        if (
+            helper.get_objective(order) is not None
+            and helper.get_stop(order) is not None
+        ):
+            if order.underlying is None:
+                block.append(
+                    f"=(L{number_rows}-C{number_rows})/(C{number_rows}-I{number_rows})"
+                )
+            else:
+                block.append(
+                    f"=(L{number_rows}-F{number_rows})/(F{number_rows}-I{number_rows})"
+                )
         else:
-            block.append(
-                f"=(L{number_rows}-F{number_rows})/(F{number_rows}-I{number_rows})"
-            )
-
+            block.append(None)
         return block
 
     def _get_number_rows(self):
@@ -110,7 +113,7 @@ class GSheetClient:
             "Achat" if order.direction == Direction.BUY else "Vente",
             f"{account.name}",
             order.strategy,
-            "",
+            order.signal,
             "",
             "",
             "",

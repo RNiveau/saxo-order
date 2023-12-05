@@ -3,7 +3,16 @@ from typing import Optional
 import click
 
 from client.saxo_client import SaxoClient
-from model import Account, AssetType, ConditionalOrder, Order, TriggerOrder, Underlying
+from model import (
+    Account,
+    AssetType,
+    ConditionalOrder,
+    Order,
+    Signal,
+    Strategy,
+    TriggerOrder,
+    Underlying,
+)
 from saxo_order.service import apply_rules, calculate_taxes, get_earn, get_lost
 from utils.exception import SaxoException
 
@@ -83,8 +92,38 @@ def update_order(
         underlying.stop = stop
         underlying.objective = objective
         order.underlying = underlying
+    order.strategy = get_strategy()
+    order.signal = get_signal()
     order.comment = click.prompt("Comment about this position: ", type=str)
     order.taxes = calculate_taxes(order)
+
+
+def get_strategy() -> Optional[Strategy]:
+    l = [e.value for e in Strategy]
+    for index, strategy in enumerate(l):
+        print(f"{index + 1} - {strategy}")
+    index = click.prompt(
+        "What is the strategy ? ",
+        type=click.IntRange(0, index + 1),
+        show_default=False,
+        default=0,
+    )
+    if index == 0:
+        return None
+    return l[index - 1]
+
+
+def get_signal() -> Optional[Signal]:
+    l = [e.value for e in Signal]
+    for index, signal in enumerate(l):
+        print(f"{index + 1} - {signal}")
+    index = click.prompt(
+        "What is the signal ? ",
+        type=click.IntRange(0, index + 1),
+        show_default=False,
+        default=0,
+    )
+    return l[index - 1]
 
 
 def validate_buy_order(account: Account, client: SaxoClient, order: Order) -> None:
