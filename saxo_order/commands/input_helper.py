@@ -76,7 +76,12 @@ def update_order(
 ) -> None:
     with_underlying = (
         order.asset_type
-        not in [AssetType.STOCK, AssetType.CFDFUTURE, AssetType.CFDINDEX]
+        not in [
+            AssetType.STOCK,
+            AssetType.CFDFUTURE,
+            AssetType.CFDINDEX,
+            AssetType.CRYPTO,
+        ]
         or conditional_order is not None
     )
     if with_underlying:
@@ -95,7 +100,8 @@ def update_order(
     order.strategy = get_strategy()
     order.signal = get_signal()
     order.comment = click.prompt("Comment about this position: ", type=str)
-    order.taxes = calculate_taxes(order)
+    if order.taxes is None:
+        order.taxes = calculate_taxes(order)
 
 
 def get_strategy() -> Optional[Strategy]:
@@ -123,6 +129,8 @@ def get_signal() -> Optional[Signal]:
         show_default=False,
         default=0,
     )
+    if index == 0:
+        return None
     return l[index - 1]
 
 

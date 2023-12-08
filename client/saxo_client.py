@@ -57,7 +57,7 @@ class SaxoClient:
 
     def _find_asset(self, keyword: str) -> Dict:
         response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes={AssetType.all_values()}&IncludeNonTradable=true"
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes={AssetType.all_saxo_values()}&IncludeNonTradable=true"
         )
         self._check_response(response)
         return response.json()["Data"]

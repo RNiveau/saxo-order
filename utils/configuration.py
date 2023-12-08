@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict, Tuple
 
 import yaml
 
@@ -43,3 +43,7 @@ class Configuration:
     @property
     def currencies_rate(self) -> Dict:
         return self.config["currencies_rate"]
+
+    @property
+    def binance_keys(self) -> Tuple:
+        return (self.secrets["binance_api_key"], self.secrets["binance_secret_key"])

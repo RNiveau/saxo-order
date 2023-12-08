@@ -40,6 +40,11 @@ class Signal(StrEnum):
     ENGLO = "Englobante"
     DOUBLE_TOP = "Double top"
     FIBO = "Fibo 50%"
+    POL = "Polarité"
+    TMM7 = "Touchette mm7"
+    TMM20 = "Touchette mm20"
+    TMM50 = "Touchette mm50"
+    TMM200 = "Touchette mm200"
     NONE = "No signal"
 
     @staticmethod
@@ -72,6 +77,7 @@ class AssetType(StrEnum):
     INDEX = "StockIndex"
     CFDINDEX = "CfdOnIndex"
     CFDFUTURE = "CfdOnFutures"
+    CRYPTO = "Crypto"
 
     @staticmethod
     def get_value(value):
@@ -81,8 +87,9 @@ class AssetType(StrEnum):
         raise ValueError(f"Invalid string: {value}")
 
     @staticmethod
-    def all_values():
-        return ",".join(AssetType)
+    def all_saxo_values():
+        values = filter(lambda x: x != AssetType.CRYPTO, AssetType)
+        return ",".join(values)
 
 
 class Direction(StrEnum):
@@ -195,6 +202,9 @@ class Order:
         self.conditional = conditional
         self.currency = currency
         self.signal = signal
+
+    def __repr__(self) -> str:
+        return f"{self.code}: {self.quantity} * {self.price} {self.currency}"
 
 
 class ReportOrder(Order):
