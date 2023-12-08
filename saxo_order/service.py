@@ -1,7 +1,7 @@
 import copy
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
-from model import Account, AssetType, Currency, Order, Taxes
+from model import Account, AssetType, Currency, Order, ReportOrder, Taxes
 
 
 def validate_ratio(order: Order) -> tuple:
@@ -62,7 +62,7 @@ def calculate_taxes(order: Order) -> Taxes:
     return Taxes(cost, taxes)
 
 
-def calculate_currency(order: Order, currencies_rate: Dict) -> Order:
+def calculate_currency(order: Order, currencies_rate: Dict) -> Order | ReportOrder:
     rate = 1
     new_order = copy.deepcopy(order)
     if order.currency == Currency.USD:
@@ -84,10 +84,14 @@ def calculate_currency(order: Order, currencies_rate: Dict) -> Order:
 
 
 def get_lost(total_funds: float, order: Order) -> str:
-    lost = order.quantity * (order.price - order.stop)
-    return f"Lost: {lost} ({((order.price - order.stop) / order.price) * 100:.2f} %) ({(lost / total_funds) * 100:.2f} % of funds)"
+    if order.stop is not None:
+        lost = order.quantity * (order.price - order.stop)
+        return f"Lost: {lost} ({((order.price - order.stop) / order.price) * 100:.2f} %) ({(lost / total_funds) * 100:.2f} % of funds)"
+    return "Stop is not set"
 
 
 def get_earn(total_funds: float, order: Order) -> str:
-    earn = order.quantity * (order.objective - order.price)
-    return f"Earn: {earn} ({((order.objective - order.price) / order.price) * 100:.2f} %) ({(earn / total_funds) * 100:.2f} % of funds)"
+    if order.objective is not None:
+        earn = order.quantity * (order.objective - order.price)
+        return f"Earn: {earn} ({((order.objective - order.price) / order.price) * 100:.2f} %) ({(earn / total_funds) * 100:.2f} % of funds)"
+    return "Objective is not set"

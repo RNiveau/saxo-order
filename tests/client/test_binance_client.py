@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict
 
 import pytest
@@ -67,7 +68,7 @@ class TestBinanceClient:
                     quantity=5,
                     direction=Direction.BUY,
                     taxes=Taxes(cost=5.5, taxes=0),
-                    date="",
+                    date=datetime.now(),
                 ),
             ),
             (
@@ -86,7 +87,7 @@ class TestBinanceClient:
                     quantity=15.49,
                     direction=Direction.BUY,
                     taxes=Taxes(cost=0.00555, taxes=0),
-                    date="",
+                    date=datetime.now(),
                 ),
             ),
             (
@@ -105,16 +106,22 @@ class TestBinanceClient:
                     quantity=15.5,
                     direction=Direction.SELL,
                     taxes=Taxes(cost=0.00615, taxes=0),
-                    date="",
+                    date=datetime.now(),
                 ),
             ),
         ],
     )
-    def test_merge_trades(self, trade: Dict, expected: ReportOrder):
+    def test_apply_commission(self, trade: Dict, expected: ReportOrder):
         order = ReportOrder(
-            code="SOL", name="SOL", price=trade["price"], quantity=trade["qty"], date=""
+            code="SOL",
+            name="SOL",
+            price=trade["price"],
+            quantity=trade["qty"],
+            date=datetime.now(),
         )
         MockBinanceClient()._apply_commmission(trade, order, 0.5)
         assert order.price == expected.price
         assert order.quantity == expected.quantity
+        assert order.taxes is not None
+        assert expected.taxes is not None
         assert order.taxes.cost == expected.taxes.cost

@@ -218,7 +218,7 @@ class ReportOrder(Order):
         objective: Optional[float] = None,
         stop: Optional[float] = None,
         comment: Optional[str] = None,
-        strategy: Optional[str] = None,
+        strategy: Optional[Strategy] = None,
         direction: Optional[Direction] = None,
         asset_type: str = "Stock",
         type: OrderType = OrderType.LIMIT,

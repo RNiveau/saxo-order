@@ -49,13 +49,13 @@ class SaxoClient:
             raise SaxoException(f"Stock {code}:{market} doesn't exist")
         return data[0]
 
-    def search(self, keyword: str) -> Dict:
+    def search(self, keyword: str) -> List:
         data = self._find_asset(keyword)
         if len(data) == 0:
             raise SaxoException(f"Nothing found for {keyword}")
         return data
 
-    def _find_asset(self, keyword: str) -> Dict:
+    def _find_asset(self, keyword: str) -> List:
         response = self.session.get(
             f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes={AssetType.all_saxo_values()}&IncludeNonTradable=true"
         )
@@ -223,9 +223,9 @@ class SaxoClient:
             raise SaxoException(f"Nothing found for {saxo_uic}")
         return asset["Data"][0]
 
-    def get_report(self, account: Account, date: str) -> List[ReportOrder]:
+    def get_report(self, account: Account, date_s: str) -> List[ReportOrder]:
         response = self.session.get(
-            f"{self.configuration.saxo_url}cs/v1/audit/orderactivities/?ClientKey={account.client_key}&AccountKey={account.key}&status=FinalFill&FromDateTime={date}"
+            f"{self.configuration.saxo_url}cs/v1/audit/orderactivities/?ClientKey={account.client_key}&AccountKey={account.key}&status=FinalFill&FromDateTime={date_s}"
         )
         self._check_response(response)
         orders = []

@@ -116,7 +116,7 @@ def get_strategy() -> Optional[Strategy]:
     )
     if index == 0:
         return None
-    return l[index - 1]
+    return Strategy.get_value([index - 1])
 
 
 def get_signal() -> Optional[Signal]:
@@ -131,7 +131,7 @@ def get_signal() -> Optional[Signal]:
     )
     if index == 0:
         return None
-    return l[index - 1]
+    return Signal.get_value(l[index - 1])
 
 
 def validate_buy_order(account: Account, client: SaxoClient, order: Order) -> None:

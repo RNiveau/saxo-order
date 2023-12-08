@@ -3,6 +3,7 @@ from click.core import Context
 
 from client.gsheet_client import GSheetClient
 from client.saxo_client import SaxoClient
+from model import ReportOrder
 from saxo_order.commands import catch_exception
 from saxo_order.commands.input_helper import select_account, update_order
 from saxo_order.service import calculate_currency, calculate_taxes
@@ -53,8 +54,9 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
             order = orders[index - 1]
             if create_or_update == "c":
                 update_order(order=order, conditional_order=None, validate_input=False)
-                order = calculate_currency(order, configuration.currencies_rate)
-                gsheet_client.create_order(account=account, order=order)
+                report_order = calculate_currency(order, configuration.currencies_rate)
+                assert isinstance(report_order, ReportOrder)
+                gsheet_client.create_order(account=account, order=report_order)
             else:
                 line_to_update = click.prompt(
                     "Which line needs to be updated ?", type=int
@@ -74,8 +76,9 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                     order.be_stopped = click.prompt(
                         "Has the order been BE stopped ?", type=bool, default=False
                     )
-                order = calculate_currency(order, configuration.currencies_rate)
+                report_order = calculate_currency(order, configuration.currencies_rate)
+                assert isinstance(report_order, ReportOrder)
                 gsheet_client.update_order(
-                    order=order,
+                    order=report_order,
                     line_to_update=line_to_update,
                 )

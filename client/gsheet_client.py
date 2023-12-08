@@ -2,7 +2,7 @@ import json
 import locale
 import os
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -30,6 +30,7 @@ class GSheetClient:
         return None
 
     def _generate_p_t_block(self, order: Order, number_rows: int) -> List:
+        taxes = Taxes(0, 0) if order.taxes is None else order.taxes
         locale.setlocale(locale.LC_ALL, "fr_FR")
         date = (
             order.date.strftime("%d/%m/%Y")
@@ -42,8 +43,8 @@ class GSheetClient:
             else "CFD"
         )
         return [
-            order.taxes.cost,
-            order.taxes.taxes,
+            taxes.cost,
+            taxes.taxes,
             f"=E{number_rows}+O{number_rows}+P{number_rows}",
             date,
             typ,
@@ -57,11 +58,11 @@ class GSheetClient:
             "" if order.underlying is None else order.underlying.price,
         ]
 
-    def _generate_i_column(self, order: Order) -> List[float]:
+    def _generate_i_column(self, order: Order) -> List[Optional[float]]:
         return [helper.get_stop(order)]
 
-    def _generate_l_m_block(self, order: Order, number_rows: int) -> List[float]:
-        block = [helper.get_objective(order)]
+    def _generate_l_m_block(self, order: Order, number_rows: int) -> List:
+        block: List[Any] = [helper.get_objective(order)]
         if (
             helper.get_objective(order) is not None
             and helper.get_stop(order) is not None
@@ -92,7 +93,7 @@ class GSheetClient:
         if order.taxes is None:
             order.taxes = Taxes(0, 0)
         number_rows = self._get_number_rows() + 1
-        row = [
+        row: List[Any] = [
             order.name,
             order.code.upper(),
         ]
@@ -143,7 +144,7 @@ class GSheetClient:
         result = (
             self.client.spreadsheets()
             .values()
-            .batchUpdate(spreadsheetId=self.spreadsheet_id, body=batch_update_request)
+            .batchUpdate(spreadsheetId=self.spreadsheet_id, body=batch_update_request)  # type: ignore
             .execute()
         )
         return result

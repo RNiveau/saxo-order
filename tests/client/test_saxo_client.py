@@ -207,4 +207,4 @@ class TestSaxoClient:
             conditional_order=conditional_order,
         )
 
-        requests.Session.post.assert_called_once_with(mocker.ANY, json=expected)
+        requests.Session.post.assert_called_once_with(mocker.ANY, json=expected)  # type: ignore

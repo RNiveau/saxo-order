@@ -28,7 +28,7 @@ def auth(ctx: Context, write: bool):
         exit(1)
     access_token = auth_client.access_token(match.group(1))
     if write is None:
-        should_write = input("Do you want to save the access token ? (Y/n)\n")
+        should_write: str = input("Do you want to save the access token ? (Y/n)\n")
     if write == "y" or should_write == "Y" or should_write == "y":
         with open("access_token", "w") as f:
             f.write(f"{access_token}\n")

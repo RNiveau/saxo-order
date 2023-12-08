@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict, List
 
-from binance.spot import Spot
+from binance.spot import Spot  # type: ignore
 
 from model import AssetType, Currency, Direction, ReportOrder, Taxes
 
