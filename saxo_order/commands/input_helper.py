@@ -116,7 +116,7 @@ def get_strategy() -> Optional[Strategy]:
     )
     if index == 0:
         return None
-    return Strategy.get_value([index - 1])
+    return Strategy.get_value(l[index - 1])
 
 
 def get_signal() -> Optional[Signal]:
