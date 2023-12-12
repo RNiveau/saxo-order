@@ -18,6 +18,7 @@ class BinanceClient:
         "NEAR",
         "RUNE",
         "INJ",
+        "LINK",
         "MANA",
         "ORN",
         "ERN",

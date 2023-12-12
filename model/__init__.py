@@ -12,6 +12,7 @@ class Strategy(StrEnum):
     INTRA = "Intraday"
     IVT = "IVT"
     FLUX = "Journée flux"
+    R7 = "Rebond mm7"
     R20 = "Rebond mm20"
     R50 = "Rebond mm50"
     R200 = "Rebond mm200"
