@@ -22,7 +22,7 @@ pytest-mock = "^3.12.0"
 mock = "^5.1.0"
 google-api-python-client-stubs = "^1.23.0"
 google-auth-stubs = "^0.2.0"
-isort = "^5.12.0"
+isort = "^5.13.2"
 
 [tool.poetry.scripts]
 k-order = "saxo_order.commands.k_order:k_order"
