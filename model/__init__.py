@@ -6,6 +6,7 @@ from typing import Optional
 class Strategy(StrEnum):
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
+    COMBO = "Combo"
     CONG = "Congestion"
     DIV = "Dividende"
     EH = "Engloblante haussière"

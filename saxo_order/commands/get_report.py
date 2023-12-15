@@ -3,7 +3,7 @@ from click.core import Context
 
 from client.gsheet_client import GSheetClient
 from client.saxo_client import SaxoClient
-from model import ReportOrder
+from model import Currency, ReportOrder
 from saxo_order.commands import catch_exception
 from saxo_order.commands.input_helper import select_account, update_order
 from saxo_order.service import calculate_currency, calculate_taxes
@@ -38,11 +38,18 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
     account = select_account(client)
     orders = client.get_report(account, from_date)
     for index, order in enumerate(orders):
-        print(
-            f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price}€ -> {order.price * order.quantity:.2f}€"
-        )
-        if order.underlying is not None:
-            print(f"    - Underlying {order.underlying.price}€")
+        if order.currency != Currency.EURO:
+            currency_order = calculate_currency(order, configuration.currencies_rate)
+            print(
+                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price:.4f}$ ({currency_order.price:.4f}€) -> {order.price * order.quantity:.4f}$ ({currency_order.price * order.quantity:.4f}€)"
+            )
+
+        else:
+            print(
+                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price:.4f}$ -> {order.price * order.quantity:.4f}$"
+            )
+            if order.underlying is not None:
+                print(f"    - Underlying {order.underlying.price}€")
     if update_gsheet:
         while True:
             index = click.prompt("Which row to manage (0 = exit) ? ", type=int)
