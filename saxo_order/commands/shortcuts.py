@@ -92,7 +92,7 @@ def sp500(ctx: Context, price: float, order_type: str, direction: str):
 @catch_exception(handle=SaxoException)
 @click.pass_context
 def russell(ctx: Context, price: float, order_type: str, direction: str):
-    code = "US2000DEC23"
+    code = "US2000MAR24"
     shortcut(ctx, price, order_type, direction, code)
 
 
