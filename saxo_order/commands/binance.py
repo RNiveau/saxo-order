@@ -1,9 +1,11 @@
+from datetime import datetime
+
 import click
 from click.core import Context
 
 from client.binance_client import BinanceClient
 from client.gsheet_client import GSheetClient
-from model import Account, Currency, ReportOrder
+from model import Account, Currency, ReportOrder, StackingReport
 from saxo_order.commands import catch_exception
 from saxo_order.commands.input_helper import update_order
 from saxo_order.service import calculate_currency
@@ -86,3 +88,43 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                     order=report_order,
                     line_to_update=line_to_update,
                 )
+
+
+@click.command
+@click.option(
+    "--file",
+    type=str,
+    required=True,
+    help="Where is the csv file ?",
+    prompt="Where is the csv file ?",
+)
+@click.option(
+    "--type",
+    type=click.Choice(["Locked", "Flexible"]),
+    required=True,
+    help="Flexible or Locked",
+    prompt="Flexible or Locked file report",
+)
+@click.pass_context
+@catch_exception(handle=SaxoException)
+def get_stacking_report(ctx: Context, file: str, type: str):
+    coin_column = 1 if type == "Locked" else 2
+    value_column = 2 if type == "Locked" else 3
+    pattern = "%Y-%m-%d" if type == "Locked" else "%Y-%m-%d %H:%M:%S"
+    with open(file, "r") as f:
+        lines = f.readlines()
+    cryptos = {}
+    lines.pop(0)
+    for line in lines:
+        tab = line.split(",")
+        date = datetime.strptime(tab[0], pattern)
+        quantity = float(tab[value_column])
+        stacking = StackingReport(
+            asset=tab[coin_column], date=date.strftime("%m/%Y"), quantity=quantity
+        )
+        if stacking.id in cryptos:
+            cryptos[stacking.id].quantity += quantity
+        else:
+            cryptos[stacking.id] = stacking
+    for crypto in cryptos.values():
+        print(f"{crypto.asset};{crypto.date};{crypto.quantity:.10f};{type}")

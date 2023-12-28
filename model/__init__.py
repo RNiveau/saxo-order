@@ -265,3 +265,14 @@ class ConditionalOrder:
         self.trigger = trigger
         self.price = price
         self.asset_type = asset_type
+
+
+class StackingReport:
+    def __init__(self, date: str, asset: str, quantity: float) -> None:
+        self.date = date
+        self.asset = asset
+        self.quantity = quantity
+
+    @property
+    def id(self) -> str:
+        return f"{self.date}{self.asset}"

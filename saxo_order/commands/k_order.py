@@ -100,3 +100,4 @@ shortcut.add_command(shortcurts.nasdaq)
 shortcut.add_command(shortcurts.nikkei)
 
 binance.add_command(binance_commands.get_report)
+binance.add_command(binance_commands.get_stacking_report)
