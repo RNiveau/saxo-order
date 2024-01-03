@@ -4,6 +4,7 @@ from typing import Optional
 
 
 class Strategy(StrEnum):
+    IMP = "Bougie impulsive"
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
     COMBO = "Combo"
