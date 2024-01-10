@@ -92,6 +92,6 @@ def set_order(
             key_path=configuration.gsheet_creds_path,
             spreadsheet_id=configuration.spreadsheet_id,
         )
-        order = calculate_currency(order, configuration.currencies_rate)
-        result = gsheet_client.create_order(account, order)
+        new_order = calculate_currency(order, configuration.currencies_rate)
+        result = gsheet_client.create_order(account, new_order, order)
         print(f"Row {result['updates']['updatedRange']} appended.")

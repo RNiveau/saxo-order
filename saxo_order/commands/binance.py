@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Dict
 
 import click
 from click.core import Context
@@ -63,7 +64,9 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                 update_order(order=order, conditional_order=None, validate_input=False)
                 report_order = calculate_currency(order, configuration.currencies_rate)
                 assert isinstance(report_order, ReportOrder)
-                gsheet_client.create_order(account=account, order=report_order)
+                gsheet_client.create_order(
+                    account=account, order=report_order, original_order=order
+                )
             else:
                 line_to_update = click.prompt(
                     "Which line needs to be updated ?", type=int
@@ -86,6 +89,7 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                 assert isinstance(report_order, ReportOrder)
                 gsheet_client.update_order(
                     order=report_order,
+                    original_order=order,
                     line_to_update=line_to_update,
                 )
 
@@ -113,7 +117,7 @@ def get_stacking_report(ctx: Context, file: str, type: str):
     pattern = "%Y-%m-%d" if type == "Locked" else "%Y-%m-%d %H:%M:%S"
     with open(file, "r") as f:
         lines = f.readlines()
-    cryptos = {}
+    cryptos: Dict = {}
     lines.pop(0)
     for line in lines:
         tab = line.split(",")

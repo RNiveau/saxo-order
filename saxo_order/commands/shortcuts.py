@@ -92,7 +92,7 @@ def sp500(ctx: Context, price: float, order_type: str, direction: str):
 @catch_exception(handle=SaxoException)
 @click.pass_context
 def russell(ctx: Context, price: float, order_type: str, direction: str):
-    print("You need to think about the cotation diff: future is + 20")
+    print("You need to think about the cotation diff: future is + 20G")
     code = "US2000MAR24"
     shortcut(ctx, price, order_type, direction, code)
 
@@ -136,6 +136,6 @@ def shortcut(ctx: Context, price: float, order_type: str, direction: str, code: 
         key_path=configuration.gsheet_creds_path,
         spreadsheet_id=configuration.spreadsheet_id,
     )
-    calculate_currency(order, configuration.currencies_rate)
-    result = gsheet_client.create_order(account, order)
+    new_order = calculate_currency(order, configuration.currencies_rate)
+    result = gsheet_client.create_order(account, new_order, order)
     print(f"Row {result['updates']['updatedRange']} appended.")
