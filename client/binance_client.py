@@ -25,6 +25,7 @@ class BinanceClient:
         "FTM",
         "LTC",
         "AR",
+        "SNX",
     ]
 
     def __init__(self, key: str, secret: str) -> None:
