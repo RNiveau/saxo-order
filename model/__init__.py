@@ -47,6 +47,7 @@ class Signal(StrEnum):
     DOUBLE_TOP = "Double top"
     FIBO = "Fibo 50%"
     POL = "Polarité"
+    RP = "Reprise de l'open"
     TMM7 = "Touchette mm7"
     TMM20 = "Touchette mm20"
     TMM50 = "Touchette mm50"
