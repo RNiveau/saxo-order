@@ -40,17 +40,7 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
     client = BinanceClient(configuration.binance_keys[0], configuration.binance_keys[1])
     orders = client.get_report_all(from_date, configuration.currencies_rate["usdeur"])
     account = Account("", "Coinbase")
-    for index, order in enumerate(orders):
-        if order.currency != Currency.EURO:
-            currency_order = calculate_currency(order, configuration.currencies_rate)
-            print(
-                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price:.4f}$ ({currency_order.price:.4f}€) -> {order.price * order.quantity:.4f}$ ({currency_order.price * order.quantity:.4f}€)"
-            )
-
-        else:
-            print(
-                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price:.4f}$ -> {order.price * order.quantity:.4f}$"
-            )
+    show_report(orders, configuration.currencies_rate)
     if update_gsheet:
         while True:
             index = click.prompt("Which row to manage (0 = exit) ? ", type=int)
@@ -92,6 +82,21 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                     original_order=order,
                     line_to_update=line_to_update,
                 )
+            show_report(orders, configuration.currencies_rate)
+
+
+def show_report(orders, currencies_rate):
+    for index, order in enumerate(orders):
+        if order.currency != Currency.EURO:
+            currency_order = calculate_currency(order, currencies_rate)
+            print(
+                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price:.4f}$ ({currency_order.price:.4f}€) -> {order.price * order.quantity:.4f}$ ({currency_order.price * order.quantity:.4f}€)"
+            )
+
+        else:
+            print(
+                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price:.4f}$ -> {order.price * order.quantity:.4f}$"
+            )
 
 
 @click.command
