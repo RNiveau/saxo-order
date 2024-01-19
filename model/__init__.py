@@ -39,6 +39,8 @@ class Strategy(StrEnum):
 
 
 class Signal(StrEnum):
+    BBB = "BBH"
+    BBH = "BBB"
     BHH1 = "Breakout h1"
     BHH4 = "Breakout h4"
     BHD = "Breakout daily"
