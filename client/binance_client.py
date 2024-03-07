@@ -29,6 +29,7 @@ class BinanceClient:
         "ETC",
         "STX",
         "STORJ",
+        "THETA",
     ]
 
     def __init__(self, key: str, secret: str) -> None:
