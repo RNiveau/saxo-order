@@ -119,15 +119,17 @@ def show_report(orders, currencies_rate):
 def get_stacking_report(ctx: Context, file: str, type: str):
     coin_column = 1 if type == "Locked" else 2
     value_column = 2 if type == "Locked" else 3
-    pattern = "%Y-%m-%d" if type == "Locked" else "%Y-%m-%d %H:%M:%S"
     with open(file, "r") as f:
         lines = f.readlines()
     cryptos: Dict = {}
     lines.pop(0)
     for line in lines:
         tab = line.split(",")
-        date = datetime.strptime(tab[0], pattern)
         quantity = float(tab[value_column])
+        try:
+            date = datetime.strptime(tab[0], "%Y-%m-%d")
+        except Exception:
+            date = datetime.strptime(tab[0], "%Y-%m-%d %H:%M:%S")
         stacking = StackingReport(
             asset=tab[coin_column], date=date.strftime("%m/%Y"), quantity=quantity
         )
@@ -136,4 +138,8 @@ def get_stacking_report(ctx: Context, file: str, type: str):
         else:
             cryptos[stacking.id] = stacking
     for crypto in cryptos.values():
-        print(f"{crypto.asset};{crypto.date};{crypto.quantity:.10f};{type}")
+        print(
+            f"{crypto.asset};{crypto.date};{crypto.quantity:.10f};{type}".replace(
+                ".", ","
+            )
+        )
