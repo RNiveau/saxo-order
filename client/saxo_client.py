@@ -6,6 +6,7 @@ import requests
 from requests import Response
 from requests.adapters import HTTPAdapter, Retry
 
+from client.saxo_auth_client import SaxoAuthClient
 from model import (
     Account,
     AssetType,
@@ -35,6 +36,18 @@ class SaxoClient:
         )
         adapter = HTTPAdapter(max_retries=retries)
         self.session.mount("https://", adapter)
+        self.session.hooks["response"].append(self.refresh_token)
+
+    def refresh_token(self, request, *args, **kwargs):
+        if request.status_code == 401:
+            auth_client = SaxoAuthClient(self.configuration)
+            access_token, refresh_token = auth_client.refresh_token()
+            self.configuration.save_tokens(access_token, refresh_token)
+            self.session.headers.update({"Authorization": f"Bearer {access_token}"})
+            request.request.headers["Authorization"] = self.session.headers[
+                "Authorization"
+            ]
+            return self.session.send(request.request)
 
     def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
         symbol = f"{code}:{market}" if market is not None and market != "" else code

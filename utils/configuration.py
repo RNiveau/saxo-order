@@ -12,9 +12,25 @@ class Configuration:
         if os.path.isfile("secrets.yml"):
             with open("secrets.yml", "r") as f:
                 self.secrets = yaml.safe_load(f)
+        self.access_token = ""
+        self.refresh_token = ""
+        self.load_tokens()
+
+    def load_tokens(self) -> None:
         if os.path.isfile("access_token"):
             with open("access_token", "r") as f:
-                self.access_token = f.read().strip()
+                content = f.read().strip()
+                contents = content.split("\n")
+                if len(contents) == 2:
+                    self.access_token = contents[0]
+                    self.refresh_token = contents[1]
+
+    def save_tokens(self, access_token: str, refresh_token: str) -> None:
+        self.access_token = access_token
+        self.refresh_token = refresh_token
+        with open("access_token", "w") as f:
+            f.write(f"{access_token}\n")
+            f.write(f"{refresh_token}\n")
 
     @property
     def app_key(self) -> str:

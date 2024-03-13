@@ -23,16 +23,29 @@ class SaxoAuthClient:
         response.raise_for_status()
         return response.headers["Location"]
 
-    def access_token(self, code: str) -> str:
+    def access_token(self, code: str) -> tuple:
+        response = self.session.post(
+            f"{self.configuration.auth_url}token",
+            data=f"grant_type=authorization_code&code={code}&redirect_uri=http%3A%2F%2Flocalhost",
+            headers={"Authorization": f"Basic {self._auth_str()}"},
+        )
+        response.raise_for_status()
+        return (response.json()["access_token"], response.json()["refresh_token"])
+
+    def refresh_token(self) -> tuple:
+        response = self.session.post(
+            f"{self.configuration.auth_url}token",
+            data=f"grant_type=refresh_token&refresh_token={self.configuration.refresh_token}",
+            headers={"Authorization": f"Basic {self._auth_str()}"},
+        )
+        response.raise_for_status()
+        return (response.json()["access_token"], response.json()["refresh_token"])
+
+    def _auth_str(self) -> str:
         auth_str = base64.b64encode(
             f"{self.configuration.app_key}:{self.configuration.app_secret}".encode(
                 "utf-8"
             )
         ).decode("utf-8")
-        response = self.session.post(
-            f"{self.configuration.auth_url}token",
-            data=f"grant_type=authorization_code&code={code}&redirect_uri=http%3A%2F%2Flocalhost",
-            headers={"Authorization": f"Basic {auth_str}"},
-        )
-        response.raise_for_status()
-        return response.json()["access_token"]
+
+        return auth_str
