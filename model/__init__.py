@@ -20,6 +20,7 @@ class Strategy(StrEnum):
     R200 = "Rebond mm200"
     RES = "Résultat d'entreprise"
     REVERSE = "Revere"
+    ROULEMENT = "Roulement"
     SI = "Stratagème de l'impulsion"
     SCT = "Support court terme"
     SMT = "Support moyen terme"
