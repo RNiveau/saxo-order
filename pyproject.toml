@@ -20,7 +20,7 @@ pytest = "^8.1.1"
 mypy = "^1.9.0"
 pytest-mock = "^3.14.0"
 mock = "^5.1.0"
-google-api-python-client-stubs = "^1.24.0"
+google-api-python-client-stubs = "^1.25.0"
 google-auth-stubs = "^0.2.0"
 isort = "^5.13.2"
 
