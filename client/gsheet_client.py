@@ -248,13 +248,17 @@ class GSheetClient:
                 "range": f"{self.sheet_name}!AG{line_to_update}:AK{line_to_update}",
                 "values": [
                     [
-                        f"=Z{line_to_update}-F{line_to_update}"
-                        if order.direction == Direction.SELL
-                        else f"=F{line_to_update}-Z{line_to_update}",
+                        (
+                            f"=Z{line_to_update}-F{line_to_update}"
+                            if order.direction == Direction.SELL
+                            else f"=F{line_to_update}-Z{line_to_update}"
+                        ),
                         f"=AG{line_to_update}/F{line_to_update}",
-                        f"=T{line_to_update}-AA{line_to_update}"
-                        if order.direction == Direction.BUY
-                        else f"=AA{line_to_update}-T{line_to_update}",
+                        (
+                            f"=T{line_to_update}-AA{line_to_update}"
+                            if order.direction == Direction.BUY
+                            else f"=AA{line_to_update}-T{line_to_update}"
+                        ),
                         f"=AI{line_to_update}/F{line_to_update}",
                         f"=AB{line_to_update}-U{line_to_update}",
                     ]

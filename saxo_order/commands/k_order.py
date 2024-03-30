@@ -4,6 +4,7 @@ from click.core import Context
 import saxo_order.commands.auth as auth
 import saxo_order.commands.available_funds as available_funds
 import saxo_order.commands.binance as binance_commands
+import saxo_order.commands.fundamental as get_score
 import saxo_order.commands.get_report as get_report
 import saxo_order.commands.search as search
 import saxo_order.commands.set_oco_order as set_oco_order
@@ -83,6 +84,7 @@ def binance(ctx: Context):
 k_order.add_command(set)
 k_order.add_command(shortcut)
 k_order.add_command(binance)
+k_order.add_command(get_score.get_score)
 k_order.add_command(auth.auth)
 k_order.add_command(available_funds.available_funds)
 k_order.add_command(get_report.get_report)

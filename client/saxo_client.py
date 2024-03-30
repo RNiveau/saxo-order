@@ -182,9 +182,11 @@ class SaxoClient:
                         "PriceType": "LastTraded",
                     },
                     "ManualOrder": True,
-                    "BuySell": Direction.SELL
-                    if conditional_order.trigger == TriggerOrder.ABOVE
-                    else Direction.BUY,
+                    "BuySell": (
+                        Direction.SELL
+                        if conditional_order.trigger == TriggerOrder.ABOVE
+                        else Direction.BUY
+                    ),
                 }
             ]
 

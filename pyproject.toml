@@ -13,6 +13,7 @@ types-requests = "^2.31.0.20240311"
 google-api-python-client = "^2.122.0"
 google-auth-oauthlib = "^1.2.0"
 binance-connector-python = "^0.6.0"
+beautifulsoup4 = "^4.12.3"
 
 [tool.poetry.dev-dependencies]
 black = "^24.2.0"
@@ -23,6 +24,7 @@ mock = "^5.1.0"
 google-api-python-client-stubs = "^1.24.0"
 google-auth-stubs = "^0.2.0"
 isort = "^5.13.2"
+types-beautifulsoup4 = "^4.12.0"
 
 [tool.poetry.scripts]
 k-order = "saxo_order.commands.k_order:k_order"

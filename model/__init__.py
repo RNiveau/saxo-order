@@ -2,6 +2,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Optional
 
+from model.zone_bourse import ZoneBourseScore, ZoneBourseScrap
+
 
 class Strategy(StrEnum):
     IMP = "Bougie impulsive"
