@@ -132,7 +132,7 @@ def calculate_score(
     score_lines.append(
         build_line_score(
             "Marge nette > 10% /an",
-            zb_score.marge_nette / zb_score.nb_years >= 10,
+            zb_score.marge_nette >= 10,
             2,
             zb_score,
         )
@@ -140,7 +140,7 @@ def calculate_score(
     score_lines.append(
         build_line_score(
             "Marge d'exploitation > 20%/an",
-            zb_score.marge_exploitation / zb_score.nb_years >= 20,
+            zb_score.marge_exploitation >= 20,
             2,
             zb_score,
         )
@@ -148,7 +148,7 @@ def calculate_score(
     score_lines.append(
         build_line_score(
             "Marge d'exploitation > 40%/an",
-            zb_score.marge_exploitation / zb_score.nb_years >= 40,
+            zb_score.marge_exploitation >= 40,
             1,
             zb_score,
         )

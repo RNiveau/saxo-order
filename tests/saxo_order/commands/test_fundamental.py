@@ -8,9 +8,7 @@ from model import ZoneBourseScore, ZoneBourseScrap
 
 class TestFundamental:
 
-    def test_calculate_score(
-        self,
-    ):
+    def test_calculate_score_tte(self):
         zb = ZoneBourseScrap()
         zb.init_data([2018, 2019, 2020, 2021, 2022])
         for category in ZoneBourseScrap.WANTED_CATEGORIES:
@@ -66,3 +64,66 @@ class TestFundamental:
         assert score_lines[9].endswith("1 1 1")
         assert score_lines[10].endswith("1 1 1")
         assert score_lines[11].endswith("1 1 1")
+
+    def test_calculate_perfect_score(self):
+        zb = ZoneBourseScrap()
+        zb.init_data([2021, 2022, 2023, 2024, 2025])
+        for category in ZoneBourseScrap.WANTED_CATEGORIES:
+            zb.create_category(category)
+        # data come from total energies (TTE)
+        zb.data[2025]["Capitalisation"] = "1000"
+        zb.data[2025]["Free Cash Flow"] = "900"
+        zb.data[2025]["Capex"] = "1"
+        zb.data[2025]["ROE"] = "30%"
+        zb.data[2025]["Dette Nette"] = "2"
+        zb.data[2025]["Résultat net"] = "21"
+        zb.data[2024]["Résultat net"] = "18"
+        zb.data[2023]["Résultat net"] = "15"
+        zb.data[2022]["Résultat net"] = "12"
+        zb.data[2021]["Résultat net"] = "10"
+        zb.data[2025]["Marge nette"] = "12%"
+        zb.data[2024]["Marge nette"] = "11%"
+        zb.data[2023]["Marge nette"] = "14%"
+        zb.data[2022]["Marge nette"] = "10%"
+        zb.data[2021]["Marge nette"] = "12%"
+        zb.data[2025]["Marge d'exploitation"] = "50%"
+        zb.data[2024]["Marge d'exploitation"] = "50%"
+        zb.data[2023]["Marge d'exploitation"] = "50%"
+        zb.data[2022]["Marge d'exploitation"] = "50%"
+        zb.data[2021]["Marge d'exploitation"] = "50%"
+
+        zb_score = ZoneBourseScore()
+        zb_score.is_ath = True
+        zb_score.is_bullish = True
+        zb_score.is_outperformance = True
+        score_lines = command.calculate_score(zb_score, zb, 2025)
+        assert zb.data[2021]["Croissance résultat"] == "-"
+        assert zb.data[2022]["Croissance résultat"] == "20.00%"
+        assert zb.data[2023]["Croissance résultat"] == "25.00%"
+        assert zb.data[2024]["Croissance résultat"] == "20.00%"
+        assert zb.data[2025]["Croissance résultat"] == "16.67%"
+        assert zb_score.capitalisation == 1000
+        assert zb_score.capex == 1
+        assert zb_score.free_cash_flow == 900
+        assert f"{zb_score.croissance:.3f}" == "0.204"
+        assert f"{zb_score.marge_nette:.4f}" == "11.8000"
+        assert f"{zb_score.marge_exploitation:.4f}" == "50.0000"
+        assert zb_score.nb_years == 5
+        assert zb_score.score == 15
+        assert zb_score.weighted_score == 20
+
+        assert score_lines[0].endswith("2 1 2")
+        assert score_lines[1].endswith("1 1 1")
+        assert score_lines[2].endswith("2 1 2")
+        assert score_lines[3].endswith("2 1 2")
+        assert score_lines[4].endswith("1 1 1")
+        assert score_lines[5].endswith("1 1 1")
+        assert score_lines[6].endswith("2 1 2")
+        assert score_lines[7].endswith("1 1 1")
+        assert score_lines[8].endswith("1 1 1")
+        assert score_lines[9].endswith("1 1 1")
+        assert score_lines[10].endswith("1 1 1")
+        assert score_lines[11].endswith("1 1 1")
+        assert score_lines[12].endswith("1 1 1")
+        assert score_lines[13].endswith("1 1 1")
+        assert score_lines[14].endswith("2 1 2")
