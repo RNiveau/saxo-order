@@ -185,10 +185,11 @@ def calculate_score(
             zb_score,
         )
     )
+    free_cash_flow = zb_score.free_cash_flow if zb_score.free_cash_flow > 0 else 1
     score_lines.append(
         build_line_score(
             "Capitalisation / Free cash flow < 8",
-            zb_score.capitalisation / zb_score.free_cash_flow <= 8,
+            zb_score.capitalisation / free_cash_flow <= 8,
             1,
             zb_score,
         )
@@ -196,7 +197,7 @@ def calculate_score(
     score_lines.append(
         build_line_score(
             "Capitalisation / Free cash flow < 20",
-            zb_score.capitalisation / zb_score.free_cash_flow <= 20,
+            zb_score.capitalisation / free_cash_flow <= 20,
             1,
             zb_score,
         )
