@@ -5,7 +5,16 @@ from typing import Optional
 from model.zone_bourse import ZoneBourseScore, ZoneBourseScrap
 
 
-class Strategy(StrEnum):
+class EnumWithGetValue(StrEnum):
+    @classmethod
+    def get_value(cls, value):
+        for member in cls:
+            if member.value.lower() == value.lower():
+                return member
+        raise ValueError(f"Invalid string: {value}")
+
+
+class Strategy(EnumWithGetValue):
     IMP = "Bougie impulsive"
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
@@ -33,15 +42,8 @@ class Strategy(StrEnum):
     VB = "Vente plus bas"
     YOLO = "Yolo"
 
-    @staticmethod
-    def get_value(value):
-        for member in Strategy:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
-
-class Signal(StrEnum):
+class Signal(EnumWithGetValue):
     BBB = "BBH"
     BBH = "BBB"
     BHH1 = "Breakout h1"
@@ -59,28 +61,14 @@ class Signal(StrEnum):
     TMM200 = "Touchette mm200"
     NONE = "No signal"
 
-    @staticmethod
-    def get_value(value):
-        for member in Signal:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
-
-class Currency(StrEnum):
+class Currency(EnumWithGetValue):
     EURO = "EUR"
     USD = "USD"
     JPY = "JPY"
 
-    @staticmethod
-    def get_value(value):
-        for member in Currency:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
-
-class AssetType(StrEnum):
+class AssetType(EnumWithGetValue):
     WARRANT = "WarrantOpenEndKnockOut"
     WARRANT_KNOCK_OUT = "WarrantKnockOut"
     ETF = "Etf"
@@ -92,56 +80,28 @@ class AssetType(StrEnum):
     CRYPTO = "Crypto"
 
     @staticmethod
-    def get_value(value):
-        for member in AssetType:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
-
-    @staticmethod
     def all_saxo_values():
         values = filter(lambda x: x != AssetType.CRYPTO, AssetType)
         return ",".join(values)
 
 
-class Direction(StrEnum):
+class Direction(EnumWithGetValue):
     BUY = "Buy"
     SELL = "Sell"
 
-    @staticmethod
-    def get_value(value):
-        for member in Direction:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
-
-class TriggerOrder(StrEnum):
+class TriggerOrder(EnumWithGetValue):
     ABOVE = "above"
     BELLOW = "below"
 
-    @staticmethod
-    def get_value(value):
-        for member in TriggerOrder:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
-
-class OrderType(StrEnum):
+class OrderType(EnumWithGetValue):
     LIMIT = "limit"
     STOP = "stop"
     OPEN_STOP = "open_stop"
     OCO = "oco"
     STOP_LIMIT = "stoplimit"
     MARKET = "market"
-
-    @staticmethod
-    def get_value(value):
-        for member in OrderType:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
 
 class Taxes:
