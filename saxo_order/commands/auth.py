@@ -1,4 +1,5 @@
 import re
+import subprocess
 
 import click
 from click.core import Context
@@ -22,6 +23,7 @@ def auth(ctx: Context, write: bool):
     configuration = Configuration(ctx.obj["config"])
     auth_client = SaxoAuthClient(configuration)
     print(auth_client.login())
+    subprocess.run(["open", auth_client.login()])
     url = input("What's the url provide by saxo ?\n")
     match = re.search(r"\?code=([\w-]+)", url)
     if not match:
