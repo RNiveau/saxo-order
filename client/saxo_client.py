@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -292,6 +293,18 @@ class SaxoClient:
         if len(data) == 0:
             return 0.0
         return data[0]["Close"]
+
+    def get_historical_data(
+        self, saxo_uic: str, asset_type: str, horizon: int, count: int, date: datetime
+    ) -> List:
+        logging.debug(
+            f"get_historical_data {saxo_uic}, horizon={horizon}, count={count}, {date}"
+        )
+        response = self.session.get(
+            f"{self.configuration.saxo_url}chart/v1/charts/?&Uic={saxo_uic}&AssetType={asset_type}&Horizon={horizon}&Mode=UpTo&Count={count}&Time={date.strftime('%Y-%m-%dT%H:00:00Z')}"
+        )
+        self._check_response(response)
+        return response.json()["Data"]
 
     @staticmethod
     def _check_response(response: Response) -> None:

@@ -1,70 +1,34 @@
-from enum import StrEnum
 from typing import List, Union
 
-import yaml
+from model.enum_with_get_value import EnumWithGetValue
 
 
-class UnitTime(StrEnum):
+class UnitTime(EnumWithGetValue):
 
     D = "daily"
     H1 = "h1"
     H4 = "h4"
     W = "weekly"
 
-    @staticmethod
-    def get_value(value):
-        for member in UnitTime:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
-
-class WorkflowDirection(StrEnum):
+class WorkflowDirection(EnumWithGetValue):
 
     BELOW = "below"
     ABOVE = "above"
 
-    @staticmethod
-    def get_value(value):
-        for member in WorkflowDirection:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
-
-class WorkflowLocation(StrEnum):
+class WorkflowLocation(EnumWithGetValue):
 
     LOWER = "lower"
 
-    @staticmethod
-    def get_value(value):
-        for member in WorkflowLocation:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
-
-class WorkflowSignal(StrEnum):
+class WorkflowSignal(EnumWithGetValue):
 
     BREAK = "breakout"
 
-    @staticmethod
-    def get_value(value):
-        for member in WorkflowSignal:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
-
-class IndicatorType(StrEnum):
+class IndicatorType(EnumWithGetValue):
     MA50 = "ma50"
-
-    @staticmethod
-    def get_value(value):
-        for member in IndicatorType:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
 
 class Indicator:
@@ -126,51 +90,3 @@ class Workflow:
         self.enable = enable
         self.conditions = conditions
         self.trigger = trigger
-
-
-# Load YAML data
-yaml_data = """
-- name: sell ma50 h4 dax
-  index: DAX.I
-  cfd: GER40.I
-  end_date: 2024/04/01
-  enable: true
-  conditions:
-    - indicator:
-        name: ma50
-        ut: h4
-      close:
-        direction: below
-        ut: h1
-        spread: 10
-  trigger:
-    ut: h1
-    type: breakout
-    where: lower
-"""
-
-# Parse YAML
-workflows_data = yaml.safe_load(yaml_data)
-
-# Create Workflow objects
-workflows = []
-for workflow_data in workflows_data:
-    name = workflow_data["name"]
-    index = workflow_data["index"]
-    cfd = workflow_data["cfd"]
-    end_date = workflow_data["end_date"]
-    enable = workflow_data["enable"]
-
-    conditions_data = workflow_data["conditions"]
-    conditions = []
-    for condition_data in conditions_data:
-        indicator_data = condition_data["indicator"]
-        indicator = Indicator(indicator_data["name"], indicator_data["ut"])
-        close_data = condition_data["close"]
-        close = Condition(indicator, close_data)
-        conditions.append(close)
-
-    trigger_data = workflow_data["trigger"]
-    trigger = Trigger(trigger_data["ut"], trigger_data["type"], trigger_data["where"])
-
-    workflows.append(Workflow(name, index, cfd, end_date, enable, conditions, trigger))

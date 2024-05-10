@@ -1,17 +1,9 @@
 from datetime import datetime
-from enum import StrEnum
 from typing import Optional
 
+from model.enum_with_get_value import EnumWithGetValue
+from model.workflow import *
 from model.zone_bourse import ZoneBourseScore, ZoneBourseScrap
-
-
-class EnumWithGetValue(StrEnum):
-    @classmethod
-    def get_value(cls, value):
-        for member in cls:
-            if member.value.lower() == value.lower():
-                return member
-        raise ValueError(f"Invalid string: {value}")
 
 
 class Strategy(EnumWithGetValue):
