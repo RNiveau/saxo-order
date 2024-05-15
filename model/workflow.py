@@ -1,5 +1,8 @@
+import datetime
+from dataclasses import dataclass
 from typing import List, Union
 
+from model.enum import Direction
 from model.enum_with_get_value import EnumWithGetValue
 
 
@@ -20,11 +23,12 @@ class WorkflowDirection(EnumWithGetValue):
 class WorkflowLocation(EnumWithGetValue):
 
     LOWER = "lower"
+    HIGHER = "higher"
 
 
 class WorkflowSignal(EnumWithGetValue):
 
-    BREAK = "breakout"
+    BREAKOUT = "breakout"
 
 
 class IndicatorType(EnumWithGetValue):
@@ -61,7 +65,12 @@ class Condition:
 
 class Trigger:
     def __init__(
-        self, ut: Union[str | UnitTime], signal: Union[str | UnitTime], location
+        self,
+        ut: Union[str | UnitTime],
+        signal: Union[str | WorkflowSignal],
+        location: Union[str | WorkflowLocation],
+        order_direction: Union[str | Direction],
+        quantity: float,
     ):
         self.ut = UnitTime.get_value(ut) if type(ut) == str else ut
         self.signal = (
@@ -70,23 +79,30 @@ class Trigger:
         self.location = (
             WorkflowLocation.get_value(location) if type(location) == str else location
         )
+        self.order_direction = (
+            Direction.get_value(order_direction)
+            if type(order_direction) == str
+            else order_direction
+        )
+        self.quantity = quantity
 
 
+@dataclass
 class Workflow:
-    def __init__(
-        self,
-        name: str,
-        index: str,
-        cfd: str,
-        end_date: str,
-        enable: bool,
-        conditions: List[Condition],
-        trigger: Trigger,
-    ):
-        self.name = name
-        self.index = index
-        self.cfd = cfd
-        self.end_date = end_date
-        self.enable = enable
-        self.conditions = conditions
-        self.trigger = trigger
+    name: str
+    index: str
+    cfd: str
+    end_date: datetime.date
+    conditions: List[Condition]
+    trigger: Trigger
+    enable: bool = False
+    dry_run: bool = True
+
+
+@dataclass
+class Candle:
+    lower: float
+    higher: float
+    open: float
+    close: float
+    ut: UnitTime

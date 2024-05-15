@@ -7,6 +7,7 @@ import requests
 from requests import Response
 from requests.adapters import HTTPAdapter, Retry
 
+from client.client_helper import get_price_from_saxo_data
 from client.saxo_auth_client import SaxoAuthClient
 from model import (
     Account,
@@ -292,7 +293,7 @@ class SaxoClient:
         data = response.json()["Data"]
         if len(data) == 0:
             return 0.0
-        return data[0]["Close"]
+        return get_price_from_saxo_data(data[0])
 
     def get_historical_data(
         self, saxo_uic: str, asset_type: str, horizon: int, count: int, date: datetime
@@ -304,7 +305,11 @@ class SaxoClient:
             f"{self.configuration.saxo_url}chart/v1/charts/?&Uic={saxo_uic}&AssetType={asset_type}&Horizon={horizon}&Mode=UpTo&Count={count}&Time={date.strftime('%Y-%m-%dT%H:00:00Z')}"
         )
         self._check_response(response)
-        return response.json()["Data"]
+        data = response.json()["Data"]
+        for d in data:
+            d["Time"] = datetime.strptime(d["Time"], "%Y-%m-%dT%H:%M:%S.%fZ")
+        data = sorted(data, key=lambda x: x["Time"], reverse=True)
+        return data
 
     @staticmethod
     def _check_response(response: Response) -> None:
