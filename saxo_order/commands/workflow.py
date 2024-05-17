@@ -5,6 +5,7 @@ from typing import List
 import click
 import yaml
 from click.core import Context
+from slack_sdk import WebClient
 
 from client.saxo_client import SaxoClient
 from model import (
@@ -33,17 +34,23 @@ logger = logging.getLogger(__name__)
 @click.pass_context
 @catch_exception(handle=SaxoException)
 def workflow(ctx: Context):
+    logging.basicConfig(level=logging.WARN)
     logger.setLevel(logging.DEBUG)
 
-    workflow_service = WorkflowService(SaxoClient(Configuration(ctx.obj["config"])))
+    configuration = Configuration(ctx.obj["config"])
+    workflow_service = WorkflowService(SaxoClient(configuration))
     workflows = _yaml_loader()
-    run_workflows(workflows, workflow_service)
+    orders = run_workflows(
+        workflows, workflow_service, WebClient(token=configuration.slack_token)
+    )
 
 
 def run_workflows(
-    workflows: List[Workflow], workflow_service: WorkflowService
+    workflows: List[Workflow],
+    workflow_service: WorkflowService,
+    slack_client: WebClient,
 ) -> List[Order]:
-    triggers = []
+    orders = []
     for workflow in workflows:
         if workflow.enable and workflow.end_date >= datetime.datetime.now().date():
             logger.info(f"Run workflow {workflow.name}")
@@ -73,9 +80,6 @@ def run_workflows(
                         )
                         if trigger_candle is None:
                             raise SaxoException("Can't retrive candle")
-                        logger.debug(
-                            f"Workflow will trigger {trigger.order_direction} {trigger.signal} {trigger.location} {trigger.ut}"
-                        )
                         price = 0.0
                         if (
                             trigger.location == WorkflowLocation.LOWER
@@ -105,11 +109,14 @@ def run_workflows(
                             direction=trigger.order_direction,
                             type=order_type,
                         )
+                        log = f"Workflow will trigger an order {order.direction} for {order.quantity} {order.code} at {order.price}"
+                        logger.debug(log)
+                        slack_client.chat_postMessage(channel="#stock", text=log)
                         if workflow.dry_run is False:
-                            triggers.append(order)
+                            orders.append(order)
         else:
             logger.info(f"Workflow {workflow.name} will not run")
-    return triggers
+    return orders
 
 
 def _get_date_utc0() -> datetime.datetime:
@@ -123,12 +130,13 @@ def _yaml_loader() -> List[Workflow]:
 - name: sell ma50 h4 dax
   index: CAC40.I #DAX.I
   cfd: FRA40.I #GER40.I
-  end_date: 2024/04/01
+  end_date: 2024/06/01
   enable: true
+  dry_run: false
   conditions:
     - indicator:
           name: ma50
-          ut: h4
+          ut: h1
       close:
          direction: below
          ut: h1

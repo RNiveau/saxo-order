@@ -63,3 +63,7 @@ class Configuration:
     @property
     def binance_keys(self) -> Tuple:
         return (self.secrets["binance_api_key"], self.secrets["binance_secret_key"])
+
+    @property
+    def slack_token(self) -> str:
+        return self.secrets["slack_token"]

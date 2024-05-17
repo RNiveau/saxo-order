@@ -27,7 +27,7 @@ class MockWorkflowService(WorkflowService):
 
 class TestWorkflow:
 
-    def test_run_not_running_workflow(self, caplog):
+    def test_run_not_running_workflow(self, caplog, mocker):
         with caplog.at_level(logging.INFO):
             workflows = [
                 Workflow(
@@ -42,18 +42,18 @@ class TestWorkflow:
                     trigger=None,
                 )
             ]
-            triggers = run_workflows(workflows, MockWorkflowService())
+            triggers = run_workflows(workflows, MockWorkflowService(), mocker.Mock())
             assert "Workflow Test will not run" == caplog.records[0].getMessage()
             assert 0 == len(triggers)
             caplog.clear()
             workflows[0].name = "Test 2"
             workflows[0].enable = False
             workflows[0].end_date = datetime.datetime.now().date()
-            triggers = run_workflows(workflows, MockWorkflowService())
+            triggers = run_workflows(workflows, MockWorkflowService(), mocker.Mock())
             assert "Workflow Test 2 will not run" == caplog.records[0].getMessage()
             assert 0 == len(triggers)
 
-    def test_run_workflow_and_trigger_order(self, caplog):
+    def test_run_workflow_and_trigger_order(self, caplog, mocker):
         with caplog.at_level(logging.DEBUG):
             condition = Condition(
                 indicator=Indicator(IndicatorType.MA50, UnitTime.H4),
@@ -84,7 +84,7 @@ class TestWorkflow:
             workflow_service.candle = Candle(
                 close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
             )
-            triggers = run_workflows(workflows, workflow_service)
+            triggers = run_workflows(workflows, workflow_service, mocker.Mock())
             assert "Run workflow Test" == caplog.records[0].getMessage()
             assert 1 == len(triggers)
             assert triggers[0].code == "FRA40.I"
