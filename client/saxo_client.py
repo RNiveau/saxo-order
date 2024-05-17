@@ -298,6 +298,10 @@ class SaxoClient:
     def get_historical_data(
         self, saxo_uic: str, asset_type: str, horizon: int, count: int, date: datetime
     ) -> List:
+        """
+        Get historical data for a specific asset
+        First date is the newest and the list is sorted in a decremental way
+        """
         logging.debug(
             f"get_historical_data {saxo_uic}, horizon={horizon}, count={count}, {date}"
         )
