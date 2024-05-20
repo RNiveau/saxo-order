@@ -6,6 +6,7 @@ import saxo_order.commands.available_funds as available_funds
 import saxo_order.commands.binance as binance_commands
 import saxo_order.commands.fundamental as get_score
 import saxo_order.commands.get_report as get_report
+import saxo_order.commands.internal as internal_command
 import saxo_order.commands.search as search
 import saxo_order.commands.set_oco_order as set_oco_order
 import saxo_order.commands.set_order as set_order
@@ -82,9 +83,16 @@ def binance(ctx: Context):
     pass
 
 
+@click.group()
+@click.pass_context
+def internal(ctx: Context):
+    pass
+
+
 k_order.add_command(set)
 k_order.add_command(shortcut)
 k_order.add_command(binance)
+k_order.add_command(internal)
 k_order.add_command(get_score.get_score)
 k_order.add_command(workflow.technical)
 k_order.add_command(auth.auth)
@@ -106,3 +114,5 @@ shortcut.add_command(shortcurts.nikkei)
 
 binance.add_command(binance_commands.get_report)
 binance.add_command(binance_commands.get_stacking_report)
+
+internal.add_command(internal_command.refresh_stocks_list)

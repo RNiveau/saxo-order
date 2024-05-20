@@ -64,15 +64,17 @@ class SaxoClient:
             raise SaxoException(f"Stock {code}:{market} doesn't exist")
         return data[0]
 
-    def search(self, keyword: str) -> List:
-        data = self._find_asset(keyword)
+    def search(self, keyword: str, asset_type: Optional[str] = None) -> List:
+        data = self._find_asset(keyword, asset_type)
         if len(data) == 0:
             raise SaxoException(f"Nothing found for {keyword}")
         return data
 
-    def _find_asset(self, keyword: str) -> List:
+    def _find_asset(self, keyword: str, asset_type: Optional[str] = None) -> List:
+        if asset_type is None:
+            asset_type = AssetType.all_saxo_values()
         response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes={AssetType.all_saxo_values()}&IncludeNonTradable=true"
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes={asset_type}&IncludeNonTradable=true"
         )
         self._check_response(response)
         return response.json()["Data"]
