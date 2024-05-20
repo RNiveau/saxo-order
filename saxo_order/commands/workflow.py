@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 from typing import List
 
@@ -167,7 +168,7 @@ def _yaml_loader() -> List[Workflow]:
     # Load YAML data
     yaml_data = """
 - name: sell ma50 h4 dax
-  index: CAC40.I #DAX.I
+  index: DAX.I # CAC40.I #DAX.I
   cfd: FRA40.I #GER40.I
   end_date: 2024/06/01
   enable: true
