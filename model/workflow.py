@@ -107,3 +107,13 @@ class Candle:
     close: float
     ut: UnitTime
     date: Optional[datetime.datetime] = None
+
+
+@dataclass
+class BollingerBands:
+
+    bottom: float
+    up: float
+    middle: float
+    ut: Optional[UnitTime] = None
+    date: Optional[datetime.datetime] = None

@@ -1,6 +1,8 @@
-from typing import List
+from typing import List, Optional
 
-from model import Candle
+import numpy
+
+from model import BollingerBands, Candle
 
 
 def double_top(candles: List[Candle], tick=float) -> bool:
@@ -26,11 +28,20 @@ def double_top(candles: List[Candle], tick=float) -> bool:
 
     if candles[-1].higher >= candles[-2].higher:
         tops.append(candles[-1].higher)
-    print(tops)
     # Check if there are two tops within one tick spread
     for i in range(len(tops)):
         for j in range(i + 1, len(tops)):
-            print(f"{tops[i]} {tops[j]} {tick} {abs(tops[i] - tops[j]) }  ")
             if round(abs(tops[i] - tops[j]), 4) <= tick:
                 return True
     return False
+
+
+def bollinger_bands(candles: List[Candle], multiply_std: float = 2.0) -> BollingerBands:
+    closes = list(map(lambda x: x.close, candles))
+    std = numpy.std(closes)
+    avg = numpy.average(closes)
+    return BollingerBands(
+        bottom=float(round(avg - multiply_std * std, 4)),
+        up=float(round(avg + multiply_std * std, 4)),
+        middle=float(round(avg, 4)),
+    )
