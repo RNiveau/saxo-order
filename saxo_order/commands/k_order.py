@@ -1,6 +1,7 @@
 import click
 from click.core import Context
 
+import saxo_order.commands.alerting as alerting
 import saxo_order.commands.auth as auth
 import saxo_order.commands.available_funds as available_funds
 import saxo_order.commands.binance as binance_commands
@@ -93,6 +94,8 @@ k_order.add_command(set)
 k_order.add_command(shortcut)
 k_order.add_command(binance)
 k_order.add_command(internal)
+
+k_order.add_command(alerting.alerting)
 k_order.add_command(get_score.get_score)
 k_order.add_command(workflow.technical)
 k_order.add_command(auth.auth)

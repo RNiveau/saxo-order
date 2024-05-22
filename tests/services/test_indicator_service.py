@@ -14,37 +14,37 @@ class TestIndicatorService:
             (
                 [10, 9, 8, 10, 9],
                 0.5,
-                True,
+                10,
             ),
             (
                 [10, 9, 8, 10.5, 9],
                 0.5,
-                True,
+                10,
             ),
             (
                 [10, 9, 8, 10.6, 9],
                 0.5,
-                False,
+                None,
             ),
             (
                 [10, 11, 8, 10.6, 9],
                 0.5,
-                True,
+                11,
             ),
             (
                 [10, 11, 8, 10.6, 11.2],
                 0.2,
-                True,
+                11,
             ),
             (
                 [10, 11, 8, 10.6, 12],
                 0.5,
-                False,
+                None,
             ),
             (
                 [10, 11.1, 8, 10.6, 9, 2, 11.3, 9, 8],
                 0.2,
-                True,
+                11.1,
             ),
         ],
     )
@@ -55,7 +55,10 @@ class TestIndicatorService:
                 candles,
             )
         )
-        assert double_top(candles, tick) == expected
+        if expected is None:
+            assert double_top(candles, tick) is None
+        else:
+            assert double_top(candles, tick).higher == expected
 
     @pytest.mark.parametrize(
         "candles, std, expected",

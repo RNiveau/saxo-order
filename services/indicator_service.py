@@ -5,35 +5,35 @@ import numpy
 from model import BollingerBands, Candle
 
 
-def double_top(candles: List[Candle], tick=float) -> bool:
+def double_top(candles: List[Candle], tick=float) -> Optional[Candle]:
     """
     If a double top exist in the list, return true
     The top can be another candle than the first one
     We accept a spread of one tick between two tops
     """
     if len(candles) < 2:
-        return False
+        return None
 
-    tops = []
+    tops: List[Candle] = []
 
     if candles[0].higher >= candles[1].higher:
-        tops.append(candles[0].higher)
+        tops.append(candles[0])
 
     for i in range(1, len(candles) - 1):
         if (
             candles[i].higher >= candles[i - 1].higher
             and candles[i].higher >= candles[i + 1].higher
         ):
-            tops.append(candles[i].higher)
+            tops.append(candles[i])
 
     if candles[-1].higher >= candles[-2].higher:
-        tops.append(candles[-1].higher)
+        tops.append(candles[-1])
     # Check if there are two tops within one tick spread
     for i in range(len(tops)):
         for j in range(i + 1, len(tops)):
-            if round(abs(tops[i] - tops[j]), 4) <= tick:
-                return True
-    return False
+            if round(abs(tops[i].higher - tops[j].higher), 4) <= tick:
+                return tops[i]
+    return None
 
 
 def bollinger_bands(candles: List[Candle], multiply_std: float = 2.0) -> BollingerBands:
