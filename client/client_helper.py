@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 
+from model import Candle, UnitTime
 from utils.exception import SaxoException
 
 
@@ -25,3 +26,27 @@ def _get_value_from_saxo_data(data: Dict, key: str) -> float:
     if f"{key}Ask" in data and f"{key}Bid" in data:
         return (data[f"{key}Ask"] + data[f"{key}Bid"]) / 2
     raise SaxoException("Can't find the price")
+
+
+def get_tick_size(data: Dict, price: float) -> float:
+    tick_size = data["DefaultTickSize"]
+    for tick in data["Elements"]:
+        if price <= tick["HighPrice"]:
+            return tick["TickSize"]
+    return tick_size
+
+
+def map_data_to_candle(data: List[Dict], ut: UnitTime) -> List[Candle]:
+    return list(
+        map(
+            lambda x: Candle(
+                lower=get_low_from_saxo_data(x),
+                higher=get_high_from_saxo_data(x),
+                open=get_open_from_saxo_data(x),
+                close=get_price_from_saxo_data(x),
+                ut=ut,
+                date=x["Time"],
+            ),
+            data,
+        )
+    )

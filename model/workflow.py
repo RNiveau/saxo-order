@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Union
 
 from model.enum import Direction
 from model.enum_with_get_value import EnumWithGetValue
@@ -106,3 +106,14 @@ class Candle:
     open: float
     close: float
     ut: UnitTime
+    date: Optional[datetime.datetime] = None
+
+
+@dataclass
+class BollingerBands:
+
+    bottom: float
+    up: float
+    middle: float
+    ut: Optional[UnitTime] = None
+    date: Optional[datetime.datetime] = None

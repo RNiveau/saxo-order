@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 from typing import List
 
@@ -7,8 +8,10 @@ import yaml
 from click.core import Context
 from slack_sdk import WebClient
 
+from client.client_helper import *
 from client.saxo_client import SaxoClient
 from model import (
+    Candle,
     Close,
     Condition,
     Direction,
@@ -17,6 +20,7 @@ from model import (
     Order,
     OrderType,
     Trigger,
+    UnitTime,
     Workflow,
     WorkflowDirection,
     WorkflowLocation,
@@ -43,6 +47,42 @@ def workflow(ctx: Context):
     orders = run_workflows(
         workflows, workflow_service, WebClient(token=configuration.slack_token)
     )
+
+
+@click.command()
+@click.pass_context
+@catch_exception(handle=SaxoException)
+def technical(ctx: Context):
+    logging.basicConfig(level=logging.WARN)
+    logger.setLevel(logging.DEBUG)
+
+    configuration = Configuration(ctx.obj["config"])
+    saxo_client = SaxoClient(configuration)
+    data = saxo_client.get_historical_data(
+        saxo_uic="1907568",
+        asset_type="StockIndex",
+        horizon=1440,
+        count=3,
+        date=datetime.datetime.now(),
+    )
+    candles = list(
+        map(
+            lambda x: Candle(
+                get_low_from_saxo_data(x),
+                get_high_from_saxo_data(x),
+                get_open_from_saxo_data(x),
+                get_price_from_saxo_data(x),
+                UnitTime.D,
+                x["Time"],
+            ),
+            data,
+        )
+    )
+    detail = saxo_client.get_asset_detail(
+        saxo_client.get_asset("itp", "xpar")["Identifier"], "Stock"
+    )
+    tick = get_tick_size(detail["TickSizeScheme"], 48.4)
+    print(candles)
 
 
 def run_workflows(
@@ -128,7 +168,7 @@ def _yaml_loader() -> List[Workflow]:
     # Load YAML data
     yaml_data = """
 - name: sell ma50 h4 dax
-  index: CAC40.I #DAX.I
+  index: DAX.I # CAC40.I #DAX.I
   cfd: FRA40.I #GER40.I
   end_date: 2024/06/01
   enable: true
