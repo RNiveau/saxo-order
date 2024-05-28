@@ -125,3 +125,27 @@ class TestIndicatorService:
             )
         )
         assert bollinger_bands(candles, std) == expected
+
+    @pytest.mark.parametrize(
+        "candles, expected",
+        [
+            (
+                [Candle(5, 6, 5.5, 6, UnitTime.D), Candle(5, 6, 5.5, 6, UnitTime.D)],
+                None,
+            ),
+            (
+                [Candle(4, 8, 5.5, 6, UnitTime.D), Candle(5, 6, 5.5, 6, UnitTime.D)],
+                None,
+            ),
+            (
+                [Candle(4, 8, 4.2, 6.2, UnitTime.D), Candle(5, 6, 5.5, 6, UnitTime.D)],
+                Candle(4, 8, 4.2, 6.2, UnitTime.D),
+            ),
+            (
+                [Candle(4, 8, 8, 4.9, UnitTime.D), Candle(5, 6, 5.5, 6, UnitTime.D)],
+                Candle(4, 8, 8, 4.9, UnitTime.D),
+            ),
+        ],
+    )
+    def test_containing_candle(self, candles, expected):
+        assert containing_candle(candles) == expected

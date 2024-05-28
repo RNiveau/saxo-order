@@ -45,3 +45,18 @@ def bollinger_bands(candles: List[Candle], multiply_std: float = 2.0) -> Bolling
         up=float(round(avg + multiply_std * std, 4)),
         middle=float(round(avg, 4)),
     )
+
+
+def containing_candle(candles: List[Candle]) -> Optional[Candle]:
+    if len(candles) >= 2:
+        if (
+            candles[0].open <= candles[1].lower
+            and candles[0].close >= candles[1].higher
+        ):
+            return candles[0]
+        if (
+            candles[0].open >= candles[1].higher
+            and candles[0].close <= candles[1].lower
+        ):
+            return candles[0]
+    return None
