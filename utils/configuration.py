@@ -1,6 +1,6 @@
 import os
 from typing import Dict, Tuple
-
+from client.aws_client import AwsClient
 import yaml
 
 
@@ -14,23 +14,30 @@ class Configuration:
                 self.secrets = yaml.safe_load(f)
         self.access_token = ""
         self.refresh_token = ""
+        self.aws_client = AwsClient() if 'AWS_LAMBDA_FUNCTION_NAME' in os.environ else None
         self.load_tokens()
 
     def load_tokens(self) -> None:
-        if os.path.isfile("access_token"):
-            with open("access_token", "r") as f:
-                content = f.read().strip()
-                contents = content.split("\n")
-                if len(contents) == 2:
-                    self.access_token = contents[0]
-                    self.refresh_token = contents[1]
+        if self.aws_client is not None:
+            content = self.aws_client.get_access_token()            
+        else:
+            if os.path.isfile("access_token"):
+                with open("access_token", "r") as f:
+                    content = f.read().strip()
+        contents = content.split("\n")
+        if len(contents) == 2:
+            self.access_token = contents[0]
+            self.refresh_token = contents[1]
 
     def save_tokens(self, access_token: str, refresh_token: str) -> None:
         self.access_token = access_token
         self.refresh_token = refresh_token
-        with open("access_token", "w") as f:
-            f.write(f"{access_token}\n")
-            f.write(f"{refresh_token}\n")
+        if self.aws_client is not None:
+            self.aws_client.save_access_token(access_token=access_token, refresh_token=refresh_token)
+        else:
+            with open("access_token", "w") as f:
+                f.write(f"{access_token}\n")
+                f.write(f"{refresh_token}\n")
 
     @property
     def app_key(self) -> str:
