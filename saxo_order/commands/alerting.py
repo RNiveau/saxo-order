@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+from typing import Dict, List
 
 import click
 from click.core import Context
@@ -9,11 +10,12 @@ from slack_sdk import WebClient
 
 from client import client_helper
 from client.saxo_client import SaxoClient
-from model import AssetType, UnitTime
+from model import AssetType, Candle, UnitTime
 from saxo_order.commands import catch_exception
 from services import indicator_service
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+from utils.helper import build_daily_candle_from_hours
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ def run_alerting(config: str) -> None:
 
     if os.path.isfile("stocks.json"):
         with open("stocks.json", "r") as f:
-            stocks = json.load(f)
+            assets = json.load(f)
     else:
         click.Abort("Fill the stocks.json file first")
         exit(1)
@@ -39,48 +41,84 @@ def run_alerting(config: str) -> None:
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
     slack_client = WebClient(token=configuration.slack_token)
-    i = 0
-    for stock in stocks:
-        if "saxo_uic" in stock:
-            data = saxo_client.get_historical_data(
-                asset_type=AssetType.STOCK,
-                saxo_uic=stock["saxo_uic"],
-                horizon=1440,
-                count=20,
-            )
-            candles = client_helper.map_data_to_candle(data, ut=UnitTime.D)
-            detail = saxo_client.get_asset_detail(stock["saxo_uic"], AssetType.STOCK)
-            tick = client_helper.get_tick_size(
-                detail["TickSizeScheme"], candles[0].close
-            )
-            double_top_candle = indicator_service.double_top(candles, tick)
-            if (
-                double_top_candle is not None
-                and double_top_candle.date is not None
-                and (datetime.datetime.now() - double_top_candle.date).days <= 2
-            ):
-                i = 1
-                logger.debug(f"{stock['name']}, {double_top_candle}")
-                slack_client.chat_postMessage(
-                    channel="#stock",
-                    text=f"{stock['name']} has created a double top {double_top_candle.date.strftime('%Y-%m-%d')}",
-                )
-            containing_candle = indicator_service.containing_candle(candles)
-            if containing_candle is not None:
-                i = 1
-                logger.debug(f"{stock['name']}, {containing_candle}")
-                date = (
-                    containing_candle.date.strftime("%Y-%m-%d")
-                    if containing_candle.date is not None
-                    else ""
-                )
-                slack_client.chat_postMessage(
-                    channel="#stock",
-                    text=f"{stock['name']} has created a containing candle {date}",
-                )
+    slack_messages: List[str] = []
+    for asset in assets:
+        if "saxo_uic" in asset:
+            candles = _build_candles(saxo_client, asset)
+            _run_double_top(saxo_client, asset, candles, slack_messages)
+            _run_containing_candle(asset, candles, slack_messages)
 
-    if i == 0:
+    if len(slack_messages) == 0:
         slack_client.chat_postMessage(
             channel="#stock",
-            text=f"No alert for today",
+            text="No alert for today",
         )
+    else:
+        for message in slack_messages:
+            slack_client.chat_postMessage(
+                channel="#stock",
+                text=message,
+            )
+
+
+def _run_containing_candle(
+    asset: Dict,
+    candles: List[Candle],
+    slack_messages: List[str],
+) -> None:
+    containing_candle = indicator_service.containing_candle(candles)
+    if containing_candle is not None:
+        logger.debug(f"{asset['name']}, {containing_candle}")
+        date = (
+            containing_candle.date.strftime("%Y-%m-%d")
+            if containing_candle.date is not None
+            else ""
+        )
+        slack_messages.append(f"{asset['name']} has created a containing candle {date}")
+
+
+def _run_double_top(
+    saxo_client: SaxoClient,
+    asset: Dict,
+    candles: List[Candle],
+    slack_messages: List[str],
+) -> None:
+    detail = saxo_client.get_asset_detail(asset["saxo_uic"], AssetType.STOCK)
+    tick = client_helper.get_tick_size(detail["TickSizeScheme"], candles[0].close)
+    double_top_candle = indicator_service.double_top(candles, tick)
+    if (
+        double_top_candle is not None
+        and double_top_candle.date is not None
+        and (datetime.datetime.now() - double_top_candle.date).days <= 2
+    ):
+        logger.debug(f"{asset['name']}, {double_top_candle}")
+        slack_messages.append(
+            f"{asset['name']} has created a double top {double_top_candle.date.strftime('%Y-%m-%d')}"
+        )
+
+
+def _build_candles(saxo_client: SaxoClient, asset: Dict) -> List[Candle]:
+    data = saxo_client.get_historical_data(
+        asset_type=AssetType.STOCK,
+        saxo_uic=asset["saxo_uic"],
+        horizon=1440,
+        count=20,
+    )
+    candles = client_helper.map_data_to_candle(data, ut=UnitTime.D)
+    today = datetime.datetime.now()
+    if (
+        candles[0].date is not None
+        and today.day != candles[0].date.day
+        and today.weekday() < 5
+    ):
+        hour_data = saxo_client.get_historical_data(
+            asset_type=AssetType.STOCK,
+            saxo_uic=asset["saxo_uic"],
+            horizon=60,
+            count=10,
+        )
+        hour_candles = client_helper.map_data_to_candle(hour_data, ut=UnitTime.H1)
+        hour_candle = build_daily_candle_from_hours(hour_candles, today.day)
+        if hour_candle is not None:
+            candles.insert(0, hour_candle)
+    return candles
