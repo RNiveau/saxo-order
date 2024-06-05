@@ -40,3 +40,6 @@ build-backend = "poetry.masonry.api"
 
 [tool.isort]
 profile = "black"
+
+[tool.pytest]
+mock_use_standalone_module = true

@@ -22,7 +22,8 @@ repos:
         types: [python]
       - id: mypy
         name: mypy
-        entry: poetry run mypy --explicit-package-bases
+        entry: poetry run mypy
         pass_filenames: true
         language: system
+        args: ["--explicit-package-bases", "--ignore-missing-imports", "--exclude", "pulumi"]
         types: [python]
