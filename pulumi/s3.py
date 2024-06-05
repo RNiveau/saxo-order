@@ -1,3 +1,5 @@
+from typing import List
+
 import pulumi_aws as aws
 
 import pulumi
@@ -26,7 +28,12 @@ def bucket() -> aws.s3.Bucket:
     return bucket
 
 
-def bucket_policy(bucket_id: str, lambda_role_arn: str) -> None:
+def bucket_policy(bucket_id: str, role_arns: List[str]) -> None:
+    s = ""
+    for arn in role_arns:
+        if s != "":
+            s += ","
+        s += '"' + arn + '"'
     aws.s3.BucketPolicy(
         "k-order-policy",
         bucket=bucket_id,
@@ -36,7 +43,7 @@ def bucket_policy(bucket_id: str, lambda_role_arn: str) -> None:
             {{
                 "Effect": "Allow",
                 "Principal": {{
-                    "AWS": ["{lambda_role_arn}"]
+                    "AWS": [{s}]
                 }},
                 "Action": [
                     "s3:GetObject",

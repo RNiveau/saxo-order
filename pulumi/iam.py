@@ -77,3 +77,9 @@ def scheduler_role_policy(role_id: int, lambda_arns: List[str]) -> None:
         }}
     ]    }}""",
     )
+
+
+def k_order_user() -> tuple:
+    user = aws.iam.User("k-order")
+    access_key = aws.iam.AccessKey("k-order-accesskey", user=user.name)
+    return user, access_key

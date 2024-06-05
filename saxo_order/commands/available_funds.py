@@ -1,3 +1,5 @@
+import logging
+
 import click
 from click.core import Context
 
@@ -8,11 +10,16 @@ from saxo_order.service import get_account_open_orders
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 
+logger = logging.getLogger(__name__)
+
 
 @click.command()
 @click.pass_context
 @catch_exception(handle=SaxoException)
 def available_funds(ctx: Context):
+    logging.basicConfig(level=logging.WARN)
+    logger.setLevel(logging.DEBUG)
+
     client = SaxoClient(Configuration(ctx.obj["config"]))
     account = select_account(client)
     open_orders = client.get_open_orders()

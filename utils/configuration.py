@@ -22,7 +22,9 @@ class Configuration:
         self.access_token = ""
         self.refresh_token = ""
         self.aws_client = (
-            AwsClient() if "AWS_LAMBDA_FUNCTION_NAME" in os.environ else None
+            AwsClient()
+            if "AWS_LAMBDA_FUNCTION_NAME" in os.environ or "AWS_PROFILE" in os.environ
+            else None
         )
         self.load_tokens()
 

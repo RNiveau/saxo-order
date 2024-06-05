@@ -8,6 +8,7 @@ import scheduler
 import pulumi
 
 caller_identity = aws.get_caller_identity()
+user, access_key = iam.k_order_user()
 bucket = s3.bucket()
 lambda_role = iam.lambda_role()
 scheduler_role = iam.scheduler_role(caller_identity.account_id)
@@ -30,8 +31,12 @@ pulumi.Output.all(
     lambda args: scheduler.refresh_token_schedule(args["lambda_arn"], args["role_arn"])
 )
 
-pulumi.Output.all(bucket_id=bucket.id, lambda_arn=lambda_role.arn).apply(
-    lambda args: s3.bucket_policy(args["bucket_id"], args["lambda_arn"])
+pulumi.Output.all(
+    bucket_id=bucket.id, lambda_arn=lambda_role.arn, user_arn=user.arn
+).apply(
+    lambda args: s3.bucket_policy(
+        args["bucket_id"], [args["lambda_arn"], args["user_arn"]]
+    )
 )
 
 pulumi.export("refresh_token_lambda_arn", refresh_token_lambda.arn)
@@ -44,3 +49,6 @@ pulumi.export(
 )
 pulumi.export("repository_url", ecr_repository.repository_url)
 pulumi.export("account_id", caller_identity.account_id)
+pulumi.export("user_arn", user.arn)
+pulumi.export("access_key_id", access_key.id)
+pulumi.export("secret_access_key", access_key.secret)
