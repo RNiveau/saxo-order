@@ -3,11 +3,13 @@ import pulumi_aws as aws
 import pulumi
 
 
-def resfreh_token_lambda(repository_url, lambda_role_arn) -> aws.lambda_.Function:
+def resfreh_token_lambda(
+    repository_url: str, lambda_role_arn: str
+) -> aws.lambda_.Function:
     refresh_token_lambda = aws.lambda_.Function(
         "refresh_token",
         role=lambda_role_arn,
-        image_uri=f"{repository_url}:1716822085",
+        image_uri=f"{_get_image_uri(repository_url)}",
         timeout=20,
         environment=aws.lambda_.FunctionEnvironmentArgs(
             variables={"SAXO_CONFIG": "prod_config.yml"}
@@ -25,11 +27,11 @@ def resfreh_token_lambda(repository_url, lambda_role_arn) -> aws.lambda_.Functio
     return refresh_token_lambda
 
 
-def alerting_lambda(repository_url, lambda_role_arn) -> aws.lambda_.Function:
+def alerting_lambda(repository_url: str, lambda_role_arn: str) -> aws.lambda_.Function:
     alerting_lambda = aws.lambda_.Function(
         "alerting",
         role=lambda_role_arn,
-        image_uri=f"{repository_url}:1716822085",
+        image_uri=f"{_get_image_uri(repository_url)}",
         timeout=300,
         environment=aws.lambda_.FunctionEnvironmentArgs(
             variables={"SAXO_CONFIG": "prod_config.yml"}
@@ -44,3 +46,8 @@ def alerting_lambda(repository_url, lambda_role_arn) -> aws.lambda_.Function:
         maximum_retry_attempts=0,
     )
     return alerting_lambda
+
+
+def _get_image_uri(repository_url: str) -> str:
+    config = pulumi.Config()
+    return f"{repository_url}:{config.get('image-tag')}"

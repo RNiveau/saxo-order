@@ -1,6 +1,4 @@
 name: k-order
 runtime:
   name: python
-  options:
-    virtualenv: venv
 description: stack to run k-order
