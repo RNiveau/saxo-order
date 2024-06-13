@@ -36,7 +36,7 @@ def get_tick_size(data: Dict, price: float) -> float:
     return tick_size
 
 
-def map_data_to_candle(data: List[Dict], ut: UnitTime) -> List[Candle]:
+def map_data_to_candle(data: List[Dict], ut: Optional[UnitTime] = None) -> List[Candle]:
     return list(
         map(
             lambda x: Candle(
@@ -44,7 +44,7 @@ def map_data_to_candle(data: List[Dict], ut: UnitTime) -> List[Candle]:
                 higher=get_high_from_saxo_data(x),
                 open=get_open_from_saxo_data(x),
                 close=get_price_from_saxo_data(x),
-                ut=ut,
+                ut=ut if ut is not None else UnitTime.D,
                 date=x["Time"],
             ),
             data,

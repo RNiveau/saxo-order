@@ -315,7 +315,7 @@ class SaxoClient:
             f"get_historical_data {saxo_uic}, horizon={horizon}, count={count}, {date}"
         )
         response = self.session.get(
-            f"{self.configuration.saxo_url}chart/v1/charts/?&Uic={saxo_uic}&AssetType={asset_type}&Horizon={horizon}&Mode=UpTo&Count={count}&Time={date.strftime('%Y-%m-%dT%H:00:00Z')}"
+            f"{self.configuration.saxo_url}chart/v1/charts/?&Uic={saxo_uic}&AssetType={asset_type}&Horizon={horizon}&Mode=UpTo&Count={count}&Time={date.strftime('%Y-%m-%dT%H:%M:00Z')}"
         )
         self._check_response(response)
         data = response.json()["Data"]

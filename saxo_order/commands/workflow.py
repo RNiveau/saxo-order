@@ -58,13 +58,11 @@ def technical(ctx: Context):
 
     configuration = Configuration(ctx.obj["config"])
     saxo_client = SaxoClient(configuration)
-    data = saxo_client.get_historical_data(
-        saxo_uic="1907568",
-        asset_type="StockIndex",
-        horizon=1440,
-        count=3,
-        date=datetime.datetime.now(),
+    workflow_service = WorkflowService(SaxoClient(configuration))
+    data = workflow_service.get_candle_per_minutes(
+        code="DAX.I", duration=450, ut=UnitTime.M15
     )
+    return
     candles = list(
         map(
             lambda x: Candle(
@@ -104,7 +102,7 @@ def run_workflows(
                 logger.debug(
                     f"Get indicator {ma}, ut {workflow.conditions[0].indicator.ut}"
                 )
-                candle = workflow_service.get_candle(
+                candle = workflow_service.get_candle_per_hours(
                     workflow.index, workflow.conditions[0].close.ut, _get_date_utc0()
                 )
                 if candle is None:
@@ -115,7 +113,7 @@ def run_workflows(
                         and candle.close >= ma - workflow.conditions[0].close.spread
                     ):
                         trigger = workflow.trigger
-                        trigger_candle = workflow_service.get_candle(
+                        trigger_candle = workflow_service.get_candle_per_hours(
                             workflow.index, workflow.trigger.ut, _get_date_utc0()
                         )
                         if trigger_candle is None:

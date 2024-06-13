@@ -18,6 +18,10 @@ def handler(event, _):
             return {"result": "ok", "message": "token has been refreshed"}
         case "alerting":
             run_alerting(os.getenv("SAXO_CONFIG"))
+        case "test":
+            from datetime import datetime
+
+            print(datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"))
         case _:
             raise SaxoException(f"Command {event.get('command')} not found")
     return {"result": "ok"}

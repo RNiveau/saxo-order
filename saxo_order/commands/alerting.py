@@ -35,8 +35,8 @@ def run_alerting(config: str) -> None:
         with open("stocks.json", "r") as f:
             assets = json.load(f)
     else:
-        click.Abort("Fill the stocks.json file first")
-        exit(1)
+        print("Fill the stocks.json file first")
+        raise click.Abort()
 
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)

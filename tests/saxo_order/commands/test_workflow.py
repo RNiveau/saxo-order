@@ -21,7 +21,9 @@ class MockWorkflowService(WorkflowService):
     ):
         return self.ma
 
-    def get_candle(self, code: str, ut: UnitTime, date: datetime.datetime) -> Candle:
+    def get_candle_per_hours(
+        self, code: str, ut: UnitTime, date: datetime.datetime
+    ) -> Candle:
         return self.candle
 
 
