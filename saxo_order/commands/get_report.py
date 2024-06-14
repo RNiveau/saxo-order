@@ -37,6 +37,9 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
     )
     account = select_account(client)
     orders = client.get_report(account, from_date)
+    if len(orders) == 0:
+        print("No order to report")
+        exit(0)
     show_report(orders, configuration.currencies_rate)
     if update_gsheet:
         while True:
