@@ -5,6 +5,7 @@ from client.client_helper import *
 from client.saxo_client import SaxoClient
 from model import Candle, IndicatorType, UnitTime
 from utils.exception import SaxoException
+from utils.helper import get_date_utc0
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -22,6 +23,7 @@ class WorkflowService:
         ut: UnitTime,
         date: Optional[datetime.datetime] = None,
     ) -> List[Candle]:
+        """Build x ut candles for the duration minutes per minutes"""
         date = datetime.datetime.now(datetime.UTC) if date is None else date
         logger.debug(f"get_candle_per_minutes({code}, {duration}, {date})")
         asset = self.saxo_client.get_asset(code)
@@ -118,9 +120,10 @@ class WorkflowService:
             candles.pop()
         return candles
 
-    def get_candle_per_hours(
+    def get_candle_per_hour(
         self, code: str, ut: UnitTime, date: datetime.datetime
     ) -> Optional[Candle]:
+        """Return last h1 or h4 candle"""
         asset = self.saxo_client.get_asset(code)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
@@ -131,32 +134,25 @@ class WorkflowService:
         )
         match ut:
             case UnitTime.H1:
-                return Candle(
-                    get_low_from_saxo_data(data[0]),
-                    get_high_from_saxo_data(data[0]),
-                    get_open_from_saxo_data(data[0]),
-                    get_price_from_saxo_data(data[0]),
-                    ut,
-                )
+                return map_data_to_candle([data[0]], ut)[0]
             case UnitTime.H4:
                 for d in data:
                     if d["Time"].hour in (9, 13, 15):
-                        return Candle(
-                            get_low_from_saxo_data(d),
-                            get_high_from_saxo_data(d),
-                            get_open_from_saxo_data(d),
-                            get_price_from_saxo_data(d),
-                            ut,
-                        )
+                        return map_data_to_candle([d], ut)[0]
+
             case _:
                 logging.error(f"We don't handle this ut : {ut}")
                 raise SaxoException(f"We don't handle this ut : {ut}")
         return None
 
     def calculate_ma(
-        self, code: str, ut: UnitTime, indicator: IndicatorType, date: datetime.datetime
+        self,
+        code: str,
+        cfd_code: str,
+        ut: UnitTime,
+        indicator: IndicatorType,
+        date: datetime.datetime,
     ) -> float:
-        horizon = 60
         logging.info(f"Calculate {indicator}, code:{code} ut: {ut}, date: {date}")
         match indicator:
             case IndicatorType.MA50:
@@ -175,25 +171,33 @@ class WorkflowService:
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
-            horizon=horizon,
+            horizon=60,
             count=count,
             date=date,
         )
-        if len(data) != denominator and len(data) != count:
+        if len(data) != denominator and len(data) < count:
             raise SaxoException(
                 f"We should got {count} or {denominator} elements but we get {len(data)}"
             )
+        print(data)
+        if data[0]["Time"].hour < get_date_utc0().hour - 1 and code != cfd_code:
+            cfd_candle = self.get_candle_per_hour(cfd_code, ut, date)
+            if (
+                cfd_candle is not None
+                and cfd_candle.date is not None
+                and get_date_utc0().hour == cfd_candle.date.hour + 1
+            ):
+                data.insert(0, cfd_candle)
         avg: float = 0
         hit: int = 0
         for d in data:
             if UnitTime.H4 == ut:
-                if d["Time"].hour in (9, 13, 15):
-                    if hit < denominator:
-                        avg += float(d["Close"])
-                        hit += 1
-                    else:
-                        break
-            else:
+                if d["Time"].hour not in (9, 13, 15):
+                    continue
+            if hit < denominator:
                 avg += float(d["Close"])
+                hit += 1
+            if hit >= denominator:
+                break
         avg /= denominator
         return avg

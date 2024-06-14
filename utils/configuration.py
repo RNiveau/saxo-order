@@ -21,11 +21,7 @@ class Configuration:
                 self.secrets = yaml.safe_load(f)
         self.access_token = ""
         self.refresh_token = ""
-        self.aws_client = (
-            AwsClient()
-            if "AWS_LAMBDA_FUNCTION_NAME" in os.environ or "AWS_PROFILE" in os.environ
-            else None
-        )
+        self.aws_client = AwsClient() if AwsClient.is_aws_context() else None
         self.load_tokens()
 
     def load_tokens(self) -> None:

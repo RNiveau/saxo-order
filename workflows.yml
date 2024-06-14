@@ -1,0 +1,20 @@
+- name: sell ma50 h4 dax
+  index: DAX.I
+  cfd: GER40.I
+  end_date: 2024/07/01
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: ma50
+          ut: h4
+      close:
+         direction: below
+         ut: h1
+         spread: 20
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1

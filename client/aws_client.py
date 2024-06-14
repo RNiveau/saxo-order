@@ -1,3 +1,5 @@
+import os
+
 import boto3
 
 
@@ -5,6 +7,7 @@ class AwsClient:
 
     BUCKET_NAME = "k-order"
     ACCESS_TOKEN = "access_token"
+    WORKFLOWS = "workflows.yml"
 
     def __init__(self) -> None:
         self.s3 = boto3.client("s3")
@@ -21,3 +24,13 @@ class AwsClient:
             Key=AwsClient.ACCESS_TOKEN,
             Body=f"{access_token}\n{refresh_token}\n",
         )
+
+    def get_workflows(self) -> str:
+        response = self.s3.get_object(
+            Bucket=AwsClient.BUCKET_NAME, Key=AwsClient.WORKFLOWS
+        )
+        return response["Body"].read().decode("utf-8")
+
+    @staticmethod
+    def is_aws_context() -> bool:
+        return "AWS_LAMBDA_FUNCTION_NAME" in os.environ or "AWS_PROFILE" in os.environ

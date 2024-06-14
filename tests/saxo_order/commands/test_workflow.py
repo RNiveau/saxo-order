@@ -17,11 +17,16 @@ class MockWorkflowService(WorkflowService):
         pass
 
     def calculate_ma(
-        self, code: str, ut: UnitTime, indicator: IndicatorType, date: datetime.datetime
+        self,
+        code: str,
+        cfd: str,
+        ut: UnitTime,
+        indicator: IndicatorType,
+        date: datetime.datetime,
     ):
         return self.ma
 
-    def get_candle_per_hours(
+    def get_candle_per_hour(
         self, code: str, ut: UnitTime, date: datetime.datetime
     ) -> Candle:
         return self.candle

@@ -1,6 +1,6 @@
 import datetime
-import json
 import logging
+import os
 from typing import List
 
 import click
@@ -8,6 +8,7 @@ import yaml
 from click.core import Context
 from slack_sdk import WebClient
 
+from client.aws_client import AwsClient
 from client.client_helper import *
 from client.saxo_client import SaxoClient
 from model import (
@@ -30,6 +31,7 @@ from saxo_order.commands import catch_exception
 from services.workflow_service import WorkflowService
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+from utils.helper import get_date_utc0
 
 logger = logging.getLogger(__name__)
 
@@ -57,30 +59,10 @@ def technical(ctx: Context):
     logger.setLevel(logging.DEBUG)
 
     configuration = Configuration(ctx.obj["config"])
-    saxo_client = SaxoClient(configuration)
     workflow_service = WorkflowService(SaxoClient(configuration))
     data = workflow_service.get_candle_per_minutes(
         code="DAX.I", duration=450, ut=UnitTime.M15
     )
-    return
-    candles = list(
-        map(
-            lambda x: Candle(
-                get_low_from_saxo_data(x),
-                get_high_from_saxo_data(x),
-                get_open_from_saxo_data(x),
-                get_price_from_saxo_data(x),
-                UnitTime.D,
-                x["Time"],
-            ),
-            data,
-        )
-    )
-    detail = saxo_client.get_asset_detail(
-        saxo_client.get_asset("itp", "xpar")["Identifier"], "Stock"
-    )
-    tick = get_tick_size(detail["TickSizeScheme"], 48.4)
-    print(candles)
 
 
 def run_workflows(
@@ -95,15 +77,16 @@ def run_workflows(
             if workflow.conditions[0].indicator.name in [IndicatorType.MA50]:
                 ma = workflow_service.calculate_ma(
                     workflow.index,
+                    workflow.cfd,
                     workflow.conditions[0].indicator.ut,
                     workflow.conditions[0].indicator.name,
-                    _get_date_utc0(),
+                    get_date_utc0(),
                 )
                 logger.debug(
                     f"Get indicator {ma}, ut {workflow.conditions[0].indicator.ut}"
                 )
-                candle = workflow_service.get_candle_per_hours(
-                    workflow.index, workflow.conditions[0].close.ut, _get_date_utc0()
+                candle = workflow_service.get_candle_per_hour(
+                    workflow.index, workflow.conditions[0].close.ut, get_date_utc0()
                 )
                 if candle is None:
                     raise SaxoException("Can't retrive candle")
@@ -113,8 +96,8 @@ def run_workflows(
                         and candle.close >= ma - workflow.conditions[0].close.spread
                     ):
                         trigger = workflow.trigger
-                        trigger_candle = workflow_service.get_candle_per_hours(
-                            workflow.index, workflow.trigger.ut, _get_date_utc0()
+                        trigger_candle = workflow_service.get_candle_per_hour(
+                            workflow.cfd, workflow.trigger.ut, get_date_utc0()
                         )
                         if trigger_candle is None:
                             raise SaxoException("Can't retrive candle")
@@ -157,37 +140,14 @@ def run_workflows(
     return orders
 
 
-def _get_date_utc0() -> datetime.datetime:
-    date = datetime.datetime.now(tz=datetime.UTC)
-    return date
-
-
 def _yaml_loader() -> List[Workflow]:
-    # Load YAML data
-    yaml_data = """
-- name: sell ma50 h4 dax
-  index: DAX.I # CAC40.I #DAX.I
-  cfd: FRA40.I #GER40.I
-  end_date: 2024/06/01
-  enable: true
-  dry_run: false
-  conditions:
-    - indicator:
-          name: ma50
-          ut: h1
-      close:
-         direction: below
-         ut: h1
-         spread: 10
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-    """
-
-    workflows_data = yaml.safe_load(yaml_data)
+    if AwsClient.is_aws_context():
+        workflows_data = yaml.safe_load(AwsClient().get_workflows())
+    elif os.path.isfile("workflows.yml"):
+        with open("workflows.yml", "r") as file:
+            workflows_data = yaml.safe_load(file)
+    else:
+        raise SaxoException("No yaml to load")
 
     workflows = []
     for workflow_data in workflows_data:

@@ -36,3 +36,7 @@ def build_daily_candle_from_hours(candles: List[Candle], day: int) -> Optional[C
     ):
         return None
     return daily_candle
+
+
+def get_date_utc0() -> datetime.datetime:
+    return datetime.datetime.now(tz=datetime.UTC)
