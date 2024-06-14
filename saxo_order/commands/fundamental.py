@@ -245,4 +245,6 @@ def build_line_score(
 
 
 def zb_data_to_float(nbr: str) -> float:
-    return float(nbr.replace(",", ".").replace("%", "").replace("-", "0"))
+    if nbr == "-":
+        return 0
+    return float(nbr.replace(",", ".").replace("%", ""))
