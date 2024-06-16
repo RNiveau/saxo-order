@@ -24,6 +24,7 @@ from model import (
     UnitTime,
     Workflow,
     WorkflowDirection,
+    WorkflowElement,
     WorkflowLocation,
     WorkflowSignal,
 )
@@ -91,9 +92,12 @@ def run_workflows(
                 if candle is None:
                     raise SaxoException("Can't retrive candle")
                 if workflow.conditions[0].close.direction == WorkflowDirection.BELOW:
+                    element = _get_price_from_element(
+                        candle, workflow.conditions[0].element
+                    )
                     if (
-                        candle.close <= ma
-                        and candle.close >= ma - workflow.conditions[0].close.spread
+                        element <= ma
+                        and element >= ma - workflow.conditions[0].close.spread
                     ):
                         trigger = workflow.trigger
                         trigger_candle = workflow_service.get_candle_per_hour(
@@ -169,7 +173,9 @@ def _yaml_loader() -> List[Workflow]:
             close = Close(
                 close_data["direction"], close_data["ut"], close_data["spread"]
             )
-            condition = Condition(indicator, close)
+            condition = Condition(
+                indicator, close, WorkflowElement.get_value(condition_data["element"])
+            )
             conditions.append(condition)
 
         trigger_data = workflow_data["trigger"]
@@ -194,3 +200,15 @@ def _yaml_loader() -> List[Workflow]:
             )
         )
     return workflows
+
+
+def _get_price_from_element(candle: Candle, element: WorkflowElement) -> float:
+    match element:
+        case WorkflowElement.CLOSE:
+            return candle.close
+        case WorkflowElement.HIGH:
+            return candle.higher
+        case WorkflowElement.LOW:
+            return candle.lower
+        case _:
+            raise SaxoException(f"We don't handle {element} price")

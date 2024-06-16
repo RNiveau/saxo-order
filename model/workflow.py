@@ -36,6 +36,12 @@ class IndicatorType(EnumWithGetValue):
     MA50 = "ma50"
 
 
+class WorkflowElement(EnumWithGetValue):
+    CLOSE = "close"
+    HIGH = "high"
+    LOW = "low"
+
+
 class Indicator:
     def __init__(self, name: Union[str | IndicatorType], ut: Union[str | UnitTime]):
         self.name = IndicatorType.get_value(name) if type(name) == str else name
@@ -58,10 +64,12 @@ class Close:
         self.spread = spread
 
 
+@dataclass
 class Condition:
-    def __init__(self, indicator: Indicator, close: Close):
-        self.indicator = indicator
-        self.close = close
+
+    indicator: Indicator
+    close: Close
+    element: WorkflowElement
 
 
 class Trigger:
