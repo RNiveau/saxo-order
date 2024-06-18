@@ -179,7 +179,6 @@ class WorkflowService:
             raise SaxoException(
                 f"We should got {count} or {denominator} elements but we get {len(data)}"
             )
-        print(data)
         if data[0]["Time"].hour < get_date_utc0().hour - 1 and code != cfd_code:
             cfd_candle = self.get_candle_per_hour(cfd_code, ut, date)
             if (

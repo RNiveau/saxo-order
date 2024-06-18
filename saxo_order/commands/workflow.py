@@ -41,10 +41,14 @@ logger = logging.getLogger(__name__)
 @click.pass_context
 @catch_exception(handle=SaxoException)
 def workflow(ctx: Context):
+    config = ctx.obj["config"]
+    execute_workflow(config)
+
+
+def execute_workflow(config: str) -> None:
     logging.basicConfig(level=logging.WARN)
     logger.setLevel(logging.DEBUG)
-
-    configuration = Configuration(ctx.obj["config"])
+    configuration = Configuration(config)
     workflow_service = WorkflowService(SaxoClient(configuration))
     workflows = _yaml_loader()
     orders = run_workflows(
@@ -86,8 +90,10 @@ def run_workflows(
                 logger.debug(
                     f"Get indicator {ma}, ut {workflow.conditions[0].indicator.ut}"
                 )
+                # we use the cdf here to run the workflow even in index off hours
+                # TODO manage the cfd spread for some index
                 candle = workflow_service.get_candle_per_hour(
-                    workflow.index, workflow.conditions[0].close.ut, get_date_utc0()
+                    workflow.cfd, workflow.conditions[0].close.ut, get_date_utc0()
                 )
                 if candle is None:
                     raise SaxoException("Can't retrive candle")
@@ -146,15 +152,18 @@ def run_workflows(
 
 def _yaml_loader() -> List[Workflow]:
     if AwsClient.is_aws_context():
+        logger.info("Load workflows.yml from AWS")
         workflows_data = yaml.safe_load(AwsClient().get_workflows())
     elif os.path.isfile("workflows.yml"):
         with open("workflows.yml", "r") as file:
+            logger.info("Load workflows.yml from disk")
             workflows_data = yaml.safe_load(file)
     else:
         raise SaxoException("No yaml to load")
 
     workflows = []
     for workflow_data in workflows_data:
+        logger.info(f"Run {workflow_data['name']}")
         name = workflow_data["name"]
         index = workflow_data["index"]
         cfd = workflow_data["cfd"]
@@ -174,7 +183,11 @@ def _yaml_loader() -> List[Workflow]:
                 close_data["direction"], close_data["ut"], close_data["spread"]
             )
             condition = Condition(
-                indicator, close, WorkflowElement.get_value(condition_data["element"])
+                indicator,
+                close,
+                WorkflowElement.get_value(
+                    condition_data.get("element", WorkflowElement.CLOSE)
+                ),
             )
             conditions.append(condition)
 
