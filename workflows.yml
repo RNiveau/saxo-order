@@ -11,7 +11,7 @@
       close:
          direction: below
          ut: h1
-         spread: 30
+         spread: 40
   trigger:
       ut: h1
       signal: breakout
@@ -65,6 +65,92 @@
 - name: sell ma50 h1 dax high
   index: DAX.I
   cfd: GER40.I
+  end_date: 2024/07/01
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: ma50
+          ut: h1
+      close:
+         direction: below
+         ut: h1
+         spread: 20
+      element: high
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
+- name: sell ma50 h4 cac
+  index: CAC40.I
+  cfd: FRA40.I
+  end_date: 2024/07/01
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: ma50
+          ut: h4
+      close:
+         direction: below
+         ut: h1
+         spread: 40
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
+- name: sell ma50 h4 cac high
+  index: CAC40.I
+  cfd: FRA40.I
+  end_date: 2024/07/01
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: ma50
+          ut: h4
+      close:
+         direction: below
+         ut: h1
+         spread: 30
+      element: high
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
+- name: sell ma50 h1 cac close
+  index: CAC40.I
+  cfd: FRA40.I
+  end_date: 2024/07/01
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: ma50
+          ut: h1
+      close:
+         direction: below
+         ut: h1
+         spread: 20
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
+- name: sell ma50 h1 cac high
+  index: CAC40.I
+  cfd: FRA40.I
   end_date: 2024/07/01
   enable: true
   dry_run: false

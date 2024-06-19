@@ -163,7 +163,6 @@ def _yaml_loader() -> List[Workflow]:
 
     workflows = []
     for workflow_data in workflows_data:
-        logger.info(f"Run {workflow_data['name']}")
         name = workflow_data["name"]
         index = workflow_data["index"]
         cfd = workflow_data["cfd"]
