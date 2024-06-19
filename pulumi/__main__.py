@@ -23,7 +23,10 @@ pulumi.Output.all(refresh_token_lambda.arn, alerting_lambda.arn).apply(
     lambda args: iam.scheduler_role_policy(scheduler_role.id, [args[0], args[1]])
 )
 pulumi.Output.all(lambda_arn=alerting_lambda.arn, role_arn=scheduler_role.arn).apply(
-    lambda args: scheduler.alerting_schedule(args["lambda_arn"], args["role_arn"])
+    lambda args: (
+        scheduler.alerting_schedule(args["lambda_arn"], args["role_arn"]),
+        scheduler.workflows_schedule(args["lambda_arn"], args["role_arn"]),
+    )
 )
 pulumi.Output.all(
     lambda_arn=refresh_token_lambda.arn, role_arn=scheduler_role.arn

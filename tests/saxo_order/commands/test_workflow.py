@@ -67,6 +67,7 @@ class TestWorkflow:
                 close=Close(
                     direction=WorkflowDirection.BELOW, ut=UnitTime.H1, spread=1.5
                 ),
+                element=WorkflowElement.CLOSE,
             )
             workflows = [
                 Workflow(
