@@ -21,7 +21,6 @@ from model import (
     Order,
     OrderType,
     Trigger,
-    UnitTime,
     Workflow,
     WorkflowDirection,
     WorkflowElement,
@@ -53,20 +52,6 @@ def execute_workflow(config: str) -> None:
     workflows = _yaml_loader()
     orders = run_workflows(
         workflows, workflow_service, WebClient(token=configuration.slack_token)
-    )
-
-
-@click.command()
-@click.pass_context
-@catch_exception(handle=SaxoException)
-def technical(ctx: Context):
-    logging.basicConfig(level=logging.WARN)
-    logger.setLevel(logging.DEBUG)
-
-    configuration = Configuration(ctx.obj["config"])
-    workflow_service = WorkflowService(SaxoClient(configuration))
-    data = workflow_service.get_candle_per_minutes(
-        code="DAX.I", duration=450, ut=UnitTime.M15
     )
 
 

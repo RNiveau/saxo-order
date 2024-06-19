@@ -1,13 +1,17 @@
 import json
+import logging
 
 import click
 from click.core import Context
 
 from client.saxo_client import SaxoClient
-from model import AssetType
+from model import AssetType, UnitTime
 from saxo_order.commands import catch_exception
+from services.workflow_service import WorkflowService
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+
+logger = logging.getLogger(__name__)
 
 
 @click.command
@@ -162,3 +166,17 @@ def refresh_stocks_list(ctx: Context):
             records.append({"name": stock})
             print(f"Doesn't find {stock}")
     print(json.dumps(records))
+
+
+@click.command()
+@click.pass_context
+@catch_exception(handle=SaxoException)
+def technical(ctx: Context):
+    logging.basicConfig(level=logging.WARN)
+    logger.setLevel(logging.DEBUG)
+
+    configuration = Configuration(ctx.obj["config"])
+    workflow_service = WorkflowService(SaxoClient(configuration))
+    data = workflow_service.get_candle_per_minutes(
+        code="DAX.I", duration=450, ut=UnitTime.M15
+    )

@@ -97,7 +97,6 @@ k_order.add_command(internal)
 
 k_order.add_command(alerting.alerting)
 k_order.add_command(get_score.get_score)
-k_order.add_command(workflow.technical)
 k_order.add_command(auth.auth)
 k_order.add_command(available_funds.available_funds)
 k_order.add_command(get_report.get_report)
@@ -119,3 +118,4 @@ binance.add_command(binance_commands.get_report)
 binance.add_command(binance_commands.get_stacking_report)
 
 internal.add_command(internal_command.refresh_stocks_list)
+internal.add_command(internal_command.technical)
