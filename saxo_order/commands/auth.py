@@ -8,6 +8,9 @@ from client.saxo_auth_client import SaxoAuthClient
 from saxo_order.commands import catch_exception
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+from utils.logger import Logger
+
+logger = Logger.get_logger("auth")
 
 
 @click.command()

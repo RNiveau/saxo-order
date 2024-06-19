@@ -9,6 +9,9 @@ from saxo_order.commands.input_helper import select_account, update_order
 from saxo_order.service import calculate_currency, calculate_taxes
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+from utils.logger import Logger
+
+logger = Logger.get_logger("get_report")
 
 
 @click.command()

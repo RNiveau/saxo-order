@@ -12,6 +12,9 @@ from saxo_order.commands.input_helper import update_order
 from saxo_order.service import calculate_currency
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+from utils.logger import Logger
+
+logger = Logger.get_logger("binance")
 
 
 @click.command

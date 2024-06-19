@@ -5,6 +5,9 @@ from client.saxo_client import SaxoClient
 from saxo_order.commands import catch_exception
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+from utils.logger import Logger
+
+logger = Logger.get_logger("search")
 
 
 @click.command()

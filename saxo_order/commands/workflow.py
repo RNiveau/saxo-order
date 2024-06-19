@@ -1,5 +1,4 @@
 import datetime
-import logging
 import os
 from typing import List
 
@@ -32,8 +31,9 @@ from services.workflow_service import WorkflowService
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.helper import get_date_utc0
+from utils.logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger.get_logger("workflow")
 
 
 @click.command()
@@ -45,8 +45,6 @@ def workflow(ctx: Context):
 
 
 def execute_workflow(config: str) -> None:
-    logging.basicConfig(level=logging.WARN)
-    logger.setLevel(logging.DEBUG)
     configuration = Configuration(config)
     workflow_service = WorkflowService(SaxoClient(configuration))
     workflows = _yaml_loader()

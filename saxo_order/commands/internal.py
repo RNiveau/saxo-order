@@ -1,5 +1,4 @@
 import json
-import logging
 
 import click
 from click.core import Context
@@ -10,8 +9,9 @@ from saxo_order.commands import catch_exception
 from services.workflow_service import WorkflowService
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+from utils.logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger.get_logger("internal")
 
 
 @click.command
@@ -172,9 +172,6 @@ def refresh_stocks_list(ctx: Context):
 @click.pass_context
 @catch_exception(handle=SaxoException)
 def technical(ctx: Context):
-    logging.basicConfig(level=logging.WARN)
-    logger.setLevel(logging.DEBUG)
-
     configuration = Configuration(ctx.obj["config"])
     workflow_service = WorkflowService(SaxoClient(configuration))
     data = workflow_service.get_candle_per_minutes(

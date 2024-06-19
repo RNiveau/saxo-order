@@ -5,15 +5,14 @@ from typing import Dict, Tuple
 import yaml
 
 from client.aws_client import AwsClient
-
-logger = logging.getLogger(__name__)
+from utils.logger import Logger
 
 
 class Configuration:
     def __init__(self, config_file: str):
-        logger.setLevel(logging.INFO)
+        self.logger = Logger.get_logger("configuration")
         if os.path.isfile(config_file):
-            logger.info(f"Open {config_file} configuration")
+            self.logger.info(f"Open {config_file} configuration")
             with open(config_file, "r") as f:
                 self.config = yaml.safe_load(f)
         if os.path.isfile("secrets.yml"):
@@ -26,11 +25,11 @@ class Configuration:
 
     def load_tokens(self) -> None:
         if self.aws_client is not None:
-            logger.info(f"Load tokens from aws")
+            self.logger.info(f"Load tokens from aws")
             content = self.aws_client.get_access_token()
         else:
             if os.path.isfile("access_token"):
-                logger.info(f"Load tokens from disk")
+                self.logger.info(f"Load tokens from disk")
                 with open("access_token", "r") as f:
                     content = f.read()
         contents = content.strip().split("\n")
@@ -38,18 +37,18 @@ class Configuration:
             self.access_token = contents[0]
             self.refresh_token = contents[1]
         else:
-            logger.error("Can't decode access token")
+            self.logger.error("Can't decode access token")
 
     def save_tokens(self, access_token: str, refresh_token: str) -> None:
         self.access_token = access_token
         self.refresh_token = refresh_token
         if self.aws_client is not None:
-            logger.info(f"Save tokens to aws")
+            self.logger.info(f"Save tokens to aws")
             self.aws_client.save_access_token(
                 access_token=access_token, refresh_token=refresh_token
             )
         else:
-            logger.info(f"Save tokens to disk")
+            self.logger.info(f"Save tokens to disk")
             with open("access_token", "w") as f:
                 f.write(f"{access_token}\n")
                 f.write(f"{refresh_token}\n")

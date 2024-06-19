@@ -6,14 +6,13 @@ from client.saxo_client import SaxoClient
 from model import Candle, IndicatorType, UnitTime
 from utils.exception import SaxoException
 from utils.helper import get_date_utc0
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+from utils.logger import Logger
 
 
 class WorkflowService:
 
     def __init__(self, saxo_client: SaxoClient):
+        self.logger = Logger.get_logger("workflow_service", logging.DEBUG)
         self.saxo_client = saxo_client
 
     def get_candle_per_minutes(
@@ -25,7 +24,7 @@ class WorkflowService:
     ) -> List[Candle]:
         """Build x ut candles for the duration minutes per minutes"""
         date = datetime.datetime.now(datetime.UTC) if date is None else date
-        logger.debug(f"get_candle_per_minutes({code}, {duration}, {date})")
+        self.logger.debug(f"get_candle_per_minutes({code}, {duration}, {date})")
         asset = self.saxo_client.get_asset(code)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
@@ -141,7 +140,7 @@ class WorkflowService:
                         return map_data_to_candle([d], ut)[0]
 
             case _:
-                logging.error(f"We don't handle this ut : {ut}")
+                self.logger.error(f"We don't handle this ut : {ut}")
                 raise SaxoException(f"We don't handle this ut : {ut}")
         return None
 
@@ -153,7 +152,7 @@ class WorkflowService:
         indicator: IndicatorType,
         date: datetime.datetime,
     ) -> float:
-        logging.info(f"Calculate {indicator}, code:{code} ut: {ut}, date: {date}")
+        self.logger.info(f"Calculate {indicator}, code:{code} ut: {ut}, date: {date}")
         match indicator:
             case IndicatorType.MA50:
                 denominator = 50

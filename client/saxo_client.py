@@ -23,10 +23,12 @@ from model import (
 )
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+from utils.logger import Logger
 
 
 class SaxoClient:
     def __init__(self, configuration: Configuration) -> None:
+        self.logger = Logger.get_logger("saxo_client", logging.DEBUG)
         self.session = requests.Session()
         self.configuration = configuration
         self.session.headers.update(
@@ -311,7 +313,7 @@ class SaxoClient:
         """
         if date is None:
             date = datetime.now()
-        logging.debug(
+        self.logger.debug(
             f"get_historical_data {saxo_uic}, horizon={horizon}, count={count}, {date}"
         )
         response = self.session.get(

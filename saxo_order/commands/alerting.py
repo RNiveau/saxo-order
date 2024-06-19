@@ -1,6 +1,5 @@
 import datetime
 import json
-import logging
 import os
 from typing import Dict, List, Optional
 
@@ -16,8 +15,9 @@ from services import indicator_service
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.helper import build_daily_candle_from_hours
+from utils.logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger.get_logger("alerting")
 
 
 @click.command()
@@ -29,7 +29,6 @@ def alerting(ctx: Context) -> None:
 
 
 def run_alerting(config: str) -> None:
-    logger.setLevel(logging.DEBUG)
 
     if os.path.isfile("stocks.json"):
         with open("stocks.json", "r") as f:

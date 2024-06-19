@@ -6,6 +6,9 @@ from client.zone_bourse_client import ZoneBourseClient
 from model import ZoneBourseScore, ZoneBourseScrap
 from saxo_order.commands import catch_exception
 from utils.exception import SaxoException
+from utils.logger import Logger
+
+logger = Logger.get_logger("fundamental")
 
 
 @click.command
