@@ -91,7 +91,7 @@ def sp500(ctx: Context, price: float, order_type: str, direction: str):
 @click.pass_context
 def russell(ctx: Context, price: float, order_type: str, direction: str):
     print("You need to think about the cotation diff: future is + 23pts")
-    code = "US2000JUN24"
+    code = "US2000SEP24"
     shortcut(ctx, price, order_type, direction, code)
 
 
