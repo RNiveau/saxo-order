@@ -1,5 +1,6 @@
 import datetime
 import logging
+from typing import Union
 
 from client.client_helper import *
 from client.saxo_client import SaxoClient
@@ -37,7 +38,7 @@ class WorkflowService:
             raise SaxoException(
                 "We don't get the expected number of elements, don't treat them"
             )
-        data = map_data_to_candle(data, None)
+        data = map_data_to_candles(data, None)
         slice = 0 if data[0].date is None else data[0].date.minute
         if ut == UnitTime.M15 and slice % 15 != 0:
             data = data[(slice % 15) + 1 :]
@@ -133,11 +134,11 @@ class WorkflowService:
         )
         match ut:
             case UnitTime.H1:
-                return map_data_to_candle([data[0]], ut)[0]
+                return map_data_to_candles([data[0]], ut)[0]
             case UnitTime.H4:
                 for d in data:
                     if d["Time"].hour in (9, 13, 15):
-                        return map_data_to_candle([d], ut)[0]
+                        return map_data_to_candles([d], ut)[0]
 
             case _:
                 self.logger.error(f"We don't handle this ut : {ut}")
@@ -199,3 +200,77 @@ class WorkflowService:
                 break
         avg /= denominator
         return avg
+
+    def build_hour_candles(
+        self,
+        code: str,
+        cfd_code: str,
+        ut: UnitTime,
+        open_hour_utc0: int,
+        close_hour_utc0: int,
+        nbr_hours: int,
+        open_minutes: int,
+        date: datetime.datetime,
+    ) -> List[Candle]:
+        """Build hour candles (or > UT) from a code and take in account open and close hour and world wide asset"""
+        self.logger.info(f"Build candles for {code}, ut: {ut}, date: {date}")
+        if open_minutes not in [0, 30]:
+            raise SaxoException(
+                f"Wrong parameter {open_minutes}, we handle only 0 and 30"
+            )
+        nbr_hours *= 2
+        asset = self.saxo_client.get_asset(code)
+        data = self.saxo_client.get_historical_data(
+            saxo_uic=asset["Identifier"],
+            asset_type=asset["AssetType"],
+            horizon=30,
+            count=nbr_hours,
+            date=date,
+        )
+        if len(data) < nbr_hours:
+            raise SaxoException(
+                f"We should got {nbr_hours} elements but we get {len(data)}"
+            )
+        delta = get_date_utc0() - data[0]["Time"].replace(tzinfo=datetime.timezone.utc)
+        if (
+            (delta.total_seconds() > 30 * 60 and delta.total_seconds() < 45 * 60)
+            or (delta.total_seconds() > 60 * 60 and delta.total_seconds() < 75 * 60)
+            and code != cfd_code
+        ):
+            self.logger.debug(f"Need to get the last cfd candles {cfd_code}")
+            cfd = self.saxo_client.get_asset(cfd_code)
+            data_cfd = self.saxo_client.get_historical_data(
+                saxo_uic=cfd["Identifier"],
+                asset_type=cfd["AssetType"],
+                horizon=30,
+                count=1,
+                date=date,
+            )
+            data.insert(0, data_cfd[0])
+        if (
+            data[0]["Time"].minute == open_minutes
+        ):  # it means we don't have the last 30 minutes of the current hour
+            data = data[1:]
+        i = 0
+        candles = []
+        while i < len(data):
+            if (
+                data[i]["Time"].hour >= open_hour_utc0
+                and data[i]["Time"].hour <= close_hour_utc0
+            ):
+                if i + 1 < len(data):
+                    last = map_data_to_candle(data[i], ut)
+                    first = map_data_to_candle(data[i + 1], ut)
+                    last.open = first.open
+                    last.date = first.date
+                    if first.lower < last.lower:
+                        last.lower = first.lower
+                    if first.higher > last.higher:
+                        last.higher = first.higher
+                    candles.append(last)
+                    i += 2
+                    continue
+                else:
+                    break
+            i += 1
+        return candles

@@ -111,7 +111,7 @@ def _build_candles(saxo_client: SaxoClient, asset: Dict) -> List[Candle]:
         horizon=1440,
         count=20,
     )
-    candles = client_helper.map_data_to_candle(data, ut=UnitTime.D)
+    candles = client_helper.map_data_to_candles(data, ut=UnitTime.D)
     today = datetime.datetime.now()
     if (
         candles[0].date is not None
@@ -124,7 +124,7 @@ def _build_candles(saxo_client: SaxoClient, asset: Dict) -> List[Candle]:
             horizon=60,
             count=10,
         )
-        hour_candles = client_helper.map_data_to_candle(hour_data, ut=UnitTime.H1)
+        hour_candles = client_helper.map_data_to_candles(hour_data, ut=UnitTime.H1)
         hour_candle = build_daily_candle_from_hours(hour_candles, today.day)
         if hour_candle is not None:
             candles.insert(0, hour_candle)

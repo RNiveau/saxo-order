@@ -1,7 +1,9 @@
+import logging
 from typing import Any, Dict, List, Optional
 
 from model import Candle, UnitTime
 from utils.exception import SaxoException
+from utils.logger import Logger
 
 
 def get_low_from_saxo_data(data: Dict) -> float:
@@ -25,6 +27,7 @@ def _get_value_from_saxo_data(data: Dict, key: str) -> float:
         return data[key]
     if f"{key}Ask" in data and f"{key}Bid" in data:
         return (data[f"{key}Ask"] + data[f"{key}Bid"]) / 2
+    Logger.get_logger("client_helper").error(f"Can't find {key} in {data}")
     raise SaxoException("Can't find the price")
 
 
@@ -36,17 +39,23 @@ def get_tick_size(data: Dict, price: float) -> float:
     return tick_size
 
 
-def map_data_to_candle(data: List[Dict], ut: Optional[UnitTime] = None) -> List[Candle]:
+def map_data_to_candles(
+    data: List[Dict], ut: Optional[UnitTime] = None
+) -> List[Candle]:
     return list(
         map(
-            lambda x: Candle(
-                lower=get_low_from_saxo_data(x),
-                higher=get_high_from_saxo_data(x),
-                open=get_open_from_saxo_data(x),
-                close=get_price_from_saxo_data(x),
-                ut=ut if ut is not None else UnitTime.D,
-                date=x["Time"],
-            ),
+            lambda x: map_data_to_candle(x, ut),
             data,
         )
+    )
+
+
+def map_data_to_candle(data: Dict, ut: Optional[UnitTime] = None) -> Candle:
+    return Candle(
+        lower=round(get_low_from_saxo_data(data), 4),
+        higher=round(get_high_from_saxo_data(data), 4),
+        open=round(get_open_from_saxo_data(data), 4),
+        close=round(get_price_from_saxo_data(data), 4),
+        ut=ut if ut is not None else UnitTime.D,
+        date=data["Time"],
     )

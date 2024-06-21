@@ -167,3 +167,194 @@ class TestWorkflowService:
         assert expected == worfklow_service.calculate_ma(
             "dax", "cfd", ut, IndicatorType.MA50, datetime.datetime.now()
         )
+
+    @pytest.mark.parametrize(
+        "file_index, file_cfd, open_hour, close_hour, open_minutes, ut, date, expected",
+        [
+            (
+                "cac_30min.obj",
+                "",
+                7,
+                15,
+                0,
+                UnitTime.H1,
+                datetime.datetime(2024, 6, 20, 14, 45),
+                [
+                    Candle(
+                        lower=7626.04,
+                        open=7630.49,
+                        close=7660.20,
+                        higher=7661.60,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 20, 13, 0),
+                    ),
+                    Candle(
+                        lower=7622.46,
+                        open=7635.75,
+                        close=7630.23,
+                        higher=7636.91,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 20, 12, 0),
+                    ),
+                    Candle(
+                        lower=7633.52,
+                        open=7634.98,
+                        close=7636.61,
+                        higher=7650.21,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 20, 11, 0),
+                    ),
+                ],
+            ),
+            (
+                "cac_30min.obj",
+                "cac_cfd_30min.obj",
+                7,
+                15,
+                0,
+                UnitTime.H1,
+                datetime.datetime(2024, 6, 20, 15, 14),
+                [
+                    Candle(
+                        lower=7646.33,
+                        open=7662.12,
+                        close=7680.14,
+                        higher=7681.68,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 20, 14, 0),
+                    ),
+                    Candle(
+                        lower=7626.04,
+                        open=7630.49,
+                        close=7660.20,
+                        higher=7661.60,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 20, 13, 0),
+                    ),
+                    Candle(
+                        lower=7622.46,
+                        open=7635.75,
+                        close=7630.23,
+                        higher=7636.91,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 20, 12, 0),
+                    ),
+                    Candle(
+                        lower=7633.52,
+                        open=7634.98,
+                        close=7636.61,
+                        higher=7650.21,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 20, 11, 0),
+                    ),
+                ],
+            ),
+            (
+                "cac_30min_end_of_day.obj",
+                "",
+                7,
+                15,
+                0,
+                UnitTime.H1,
+                datetime.datetime(2024, 6, 19, 18, 1),
+                [
+                    Candle(
+                        lower=7566.09,
+                        open=7576.38,
+                        close=7570.20,
+                        higher=7579.18,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 19, 15, 0),
+                    ),
+                    Candle(
+                        lower=7570.33,
+                        open=7582.57,
+                        close=7576.03,
+                        higher=7588.27,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 19, 14, 0),
+                    ),
+                    Candle(
+                        lower=7577.51,
+                        open=7584.03,
+                        close=7582.33,
+                        higher=7593.09,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 19, 13, 0),
+                    ),
+                ],
+            ),
+            (
+                "sp500_cfd.obj",
+                "",
+                13,
+                20,
+                30,
+                UnitTime.H1,
+                datetime.datetime(
+                    2024,
+                    6,
+                    18,
+                    14,
+                ),
+                [
+                    Candle(
+                        lower=5474.7949,
+                        open=5475.5649,
+                        close=5478.3452,
+                        higher=5486.3149,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 18, 13, 30),
+                    ),
+                    Candle(
+                        lower=5470.0449,
+                        open=5475.3052,
+                        close=5475.5552,
+                        higher=5480.6899,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 6, 18, 12, 30),
+                    ),
+                ],
+            ),
+        ],
+    )
+    def test_build_hour_candles(
+        self,
+        file_index: str,
+        file_cfd: str,
+        open_hour: int,
+        close_hour: int,
+        open_minutes: int,
+        ut: UnitTime,
+        date: datetime.datetime,
+        expected: List[Candle],
+        mocker,
+    ):
+        saxo_client = mocker.Mock()
+        mocker.patch.object(
+            saxo_client,
+            "get_asset",
+            return_value={
+                "Description": "",
+                "AssetType": "Stock",
+                "Identifier": 12345,
+                "CurrencyCode": "EUR",
+            },
+        )
+        side_effet = []
+        with open(f"tests/services/files/{file_index}", "r") as f:
+            side_effet.append(eval(f.read(), {"datetime": datetime}))
+        if file_cfd != "":
+            with open(f"tests/services/files/{file_cfd}", "r") as f:
+                side_effet.append(eval(f.read(), {"datetime": datetime}))
+        mocker.patch.object(saxo_client, "get_historical_data", side_effect=side_effet)
+        mocker.patch(
+            "services.workflow_service.get_date_utc0",
+            return_value=date.replace(tzinfo=datetime.timezone.utc),
+        )
+        worfklow_service = WorkflowService(saxo_client)
+        candles = worfklow_service.build_hour_candles(
+            "code", "", ut, open_hour, close_hour, 50, open_minutes, date
+        )
+        for i in range(0, len(expected)):
+            assert expected[i] == candles[i]
