@@ -134,12 +134,11 @@ class WorkflowService:
         )
         match ut:
             case UnitTime.H1:
-                return map_data_to_candles([data[0]], ut)[0]
+                return map_data_to_candle(data[0], ut)
             case UnitTime.H4:
                 for d in data:
                     if d["Time"].hour in (9, 13, 15):
-                        return map_data_to_candles([d], ut)[0]
-
+                        return map_data_to_candle(d, ut)
             case _:
                 self.logger.error(f"We don't handle this ut : {ut}")
                 raise SaxoException(f"We don't handle this ut : {ut}")
@@ -274,3 +273,95 @@ class WorkflowService:
                     break
             i += 1
         return candles
+
+    @staticmethod
+    def _build_h4_candles(candles: List[Candle], open_hour_utc0: int) -> List[Candle]:
+        candles_h4 = []
+        if open_hour_utc0 == 7:
+            if (
+                candles[0].date is not None
+                and candles[0].date.hour >= 7
+                and candles[0].date.hour < 9
+            ):
+                candles = candles[9 - candles[0].date.hour :]
+            elif (
+                candles[0].date is not None
+                and candles[0].date.hour >= 10
+                and candles[0].date.hour < 13
+            ):
+                candles = candles[13 - candles[0].date.hour :]
+            elif candles[0].date is not None and candles[0].date.hour == 14:
+                candles = candles[1:]
+            i = 0
+            while i < len(candles):
+                candle_date = candles[i].date
+                if candle_date is None:
+                    i += 1
+                elif candle_date.hour == 15:
+                    if i + 1 >= len(candles):
+                        break
+                    candle = Candle(
+                        lower=candles[i].lower,
+                        higher=candles[i].higher,
+                        close=candles[i].close,
+                        open=-1,
+                        ut=UnitTime.H4,
+                    )
+                    candle.open = candles[i + 1].open
+                    candle.date = candles[i + 1].date
+                    if candles[i + 1].lower < candle.lower:
+                        candle.lower = candles[i + 1].lower
+                    if candles[i + 1].higher > candle.higher:
+                        candle.higher = candles[i + 1].higher
+                    candles_h4.append(candle)
+                    i += 2
+                elif candle_date.hour == 13:
+                    if i + 3 >= len(candles):
+                        break
+                    candle = Candle(
+                        lower=candles[i].lower,
+                        higher=candles[i].higher,
+                        close=candles[i].close,
+                        open=-1,
+                        ut=UnitTime.H4,
+                    )
+                    candle.open = candles[i + 3].open
+                    candle.date = candles[i + 3].date
+                    for j in range(i, i + 4):
+                        if candles[j].lower < candle.lower:
+                            candle.lower = candles[j].lower
+                        if candles[j].higher > candle.higher:
+                            candle.higher = candles[j].higher
+                    candles_h4.append(candle)
+                    i += 4
+                elif candle_date.hour == 9:
+                    if i + 2 >= len(candles):
+                        break
+                    candle = Candle(
+                        lower=candles[i].lower,
+                        higher=candles[i].higher,
+                        close=candles[i].close,
+                        open=-1,
+                        ut=UnitTime.H4,
+                    )
+                    candle.open = candles[i + 2].open
+                    candle.date = candles[i + 2].date
+                    for j in range(i, i + 3):
+                        if candles[j].lower < candle.lower:
+                            candle.lower = candles[j].lower
+                        if candles[j].higher > candle.higher:
+                            candle.higher = candles[j].higher
+                    candles_h4.append(candle)
+                    i += 3
+                else:
+                    Logger.get_logger("build_candle").warning(
+                        "We should not go here, increment the counter"
+                    )
+                    i += 1
+        elif open_hour_utc0 == 13:
+            pass
+        return candles_h4
+
+
+# cac 7, 10, 14
+# sp 13:30, 15:30
