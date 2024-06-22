@@ -2,6 +2,7 @@ import datetime
 from typing import List, Optional
 
 from model import Candle, UnitTime
+from utils.logger import Logger
 
 
 def build_daily_candle_from_hours(candles: List[Candle], day: int) -> Optional[Candle]:
@@ -40,3 +41,73 @@ def build_daily_candle_from_hours(candles: List[Candle], day: int) -> Optional[C
 
 def get_date_utc0() -> datetime.datetime:
     return datetime.datetime.now(tz=datetime.UTC)
+
+
+def build_h4_candles_from_h1(
+    candles: List[Candle], open_hour_utc0: int
+) -> List[Candle]:
+    candles_h4 = []
+    if open_hour_utc0 == 7:
+        if (
+            candles[0].date is not None
+            and candles[0].date.hour >= 7
+            and candles[0].date.hour < 9
+        ):
+            candles = candles[9 - candles[0].date.hour :]
+        elif (
+            candles[0].date is not None
+            and candles[0].date.hour >= 10
+            and candles[0].date.hour < 13
+        ):
+            candles = candles[13 - candles[0].date.hour :]
+        elif candles[0].date is not None and candles[0].date.hour == 14:
+            candles = candles[1:]
+        i = 0
+        while i < len(candles):
+            candle_date = candles[i].date
+            if candle_date is None:
+                i += 1
+            elif candle_date.hour == 15:
+                if i + 1 >= len(candles):
+                    break
+                candles_h4.append(_internal_build_candle(candles, i, 1))
+                i += 2
+            elif candle_date.hour == 13:
+                if i + 3 >= len(candles):
+                    break
+                candles_h4.append(_internal_build_candle(candles, i, 3))
+                i += 4
+            elif candle_date.hour == 9:
+                if i + 2 >= len(candles):
+                    break
+                candles_h4.append(_internal_build_candle(candles, i, 2))
+                i += 3
+            else:
+                Logger.get_logger("build_h4_candles_from_h1").warning(
+                    "We should not go here, increment the counter"
+                )
+                i += 1
+    elif open_hour_utc0 == 13:
+        pass
+    return candles_h4
+
+
+def _internal_build_candle(
+    candles: List[Candle], start_index: int, nbr_candles: int
+) -> Candle:
+    """internal use by build_h4_candles_from_h1"""
+    candle = Candle(
+        lower=candles[start_index].lower,
+        higher=candles[start_index].higher,
+        close=candles[start_index].close,
+        open=-1,
+        ut=UnitTime.H4,
+    )
+    candle.open = candles[start_index + nbr_candles].open
+    candle.date = candles[start_index + nbr_candles].date
+    for j in range(start_index, start_index + nbr_candles + 1):
+        if candles[j].lower < candle.lower:
+            candle.lower = candles[j].lower
+        if candles[j].higher > candle.higher:
+            candle.higher = candles[j].higher
+    return candle
