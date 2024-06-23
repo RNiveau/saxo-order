@@ -5,6 +5,7 @@ import logging
 import click
 from click.core import Context
 
+from client.aws_client import AwsClient
 from client.saxo_client import SaxoClient
 from model import AssetType, UnitTime
 from saxo_order.commands import catch_exception
@@ -189,3 +190,29 @@ def technical(ctx: Context):
     workflow_service.build_hour_candles(
         "CAC40.I", "FRA40.I", UnitTime.H1, 7, 15, 50, 0, get_date_utc0()
     )
+
+
+@click.command()
+@click.pass_context
+@click.option(
+    "--direction",
+    type=click.Choice(["from", "to"]),
+    required=True,
+    default="from",
+    help="Sync workflows.yml between aws and local",
+    prompt="What is the sync direction ? (from aws, to aws)",
+)
+@catch_exception(handle=SaxoException)
+def sync_workflows(ctx: Context, direction: str):
+    if AwsClient.is_aws_context() is False:
+        print("Configure aws token first")
+        raise click.Abort()
+    aws_client = AwsClient()
+    if direction == "from":
+        workflows = aws_client.get_workflows()
+        with open("workflows.yml", "w") as file:
+            file.write(workflows)
+    else:
+        with open("workflows.yml", "r") as file:
+            aws_client.save_workflows(file.read())
+    print("Workflows file is synchronized")

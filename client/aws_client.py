@@ -31,6 +31,13 @@ class AwsClient:
         )
         return response["Body"].read().decode("utf-8")
 
+    def save_workflows(self, content: str) -> None:
+        self.s3.put_object(
+            Bucket=AwsClient.BUCKET_NAME,
+            Key=AwsClient.WORKFLOWS,
+            Body=f"{content}\n",
+        )
+
     @staticmethod
     def is_aws_context() -> bool:
         return "AWS_LAMBDA_FUNCTION_NAME" in os.environ or "AWS_PROFILE" in os.environ

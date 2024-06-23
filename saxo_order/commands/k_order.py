@@ -119,3 +119,4 @@ binance.add_command(binance_commands.get_stacking_report)
 
 internal.add_command(internal_command.refresh_stocks_list)
 internal.add_command(internal_command.technical)
+internal.add_command(internal_command.sync_workflows)
