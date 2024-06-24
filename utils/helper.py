@@ -48,20 +48,6 @@ def build_h4_candles_from_h1(
 ) -> List[Candle]:
     candles_h4 = []
     if open_hour_utc0 == 7:
-        if (
-            candles[0].date is not None
-            and candles[0].date.hour >= 7
-            and candles[0].date.hour < 9
-        ):
-            candles = candles[9 - candles[0].date.hour :]
-        elif (
-            candles[0].date is not None
-            and candles[0].date.hour >= 10
-            and candles[0].date.hour < 13
-        ):
-            candles = candles[13 - candles[0].date.hour :]
-        elif candles[0].date is not None and candles[0].date.hour == 14:
-            candles = candles[1:]
         i = 0
         while i < len(candles):
             candle_date = candles[i].date
@@ -83,12 +69,31 @@ def build_h4_candles_from_h1(
                 candles_h4.append(_internal_build_candle(candles, i, 2))
                 i += 3
             else:
-                Logger.get_logger("build_h4_candles_from_h1").warning(
-                    "We should not go here, increment the counter"
+                Logger.get_logger("build_h4_candles_from_h1").debug(
+                    f"Not a h4 ending {candles[i].date}"
                 )
                 i += 1
     elif open_hour_utc0 == 13:
-        pass
+        i = 0
+        while i < len(candles):
+            candle_date = candles[i].date
+            if candle_date is None:
+                i += 1
+            elif candle_date.hour == 16:
+                if i + 3 >= len(candles):
+                    break
+                candles_h4.append(_internal_build_candle(candles, i, 3))
+                i += 4
+            elif candle_date.hour == 19:
+                if i + 2 >= len(candles):
+                    break
+                candles_h4.append(_internal_build_candle(candles, i, 2))
+                i += 3
+            else:
+                Logger.get_logger("build_h4_candles_from_h1").debug(
+                    f"Not a h4 ending {candles[i].date}"
+                )
+                i += 1
     return candles_h4
 
 
