@@ -3,7 +3,7 @@ from typing import Optional
 
 from model.enum import *
 from model.workflow import *
-from model.zone_bourse import ZoneBourseScore, ZoneBourseScrap
+from model.zone_bourse import *
 
 
 @dataclass
@@ -116,3 +116,20 @@ class StackingReport:
     @property
     def id(self) -> str:
         return f"{self.date}{self.asset}"
+
+
+@dataclass
+class Market:
+    open_hour: int
+    open_minutes: int
+    close_hour: int
+
+
+class USMarket(Market):
+    def __init__(self) -> None:
+        super().__init__(open_hour=13, close_hour=21, open_minutes=30)
+
+
+class EUMarket(Market):
+    def __init__(self) -> None:
+        super().__init__(open_hour=7, close_hour=17, open_minutes=0)
