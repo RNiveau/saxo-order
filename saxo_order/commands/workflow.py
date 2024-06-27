@@ -10,6 +10,7 @@ from slack_sdk import WebClient
 from client.aws_client import AwsClient
 from client.client_helper import *
 from client.saxo_client import SaxoClient
+from engines.workflow_engine import WorkflowEngine
 from model import (
     Candle,
     Close,
@@ -27,13 +28,13 @@ from model import (
     WorkflowSignal,
 )
 from saxo_order.commands import catch_exception
-from services.workflow_service import WorkflowService
+from services.candles_service import CandlesService
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.helper import get_date_utc0
 from utils.logger import Logger
 
-logger = Logger.get_logger("workflow")
+logger = Logger.get_logger("workflow", logging.DEBUG)
 
 
 @click.command()
@@ -46,91 +47,15 @@ def workflow(ctx: Context):
 
 def execute_workflow(config: str) -> None:
     configuration = Configuration(config)
-    workflow_service = WorkflowService(SaxoClient(configuration))
+    candles_service = CandlesService(SaxoClient(configuration))
     workflows = _yaml_loader()
-    orders = run_workflows(
-        workflows, workflow_service, WebClient(token=configuration.slack_token)
+
+    engine = WorkflowEngine(
+        workflows=workflows,
+        slack_client=WebClient(token=configuration.slack_token),
+        candles_service=candles_service,
     )
-
-
-def run_workflows(
-    workflows: List[Workflow],
-    workflow_service: WorkflowService,
-    slack_client: WebClient,
-) -> List[Order]:
-    orders = []
-    for workflow in workflows:
-        if workflow.enable and workflow.end_date >= datetime.datetime.now().date():
-            logger.info(f"Run workflow {workflow.name}")
-            if workflow.conditions[0].indicator.name in [IndicatorType.MA50]:
-                ma = workflow_service.calculate_ma(
-                    workflow.index,
-                    workflow.cfd,
-                    workflow.conditions[0].indicator.ut,
-                    workflow.conditions[0].indicator.name,
-                    get_date_utc0(),
-                )
-                logger.debug(
-                    f"Get indicator {ma}, ut {workflow.conditions[0].indicator.ut}"
-                )
-                # we use the cdf here to run the workflow even in index off hours
-                # TODO manage the cfd spread for some index
-                candle = workflow_service.get_candle_per_hour(
-                    workflow.cfd, workflow.conditions[0].close.ut, get_date_utc0()
-                )
-                if candle is None:
-                    raise SaxoException("Can't retrive candle")
-                if workflow.conditions[0].close.direction == WorkflowDirection.BELOW:
-                    element = _get_price_from_element(
-                        candle, workflow.conditions[0].element
-                    )
-                    if (
-                        element <= ma
-                        and element >= ma - workflow.conditions[0].close.spread
-                    ):
-                        trigger = workflow.trigger
-                        trigger_candle = workflow_service.get_candle_per_hour(
-                            workflow.cfd, workflow.trigger.ut, get_date_utc0()
-                        )
-                        if trigger_candle is None:
-                            raise SaxoException("Can't retrive candle")
-                        price = 0.0
-                        if (
-                            trigger.location == WorkflowLocation.LOWER
-                            and trigger.signal == WorkflowSignal.BREAKOUT
-                        ):
-                            price = trigger_candle.lower - 1
-                            order_type = (
-                                OrderType.OPEN_STOP
-                                if trigger.order_direction == Direction.SELL
-                                else OrderType.LIMIT
-                            )
-                        elif (
-                            trigger.location == WorkflowLocation.HIGHER
-                            and trigger.signal == WorkflowSignal.BREAKOUT
-                        ):
-                            price = trigger_candle.higher + 1
-                            order_type = (
-                                OrderType.STOP
-                                if trigger.order_direction == Direction.SELL
-                                else OrderType.OPEN_STOP
-                            )
-
-                        order = Order(
-                            code=workflow.cfd,
-                            price=price,
-                            quantity=trigger.quantity,
-                            direction=trigger.order_direction,
-                            type=order_type,
-                        )
-                        log = f"Workflow will trigger an order {order.direction} for {order.quantity} {order.code} at {order.price}"
-                        logger.debug(log)
-                        slack_client.chat_postMessage(channel="#stock", text=log)
-                        if workflow.dry_run is False:
-                            orders.append(order)
-        else:
-            logger.info(f"Workflow {workflow.name} will not run")
-    return orders
+    engine.run()
 
 
 def _yaml_loader() -> List[Workflow]:
@@ -154,6 +79,7 @@ def _yaml_loader() -> List[Workflow]:
         ).date()
         enable = workflow_data["enable"]
         dry_run = workflow_data["dry_run"]
+        is_us = workflow_data.get("is_us", False)
 
         conditions_data = workflow_data["conditions"]
         conditions = []
@@ -192,18 +118,7 @@ def _yaml_loader() -> List[Workflow]:
                 conditions=conditions,
                 trigger=trigger,
                 dry_run=dry_run,
+                is_us=is_us,
             )
         )
     return workflows
-
-
-def _get_price_from_element(candle: Candle, element: WorkflowElement) -> float:
-    match element:
-        case WorkflowElement.CLOSE:
-            return candle.close
-        case WorkflowElement.HIGH:
-            return candle.higher
-        case WorkflowElement.LOW:
-            return candle.lower
-        case _:
-            raise SaxoException(f"We don't handle {element} price")

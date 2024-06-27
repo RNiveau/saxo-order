@@ -6,17 +6,17 @@ from client.client_helper import *
 from client.saxo_client import SaxoClient
 from model import Candle, IndicatorType, UnitTime
 from utils.exception import SaxoException
-from utils.helper import get_date_utc0
+from utils.helper import build_h4_candles_from_h1, get_date_utc0
 from utils.logger import Logger
 
 
-class WorkflowService:
+class CandlesService:
 
     def __init__(self, saxo_client: SaxoClient):
         self.logger = Logger.get_logger("workflow_service", logging.DEBUG)
         self.saxo_client = saxo_client
 
-    def get_candle_per_minutes(
+    def get_candles_per_minutes(
         self,
         code: str,
         duration: int,
@@ -144,62 +144,6 @@ class WorkflowService:
                 raise SaxoException(f"We don't handle this ut : {ut}")
         return None
 
-    def calculate_ma(
-        self,
-        code: str,
-        cfd_code: str,
-        ut: UnitTime,
-        indicator: IndicatorType,
-        date: datetime.datetime,
-    ) -> float:
-        self.logger.info(f"Calculate {indicator}, code:{code} ut: {ut}, date: {date}")
-        match indicator:
-            case IndicatorType.MA50:
-                denominator = 50
-                match ut:
-                    case UnitTime.H4:
-                        count = 200
-                    case UnitTime.H1:
-                        count = 50
-                    case _:
-                        raise SaxoException(f"We don't handle this ut {ut}")
-            case _:
-                raise SaxoException(f"We don't handle this indicator type {indicator}")
-        # hours need to be utc0
-        asset = self.saxo_client.get_asset(code)
-        data = self.saxo_client.get_historical_data(
-            saxo_uic=asset["Identifier"],
-            asset_type=asset["AssetType"],
-            horizon=60,
-            count=count,
-            date=date,
-        )
-        if len(data) != denominator and len(data) < count:
-            raise SaxoException(
-                f"We should got {count} or {denominator} elements but we get {len(data)}"
-            )
-        if data[0]["Time"].hour < get_date_utc0().hour - 1 and code != cfd_code:
-            cfd_candle = self.get_candle_per_hour(cfd_code, ut, date)
-            if (
-                cfd_candle is not None
-                and cfd_candle.date is not None
-                and get_date_utc0().hour == cfd_candle.date.hour + 1
-            ):
-                data.insert(0, cfd_candle)
-        avg: float = 0
-        hit: int = 0
-        for d in data:
-            if UnitTime.H4 == ut:
-                if d["Time"].hour not in (9, 13, 15):
-                    continue
-            if hit < denominator:
-                avg += float(d["Close"])
-                hit += 1
-            if hit >= denominator:
-                break
-        avg /= denominator
-        return avg
-
     def build_hour_candles(
         self,
         code: str,
@@ -218,6 +162,8 @@ class WorkflowService:
                 f"Wrong parameter {open_minutes}, we handle only 0 and 30"
             )
         nbr_hours *= 2
+        if nbr_hours > 1200:
+            nbr_hours = 1200
         asset = self.saxo_client.get_asset(code)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
@@ -272,8 +218,6 @@ class WorkflowService:
                 else:
                     break
             i += 1
+        if ut == UnitTime.H4:
+            return build_h4_candles_from_h1(candles, open_hour_utc0)
         return candles
-
-
-# cac 7, 10, 14
-# sp 13:30, 15:30

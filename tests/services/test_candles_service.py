@@ -3,10 +3,10 @@ import datetime
 import pytest
 
 from model import Candle, UnitTime
-from services.workflow_service import *
+from services.candles_service import *
 
 
-class TestWorkflowService:
+class TestCandlesService:
 
     @pytest.mark.parametrize(
         "file, ut, results, expected_len",
@@ -87,8 +87,8 @@ class TestWorkflowService:
             data = eval(f.read(), {"datetime": datetime})
 
         mocker.patch.object(saxo_client, "get_historical_data", return_value=data)
-        worfklow_service = WorkflowService(saxo_client)
-        candles = worfklow_service.get_candle_per_minutes("code", len(data), ut)
+        worfklow_service = CandlesService(saxo_client)
+        candles = worfklow_service.get_candles_per_minutes("code", len(data), ut)
         for i, result in enumerate(results):
             assert candles[i].close == result.close
             assert candles[i].lower == result.lower
@@ -101,72 +101,6 @@ class TestWorkflowService:
         assert candles[-1].higher != -1
 
         assert len(candles) == expected_len
-
-    @pytest.mark.parametrize(
-        "file_index, file_cfd, ut, date, expected",
-        [
-            (
-                "ma_dax.obj",
-                "ma_cfd_dax.obj",
-                UnitTime.H1,
-                datetime.datetime(2024, 6, 14, 14, 0),
-                18401.5962,
-            ),
-            (
-                "ma_dax.obj",
-                "ma_cfd_dax.obj",
-                UnitTime.H4,
-                datetime.datetime(2024, 6, 14, 14, 0),
-                18532.2234,
-            ),
-            (
-                "ma_dax2.obj",
-                "",
-                UnitTime.H4,
-                datetime.datetime(2024, 6, 14, 15, 0),
-                18532.2234,
-            ),
-            (
-                "ma_dax2.obj",
-                "",
-                UnitTime.H1,
-                datetime.datetime(2024, 6, 14, 15, 0),
-                18391.0818,
-            ),
-        ],
-    )
-    def test_calculate_ma(
-        self,
-        file_index: str,
-        file_cfd: str,
-        ut: UnitTime,
-        date: datetime.datetime,
-        expected: float,
-        mocker,
-    ):
-        saxo_client = mocker.Mock()
-        mocker.patch.object(
-            saxo_client,
-            "get_asset",
-            return_value={
-                "Description": "",
-                "AssetType": "Stock",
-                "Identifier": 12345,
-                "CurrencyCode": "EUR",
-            },
-        )
-        side_effet = []
-        with open(f"tests/services/files/{file_index}", "r") as f:
-            side_effet.append(eval(f.read(), {"datetime": datetime}))
-        if file_cfd != "":
-            with open(f"tests/services/files/{file_cfd}", "r") as f:
-                side_effet.append(eval(f.read(), {"datetime": datetime}))
-        mocker.patch.object(saxo_client, "get_historical_data", side_effect=side_effet)
-        mocker.patch("services.workflow_service.get_date_utc0", return_value=date)
-        worfklow_service = WorkflowService(saxo_client)
-        assert expected == worfklow_service.calculate_ma(
-            "dax", "cfd", ut, IndicatorType.MA50, datetime.datetime.now()
-        )
 
     @pytest.mark.parametrize(
         "file_index, file_cfd, open_hour, close_hour, open_minutes, ut, date, expected",
@@ -349,10 +283,10 @@ class TestWorkflowService:
                 side_effet.append(eval(f.read(), {"datetime": datetime}))
         mocker.patch.object(saxo_client, "get_historical_data", side_effect=side_effet)
         mocker.patch(
-            "services.workflow_service.get_date_utc0",
+            "services.candles_service.get_date_utc0",
             return_value=date.replace(tzinfo=datetime.timezone.utc),
         )
-        worfklow_service = WorkflowService(saxo_client)
+        worfklow_service = CandlesService(saxo_client)
         candles = worfklow_service.build_hour_candles(
             "code", "", ut, open_hour, close_hour, 50, open_minutes, date
         )

@@ -9,7 +9,7 @@ from client.aws_client import AwsClient
 from client.saxo_client import SaxoClient
 from model import AssetType, UnitTime
 from saxo_order.commands import catch_exception
-from services.workflow_service import WorkflowService
+from services.candles_service import CandlesService
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.helper import get_date_utc0
@@ -178,7 +178,7 @@ def refresh_stocks_list(ctx: Context):
 def technical(ctx: Context):
     logger = Logger.get_logger("technical", logging.DEBUG)
     configuration = Configuration(ctx.obj["config"])
-    workflow_service = WorkflowService(SaxoClient(configuration))
+    workflow_service = CandlesService(SaxoClient(configuration))
     saxo_client = SaxoClient(configuration)
     asset = saxo_client.get_asset("US500.I")
     # print(

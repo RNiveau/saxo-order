@@ -3,6 +3,8 @@ from typing import List, Optional
 import numpy
 
 from model import BollingerBands, Candle
+from utils.exception import SaxoException
+from utils.logger import Logger
 
 
 def double_top(candles: List[Candle], tick=float) -> Optional[Candle]:
@@ -45,6 +47,15 @@ def bollinger_bands(candles: List[Candle], multiply_std: float = 2.0) -> Bolling
         up=float(round(avg + multiply_std * std, 4)),
         middle=float(round(avg, 4)),
     )
+
+
+def mobile_average(candles: List[Candle], nbr_candles: int) -> float:
+    if len(candles) < nbr_candles:
+        Logger.get_logger("mobile_average").error(
+            f"Missing candles to calculate the ma {len(candles)}, {nbr_candles}"
+        )
+        raise SaxoException(f"Missing candles to calcule the ma")
+    return sum(map(lambda x: x.close, candles[:nbr_candles])) / nbr_candles
 
 
 def containing_candle(candles: List[Candle]) -> Optional[Candle]:

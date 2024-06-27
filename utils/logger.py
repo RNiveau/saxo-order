@@ -9,7 +9,7 @@ class Logger:
     def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:
         if Logger.__logger is None:
             Logger.__logger = logging.getLogger("k-order")
-            Logger.__logger.setLevel(logging.INFO)
+            Logger.__logger.setLevel(logging.DEBUG)
             ch = logging.StreamHandler()
             ch.setLevel(level)
             ch.setFormatter(
@@ -18,4 +18,6 @@ class Logger:
                 )
             )
             Logger.__logger.addHandler(ch)
-        return logging.getLogger(f"k-order.{name}")
+        logger = logging.getLogger(f"k-order.{name}")
+        logger.setLevel(level)
+        return logger

@@ -34,6 +34,8 @@ class WorkflowSignal(EnumWithGetValue):
 
 class IndicatorType(EnumWithGetValue):
     MA50 = "ma50"
+    BBB = "bbb"
+    BBH = "bbh"
 
 
 class WorkflowElement(EnumWithGetValue):
@@ -106,6 +108,7 @@ class Workflow:
     trigger: Trigger
     enable: bool = False
     dry_run: bool = True
+    is_us: bool = False
 
 
 @dataclass
