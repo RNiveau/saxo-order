@@ -11,22 +11,7 @@ from client.aws_client import AwsClient
 from client.client_helper import *
 from client.saxo_client import SaxoClient
 from engines.workflow_engine import WorkflowEngine
-from model import (
-    Candle,
-    Close,
-    Condition,
-    Direction,
-    Indicator,
-    IndicatorType,
-    Order,
-    OrderType,
-    Trigger,
-    Workflow,
-    WorkflowDirection,
-    WorkflowElement,
-    WorkflowLocation,
-    WorkflowSignal,
-)
+from model import Close, Condition, Indicator, Trigger, Workflow, WorkflowElement
 from saxo_order.commands import catch_exception
 from services.candles_service import CandlesService
 from utils.configuration import Configuration

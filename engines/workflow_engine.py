@@ -151,7 +151,7 @@ class WorkflowEngine:
                     trigger.location == WorkflowLocation.HIGHER
                     and trigger.signal == WorkflowSignal.BREAKOUT
                 ):
-                    price = trigger_candle.lower + 1
+                    price = trigger_candle.higher + 1
                     order_type = (
                         OrderType.OPEN_STOP
                         if trigger.order_direction == Direction.BUY
