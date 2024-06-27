@@ -45,7 +45,7 @@ def workflows_schedule(
 ) -> aws.scheduler.Schedule:
     return aws.scheduler.Schedule(
         "workflows",
-        schedule_expression="cron(1 * ? * 1-5 *)",
+        schedule_expression="cron(1,31 * ? * 1-5 *)",
         flexible_time_window={"mode": "OFF"},
         target=aws.scheduler.ScheduleTargetArgs(
             arn=lambda_arn,
