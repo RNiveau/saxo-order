@@ -38,7 +38,10 @@ def double_top(candles: List[Candle], tick=float) -> Optional[Candle]:
     return None
 
 
-def bollinger_bands(candles: List[Candle], multiply_std: float = 2.0) -> BollingerBands:
+def bollinger_bands(
+    candles: List[Candle], multiply_std: float = 2.0, period: int = 20
+) -> BollingerBands:
+    candles = candles[:period]
     closes = list(map(lambda x: x.close, candles))
     std = numpy.std(closes)
     avg = numpy.average(closes)
