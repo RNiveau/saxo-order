@@ -25,15 +25,22 @@ logger = Logger.get_logger("workflow", logging.DEBUG)
 @click.command()
 @click.pass_context
 @catch_exception(handle=SaxoException)
-def workflow(ctx: Context):
+@click.option(
+    "--force-from-disk",
+    type=click.Choice(["y", "n"]),
+    required=True,
+    default="n",
+    help="Load the workflows file from disk",
+)
+def workflow(ctx: Context, force_from_disk: bool):
     config = ctx.obj["config"]
-    execute_workflow(config)
+    execute_workflow(config, force_from_disk)
 
 
-def execute_workflow(config: str) -> None:
+def execute_workflow(config: str, force_from_disk: bool = False) -> None:
     configuration = Configuration(config)
     candles_service = CandlesService(SaxoClient(configuration))
-    workflows = _yaml_loader()
+    workflows = _yaml_loader(force_from_disk)
 
     engine = WorkflowEngine(
         workflows=workflows,
@@ -43,13 +50,15 @@ def execute_workflow(config: str) -> None:
     engine.run()
 
 
-def _yaml_loader() -> List[Workflow]:
-    if AwsClient.is_aws_context():
+def _yaml_loader(force_from_disk: bool) -> List[Workflow]:
+    if AwsClient.is_aws_context() and force_from_disk is False:
         logger.info("Load workflows.yml from AWS")
         workflows_data = yaml.safe_load(AwsClient().get_workflows())
     elif os.path.isfile("workflows.yml"):
         with open("workflows.yml", "r") as file:
-            logger.info("Load workflows.yml from disk")
+            logger.info(
+                f"Load workflows.yml from disk force_from_disk={force_from_disk}"
+            )
             workflows_data = yaml.safe_load(file)
     else:
         raise SaxoException("No yaml to load")
