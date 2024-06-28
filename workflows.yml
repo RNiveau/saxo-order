@@ -170,3 +170,72 @@
       order_direction: sell
       quantity: 0.1
 
+- name: buy ma50 h1 sp500 lower
+  index: US500.I
+  cfd: US500.I
+  end_date: 2024/07/01
+  enable: true
+  dry_run: false
+  is_us: true
+  conditions:
+    - indicator:
+          name: ma50
+          ut: h1
+      close:
+         direction: above
+         ut: h1
+         spread: 10
+      element: high
+  trigger:
+      ut: h1
+      signal: breakout
+      location: higher
+      order_direction: buy
+      quantity: 0.1
+
+- name: sell bbh h1 sp500 high
+  index: US500.I
+  cfd: US500.I
+  end_date: 2024/07/01
+  enable: true
+  dry_run: false
+  is_us: true
+  conditions:
+    - indicator:
+          name: bbh
+          ut: h1
+      close:
+         direction: below
+         ut: h1
+         spread: 10
+      element: close
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
+- name: sell bbh h1 sp500 high
+  index: US500.I
+  cfd: US500.I
+  end_date: 2024/07/01
+  enable: true
+  dry_run: false
+  is_us: true
+  conditions:
+    - indicator:
+          name: bbh
+          ut: h1
+      close:
+         direction: above
+         ut: h1
+         spread: 10
+      element: close
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
