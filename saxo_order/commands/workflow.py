@@ -32,15 +32,40 @@ logger = Logger.get_logger("workflow", logging.DEBUG)
     default="n",
     help="Load the workflows file from disk",
 )
-def workflow(ctx: Context, force_from_disk: bool):
+@click.option(
+    "--select-workflow",
+    type=click.Choice(["y", "n"]),
+    required=True,
+    default="n",
+    help="Select the workflow to run",
+)
+def workflow(ctx: Context, force_from_disk: str, select_workflow: str):
     config = ctx.obj["config"]
-    execute_workflow(config, force_from_disk)
+    execute_workflow(
+        config,
+        True if force_from_disk == "y" else False,
+        True if select_workflow == "y" else False,
+    )
 
 
-def execute_workflow(config: str, force_from_disk: bool = False) -> None:
+def execute_workflow(
+    config: str, force_from_disk: bool = False, select_workflow: bool = False
+) -> None:
     configuration = Configuration(config)
     candles_service = CandlesService(SaxoClient(configuration))
     workflows = _yaml_loader(force_from_disk)
+
+    if select_workflow is True:
+        if len(workflows) > 1:
+            prompt = "Select the workflow to run:\n"
+            for index, workflow in enumerate(workflows):
+                prompt += f"[{index + 1}] {workflow.name}\n"
+            id = input(prompt)
+        else:
+            id = "1"
+        if int(id) < 1 or int(id) > len(workflows):
+            raise SaxoException("Wrong account selection")
+        workflows = [workflows[int(id) - 1]]
 
     engine = WorkflowEngine(
         workflows=workflows,
