@@ -2,8 +2,12 @@ import datetime
 
 import pytest
 
-from model import Candle, UnitTime
-from services.indicator_service import *
+from model import BollingerBands, Candle, UnitTime
+from services.indicator_service import (
+    bollinger_bands,
+    containing_candle,
+    double_top,
+)
 
 
 class TestIndicatorService:
@@ -51,7 +55,9 @@ class TestIndicatorService:
     def test_double_top(self, candles, tick, expected):
         candles = list(
             map(
-                lambda x: Candle(0, x, 0, 0, UnitTime.D, datetime.datetime.now()),
+                lambda x: Candle(
+                    0, x, 0, 0, UnitTime.D, datetime.datetime.now()
+                ),
                 candles,
             )
         )
@@ -87,7 +93,9 @@ class TestIndicatorService:
                     8239.99,
                 ],
                 2.5,
-                BollingerBands(middle=8182.2755, bottom=8118.8328, up=8245.7182),
+                BollingerBands(
+                    middle=8182.2755, bottom=8118.8328, up=8245.7182
+                ),
             ),
             (
                 [
@@ -116,14 +124,18 @@ class TestIndicatorService:
                     18821.21,
                 ],
                 2,
-                BollingerBands(middle=18732.8735, bottom=18636.9720, up=18828.7750),
+                BollingerBands(
+                    middle=18732.8735, bottom=18636.9720, up=18828.7750
+                ),
             ),
         ],
     )
     def test_bollinger_bands(self, candles, std, expected):
         candles = list(
             map(
-                lambda x: Candle(0, 0, 0, x, UnitTime.D, datetime.datetime.now()),
+                lambda x: Candle(
+                    0, 0, 0, x, UnitTime.D, datetime.datetime.now()
+                ),
                 candles,
             )
         )
@@ -133,19 +145,31 @@ class TestIndicatorService:
         "candles, expected",
         [
             (
-                [Candle(5, 6, 5.5, 6, UnitTime.D), Candle(5, 6, 5.5, 6, UnitTime.D)],
+                [
+                    Candle(5, 6, 5.5, 6, UnitTime.D),
+                    Candle(5, 6, 5.5, 6, UnitTime.D),
+                ],
                 None,
             ),
             (
-                [Candle(4, 8, 5.5, 6, UnitTime.D), Candle(5, 6, 5.5, 6, UnitTime.D)],
+                [
+                    Candle(4, 8, 5.5, 6, UnitTime.D),
+                    Candle(5, 6, 5.5, 6, UnitTime.D),
+                ],
                 None,
             ),
             (
-                [Candle(4, 8, 4.2, 6.2, UnitTime.D), Candle(5, 6, 5.5, 6, UnitTime.D)],
+                [
+                    Candle(4, 8, 4.2, 6.2, UnitTime.D),
+                    Candle(5, 6, 5.5, 6, UnitTime.D),
+                ],
                 Candle(4, 8, 4.2, 6.2, UnitTime.D),
             ),
             (
-                [Candle(4, 8, 8, 4.9, UnitTime.D), Candle(5, 6, 5.5, 6, UnitTime.D)],
+                [
+                    Candle(4, 8, 8, 4.9, UnitTime.D),
+                    Candle(5, 6, 5.5, 6, UnitTime.D),
+                ],
                 Candle(4, 8, 8, 4.9, UnitTime.D),
             ),
         ],

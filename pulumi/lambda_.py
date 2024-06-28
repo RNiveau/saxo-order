@@ -27,7 +27,9 @@ def resfreh_token_lambda(
     return refresh_token_lambda
 
 
-def alerting_lambda(repository_url: str, lambda_role_arn: str) -> aws.lambda_.Function:
+def alerting_lambda(
+    repository_url: str, lambda_role_arn: str
+) -> aws.lambda_.Function:
     alerting_lambda = aws.lambda_.Function(
         "alerting",
         role=lambda_role_arn,
@@ -48,7 +50,9 @@ def alerting_lambda(repository_url: str, lambda_role_arn: str) -> aws.lambda_.Fu
     return alerting_lambda
 
 
-def workflows_lambda(repository_url: str, lambda_role_arn: str) -> aws.lambda_.Function:
+def workflows_lambda(
+    repository_url: str, lambda_role_arn: str
+) -> aws.lambda_.Function:
     alerting_lambda = aws.lambda_.Function(
         "workflows",
         role=lambda_role_arn,

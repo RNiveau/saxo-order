@@ -1,16 +1,22 @@
-from typing import List
-
 import pytest
 import requests
 
 from client.saxo_client import SaxoClient
-from model import Account, ConditionalOrder, Direction, Order, OrderType, TriggerOrder
+from model import (
+    Account,
+    ConditionalOrder,
+    Direction,
+    Order,
+    OrderType,
+    TriggerOrder,
+)
 from tests.utils.configuration import MockConfiguration
 
 
 class TestSaxoClient:
     @pytest.mark.parametrize(
-        "stock_code, price, quantity, type, direction, stop_price, conditional_order, expected",
+        "stock_code, price, quantity, type, direction, stop_price,"
+        "conditional_order, expected",
         [
             (
                 12345,
@@ -105,7 +111,10 @@ class TestSaxoClient:
                 Direction.BUY,
                 8,
                 ConditionalOrder(
-                    1, trigger=TriggerOrder.BELLOW, price=40.7, asset_type="ETF"
+                    1,
+                    trigger=TriggerOrder.BELLOW,
+                    price=40.7,
+                    asset_type="ETF",
                 ),
                 {
                     "Amount": 9.5,
@@ -121,7 +130,9 @@ class TestSaxoClient:
                             "BuySell": "Buy",
                             "OrderType": "TriggerLimit",
                             "Uic": 1,
-                            "OrderDuration": {"DurationType": "GoodTillCancel"},
+                            "OrderDuration": {
+                                "DurationType": "GoodTillCancel"
+                            },
                             "TriggerOrderData": {
                                 "LowerPrice": 40.7,
                                 "PriceType": "LastTraded",
@@ -155,7 +166,9 @@ class TestSaxoClient:
                             "BuySell": "Sell",
                             "OrderType": "TriggerLimit",
                             "Uic": 1,
-                            "OrderDuration": {"DurationType": "GoodTillCancel"},
+                            "OrderDuration": {
+                                "DurationType": "GoodTillCancel"
+                            },
                             "TriggerOrderData": {
                                 "LowerPrice": 40,
                                 "PriceType": "LastTraded",
@@ -182,7 +195,9 @@ class TestSaxoClient:
         mock_response.status_code = 200
         mock_response.json = lambda: {}
         mock_response.headers = {}
-        mocker.patch.object(requests.Session, "post", return_value=mock_response)
+        mocker.patch.object(
+            requests.Session, "post", return_value=mock_response
+        )
         client = SaxoClient(configuration=MockConfiguration())
         expected.update(
             {
@@ -207,4 +222,6 @@ class TestSaxoClient:
             conditional_order=conditional_order,
         )
 
-        requests.Session.post.assert_called_once_with(mocker.ANY, json=expected)  # type: ignore
+        requests.Session.post.assert_called_once_with(  # type: ignore
+            mocker.ANY, json=expected  # type: ignore
+        )

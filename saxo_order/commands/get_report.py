@@ -54,8 +54,12 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
             )
             order = orders[index - 1]
             if create_or_update == "c":
-                update_order(order=order, conditional_order=None, validate_input=False)
-                report_order = calculate_currency(order, configuration.currencies_rate)
+                update_order(
+                    order=order, conditional_order=None, validate_input=False
+                )
+                report_order = calculate_currency(
+                    order, configuration.currencies_rate
+                )
                 assert isinstance(report_order, ReportOrder)
                 gsheet_client.create_order(
                     account=account, order=report_order, original_order=order
@@ -69,17 +73,25 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                 )
                 if order.open_position:
                     update_order(
-                        order=order, conditional_order=None, validate_input=False
+                        order=order,
+                        conditional_order=None,
+                        validate_input=False,
                     )
                 else:
                     order.taxes = calculate_taxes(order)
                     order.stopped = click.prompt(
-                        "Has the order been stopped ?", type=bool, default=False
+                        "Has the order been stopped ?",
+                        type=bool,
+                        default=False,
                     )
                     order.be_stopped = click.prompt(
-                        "Has the order been BE stopped ?", type=bool, default=False
+                        "Has the order been BE stopped ?",
+                        type=bool,
+                        default=False,
                     )
-                report_order = calculate_currency(order, configuration.currencies_rate)
+                report_order = calculate_currency(
+                    order, configuration.currencies_rate
+                )
                 assert isinstance(report_order, ReportOrder)
                 gsheet_client.update_order(
                     order=report_order,
@@ -94,12 +106,18 @@ def show_report(orders, currencies_rate):
         if order.currency != Currency.EURO:
             currency_order = calculate_currency(order, currencies_rate)
             print(
-                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price:.4f}$ ({currency_order.price:.4f}€) -> {order.price * order.quantity:.4f}$ ({currency_order.price * order.quantity:.4f}€)"
+                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: "
+                f"{order.name} - {order.direction} {order.quantity} at "
+                f"{order.price:.4f}$ ({currency_order.price:.4f}€) -> "
+                f"{order.price * order.quantity:.4f}$ "
+                f"({currency_order.price * order.quantity:.4f}€)"
             )
 
         else:
             print(
-                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price:.4f}$ -> {order.price * order.quantity:.4f}$"
+                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: "
+                f"{order.name} - {order.direction} {order.quantity} at "
+                f"{order.price:.4f}$ -> {order.price * order.quantity:.4f}$"
             )
             if order.underlying is not None:
                 print(f"    - Underlying {order.underlying.price}€")

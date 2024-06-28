@@ -47,20 +47,27 @@ class SaxoClient:
             auth_client = SaxoAuthClient(self.configuration)
             access_token, refresh_token = auth_client.refresh_token()
             self.configuration.save_tokens(access_token, refresh_token)
-            self.session.headers.update({"Authorization": f"Bearer {access_token}"})
+            self.session.headers.update(
+                {"Authorization": f"Bearer {access_token}"}
+            )
             request.request.headers["Authorization"] = self.session.headers[
                 "Authorization"
             ]
             return self.session.send(request.request)
 
     def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
-        symbol = f"{code}:{market}" if market is not None and market != "" else code
+        symbol = (
+            f"{code}:{market}" if market is not None and market != "" else code
+        )
         data = self._find_asset(symbol)
-        data = list(filter(lambda x: x["Symbol"].lower() == symbol.lower(), data))
+        data = list(
+            filter(lambda x: x["Symbol"].lower() == symbol.lower(), data)
+        )
         if len(data) > 1:
             codes = map(lambda x: x["Symbol"], data)
             raise SaxoException(
-                f"Stock {code}:{market} has more than one entry, check it: {list(codes)}"
+                f"Stock {code}:{market} has more than one entry,"
+                f" check it: {list(codes)}"
             )
         if len(data) == 0:
             raise SaxoException(f"Stock {code}:{market} doesn't exist")
@@ -72,17 +79,22 @@ class SaxoClient:
             raise SaxoException(f"Nothing found for {keyword}")
         return data
 
-    def _find_asset(self, keyword: str, asset_type: Optional[str] = None) -> List:
+    def _find_asset(
+        self, keyword: str, asset_type: Optional[str] = None
+    ) -> List:
         if asset_type is None:
             asset_type = AssetType.all_saxo_values()
         response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords={keyword}&AssetTypes={asset_type}&IncludeNonTradable=true"
+            f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords="
+            f"{keyword}&AssetTypes={asset_type}&IncludeNonTradable=true"
         )
         self._check_response(response)
         return response.json()["Data"]
 
     def get_total_amount(self) -> float:
-        response = self.session.get(f"{self.configuration.saxo_url}port/v1/balances/me")
+        response = self.session.get(
+            f"{self.configuration.saxo_url}port/v1/balances/me"
+        )
         self._check_response(response)
         return response.json()["TotalValue"]
 
@@ -101,7 +113,9 @@ class SaxoClient:
         return response.json()
 
     def get_accounts(self):
-        response = self.session.get(f"{self.configuration.saxo_url}port/v1/accounts/me")
+        response = self.session.get(
+            f"{self.configuration.saxo_url}port/v1/accounts/me"
+        )
         self._check_response(response)
         return response.json()
 
@@ -111,11 +125,16 @@ class SaxoClient:
         )
         self._check_response(response)
         account = response.json()
-        name = "NoName" if "DisplayName" not in account else account["DisplayName"]
+        name = (
+            "NoName"
+            if "DisplayName" not in account
+            else account["DisplayName"]
+        )
         client_key = account["ClientKey"]
 
         response = self.session.get(
-            f"{self.configuration.saxo_url}port/v1/balances/?AccountKey={account_key}&ClientKey={client_key}"
+            f"{self.configuration.saxo_url}port/v1/balances/"
+            f"?AccountKey={account_key}&ClientKey={client_key}"
         )
         self._check_response(response)
         account_balance = response.json()
@@ -130,7 +149,8 @@ class SaxoClient:
 
     def get_price(self, saxo_uic: int, asset_type: str) -> float:
         response = self.session.get(
-            f"{self.configuration.saxo_url}trade/v1/infoprices/?Uic={saxo_uic}&AssetType={asset_type}"
+            f"{self.configuration.saxo_url}trade/v1/infoprices/"
+            f"?Uic={saxo_uic}&AssetType={asset_type}"
         )
         self._check_response(response)
         price = response.json()
@@ -203,7 +223,11 @@ class SaxoClient:
         return response.json()
 
     def set_oco_order(
-        self, account: Account, limit_order: Order, stop_order: Order, saxo_uic: str
+        self,
+        account: Account,
+        limit_order: Order,
+        stop_order: Order,
+        saxo_uic: str,
     ) -> Any:
         saxo_limit_order = {
             "AccountKey": account.key,
@@ -236,7 +260,8 @@ class SaxoClient:
 
     def get_asset_detail(self, saxo_uic: int, asset_type: str) -> Dict:
         asset_http = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/details?Uics={saxo_uic}&AssetTypes={asset_type}"
+            f"{self.configuration.saxo_url}ref/v1/instruments/details?"
+            f"Uics={saxo_uic}&AssetTypes={asset_type}"
         )
         self._check_response(asset_http)
         asset = asset_http.json()
@@ -246,7 +271,9 @@ class SaxoClient:
 
     def get_report(self, account: Account, date_s: str) -> List[ReportOrder]:
         response = self.session.get(
-            f"{self.configuration.saxo_url}cs/v1/audit/orderactivities/?ClientKey={account.client_key}&AccountKey={account.key}&status=FinalFill&FromDateTime={date_s}"
+            f"{self.configuration.saxo_url}cs/v1/audit/orderactivities/"
+            f"?ClientKey={account.client_key}&AccountKey={account.key}"
+            f"&status=FinalFill&FromDateTime={date_s}"
         )
         self._check_response(response)
         orders = []
@@ -288,7 +315,9 @@ class SaxoClient:
         self, saxo_uic: int, date: datetime, asset_type: str
     ) -> float:
         response = self.session.get(
-            f"{self.configuration.saxo_url}chart/v1/charts/?Uic={saxo_uic}&AssetType={asset_type}&Horizon=1&Mode=From&Count=2&Time={date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            f"{self.configuration.saxo_url}chart/v1/charts/?Uic={saxo_uic}"
+            f"&AssetType={asset_type}&Horizon=1&Mode=From&"
+            f"Count=2&Time={date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         )
         if response.status_code == 403:
             print(f"Can't rertrieve information for {saxo_uic} {asset_type}")
@@ -314,10 +343,13 @@ class SaxoClient:
         if date is None:
             date = datetime.now()
         self.logger.debug(
-            f"get_historical_data {saxo_uic}, horizon={horizon}, count={count}, {date}"
+            f"get_historical_data {saxo_uic}, horizon={horizon},"
+            f" count={count}, {date}"
         )
         response = self.session.get(
-            f"{self.configuration.saxo_url}chart/v1/charts/?&Uic={saxo_uic}&AssetType={asset_type}&Horizon={horizon}&Mode=UpTo&Count={count}&Time={date.strftime('%Y-%m-%dT%H:%M:00Z')}"
+            f"{self.configuration.saxo_url}chart/v1/charts/?&Uic={saxo_uic}&"
+            f"AssetType={asset_type}&Horizon={horizon}&Mode=UpTo&Count={count}"
+            f"&Time={date.strftime('%Y-%m-%dT%H:%M:00Z')}"
         )
         self._check_response(response)
         data = response.json()["Data"]
@@ -331,15 +363,24 @@ class SaxoClient:
         if response.status_code == 401:
             raise SaxoException("The access_token is expired")
         if (
-            "X-RateLimit-RefDataInstrumentsMinute-Remaining" in response.headers
-            and int(response.headers["X-RateLimit-RefDataInstrumentsMinute-Remaining"])
+            "X-RateLimit-RefDataInstrumentsMinute-Remaining"
+            in response.headers
+            and int(
+                response.headers[
+                    "X-RateLimit-RefDataInstrumentsMinute-Remaining"
+                ]
+            )
             <= 1
         ):
-            print(
-                f"Rate limiting: wait {response.headers['X-RateLimit-RefDataInstrumentsMinute-Reset']}"
-            )
+            key = "X-RateLimit-RefDataInstrumentsMinute-Reset"
+            print(f"Rate limiting: wait {response.headers[key]}")
             time.sleep(
-                int(response.headers["X-RateLimit-RefDataInstrumentsMinute-Reset"]) + 1
+                int(
+                    response.headers[
+                        "X-RateLimit-RefDataInstrumentsMinute-Reset"
+                    ]
+                )
+                + 1
             )
         json = response.json()
         if "ErrorInfo" in json:

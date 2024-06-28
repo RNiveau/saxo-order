@@ -40,4 +40,7 @@ class AwsClient:
 
     @staticmethod
     def is_aws_context() -> bool:
-        return "AWS_LAMBDA_FUNCTION_NAME" in os.environ or "AWS_PROFILE" in os.environ
+        return (
+            "AWS_LAMBDA_FUNCTION_NAME" in os.environ
+            or "AWS_PROFILE" in os.environ
+        )

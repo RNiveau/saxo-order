@@ -14,13 +14,19 @@ lambda_role = iam.lambda_role()
 scheduler_role = iam.scheduler_role(caller_identity.account_id)
 ecr_repository = ecr.ecr_repository()
 refresh_token_lambda = ecr_repository.repository_url.apply(
-    lambda repository_url: lambda_.resfreh_token_lambda(repository_url, lambda_role.arn)
+    lambda repository_url: lambda_.resfreh_token_lambda(
+        repository_url, lambda_role.arn
+    )
 )
 alerting_lambda = ecr_repository.repository_url.apply(
-    lambda repository_url: lambda_.alerting_lambda(repository_url, lambda_role.arn)
+    lambda repository_url: lambda_.alerting_lambda(
+        repository_url, lambda_role.arn
+    )
 )
 workflow_lambda = ecr_repository.repository_url.apply(
-    lambda repository_url: lambda_.workflows_lambda(repository_url, lambda_role.arn)
+    lambda repository_url: lambda_.workflows_lambda(
+        repository_url, lambda_role.arn
+    )
 )
 pulumi.Output.all(
     refresh_token_lambda.arn, alerting_lambda.arn, workflow_lambda.arn
@@ -29,18 +35,28 @@ pulumi.Output.all(
         scheduler_role.id, [args[0], args[1], args[2]]
     )
 )
-pulumi.Output.all(lambda_arn=alerting_lambda.arn, role_arn=scheduler_role.arn).apply(
-    lambda args: scheduler.alerting_schedule(args["lambda_arn"], args["role_arn"])
+pulumi.Output.all(
+    lambda_arn=alerting_lambda.arn, role_arn=scheduler_role.arn
+).apply(
+    lambda args: scheduler.alerting_schedule(
+        args["lambda_arn"], args["role_arn"]
+    )
 )
 
-pulumi.Output.all(lambda_arn=workflow_lambda.arn, role_arn=scheduler_role.arn).apply(
-    lambda args: scheduler.workflows_schedule(args["lambda_arn"], args["role_arn"])
+pulumi.Output.all(
+    lambda_arn=workflow_lambda.arn, role_arn=scheduler_role.arn
+).apply(
+    lambda args: scheduler.workflows_schedule(
+        args["lambda_arn"], args["role_arn"]
+    )
 )
 
 pulumi.Output.all(
     lambda_arn=refresh_token_lambda.arn, role_arn=scheduler_role.arn
 ).apply(
-    lambda args: scheduler.refresh_token_schedule(args["lambda_arn"], args["role_arn"])
+    lambda args: scheduler.refresh_token_schedule(
+        args["lambda_arn"], args["role_arn"]
+    )
 )
 
 pulumi.Output.all(
@@ -57,7 +73,8 @@ pulumi.export("lambda_role_arn", lambda_role.arn)
 pulumi.export("scheduler_role_arn", scheduler_role.arn)
 pulumi.export("bucket_name", bucket.id)
 pulumi.export(
-    "bucket_url", pulumi.Output.concat("http://", bucket.bucket_regional_domain_name)
+    "bucket_url",
+    pulumi.Output.concat("http://", bucket.bucket_regional_domain_name),
 )
 pulumi.export("repository_url", ecr_repository.repository_url)
 pulumi.export("account_id", caller_identity.account_id)

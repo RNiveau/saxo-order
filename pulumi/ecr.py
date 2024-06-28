@@ -1,7 +1,5 @@
 import pulumi_aws as aws
 
-import pulumi
-
 
 def ecr_repository() -> aws.ecr.Repository:
     return aws.ecr.Repository(
@@ -13,7 +11,7 @@ def ecr_repository() -> aws.ecr.Repository:
                 kms_key="",
             )
         ],
-        image_scanning_configuration=aws.ecr.RepositoryImageScanningConfigurationArgs(
+        image_scanning_configuration=aws.ecr.RepositoryImageScanningConfigurationArgs(  # noqa: E501
             scan_on_push=False,
         ),
         image_tag_mutability="MUTABLE",

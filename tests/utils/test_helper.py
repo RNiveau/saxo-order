@@ -1,9 +1,13 @@
 import datetime
+from typing import List
 
 import pytest
 
 from model import Candle, UnitTime
-from utils.helper import *
+from utils.helper import (
+    build_daily_candle_from_hours,
+    build_h4_candles_from_h1,
+)
 
 
 class TestHelper:

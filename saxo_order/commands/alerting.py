@@ -40,19 +40,32 @@ def run_alerting(config: str) -> None:
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
     slack_client = WebClient(token=configuration.slack_token)
-    slack_messages: Dict[str, List[str]] = {"double_top": [], "container_candle": []}
+    slack_messages: Dict[str, List[str]] = {
+        "double_top": [],
+        "container_candle": [],
+    }
     has_message = False
     for asset in assets:
         if "saxo_uic" in asset:
             candles = _build_candles(saxo_client, asset)
-        if (candle := _run_double_top(saxo_client, asset, candles)) is not None:
-            date = candle.date.strftime("%Y-%m-%d") if candle.date is not None else ""
+        if (
+            candle := _run_double_top(saxo_client, asset, candles)
+        ) is not None:
+            date = (
+                candle.date.strftime("%Y-%m-%d")
+                if candle.date is not None
+                else ""
+            )
             slack_messages["double_top"].append(
                 f"{asset['name']}: {date} at {candle.close}"
             )
             has_message = True
         if (candle := _run_containing_candle(asset, candles)) is not None:
-            date = candle.date.strftime("%Y-%m-%d") if candle.date is not None else ""
+            date = (
+                candle.date.strftime("%Y-%m-%d")
+                if candle.date is not None
+                else ""
+            )
             slack_messages["container_candle"].append(
                 f"{asset['name']}: {date} at {candle.close}"
             )
@@ -92,7 +105,9 @@ def _run_double_top(
     candles: List[Candle],
 ) -> Optional[Candle]:
     detail = saxo_client.get_asset_detail(asset["saxo_uic"], AssetType.STOCK)
-    tick = client_helper.get_tick_size(detail["TickSizeScheme"], candles[0].close)
+    tick = client_helper.get_tick_size(
+        detail["TickSizeScheme"], candles[0].close
+    )
     double_top_candle = indicator_service.double_top(candles, tick)
     if (
         double_top_candle is not None
@@ -124,7 +139,9 @@ def _build_candles(saxo_client: SaxoClient, asset: Dict) -> List[Candle]:
             horizon=60,
             count=10,
         )
-        hour_candles = client_helper.map_data_to_candles(hour_data, ut=UnitTime.H1)
+        hour_candles = client_helper.map_data_to_candles(
+            hour_data, ut=UnitTime.H1
+        )
         hour_candle = build_daily_candle_from_hours(hour_candles, today.day)
         if hour_candle is not None:
             candles.insert(0, hour_candle)

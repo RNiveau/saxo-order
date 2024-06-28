@@ -59,7 +59,8 @@ class BinanceClient:
             commission = float(trade["commission"])
             if trade["commissionAsset"] != order.name and commission > 0:
                 print(
-                    f"Can't calculate commision for the trade: {order.name}: {trade['price']}$"
+                    f"Can't calculate commision for the trade: {order.name}:\
+                    {trade['price']}$"
                 )
                 print(trade)
                 return
@@ -69,20 +70,29 @@ class BinanceClient:
         else:
             if trade["commissionAsset"] not in ["BUSD", "USDT"]:
                 print(
-                    f"Can't calculate commision for the trade: {order.name}: {trade['price']}$"
+                    f"Can't calculate commision for the trade: {order.name}: \
+                    {trade['price']}$"
                 )
                 return
-            order.taxes = Taxes(cost=float(trade["commission"]) * usdeur_rate, taxes=0)
+            order.taxes = Taxes(
+                cost=float(trade["commission"]) * usdeur_rate, taxes=0
+            )
 
     def get_report(
         self, symbol: str, date: str, usdeur_rate: float
     ) -> List[ReportOrder]:
         timestamp = datetime.strptime(date, "%Y/%m/%d").timestamp() * 1000
-        trades = self.client.my_trades(f"{symbol}BUSD", startTime=int(timestamp))
-        trades += self.client.my_trades(f"{symbol}USDT", startTime=int(timestamp))
+        trades = self.client.my_trades(
+            f"{symbol}BUSD", startTime=int(timestamp)
+        )
+        trades += self.client.my_trades(
+            f"{symbol}USDT", startTime=int(timestamp)
+        )
         orders = []
         for trade in self._merge_trades(trades):
-            direction = Direction.BUY if trade["isBuyer"] is True else Direction.SELL
+            direction = (
+                Direction.BUY if trade["isBuyer"] is True else Direction.SELL
+            )
             order = ReportOrder(
                 code=symbol,
                 name=symbol,
@@ -97,7 +107,9 @@ class BinanceClient:
             orders.append(order)
         return orders
 
-    def get_report_all(self, date: str, usdeur_rate: float) -> List[ReportOrder]:
+    def get_report_all(
+        self, date: str, usdeur_rate: float
+    ) -> List[ReportOrder]:
         orders = []
         for coin in BinanceClient.ASSET_WITHLIST:
             orders += self.get_report(coin, date, usdeur_rate)

@@ -8,7 +8,10 @@ def alerting_schedule(
         "daily-alerting",
         schedule_expression="cron(15 18 * * ? *)",
         schedule_expression_timezone="Europe/Paris",
-        flexible_time_window={"mode": "FLEXIBLE", "maximum_window_in_minutes": 5},
+        flexible_time_window={
+            "mode": "FLEXIBLE",
+            "maximum_window_in_minutes": 5,
+        },
         target=aws.scheduler.ScheduleTargetArgs(
             arn=lambda_arn,
             role_arn=scheduler_role_arn,
@@ -27,7 +30,10 @@ def refresh_token_schedule(
     return aws.scheduler.Schedule(
         "refresh_token",
         schedule_expression="rate(45 minutes)",
-        flexible_time_window={"mode": "FLEXIBLE", "maximum_window_in_minutes": 5},
+        flexible_time_window={
+            "mode": "FLEXIBLE",
+            "maximum_window_in_minutes": 5,
+        },
         target=aws.scheduler.ScheduleTargetArgs(
             arn=lambda_arn,
             role_arn=scheduler_role_arn,

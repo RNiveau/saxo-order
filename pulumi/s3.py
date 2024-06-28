@@ -11,9 +11,9 @@ def bucket() -> aws.s3.Bucket:
         "k-order",
         bucket="k-order",
         request_payer="BucketOwner",
-        server_side_encryption_configuration=aws.s3.BucketServerSideEncryptionConfigurationArgs(
+        server_side_encryption_configuration=aws.s3.BucketServerSideEncryptionConfigurationArgs(  # noqa: E501
             rule=aws.s3.BucketServerSideEncryptionConfigurationRuleArgs(
-                apply_server_side_encryption_by_default=aws.s3.BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDefaultArgs(
+                apply_server_side_encryption_by_default=aws.s3.BucketServerSideEncryptionConfigurationRuleApplyServerSideEncryptionByDefaultArgs(  # noqa: E501
                     sse_algorithm="AES256",
                 ),
                 bucket_key_enabled=True,

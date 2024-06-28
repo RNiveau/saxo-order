@@ -50,21 +50,31 @@ class WorkflowEngine:
                 )
                 match workflow.conditions[0].indicator.name:
                     case IndicatorType.MA50:
-                        orders.append((workflow, self._ma_workflow(workflow, candles)))
+                        orders.append(
+                            (workflow, self._ma_workflow(workflow, candles))
+                        )
                     case IndicatorType.BBB:
                         pass
                     case IndicatorType.BBH:
-                        orders.append((workflow, self._bbh_workflow(workflow, candles)))
+                        orders.append(
+                            (workflow, self._bbh_workflow(workflow, candles))
+                        )
                     case _:
                         self.logger.error(
-                            f"indicator {workflow.conditions[0].indicator.name} is not handle"
+                            "indicator "
+                            f"{workflow.conditions[0].indicator.name}"
+                            " is not handle"
                         )
                         raise SaxoException()
             else:
                 self.logger.info(f"Workflow {workflow.name} will not run")
         for order in orders:
             if order[1] is not None:
-                log = f"Workflow `{order[0].name}` will trigger an order {order[1].direction} for {order[1].quantity} {order[1].code} at {order[1].price}"
+                log = (
+                    f"Workflow `{order[0].name}` will trigger an order "
+                    f"{order[1].direction} for {order[1].quantity} "
+                    f"{order[1].code} at {order[1].price}"
+                )
                 self.logger.debug(log)
                 self.slack_client.chat_postMessage(channel="#stock", text=log)
 
@@ -81,7 +91,8 @@ class WorkflowEngine:
                 self.logger.error(f"indicator {indicator.name} isn't managed")
                 return []
         self.logger.debug(
-            f"get candles for {indicator.name} {indicator.ut}, we need {nbr_hour} candles"
+            f"get candles for {indicator.name} {indicator.ut}, "
+            f"we need {nbr_hour} candles"
         )
         return self.candles_service.build_hour_candles(
             code=workflow.index,
@@ -123,7 +134,9 @@ class WorkflowEngine:
             self.logger.error(f"can't retrive candle for {workflow.cfd}")
             raise SaxoException("Can't retrive candle")
 
-        element = self._get_price_from_element(candle, workflow.conditions[0].element)
+        element = self._get_price_from_element(
+            candle, workflow.conditions[0].element
+        )
         price = 0.0
         trigger = workflow.trigger
         trigger_candle = self._get_trigger_candle(workflow)
@@ -150,11 +163,14 @@ class WorkflowEngine:
                         type=order_type,
                     )
                 self.logger.warn(
-                    f"we don't manage order {trigger.location}, signal: {trigger.signal}"
+                    f"we don't manage order {trigger.location}, "
+                    f"signal: {trigger.signal}"
                 )
         else:
             self.logger.warn(
-                f"we don't manage this direction {workflow.conditions[0].close.direction} for this indicator: bbh"
+                f"we don't manage this direction "
+                f"{workflow.conditions[0].close.direction} "
+                "for this indicator: bbh"
             )
         return None
 
@@ -172,12 +188,17 @@ class WorkflowEngine:
             self.logger.error(f"can't retrive candle for {workflow.cfd}")
             raise SaxoException("Can't retrive candle")
 
-        element = self._get_price_from_element(candle, workflow.conditions[0].element)
+        element = self._get_price_from_element(
+            candle, workflow.conditions[0].element
+        )
         price = 0.0
         trigger = workflow.trigger
         trigger_candle = self._get_trigger_candle(workflow)
         if workflow.conditions[0].close.direction == WorkflowDirection.BELOW:
-            if element <= ma and element >= ma - workflow.conditions[0].close.spread:
+            if (
+                element <= ma
+                and element >= ma - workflow.conditions[0].close.spread
+            ):
                 if (
                     trigger.location == WorkflowLocation.LOWER
                     and trigger.signal == WorkflowSignal.BREAKOUT
@@ -196,10 +217,14 @@ class WorkflowEngine:
                         type=order_type,
                     )
                 self.logger.warn(
-                    f"we don't manage order {trigger.location}, signal: {trigger.signal}"
+                    f"we don't manage order {trigger.location}, "
+                    f"signal: {trigger.signal}"
                 )
         elif workflow.conditions[0].close.direction == WorkflowDirection.ABOVE:
-            if element >= ma and element <= ma + workflow.conditions[0].close.spread:
+            if (
+                element >= ma
+                and element <= ma + workflow.conditions[0].close.spread
+            ):
                 if (
                     trigger.location == WorkflowLocation.HIGHER
                     and trigger.signal == WorkflowSignal.BREAKOUT
@@ -218,7 +243,8 @@ class WorkflowEngine:
                         type=order_type,
                     )
                 self.logger.warn(
-                    f"We don't manage order {trigger.location}, signal: {trigger.signal}"
+                    f"We don't manage order {trigger.location}, "
+                    f"signal: {trigger.signal}"
                 )
         return None
 

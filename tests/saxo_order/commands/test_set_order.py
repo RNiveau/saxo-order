@@ -30,15 +30,20 @@ class TestSetOrder:
         saxo_service = mocker.Mock()
         gsheet_service = mocker.Mock()
         mocker.patch(
-            "saxo_order.commands.set_order.Configuration", return_value=mocker.Mock()
+            "saxo_order.commands.set_order.Configuration",
+            return_value=mocker.Mock(),
         )
         mocker.patch(
-            "saxo_order.commands.set_order.GSheetClient", return_value=gsheet_service
+            "saxo_order.commands.set_order.GSheetClient",
+            return_value=gsheet_service,
         )
         mocker.patch(
-            "saxo_order.commands.set_order.SaxoClient", return_value=saxo_service
+            "saxo_order.commands.set_order.SaxoClient",
+            return_value=saxo_service,
         )
-        mocker.patch("saxo_order.commands.set_order.select_account", return_value={})
+        mocker.patch(
+            "saxo_order.commands.set_order.select_account", return_value={}
+        )
         validate_buy_order = mocker.patch(
             "saxo_order.commands.set_order.validate_buy_order", return_value={}
         )
@@ -49,7 +54,8 @@ class TestSetOrder:
             "saxo_order.commands.set_order.update_order", return_value={}
         )
         get_conditional_order = mocker.patch(
-            "saxo_order.commands.set_order.get_conditional_order", return_value={}
+            "saxo_order.commands.set_order.get_conditional_order",
+            return_value={},
         )
         mocker.patch.object(
             saxo_service,
@@ -61,7 +67,9 @@ class TestSetOrder:
                 "CurrencyCode": "EUR",
             },
         )
-        get_price = mocker.patch.object(saxo_service, "get_price", return_value=10.2)
+        get_price = mocker.patch.object(
+            saxo_service, "get_price", return_value=10.2
+        )
         create_order = mocker.patch.object(
             gsheet_service,
             "create_order",

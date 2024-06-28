@@ -240,7 +240,7 @@ class TestGsheetClient:
         )
         assert len(requests) == 3
         assert requests[0]["values"][0][0] == 1
-        assert requests[0]["values"][0][1] == None
+        assert requests[0]["values"][0][1] is None
 
         assert requests[1]["values"][0][0] == 10
         assert requests[1]["values"][0][1] == ""
@@ -277,7 +277,7 @@ class TestGsheetClient:
             1,
         )
         assert len(requests) == 3
-        assert requests[0]["values"][0][0] == None
+        assert requests[0]["values"][0][0] is None
         assert requests[0]["values"][0][1] == 1
 
         assert requests[1]["values"][0][0] == 10

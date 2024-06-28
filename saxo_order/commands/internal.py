@@ -1,6 +1,4 @@
-import datetime
 import json
-import logging
 
 import click
 from click.core import Context
@@ -176,17 +174,12 @@ def refresh_stocks_list(ctx: Context):
 @click.pass_context
 @catch_exception(handle=SaxoException)
 def technical(ctx: Context):
-    logger = Logger.get_logger("technical", logging.DEBUG)
+    #    logger = Logger.get_logger("technical", logging.DEBUG)
     configuration = Configuration(ctx.obj["config"])
     workflow_service = CandlesService(SaxoClient(configuration))
     saxo_client = SaxoClient(configuration)
     asset = saxo_client.get_asset("US500.I")
-    # print(
-    #     saxo_client.get_historical_data(asset["Identifier"], asset["AssetType"], 30, 4)
-    # )
-    # data = workflow_service.get_candle_per_minutes(
-    #     code="DAX.I", duration=450, ut=UnitTime.M15
-    # )
+    print(asset)
     workflow_service.build_hour_candles(
         "CAC40.I", "FRA40.I", UnitTime.H1, 7, 15, 50, 0, get_date_utc0()
     )

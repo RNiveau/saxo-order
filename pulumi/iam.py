@@ -25,7 +25,8 @@ def lambda_role() -> aws.iam.Role:
     aws.iam.RolePolicyAttachment(
         "lambda-basic-execution",
         role=lambda_role.name,
-        policy_arn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+        policy_arn="arn:aws:iam::aws:policy/service-role/"
+        "AWSLambdaBasicExecutionRole",
     )
 
     return lambda_role

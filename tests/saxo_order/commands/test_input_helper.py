@@ -85,7 +85,9 @@ class TestInputHelper:
             ),
         ],
     )
-    def test_input_helper(self, accounts, called_input, input_str, account_key, mocker):
+    def test_input_helper(
+        self, accounts, called_input, input_str, account_key, mocker
+    ):
         saxo_service = mocker.Mock()
         mocker.patch.object(
             saxo_service,

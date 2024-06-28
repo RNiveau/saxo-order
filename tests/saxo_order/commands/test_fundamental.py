@@ -1,8 +1,4 @@
-import pytest
-from click.testing import CliRunner
-
 import saxo_order.commands.fundamental as command
-from client.saxo_client import SaxoClient
 from model import ZoneBourseScore, ZoneBourseScrap
 
 

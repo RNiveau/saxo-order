@@ -1,5 +1,3 @@
-import pytest
-
 from client.client_helper import get_tick_size
 
 

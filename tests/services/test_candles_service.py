@@ -1,9 +1,10 @@
 import datetime
+from typing import List
 
 import pytest
 
 from model import Candle, UnitTime
-from services.candles_service import *
+from services.candles_service import CandlesService
 
 
 class TestCandlesService:
@@ -70,7 +71,12 @@ class TestCandlesService:
         ],
     )
     def test_get_candle_per_minutes(
-        self, file: str, ut: UnitTime, results: List[Candle], expected_len: int, mocker
+        self,
+        file: str,
+        ut: UnitTime,
+        results: List[Candle],
+        expected_len: int,
+        mocker,
     ):
         saxo_client = mocker.Mock()
         mocker.patch.object(
@@ -86,9 +92,13 @@ class TestCandlesService:
         with open(f"tests/services/files/{file}", "r") as f:
             data = eval(f.read(), {"datetime": datetime})
 
-        mocker.patch.object(saxo_client, "get_historical_data", return_value=data)
+        mocker.patch.object(
+            saxo_client, "get_historical_data", return_value=data
+        )
         worfklow_service = CandlesService(saxo_client)
-        candles = worfklow_service.get_candles_per_minutes("code", len(data), ut)
+        candles = worfklow_service.get_candles_per_minutes(
+            "code", len(data), ut
+        )
         for i, result in enumerate(results):
             assert candles[i].close == result.close
             assert candles[i].lower == result.lower
@@ -103,7 +113,8 @@ class TestCandlesService:
         assert len(candles) == expected_len
 
     @pytest.mark.parametrize(
-        "file_index, file_cfd, open_hour, close_hour, open_minutes, ut, date, expected",
+        "file_index, file_cfd, open_hour, close_hour,"
+        " open_minutes, ut, date, expected",
         [
             (
                 "cac_30min.obj",
@@ -281,7 +292,9 @@ class TestCandlesService:
         if file_cfd != "":
             with open(f"tests/services/files/{file_cfd}", "r") as f:
                 side_effet.append(eval(f.read(), {"datetime": datetime}))
-        mocker.patch.object(saxo_client, "get_historical_data", side_effect=side_effet)
+        mocker.patch.object(
+            saxo_client, "get_historical_data", side_effect=side_effet
+        )
         mocker.patch(
             "services.candles_service.get_date_utc0",
             return_value=date.replace(tzinfo=datetime.timezone.utc),

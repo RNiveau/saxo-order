@@ -23,19 +23,21 @@ def select_account(client: SaxoClient) -> Account:
         prompt = "Select the account (select with ID):\n"
         for index, account in enumerate(accounts["Data"]):
             if "DisplayName" in account:
-                prompt += (
-                    f"[{index + 1}] {account['DisplayName']} | {account['AccountId']}\n"
-                )
+                prompt += f"[{index + 1}] {account['DisplayName']}"
+                prompt += "| {account['AccountId']}\n"
             else:
                 prompt += f"[{index + 1}] NoName | {account['AccountId']}\n"
         id = input(prompt)
     else:
         id = "1"
         print(
-            f"Auto select account {accounts['Data'][0]['AccountId']} as only one account is available"
+            f"Auto select account {accounts['Data'][0]['AccountId']} as only"
+            " one account is available"
         )
     if "/" in id:
-        account = list(filter(lambda x: x["AccountId"] == id, accounts["Data"]))
+        account = list(
+            filter(lambda x: x["AccountId"] == id, accounts["Data"])
+        )
         if len(account) != 1:
             raise SaxoException("Wrong account selection")
         return client.get_account(account[0]["AccountKey"])
@@ -48,16 +50,22 @@ def select_account(client: SaxoClient) -> Account:
 def get_stop_objective(validate_input: bool) -> tuple:
     try:
         stop = click.prompt(
-            "What is the stop price ?", type=float, show_default=False, default=0
+            "What is the stop price ?",
+            type=float,
+            show_default=False,
+            default=0,
         )
         objective = click.prompt(
-            "What is the objective price ?", type=float, show_default=False, default=0
+            "What is the objective price ?",
+            type=float,
+            show_default=False,
+            default=0,
         )
         if stop == 0:
             stop = None
         if objective == 0:
             objective = None
-    except:
+    except Exception:
         stop = None
         objective = None
     if stop is None and validate_input:
@@ -86,7 +94,9 @@ def update_order(
     )
     if with_underlying:
         if conditional_order is None:
-            price = click.prompt("What is the price of the underlying ?", type=float)
+            price = click.prompt(
+                "What is the price of the underlying ?", type=float
+            )
         else:
             price = conditional_order.price
         underlying = Underlying(price)
@@ -105,8 +115,8 @@ def update_order(
 
 
 def get_strategy() -> Optional[Strategy]:
-    l = [e.value for e in Strategy]
-    for index, strategy in enumerate(l):
+    _list = [e.value for e in Strategy]
+    for index, strategy in enumerate(_list):
         print(f"{index + 1} - {strategy}")
     index = click.prompt(
         "What is the strategy ? ",
@@ -116,12 +126,12 @@ def get_strategy() -> Optional[Strategy]:
     )
     if index == 0:
         return None
-    return Strategy.get_value(l[index - 1])
+    return Strategy.get_value(_list[index - 1])
 
 
 def get_signal() -> Optional[Signal]:
-    l = [e.value for e in Signal]
-    for index, signal in enumerate(l):
+    _list = [e.value for e in Signal]
+    for index, signal in enumerate(_list):
         print(f"{index + 1} - {signal}")
     index = click.prompt(
         "What is the signal ? ",
@@ -131,10 +141,12 @@ def get_signal() -> Optional[Signal]:
     )
     if index == 0:
         return None
-    return Signal.get_value(l[index - 1])
+    return Signal.get_value(_list[index - 1])
 
 
-def validate_buy_order(account: Account, client: SaxoClient, order: Order) -> None:
+def validate_buy_order(
+    account: Account, client: SaxoClient, order: Order
+) -> None:
     open_orders = client.get_open_orders()
     total_amount = client.get_total_amount()
     error = apply_rules(account, order, total_amount, open_orders)
@@ -151,8 +163,12 @@ def confirm_order(client: SaxoClient, order: Order) -> None:
 
 
 def get_conditional_order(client: SaxoClient) -> ConditionalOrder:
-    code_conditional = click.prompt("What is the code of the condition ?", type=str)
-    price_conditional = click.prompt("What is the price of the condition ?", type=float)
+    code_conditional = click.prompt(
+        "What is the code of the condition ?", type=str
+    )
+    price_conditional = click.prompt(
+        "What is the price of the condition ?", type=float
+    )
     trigger = TriggerOrder.get_value(
         click.prompt(
             "Trigger the order if we are above or below the price ?",

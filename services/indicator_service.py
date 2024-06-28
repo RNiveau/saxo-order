@@ -55,9 +55,10 @@ def bollinger_bands(
 def mobile_average(candles: List[Candle], nbr_candles: int) -> float:
     if len(candles) < nbr_candles:
         Logger.get_logger("mobile_average").error(
-            f"Missing candles to calculate the ma {len(candles)}, {nbr_candles}"
+            "Missing candles to calculate"
+            f" the ma {len(candles)}, {nbr_candles}"
         )
-        raise SaxoException(f"Missing candles to calcule the ma")
+        raise SaxoException("Missing candles to calcule the ma")
     return sum(map(lambda x: x.close, candles[:nbr_candles])) / nbr_candles
 
 

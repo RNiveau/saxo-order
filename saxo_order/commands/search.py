@@ -24,5 +24,6 @@ def search(ctx: Context, search: str):
     client = SaxoClient(Configuration(ctx.obj["config"]))
     for data in client.search(keyword=search):
         print(
-            f"{data['Description']}: code: {data['Symbol']}, type: {data['AssetType']}"
+            f"{data['Description']}: code: {data['Symbol']},"
+            f" type: {data['AssetType']}"
         )

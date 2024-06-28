@@ -27,7 +27,8 @@ def get_score(url: str):
     zb_score = ZoneBourseScore()
     zb_score.is_ath = (
         click.prompt(
-            "Do we have new ATH in the last 3 months ?", type=click.Choice(["y", "n"])
+            "Do we have new ATH in the last 3 months ?",
+            type=click.Choice(["y", "n"]),
         )
         == "y"
     )
@@ -39,11 +40,15 @@ def get_score(url: str):
         == "y"
     )
     zb_score.is_bullish = (
-        click.prompt("Do we have a bullish trend ?", type=click.Choice(["y", "n"]))
+        click.prompt(
+            "Do we have a bullish trend ?", type=click.Choice(["y", "n"])
+        )
         == "y"
     )
     zb_score.is_dividend_increase = (
-        click.prompt("Does dividend rate increase ?", type=click.Choice(["y", "n"]))
+        click.prompt(
+            "Does dividend rate increase ?", type=click.Choice(["y", "n"])
+        )
         == "y"
     )
 
@@ -91,7 +96,9 @@ def calculate_score(
             )
             continue
         if zb_score.resultat_net == 0:
-            zb_score.resultat_net = zb_data_to_float(zb_data.data[year]["Résultat net"])
+            zb_score.resultat_net = zb_data_to_float(
+                zb_data.data[year]["Résultat net"]
+            )
             zb_data.add_data(
                 year,
                 label_croissance,
@@ -105,13 +112,17 @@ def calculate_score(
             if diff > 0:
                 year_croissance *= -1
             zb_score.croissance += year_croissance
-            zb_score.resultat_net = zb_data_to_float(zb_data.data[year]["Résultat net"])
+            zb_score.resultat_net = zb_data_to_float(
+                zb_data.data[year]["Résultat net"]
+            )
             zb_data.add_data(
                 year,
                 label_croissance,
                 f"{year_croissance * 100:.2f}%",
             )
-        zb_score.marge_nette += zb_data_to_float(zb_data.data[year]["Marge nette"])
+        zb_score.marge_nette += zb_data_to_float(
+            zb_data.data[year]["Marge nette"]
+        )
         zb_score.marge_exploitation += zb_data_to_float(
             zb_data.data[year]["Marge d'exploitation"]
         )
@@ -124,12 +135,18 @@ def calculate_score(
     score_lines = []
     score_lines.append(
         build_line_score(
-            "Croissance Résultat net > 10% /an", zb_score.croissance > 0.1, 2, zb_score
+            "Croissance Résultat net > 10% /an",
+            zb_score.croissance > 0.1,
+            2,
+            zb_score,
         )
     )
     score_lines.append(
         build_line_score(
-            "Croissance Résultat net > 15% /an", zb_score.croissance > 0.15, 1, zb_score
+            "Croissance Résultat net > 15% /an",
+            zb_score.croissance > 0.15,
+            1,
+            zb_score,
         )
     )
     score_lines.append(
@@ -188,7 +205,9 @@ def calculate_score(
             zb_score,
         )
     )
-    free_cash_flow = zb_score.free_cash_flow if zb_score.free_cash_flow > 0 else 1
+    free_cash_flow = (
+        zb_score.free_cash_flow if zb_score.free_cash_flow > 0 else 1
+    )
     score_lines.append(
         build_line_score(
             "Capitalisation / Free cash flow < 8",
@@ -215,11 +234,16 @@ def calculate_score(
         )
     )
     score_lines.append(
-        build_line_score("Nouveau plus haut < 3 mois", zb_score.is_ath, 1, zb_score)
+        build_line_score(
+            "Nouveau plus haut < 3 mois", zb_score.is_ath, 1, zb_score
+        )
     )
     score_lines.append(
         build_line_score(
-            "Superforme son benchmark (indice)", zb_score.is_outperformance, 1, zb_score
+            "Superforme son benchmark (indice)",
+            zb_score.is_outperformance,
+            1,
+            zb_score,
         )
     )
     score_lines.append(

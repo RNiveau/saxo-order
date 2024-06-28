@@ -45,9 +45,13 @@ class WorkflowElement(EnumWithGetValue):
 
 
 class Indicator:
-    def __init__(self, name: Union[str | IndicatorType], ut: Union[str | UnitTime]):
-        self.name = IndicatorType.get_value(name) if type(name) == str else name
-        self.ut = UnitTime.get_value(ut) if type(ut) == str else ut
+    def __init__(
+        self, name: Union[str | IndicatorType], ut: Union[str | UnitTime]
+    ):
+        self.name = (
+            IndicatorType.get_value(name) if isinstance(name, str) else name
+        )
+        self.ut = UnitTime.get_value(ut) if isinstance(ut, str) else ut
 
 
 class Close:
@@ -59,10 +63,10 @@ class Close:
     ):
         self.direction = (
             WorkflowDirection.get_value(direction)
-            if type(direction) == str
+            if isinstance(direction, str)
             else direction
         )
-        self.ut = UnitTime.get_value(ut) if type(ut) == str else ut
+        self.ut = UnitTime.get_value(ut) if isinstance(ut, str) else ut
         self.spread = spread
 
 
@@ -83,16 +87,20 @@ class Trigger:
         order_direction: Union[str | Direction],
         quantity: float,
     ):
-        self.ut = UnitTime.get_value(ut) if type(ut) == str else ut
+        self.ut = UnitTime.get_value(ut) if isinstance(ut, str) else ut
         self.signal = (
-            WorkflowSignal.get_value(signal) if type(signal) == str else signal
+            WorkflowSignal.get_value(signal)
+            if isinstance(signal, str)
+            else signal
         )
         self.location = (
-            WorkflowLocation.get_value(location) if type(location) == str else location
+            WorkflowLocation.get_value(location)
+            if isinstance(location, str)
+            else location
         )
         self.order_direction = (
             Direction.get_value(order_direction)
-            if type(order_direction) == str
+            if isinstance(order_direction, str)
             else order_direction
         )
         self.quantity = quantity

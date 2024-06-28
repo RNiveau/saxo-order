@@ -33,6 +33,7 @@ isort = "^5.13.2"
 types-beautifulsoup4 = "^4.12.0"
 types-boto3 = "^1.0.2"
 types-pyyaml = "^6.0.12.20240311"
+flake8 = "^7.1.0"
 
 [tool.poetry.scripts]
 k-order = "saxo_order.commands.k_order:k_order"
@@ -43,6 +44,11 @@ build-backend = "poetry.masonry.api"
 
 [tool.isort]
 profile = "black"
+line_length = 79
 
 [tool.pytest]
 mock_use_standalone_module = true
+
+[tool.black]
+line-length = 79
+

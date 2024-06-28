@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 from typing import List
 
@@ -8,15 +9,20 @@ from click.core import Context
 from slack_sdk import WebClient
 
 from client.aws_client import AwsClient
-from client.client_helper import *
 from client.saxo_client import SaxoClient
 from engines.workflow_engine import WorkflowEngine
-from model import Close, Condition, Indicator, Trigger, Workflow, WorkflowElement
+from model import (
+    Close,
+    Condition,
+    Indicator,
+    Trigger,
+    Workflow,
+    WorkflowElement,
+)
 from saxo_order.commands import catch_exception
 from services.candles_service import CandlesService
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from utils.helper import get_date_utc0
 from utils.logger import Logger
 
 logger = Logger.get_logger("workflow", logging.DEBUG)
@@ -82,7 +88,8 @@ def _yaml_loader(force_from_disk: bool) -> List[Workflow]:
     elif os.path.isfile("workflows.yml"):
         with open("workflows.yml", "r") as file:
             logger.info(
-                f"Load workflows.yml from disk force_from_disk={force_from_disk}"
+                f"Load workflows.yml from disk"
+                f" force_from_disk={force_from_disk}"
             )
             workflows_data = yaml.safe_load(file)
     else:

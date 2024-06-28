@@ -11,7 +11,9 @@ class ZoneBourseClient:
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+                " AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/123.0.0.0 Safari/537.36"
             }
         )
 
@@ -25,7 +27,7 @@ class ZoneBourseClient:
         for index, th in enumerate(ths):
             try:
                 years[index] = int(th.text.strip())
-            except:
+            except Exception:
                 pass
         zb = ZoneBourseScrap()
         zb.init_data(years)

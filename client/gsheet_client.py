@@ -1,8 +1,6 @@
-import json
 import locale
-import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -30,7 +28,9 @@ class GSheetClient:
 
     def _get_sheet_id(self):
         spreadsheet = (
-            self.client.spreadsheets().get(spreadsheetId=self.spreadsheet_id).execute()
+            self.client.spreadsheets()
+            .get(spreadsheetId=self.spreadsheet_id)
+            .execute()
         )
         sheets = spreadsheet.get("sheets", [])
         for sheet in sheets:
@@ -42,13 +42,14 @@ class GSheetClient:
         taxes = Taxes(0, 0) if order.taxes is None else order.taxes
         locale.setlocale(locale.LC_ALL, "fr_FR")
         date = (
-            order.date.strftime("%d/%m/%Y")
-            if type(order) == ReportOrder
+            order.date.strftime("%d/%m/%Y")  # type: ignore
+            if isinstance(order, ReportOrder) is True
             else datetime.now().strftime("%d/%m/%Y")
         )
         typ = (
             "CASH"
-            if order.asset_type not in [AssetType.CFDINDEX, AssetType.CFDFUTURE]
+            if order.asset_type
+            not in [AssetType.CFDINDEX, AssetType.CFDFUTURE]
             else "CFD"
         )
         return [
@@ -62,7 +63,9 @@ class GSheetClient:
     def _generate_c_g_block(
         self, order: Order, original_order: Order, number_rows: int
     ) -> List:
-        original_price = "" if order.currency == Currency.EURO else original_order.price
+        original_price = (
+            "" if order.currency == Currency.EURO else original_order.price
+        )
         return [
             order.price,
             original_price,
@@ -96,11 +99,13 @@ class GSheetClient:
         ):
             if order.underlying is None:
                 block.append(
-                    f"=(M{number_rows}-C{number_rows})/(C{number_rows}-J{number_rows})"
+                    f"=(M{number_rows}-C{number_rows})/"
+                    f"(C{number_rows}-J{number_rows})"
                 )
             else:
                 block.append(
-                    f"=(M{number_rows}-G{number_rows})/(G{number_rows}-J{number_rows})"
+                    f"=(M{number_rows}-G{number_rows})/"
+                    f"(G{number_rows}-J{number_rows})"
                 )
         else:
             block.append(None)
@@ -108,7 +113,9 @@ class GSheetClient:
 
     def _get_number_rows(self):
         spreadsheet = (
-            self.client.spreadsheets().get(spreadsheetId=self.spreadsheet_id).execute()
+            self.client.spreadsheets()
+            .get(spreadsheetId=self.spreadsheet_id)
+            .execute()
         )
         sheets = spreadsheet.get("sheets", [])
         for sheet in sheets:
@@ -159,7 +166,10 @@ class GSheetClient:
         return row
 
     def update_order(
-        self, order: ReportOrder, original_order: ReportOrder, line_to_update: int
+        self,
+        order: ReportOrder,
+        original_order: ReportOrder,
+        line_to_update: int,
     ) -> Any:
         if order.taxes is None:
             order.taxes = Taxes(0, 0)
@@ -180,32 +190,45 @@ class GSheetClient:
         result = (
             self.client.spreadsheets()
             .values()
-            .batchUpdate(spreadsheetId=self.spreadsheet_id, body=batch_update_request)  # type: ignore
+            .batchUpdate(
+                spreadsheetId=self.spreadsheet_id,
+                body=batch_update_request,  # type: ignore
+            )  # type: ignore
             .execute()
         )
         return result
 
     def _generate_open_position_update(
-        self, order: ReportOrder, original_order: ReportOrder, line_to_update: int
+        self,
+        order: ReportOrder,
+        original_order: ReportOrder,
+        line_to_update: int,
     ) -> List:
         requests = [
             {
-                "range": f"{self.sheet_name}!C{line_to_update}:G{line_to_update}",
+                "range": f"{self.sheet_name}!C{line_to_update}:"
+                f"G{line_to_update}",
                 "values": [
-                    self._generate_c_g_block(order, original_order, line_to_update)
+                    self._generate_c_g_block(
+                        order, original_order, line_to_update
+                    )
                 ],
             },
             {
-                "range": f"{self.sheet_name}!R{line_to_update}:V{line_to_update}",
+                "range": f"{self.sheet_name}!R{line_to_update}:"
+                f"V{line_to_update}",
                 "values": [self._generate_r_v_block(order, line_to_update)],
             },
         ]
         if order.stop is not None and order.objective is not None:
             requests.append(
                 {
-                    "range": f"{self.sheet_name}!M{line_to_update}:O{line_to_update}",
+                    "range": f"{self.sheet_name}!M{line_to_update}:"
+                    f"O{line_to_update}",
                     "values": [
-                        self._generate_m_o_block(order, original_order, line_to_update)
+                        self._generate_m_o_block(
+                            order, original_order, line_to_update
+                        )
                     ],
                 }
             )
@@ -218,12 +241,18 @@ class GSheetClient:
         return requests
 
     def _generate_close_position_update(
-        self, order: ReportOrder, original_order: ReportOrder, line_to_update: int
+        self,
+        order: ReportOrder,
+        original_order: ReportOrder,
+        line_to_update: int,
     ) -> List:
-        original_price = "" if order.currency == Currency.EURO else original_order.price
+        original_price = (
+            "" if order.currency == Currency.EURO else original_order.price
+        )
         return [
             {
-                "range": f"{self.sheet_name}!K{line_to_update}:L{line_to_update}",
+                "range": f"{self.sheet_name}!K{line_to_update}:"
+                f"L{line_to_update}",
                 "values": [
                     [
                         1 if order.stopped else None,
@@ -232,20 +261,23 @@ class GSheetClient:
                 ],
             },
             {
-                "range": f"{self.sheet_name}!W{line_to_update}:AB{line_to_update}",
+                "range": f"{self.sheet_name}!W{line_to_update}:"
+                f"AB{line_to_update}",
                 "values": [
                     [
                         order.price,
                         original_price,
                         helper.get_taxes(order).cost,
                         f"=W{line_to_update}*E{line_to_update}",
-                        f"=W{line_to_update}*E{line_to_update}-Y{line_to_update}",
+                        f"=W{line_to_update}*E{line_to_update}-"
+                        f"Y{line_to_update}",
                         order.date.strftime("%d/%m/%Y"),
                     ]
                 ],
             },
             {
-                "range": f"{self.sheet_name}!AG{line_to_update}:AK{line_to_update}",
+                "range": f"{self.sheet_name}!AG{line_to_update}:"
+                f"AK{line_to_update}",
                 "values": [
                     [
                         (
@@ -277,17 +309,24 @@ class GSheetClient:
                 range=f"{self.sheet_name}!A:A",
                 valueInputOption="USER_ENTERED",
                 insertDataOption="INSERT_ROWS",
-                body={"values": [self._generate_row(account, order, original_order)]},
+                body={
+                    "values": [
+                        self._generate_row(account, order, original_order)
+                    ]
+                },
             )
             .execute()
         )
 
         new_row_index = (
-            int(result["updates"]["updatedRange"].split(":")[0].split("A")[1]) - 1
+            int(result["updates"]["updatedRange"].split(":")[0].split("A")[1])
+            - 1
         )
         sheet_id = self._get_sheet_id()
         background_color = (
-            None if type(order) == ReportOrder else {"red": 1, "green": 1, "blue": 0}
+            None
+            if isinstance(order, ReportOrder)
+            else {"red": 1, "green": 1, "blue": 0}
         )
         requests: Any = [
             {
@@ -300,7 +339,9 @@ class GSheetClient:
                         "endColumnIndex": 1,
                     },
                     "cell": {
-                        "userEnteredFormat": {"backgroundColor": background_color}
+                        "userEnteredFormat": {
+                            "backgroundColor": background_color
+                        }
                     },
                     "fields": "userEnteredFormat.backgroundColor",
                 }

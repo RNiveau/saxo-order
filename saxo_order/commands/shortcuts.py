@@ -95,7 +95,9 @@ def russell(ctx: Context, price: float, order_type: str, direction: str):
     shortcut(ctx, price, order_type, direction, code)
 
 
-def shortcut(ctx: Context, price: float, order_type: str, direction: str, code: str):
+def shortcut(
+    ctx: Context, price: float, order_type: str, direction: str, code: str
+):
     configuration = Configuration(ctx.obj["config"])
     saxo_client = SaxoClient(configuration)
     asset = saxo_client.get_asset(code=code)
@@ -120,7 +122,10 @@ def shortcut(ctx: Context, price: float, order_type: str, direction: str, code: 
     )
     accounts = saxo_client.get_accounts()
     account_key = list(
-        filter(lambda x: x["AccountId"] == asset["TradableOn"][0], accounts["Data"])
+        filter(
+            lambda x: x["AccountId"] == asset["TradableOn"][0],
+            accounts["Data"],
+        )
     )[0]["AccountKey"]
     account = saxo_client.get_account(account_key)
     update_order(order)

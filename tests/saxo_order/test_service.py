@@ -39,7 +39,11 @@ class TestValiderOrder:
         [(10, 9, 1000, True), (10, 1, 100, False)],
     )
     def test_validate_max_order(
-        self, price: float, quantity: float, total_amount: float, expected: bool
+        self,
+        price: float,
+        quantity: float,
+        total_amount: float,
+        expected: bool,
     ):
         assert (
             service.validate_max_order(
@@ -57,7 +61,14 @@ class TestValiderOrder:
                 1000,
                 9,
                 10,
-                [{"AccountKey": "key", "BuySell": "Buy", "Amount": 10, "Price": 10}],
+                [
+                    {
+                        "AccountKey": "key",
+                        "BuySell": "Buy",
+                        "Amount": 10,
+                        "Price": 10,
+                    }
+                ],
                 True,
             ),
             (
@@ -71,23 +82,27 @@ class TestValiderOrder:
                 1000,
                 9,
                 100,
-                [{"AccountKey": "key", "BuySell": "Buy", "Amount": 10, "Price": 10}],
+                [
+                    {
+                        "AccountKey": "key",
+                        "BuySell": "Buy",
+                        "Amount": 10,
+                        "Price": 10,
+                    }
+                ],
                 False,
             ),
             (
                 1000,
                 9,
                 100,
-                [{"AccountKey": "key2", "BuySell": "Buy", "Amount": 10, "Price": 10}],
-                True,
-            ),
-            (
-                1000,
-                9,
-                100,
                 [
-                    {"AccountKey": "key2", "BuySell": "Buy", "Amount": 10, "Price": 10},
-                    {"AccountKey": "key", "BuySell": "Sell", "Amount": 10, "Price": 10},
+                    {
+                        "AccountKey": "key2",
+                        "BuySell": "Buy",
+                        "Amount": 10,
+                        "Price": 10,
+                    }
                 ],
                 True,
             ),
@@ -96,9 +111,44 @@ class TestValiderOrder:
                 9,
                 100,
                 [
-                    {"AccountKey": "key2", "BuySell": "Buy", "Amount": 10, "Price": 10},
-                    {"AccountKey": "key", "BuySell": "Sell", "Amount": 10, "Price": 10},
-                    {"AccountKey": "key", "BuySell": "Buy", "Amount": 10, "Price": 10},
+                    {
+                        "AccountKey": "key2",
+                        "BuySell": "Buy",
+                        "Amount": 10,
+                        "Price": 10,
+                    },
+                    {
+                        "AccountKey": "key",
+                        "BuySell": "Sell",
+                        "Amount": 10,
+                        "Price": 10,
+                    },
+                ],
+                True,
+            ),
+            (
+                1000,
+                9,
+                100,
+                [
+                    {
+                        "AccountKey": "key2",
+                        "BuySell": "Buy",
+                        "Amount": 10,
+                        "Price": 10,
+                    },
+                    {
+                        "AccountKey": "key",
+                        "BuySell": "Sell",
+                        "Amount": 10,
+                        "Price": 10,
+                    },
+                    {
+                        "AccountKey": "key",
+                        "BuySell": "Buy",
+                        "Amount": 10,
+                        "Price": 10,
+                    },
                 ],
                 False,
             ),
@@ -107,7 +157,12 @@ class TestValiderOrder:
                 0.5,
                 100,
                 [
-                    {"AccountKey": "key", "BuySell": "Buy", "Amount": 10, "Price": 4},
+                    {
+                        "AccountKey": "key",
+                        "BuySell": "Buy",
+                        "Amount": 10,
+                        "Price": 4,
+                    },
                 ],
                 True,
             ),
@@ -132,7 +187,9 @@ class TestValiderOrder:
 
     def test_get_lost(self):
         assert (
-            service.get_lost(10000, Order(code="aca", price=10, stop=9, quantity=10))
+            service.get_lost(
+                10000, Order(code="aca", price=10, stop=9, quantity=10)
+            )
             == "Lost: 10 (10.00 %) (0.10 % of funds)"
         )
 
@@ -154,7 +211,8 @@ class TestValiderOrder:
         assert order.price == 5
 
         order = service.calculate_currency(
-            Order("", 10, stop=5, objective=15, currency=Currency.USD), {"usdeur": 0.5}
+            Order("", 10, stop=5, objective=15, currency=Currency.USD),
+            {"usdeur": 0.5},
         )
         assert order.price == 5
         assert order.stop == 2.5

@@ -20,5 +20,7 @@ def available_funds(ctx: Context):
     client = SaxoClient(Configuration(ctx.obj["config"]))
     account = select_account(client)
     open_orders = client.get_open_orders()
-    sum_open_order = get_account_open_orders(account=account, open_orders=open_orders)
+    sum_open_order = get_account_open_orders(
+        account=account, open_orders=open_orders
+    )
     print(account.available_fund - sum_open_order)

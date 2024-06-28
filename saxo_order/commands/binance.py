@@ -40,8 +40,12 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
         key_path=configuration.gsheet_creds_path,
         spreadsheet_id=configuration.spreadsheet_id,
     )
-    client = BinanceClient(configuration.binance_keys[0], configuration.binance_keys[1])
-    orders = client.get_report_all(from_date, configuration.currencies_rate["usdeur"])
+    client = BinanceClient(
+        configuration.binance_keys[0], configuration.binance_keys[1]
+    )
+    orders = client.get_report_all(
+        from_date, configuration.currencies_rate["usdeur"]
+    )
     account = Account("", "Coinbase")
     if len(orders) == 0:
         print("No order to report")
@@ -57,8 +61,12 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
             )
             order = orders[index - 1]
             if create_or_update == "c":
-                update_order(order=order, conditional_order=None, validate_input=False)
-                report_order = calculate_currency(order, configuration.currencies_rate)
+                update_order(
+                    order=order, conditional_order=None, validate_input=False
+                )
+                report_order = calculate_currency(
+                    order, configuration.currencies_rate
+                )
                 assert isinstance(report_order, ReportOrder)
                 gsheet_client.create_order(
                     account=account, order=report_order, original_order=order
@@ -72,16 +80,24 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                 )
                 if order.open_position:
                     update_order(
-                        order=order, conditional_order=None, validate_input=False
+                        order=order,
+                        conditional_order=None,
+                        validate_input=False,
                     )
                 else:
                     order.stopped = click.prompt(
-                        "Has the order been stopped ?", type=bool, default=False
+                        "Has the order been stopped ?",
+                        type=bool,
+                        default=False,
                     )
                     order.be_stopped = click.prompt(
-                        "Has the order been BE stopped ?", type=bool, default=False
+                        "Has the order been BE stopped ?",
+                        type=bool,
+                        default=False,
                     )
-                report_order = calculate_currency(order, configuration.currencies_rate)
+                report_order = calculate_currency(
+                    order, configuration.currencies_rate
+                )
                 assert isinstance(report_order, ReportOrder)
                 gsheet_client.update_order(
                     order=report_order,
@@ -96,12 +112,19 @@ def show_report(orders, currencies_rate):
         if order.currency != Currency.EURO:
             currency_order = calculate_currency(order, currencies_rate)
             print(
-                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price:.4f}$ ({currency_order.price:.4f}€) -> {order.price * order.quantity:.4f}$ ({currency_order.price * order.quantity:.4f}€)"
+                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: "
+                f"{order.name} "
+                f"- {order.direction} {order.quantity} at {order.price:.4f}$ "
+                f"({currency_order.price:.4f}€) -> "
+                f"{order.price * order.quantity:.4f}$ "
+                f"({currency_order.price * order.quantity:.4f}€)"
             )
 
         else:
             print(
-                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: {order.name} - {order.direction} {order.quantity} at {order.price:.4f}$ -> {order.price * order.quantity:.4f}$"
+                f"[{index + 1}]: {order.date.strftime('%Y-%m-%d')}: "
+                f"{order.name} - {order.direction} {order.quantity} at "
+                f"{order.price:.4f}$ -> {order.price * order.quantity:.4f}$"
             )
 
 
@@ -137,7 +160,9 @@ def get_stacking_report(ctx: Context, file: str, type: str):
         except Exception:
             date = datetime.strptime(tab[0], "%Y-%m-%d %H:%M:%S")
         stacking = StackingReport(
-            asset=tab[coin_column], date=date.strftime("%m/%Y"), quantity=quantity
+            asset=tab[coin_column],
+            date=date.strftime("%m/%Y"),
+            quantity=quantity,
         )
         if stacking.id in cryptos:
             cryptos[stacking.id].quantity += quantity
@@ -145,7 +170,6 @@ def get_stacking_report(ctx: Context, file: str, type: str):
             cryptos[stacking.id] = stacking
     for crypto in cryptos.values():
         print(
-            f"{crypto.asset};{crypto.date};{crypto.quantity:.10f};{type}".replace(
-                ".", ","
-            )
+            f"{crypto.asset};{crypto.date};{crypto.quantity:.10f};"
+            f"{type}".replace(".", ",")
         )

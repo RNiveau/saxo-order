@@ -1,5 +1,5 @@
 import copy
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from model import Account, AssetType, Currency, Order, ReportOrder, Taxes
 
@@ -31,7 +31,9 @@ def get_account_open_orders(account: Account, open_orders: List) -> float:
 
 
 def validate_fund(account: Account, order: Order, open_orders: List) -> bool:
-    sum_buy_orders = get_account_open_orders(account=account, open_orders=open_orders)
+    sum_buy_orders = get_account_open_orders(
+        account=account, open_orders=open_orders
+    )
     return order.quantity * order.price < account.fund - sum_buy_orders
 
 
@@ -47,7 +49,10 @@ def apply_rules(
     if validate_fund(account, order, open_orders) is False:
         return "Not enough money for this order"
     if validate_max_order(order, total_amount) is False:
-        return f"A position can't be greater than 10% of the fund ({total_amount})"
+        return (
+            "A position can't be greater than 10% of the fund"
+            f" ({total_amount})"
+        )
     return None
 
 
@@ -60,7 +65,9 @@ def calculate_taxes(order: Order) -> Taxes:
     return Taxes(cost, taxes)
 
 
-def calculate_currency(order: Order, currencies_rate: Dict) -> Order | ReportOrder:
+def calculate_currency(
+    order: Order, currencies_rate: Dict
+) -> Order | ReportOrder:
     rate = 1
     new_order = copy.deepcopy(order)
     if order.currency == Currency.USD:
@@ -84,12 +91,20 @@ def calculate_currency(order: Order, currencies_rate: Dict) -> Order | ReportOrd
 def get_lost(total_funds: float, order: Order) -> str:
     if order.stop is not None:
         lost = order.quantity * (order.price - order.stop)
-        return f"Lost: {lost} ({((order.price - order.stop) / order.price) * 100:.2f} %) ({(lost / total_funds) * 100:.2f} % of funds)"
+        val = ((order.price - order.stop) / order.price) * 100
+        return (
+            f"Lost: {lost} ({val:.2f} %) "
+            f"({(lost / total_funds) * 100:.2f} % of funds)"
+        )
     return "Stop is not set"
 
 
 def get_earn(total_funds: float, order: Order) -> str:
     if order.objective is not None:
         earn = order.quantity * (order.objective - order.price)
-        return f"Earn: {earn} ({((order.objective - order.price) / order.price) * 100:.2f} %) ({(earn / total_funds) * 100:.2f} % of funds)"
+        val = ((order.objective - order.price) / order.price) * 100
+        return (
+            f"Earn: {earn} ({val:.2f} %)"
+            f" ({(earn / total_funds) * 100:.2f} % of funds)"
+        )
     return "Objective is not set"

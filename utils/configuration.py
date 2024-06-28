@@ -1,4 +1,3 @@
-import logging
 import os
 from typing import Dict, Tuple
 
@@ -25,11 +24,11 @@ class Configuration:
 
     def load_tokens(self) -> None:
         if self.aws_client is not None:
-            self.logger.info(f"Load tokens from aws")
+            self.logger.info("Load tokens from aws")
             content = self.aws_client.get_access_token()
         else:
             if os.path.isfile("access_token"):
-                self.logger.info(f"Load tokens from disk")
+                self.logger.info("Load tokens from disk")
                 with open("access_token", "r") as f:
                     content = f.read()
         contents = content.strip().split("\n")
@@ -43,12 +42,12 @@ class Configuration:
         self.access_token = access_token
         self.refresh_token = refresh_token
         if self.aws_client is not None:
-            self.logger.info(f"Save tokens to aws")
+            self.logger.info("Save tokens to aws")
             self.aws_client.save_access_token(
                 access_token=access_token, refresh_token=refresh_token
             )
         else:
-            self.logger.info(f"Save tokens to disk")
+            self.logger.info("Save tokens to disk")
             with open("access_token", "w") as f:
                 f.write(f"{access_token}\n")
                 f.write(f"{refresh_token}\n")
@@ -83,7 +82,10 @@ class Configuration:
 
     @property
     def binance_keys(self) -> Tuple:
-        return (self.secrets["binance_api_key"], self.secrets["binance_secret_key"])
+        return (
+            self.secrets["binance_api_key"],
+            self.secrets["binance_secret_key"],
+        )
 
     @property
     def slack_token(self) -> str:

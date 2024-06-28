@@ -1,10 +1,10 @@
 import datetime
 import logging
-from typing import Union
+from typing import List, Optional
 
-from client.client_helper import *
+from client.client_helper import map_data_to_candle, map_data_to_candles
 from client.saxo_client import SaxoClient
-from model import Candle, IndicatorType, UnitTime
+from model import Candle, UnitTime
 from utils.exception import SaxoException
 from utils.helper import build_h4_candles_from_h1, get_date_utc0
 from utils.logger import Logger
@@ -25,7 +25,9 @@ class CandlesService:
     ) -> List[Candle]:
         """Build x ut candles for the duration minutes per minutes"""
         date = datetime.datetime.now(datetime.UTC) if date is None else date
-        self.logger.debug(f"get_candle_per_minutes({code}, {duration}, {date})")
+        self.logger.debug(
+            f"get_candle_per_minutes({code}, {duration}, {date})"
+        )
         asset = self.saxo_client.get_asset(code)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
@@ -36,7 +38,8 @@ class CandlesService:
         )
         if len(data) != duration:
             raise SaxoException(
-                "We don't get the expected number of elements, don't treat them"
+                "We don't get the expected number of elements, "
+                "don't treat them"
             )
         data = map_data_to_candles(data, None)
         slice = 0 if data[0].date is None else data[0].date.minute
@@ -55,8 +58,13 @@ class CandlesService:
         add_new_candle = True
         last_minute: Candle = Candle(-1, -1, -1, -1, ut)
         for minute in data:
-            # sometime, some points are missing, so we need to hardcode end and open candle
-            date = minute.date if minute.date is not None else datetime.datetime.now()
+            # sometime, some points are missing,
+            # so we need to hardcode end and open candle
+            date = (
+                minute.date
+                if minute.date is not None
+                else datetime.datetime.now()
+            )
             last_date = (
                 last_minute.date
                 if last_minute.date is not None
@@ -155,7 +163,8 @@ class CandlesService:
         open_minutes: int,
         date: datetime.datetime,
     ) -> List[Candle]:
-        """Build hour candles (or > UT) from a code and take in account open and close hour and world wide asset"""
+        """Build hour candles (or > UT) from a code and take
+        in account open and close hour and world wide asset"""
         self.logger.info(f"Build candles for {code}, ut: {ut}, date: {date}")
         if open_minutes not in [0, 30]:
             raise SaxoException(
@@ -176,10 +185,18 @@ class CandlesService:
             raise SaxoException(
                 f"We should got {nbr_hours} elements but we get {len(data)}"
             )
-        delta = get_date_utc0() - data[0]["Time"].replace(tzinfo=datetime.timezone.utc)
+        delta = get_date_utc0() - data[0]["Time"].replace(
+            tzinfo=datetime.timezone.utc
+        )
         if (
-            (delta.total_seconds() > 30 * 60 and delta.total_seconds() < 45 * 60)
-            or (delta.total_seconds() > 60 * 60 and delta.total_seconds() < 75 * 60)
+            (
+                delta.total_seconds() > 30 * 60
+                and delta.total_seconds() < 45 * 60
+            )
+            or (
+                delta.total_seconds() > 60 * 60
+                and delta.total_seconds() < 75 * 60
+            )
             and code != cfd_code
         ):
             self.logger.debug(f"Need to get the last cfd candles {cfd_code}")

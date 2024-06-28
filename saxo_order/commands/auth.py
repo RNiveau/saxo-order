@@ -34,6 +34,8 @@ def auth(ctx: Context, write: bool):
         exit(1)
     access_token, refresh_token = auth_client.access_token(match.group(1))
     if write is None:
-        should_write: str = input("Do you want to save the access token ? (Y/n)\n")
+        should_write: str = input(
+            "Do you want to save the access token ? (Y/n)\n"
+        )
     if write == "y" or should_write == "Y" or should_write == "y":
         configuration.save_tokens(access_token, refresh_token)

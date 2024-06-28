@@ -4,10 +4,22 @@ from unittest.mock import call
 
 import pytest
 
-from client.saxo_client import SaxoClient
 from engines.workflow_engine import WorkflowEngine
-from model import *
-from services.candles_service import CandlesService
+from model import (
+    Candle,
+    Close,
+    Condition,
+    Direction,
+    Indicator,
+    IndicatorType,
+    Trigger,
+    UnitTime,
+    Workflow,
+    WorkflowDirection,
+    WorkflowElement,
+    WorkflowLocation,
+    WorkflowSignal,
+)
 
 
 class TestWorkflowEngine:
@@ -29,16 +41,23 @@ class TestWorkflowEngine:
             ]
             slack_client = mocker.Mock()
             mocker.patch.object(slack_client, "chat_postMessage")
-            workflow_engine = WorkflowEngine(workflows, slack_client, mocker.Mock())
+            workflow_engine = WorkflowEngine(
+                workflows, slack_client, mocker.Mock()
+            )
             workflow_engine.run()
             assert slack_client.chat_postMessage.call_count == 0
-            assert "Workflow Test will not run" == caplog.records[0].getMessage()
+            assert (
+                "Workflow Test will not run" == caplog.records[0].getMessage()
+            )
             caplog.clear()
             workflows[0].name = "Test 2"
             workflows[0].enable = False
             workflows[0].end_date = datetime.datetime.now().date()
             workflow_engine.run()
-            assert "Workflow Test 2 will not run" == caplog.records[0].getMessage()
+            assert (
+                "Workflow Test 2 will not run"
+                == caplog.records[0].getMessage()
+            )
             assert slack_client.chat_postMessage.call_count == 0
 
     @pytest.mark.parametrize(
@@ -54,7 +73,9 @@ class TestWorkflowEngine:
                     dry_run=False,
                     conditions=[
                         Condition(
-                            indicator=Indicator(IndicatorType.MA50, UnitTime.H4),
+                            indicator=Indicator(
+                                IndicatorType.MA50, UnitTime.H4
+                            ),
                             close=Close(
                                 direction=WorkflowDirection.BELOW,
                                 ut=UnitTime.H1,
@@ -73,7 +94,8 @@ class TestWorkflowEngine:
                 ),
                 12,
                 1,
-                "Workflow `Test` will trigger an order Sell for 9 FRA40.I at 8",
+                "Workflow `Test` will trigger an order Sell"
+                " for 9 FRA40.I at 8",
             ),
             (
                 Workflow(
@@ -85,7 +107,9 @@ class TestWorkflowEngine:
                     dry_run=False,
                     conditions=[
                         Condition(
-                            indicator=Indicator(IndicatorType.MA50, UnitTime.H4),
+                            indicator=Indicator(
+                                IndicatorType.MA50, UnitTime.H4
+                            ),
                             close=Close(
                                 direction=WorkflowDirection.ABOVE,
                                 ut=UnitTime.H1,
@@ -104,18 +128,26 @@ class TestWorkflowEngine:
                 ),
                 10.5,
                 1,
-                "Workflow `Test` will trigger an order Buy for 1 FRA40.I at 11.5",
+                "Workflow `Test` will trigger an order Buy for"
+                " 1 FRA40.I at 11.5",
             ),
         ],
     )
     def test_run_ma_50_workflow(
-        self, workflow: Workflow, ma: float, slack_call: int, slack_message: str, mocker
+        self,
+        workflow: Workflow,
+        ma: float,
+        slack_call: int,
+        slack_message: str,
+        mocker,
     ):
         workflows = [workflow]
         slack_client = mocker.Mock()
         candles_service = mocker.Mock()
         mocker.patch.object(slack_client, "chat_postMessage")
-        mocker.patch.object(candles_service, "build_hour_candles", return_value=[])
+        mocker.patch.object(
+            candles_service, "build_hour_candles", return_value=[]
+        )
         mocker.patch.object(
             candles_service,
             "get_candle_per_hour",
@@ -125,7 +157,9 @@ class TestWorkflowEngine:
         )
         mocker.patch("engines.workflow_engine.mobile_average", return_value=ma)
 
-        workflow_engine = WorkflowEngine(workflows, slack_client, candles_service)
+        workflow_engine = WorkflowEngine(
+            workflows, slack_client, candles_service
+        )
         workflow_engine.run()
         assert candles_service.build_hour_candles.call_count == 1
         assert candles_service.get_candle_per_hour.call_count == 2

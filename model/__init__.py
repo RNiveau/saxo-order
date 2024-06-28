@@ -1,9 +1,32 @@
 import datetime
+from dataclasses import dataclass
 from typing import Optional
 
-from model.enum import *
-from model.workflow import *
-from model.zone_bourse import *
+from model.enum import (  # noqa: F401
+    AssetType,
+    Currency,
+    Direction,
+    OrderType,
+    Signal,
+    Strategy,
+    TriggerOrder,
+)
+from model.workflow import (  # noqa: F401
+    BollingerBands,
+    Candle,
+    Close,
+    Condition,
+    Indicator,
+    IndicatorType,
+    Trigger,
+    UnitTime,
+    Workflow,
+    WorkflowDirection,
+    WorkflowElement,
+    WorkflowLocation,
+    WorkflowSignal,
+)
+from model.zone_bourse import ZoneBourseScore, ZoneBourseScrap  # noqa: F401
 
 
 @dataclass
