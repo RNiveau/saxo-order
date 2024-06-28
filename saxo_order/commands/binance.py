@@ -43,6 +43,9 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
     client = BinanceClient(configuration.binance_keys[0], configuration.binance_keys[1])
     orders = client.get_report_all(from_date, configuration.currencies_rate["usdeur"])
     account = Account("", "Coinbase")
+    if len(orders) == 0:
+        print("No order to report")
+        exit(0)
     show_report(orders, configuration.currencies_rate)
     if update_gsheet:
         while True:
