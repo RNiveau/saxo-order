@@ -6,7 +6,7 @@ def alerting_schedule(
 ) -> aws.scheduler.Schedule:
     return aws.scheduler.Schedule(
         "daily-alerting",
-        schedule_expression="cron(15 18 * * ? *)",
+        schedule_expression="cron(15 18 ? * 2-6 *)",
         schedule_expression_timezone="Europe/Paris",
         flexible_time_window={
             "mode": "FLEXIBLE",
@@ -51,7 +51,7 @@ def workflows_schedule(
 ) -> aws.scheduler.Schedule:
     return aws.scheduler.Schedule(
         "workflows",
-        schedule_expression="cron(1,31 * ? * 1-5 *)",
+        schedule_expression="cron(1,31 5-23 ? * 2-6 *)",
         flexible_time_window={"mode": "OFF"},
         target=aws.scheduler.ScheduleTargetArgs(
             arn=lambda_arn,
