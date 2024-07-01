@@ -178,7 +178,7 @@ def technical(ctx: Context):
     configuration = Configuration(ctx.obj["config"])
     workflow_service = CandlesService(SaxoClient(configuration))
     saxo_client = SaxoClient(configuration)
-    asset = saxo_client.get_asset("US500.I")
+    asset = saxo_client.get_asset("ACA:xpar")
     print(asset)
     workflow_service.build_hour_candles(
         "CAC40.I", "FRA40.I", UnitTime.H1, 7, 15, 50, 0, get_date_utc0()
