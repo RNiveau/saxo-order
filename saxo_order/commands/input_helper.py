@@ -24,7 +24,7 @@ def select_account(client: SaxoClient) -> Account:
         for index, account in enumerate(accounts["Data"]):
             if "DisplayName" in account:
                 prompt += f"[{index + 1}] {account['DisplayName']}"
-                prompt += "| {account['AccountId']}\n"
+                prompt += f"| {account['AccountId']}\n"
             else:
                 prompt += f"[{index + 1}] NoName | {account['AccountId']}\n"
         id = input(prompt)
