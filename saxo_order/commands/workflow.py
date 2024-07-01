@@ -111,7 +111,11 @@ def _yaml_loader(force_from_disk: bool) -> List[Workflow]:
         conditions = []
         for condition_data in conditions_data:
             indicator_data = condition_data["indicator"]
-            indicator = Indicator(indicator_data["name"], indicator_data["ut"])
+            indicator = Indicator(
+                indicator_data["name"],
+                indicator_data["ut"],
+                indicator_data.get("value"),
+            )
             close_data = condition_data["close"]
             close = Close(
                 close_data["direction"], close_data["ut"], close_data["spread"]
