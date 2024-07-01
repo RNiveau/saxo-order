@@ -54,10 +54,22 @@ class WorkflowEngine:
                             (workflow, self._ma_workflow(workflow, candles))
                         )
                     case IndicatorType.BBB:
-                        pass
+                        orders.append(
+                            (
+                                workflow,
+                                self._bb_workflow(
+                                    workflow, candles, IndicatorType.BBB
+                                ),
+                            )
+                        )
                     case IndicatorType.BBH:
                         orders.append(
-                            (workflow, self._bbh_workflow(workflow, candles))
+                            (
+                                workflow,
+                                self._bb_workflow(
+                                    workflow, candles, IndicatorType.BBH
+                                ),
+                            )
                         )
                     case _:
                         self.logger.error(
@@ -118,15 +130,18 @@ class WorkflowEngine:
             case _:
                 raise SaxoException(f"We don't handle {element} price")
 
-    def _bbh_workflow(
-        self, workflow: Workflow, candles: List[Candle]
+    def _bb_workflow(
+        self,
+        workflow: Workflow,
+        candles: List[Candle],
+        indicator_type: IndicatorType,
     ) -> Optional[Order]:
-        bbh = bollinger_bands(candles, 2.5, 20)
+        bb = bollinger_bands(candles, 2.5, 20)
         self.logger.debug(
-            f"get indicator {bbh}, ut {workflow.conditions[0].indicator.ut}"
+            f"get indicator {bb}, ut {workflow.conditions[0].indicator.ut}"
         )
 
-        print(f"get indicator {bbh}, ut {workflow.conditions[0].indicator.ut}")
+        print(f"get indicator {bb}, ut {workflow.conditions[0].indicator.ut}")
         candle = self.candles_service.get_candle_per_hour(
             workflow.cfd, workflow.conditions[0].close.ut, get_date_utc0()
         )
@@ -140,10 +155,11 @@ class WorkflowEngine:
         price = 0.0
         trigger = workflow.trigger
         trigger_candle = self._get_trigger_candle(workflow)
+        bb_value = bb.up if indicator_type == IndicatorType.BBH else bb.bottom
         if workflow.conditions[0].close.direction == WorkflowDirection.BELOW:
             if (
-                element <= bbh.up
-                and element >= bbh.up - workflow.conditions[0].close.spread
+                element <= bb_value
+                and element >= bb_value - workflow.conditions[0].close.spread
             ):
                 if (
                     trigger.location == WorkflowLocation.LOWER
@@ -184,6 +200,7 @@ class WorkflowEngine:
         candle = self.candles_service.get_candle_per_hour(
             workflow.cfd, workflow.conditions[0].close.ut, get_date_utc0()
         )
+        self.logger.debug(f"last candle {candle}")
         if candle is None:
             self.logger.error(f"can't retrive candle for {workflow.cfd}")
             raise SaxoException("Can't retrive candle")

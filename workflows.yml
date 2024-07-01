@@ -185,7 +185,7 @@
          direction: above
          ut: h1
          spread: 10
-      element: high
+      element: low
   trigger:
       ut: h1
       signal: breakout
