@@ -1,4 +1,5 @@
 import logging
+import os
 
 
 class Logger:
@@ -8,10 +9,11 @@ class Logger:
     @staticmethod
     def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:
         if Logger.__logger is None:
+            basic_level = os.getenv("LOG_LEVEL", logging.INFO)
             Logger.__logger = logging.getLogger("k-order")
-            Logger.__logger.setLevel(logging.DEBUG)
+            Logger.__logger.setLevel(basic_level)
             ch = logging.StreamHandler()
-            ch.setLevel(level)
+            ch.setLevel(basic_level)
             ch.setFormatter(
                 logging.Formatter(
                     "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

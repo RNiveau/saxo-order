@@ -228,7 +228,7 @@
           name: bbh
           ut: h1
       close:
-         direction: above
+         direction: below
          ut: h1
          spread: 10
       element: high

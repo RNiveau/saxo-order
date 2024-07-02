@@ -59,7 +59,7 @@ def workflows_lambda(
         image_uri=f"{_get_image_uri(repository_url)}",
         timeout=600,
         environment=aws.lambda_.FunctionEnvironmentArgs(
-            variables={"SAXO_CONFIG": "prod_config.yml"}
+            variables={"SAXO_CONFIG": "prod_config.yml", "LOG_LEVEL": "DEBUG"},
         ),
         package_type="Image",
     )

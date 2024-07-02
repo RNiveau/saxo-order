@@ -13,7 +13,7 @@ from utils.logger import Logger
 class CandlesService:
 
     def __init__(self, saxo_client: SaxoClient):
-        self.logger = Logger.get_logger("workflow_service", logging.DEBUG)
+        self.logger = Logger.get_logger("candles_service", logging.DEBUG)
         self.saxo_client = saxo_client
 
     def get_candles_per_minutes(

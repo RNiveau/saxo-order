@@ -48,6 +48,10 @@ class WorkflowEngine:
                 candles = self._get_candles_from_indicator_ut(
                     workflow, condition.indicator
                 )
+                if len(candles) > 0:
+                    self.logger.debug(
+                        "first candle for this indicator" f" is {candles[0]}"
+                    )
                 match workflow.conditions[0].indicator.name:
                     case IndicatorType.MA50:
                         orders.append(
