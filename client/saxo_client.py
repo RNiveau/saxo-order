@@ -28,7 +28,7 @@ from utils.logger import Logger
 
 class SaxoClient:
     def __init__(self, configuration: Configuration) -> None:
-        self.logger = Logger.get_logger("saxo_client", logging.DEBUG)
+        self.logger = Logger.get_logger("saxo_client", logging.INFO)
         self.session = requests.Session()
         self.configuration = configuration
         self.session.headers.update(
