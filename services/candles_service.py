@@ -208,7 +208,8 @@ class CandlesService:
                 count=1,
                 date=date,
             )
-            data.insert(0, data_cfd[0])
+            if len(data) == 0 or data_cfd[0]["Time"] > data[0]["Time"]:
+                data.insert(0, data_cfd[0])
         if (
             data[0]["Time"].minute == open_minutes
         ):  # it means we don't have the last 30 minutes of the current hour

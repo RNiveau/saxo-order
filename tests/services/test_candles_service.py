@@ -261,6 +261,25 @@ class TestCandlesService:
                     ),
                 ],
             ),
+            (
+                "bug_h4_dax.obj",
+                "bug_h4_dax_cfd.obj",
+                7,
+                15,
+                0,
+                UnitTime.H4,
+                datetime.datetime(2024, 7, 2, 15, 2),
+                [
+                    Candle(
+                        lower=18030.49,
+                        higher=18126.63,
+                        open=18109.3,
+                        close=18121.14,
+                        ut=UnitTime.H4,
+                        date=datetime.datetime(2024, 7, 2, 10, 0),
+                    ),
+                ],
+            ),
         ],
     )
     def test_build_hour_candles(
