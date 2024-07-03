@@ -155,7 +155,7 @@ class TestWorkflowEngine:
                 close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
             ),
         )
-        mocker.patch("engines.workflow_engine.mobile_average", return_value=ma)
+        mocker.patch("engines.workflows.mobile_average", return_value=ma)
 
         workflow_engine = WorkflowEngine(
             workflows, slack_client, candles_service
