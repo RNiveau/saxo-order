@@ -62,16 +62,17 @@ def execute_workflow(
     workflows = _yaml_loader(force_from_disk)
 
     if select_workflow is True:
-        if len(workflows) > 1:
+        workflows_select = list(filter(lambda x: x.enable, workflows))
+        if len(workflows_select) > 1:
             prompt = "Select the workflow to run:\n"
-            for index, workflow in enumerate(workflows):
+            for index, workflow in enumerate(workflows_select):
                 prompt += f"[{index + 1}] {workflow.name}\n"
             id = input(prompt)
         else:
             id = "1"
         if int(id) < 1 or int(id) > len(workflows):
             raise SaxoException("Wrong account selection")
-        workflows = [workflows[int(id) - 1]]
+        workflows = [workflows_select[int(id) - 1]]
 
     engine = WorkflowEngine(
         workflows=workflows,
@@ -115,6 +116,7 @@ def _yaml_loader(force_from_disk: bool) -> List[Workflow]:
                 indicator_data["name"],
                 indicator_data["ut"],
                 indicator_data.get("value"),
+                indicator_data.get("zone_value"),
             )
             close_data = condition_data["close"]
             close = Close(

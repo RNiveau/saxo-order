@@ -2,7 +2,7 @@
   index: DAX.I
   cfd: GER40.I
   end_date: 2024/08/01
-  enable: true
+  enable: false
   dry_run: false
   conditions:
     - indicator:
@@ -19,11 +19,35 @@
       order_direction: sell
       quantity: 0.1
 
-- name: sell ma50 h4 dax high
+- name: sell zone dax
   index: DAX.I
   cfd: GER40.I
   end_date: 2024/08/01
   enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 18370
+          zone_value: 18340
+      close:
+         direction: below
+         ut: h1
+         spread: 40
+      element: high
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
+- name: sell ma50 h4 dax high
+  index: DAX.I
+  cfd: GER40.I
+  end_date: 2024/08/01
+  enable: false
   dry_run: false
   conditions:
     - indicator:
@@ -45,7 +69,7 @@
   index: DAX.I
   cfd: GER40.I
   end_date: 2024/08/01
-  enable: true
+  enable: false
   dry_run: false
   conditions:
     - indicator:
@@ -66,7 +90,7 @@
   index: DAX.I
   cfd: GER40.I
   end_date: 2024/08/01
-  enable: true
+  enable: false
   dry_run: false
   conditions:
     - indicator:
@@ -88,7 +112,7 @@
   index: CAC40.I
   cfd: FRA40.I
   end_date: 2024/08/01
-  enable: true
+  enable: false
   dry_run: false
   conditions:
     - indicator:
@@ -109,7 +133,7 @@
   index: CAC40.I
   cfd: FRA40.I
   end_date: 2024/08/01
-  enable: true
+  enable: false
   dry_run: false
   conditions:
     - indicator:
@@ -131,7 +155,7 @@
   index: CAC40.I
   cfd: FRA40.I
   end_date: 2024/08/01
-  enable: true
+  enable: false
   dry_run: false
   conditions:
     - indicator:
@@ -152,7 +176,7 @@
   index: CAC40.I
   cfd: FRA40.I
   end_date: 2024/08/01
-  enable: true
+  enable: false
   dry_run: false
   conditions:
     - indicator:
@@ -169,6 +193,30 @@
       location: lower
       order_direction: sell
       quantity: 0.1
+
+
+- name: sell bbh h1 cac high
+  index: CAC40.I
+  cfd: FRA40.I
+  end_date: 2024/08/01
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: bbh
+          ut: h1
+      close:
+         direction: below
+         ut: h1
+         spread: 20
+      element: high
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
 
 # - name: buy ma50 h1 sp500 lower
 #   index: US500.I
@@ -193,52 +241,6 @@
 #       order_direction: buy
 #       quantity: 0.1
 
-- name: sell bbh h1 sp500 close
-  index: US500.I
-  cfd: US500.I
-  end_date: 2024/08/01
-  enable: true
-  dry_run: false
-  is_us: true
-  conditions:
-    - indicator:
-          name: bbh
-          ut: h1
-      close:
-         direction: below
-         ut: h1
-         spread: 10
-      element: close
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
-- name: sell bbh h1 sp500 high
-  index: US500.I
-  cfd: US500.I
-  end_date: 2024/08/01
-  enable: true
-  dry_run: false
-  is_us: true
-  conditions:
-    - indicator:
-          name: bbh
-          ut: h1
-      close:
-         direction: below
-         ut: h1
-         spread: 10
-      element: high
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
 
 - name: sell polarite h1 sp500
   index: US500.I
@@ -251,7 +253,7 @@
     - indicator:
           name: polarite
           ut: h1
-          value: 4550
+          value: 4580
       close:
          direction: below
          ut: h1

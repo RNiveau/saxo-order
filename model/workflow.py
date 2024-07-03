@@ -37,6 +37,7 @@ class IndicatorType(EnumWithGetValue):
     BBB = "bbb"
     BBH = "bbh"
     POL = "polarite"
+    ZONE = "zone"
 
 
 class WorkflowElement(EnumWithGetValue):
@@ -51,12 +52,14 @@ class Indicator:
         name: Union[str | IndicatorType],
         ut: Union[str | UnitTime],
         value: Optional[float] = None,
+        zone_value: Optional[float] = None,
     ):
         self.name = (
             IndicatorType.get_value(name) if isinstance(name, str) else name
         )
         self.ut = UnitTime.get_value(ut) if isinstance(ut, str) else ut
         self.value = value
+        self.zone_value = zone_value
 
 
 class Close:

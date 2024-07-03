@@ -75,6 +75,13 @@ class WorkflowEngine:
                                 self._polarite_workflow(workflow, candles),
                             )
                         )
+                    case IndicatorType.ZONE:
+                        orders.append(
+                            (
+                                workflow,
+                                self._zone_workflow(workflow, candles),
+                            )
+                        )
                     case _:
                         self.logger.error(
                             "indicator "
@@ -103,7 +110,7 @@ class WorkflowEngine:
                 nbr_hour = 55 if indicator.ut == UnitTime.H1 else 55 * 4
             case IndicatorType.BBH | IndicatorType.BBB:
                 nbr_hour = 21 if indicator.ut == UnitTime.H1 else 21 * 4
-            case IndicatorType.POL:
+            case IndicatorType.POL | IndicatorType.ZONE:
                 nbr_hour = 1
             case _:
                 self.logger.error(f"indicator {indicator.name} isn't managed")
@@ -188,12 +195,32 @@ class WorkflowEngine:
                     f"we don't manage order {trigger.location}, "
                     f"signal: {trigger.signal}"
                 )
-        else:
-            self.logger.warn(
-                f"we don't manage this direction "
-                f"{workflow.conditions[0].close.direction} "
-                "for this indicator: bbh"
-            )
+        elif workflow.conditions[0].close.direction == WorkflowDirection.ABOVE:
+            if (
+                element >= bb_value
+                and element <= bb_value + workflow.conditions[0].close.spread
+            ):
+                if (
+                    trigger.location == WorkflowLocation.HIGHER
+                    and trigger.signal == WorkflowSignal.BREAKOUT
+                ):
+                    price = trigger_candle.higher + 1
+                    order_type = (
+                        OrderType.OPEN_STOP
+                        if trigger.order_direction == Direction.BUY
+                        else OrderType.LIMIT
+                    )
+                    return Order(
+                        code=workflow.cfd,
+                        price=price,
+                        quantity=trigger.quantity,
+                        direction=trigger.order_direction,
+                        type=order_type,
+                    )
+                self.logger.warn(
+                    f"we don't manage order {trigger.location}, "
+                    f"signal: {trigger.signal}"
+                )
         return None
 
     def _ma_workflow(
@@ -317,6 +344,91 @@ class WorkflowEngine:
                 )
         elif workflow.conditions[0].close.direction == WorkflowDirection.ABOVE:
             if element >= value:
+                if (
+                    trigger.location == WorkflowLocation.HIGHER
+                    and trigger.signal == WorkflowSignal.BREAKOUT
+                ):
+                    price = trigger_candle.higher + 1
+                    order_type = (
+                        OrderType.OPEN_STOP
+                        if trigger.order_direction == Direction.BUY
+                        else OrderType.STOP
+                    )
+                    return Order(
+                        code=workflow.cfd,
+                        price=price,
+                        quantity=trigger.quantity,
+                        direction=trigger.order_direction,
+                        type=order_type,
+                    )
+                self.logger.warn(
+                    f"We don't manage order {trigger.location}, "
+                    f"signal: {trigger.signal}"
+                )
+        return None
+
+    def _zone_workflow(
+        self, workflow: Workflow, candles: List[Candle]
+    ) -> Optional[Order]:
+        if (
+            workflow.conditions[0].indicator.value is None
+            or workflow.conditions[0].indicator.zone_value is None
+        ):
+            self.logger.error(
+                "can't run polarite workflow with None value or zone_value"
+            )
+            raise SaxoException("indicator has none value or zone_value")
+        value = workflow.conditions[0].indicator.value
+        zone_value = workflow.conditions[0].indicator.zone_value
+        if value > zone_value:
+            tmp = value
+            value = zone_value
+            zone_value = tmp
+
+        candle = self.candles_service.get_candle_per_hour(
+            workflow.cfd, workflow.conditions[0].close.ut, get_date_utc0()
+        )
+        self.logger.debug(f"last candle {candle}")
+        if candle is None:
+            self.logger.error(f"can't retrive candle for {workflow.cfd}")
+            raise SaxoException("Can't retrive candle")
+
+        element = self._get_price_from_element(
+            candle, workflow.conditions[0].element
+        )
+        price = 0.0
+        trigger = workflow.trigger
+        trigger_candle = self._get_trigger_candle(workflow)
+        if element >= value and element <= zone_value:
+            if (
+                workflow.conditions[0].close.direction
+                == WorkflowDirection.BELOW
+            ):
+                if (
+                    trigger.location == WorkflowLocation.LOWER
+                    and trigger.signal == WorkflowSignal.BREAKOUT
+                ):
+                    price = trigger_candle.lower - 1
+                    order_type = (
+                        OrderType.OPEN_STOP
+                        if trigger.order_direction == Direction.SELL
+                        else OrderType.LIMIT
+                    )
+                    return Order(
+                        code=workflow.cfd,
+                        price=price,
+                        quantity=trigger.quantity,
+                        direction=trigger.order_direction,
+                        type=order_type,
+                    )
+                self.logger.warn(
+                    f"we don't manage order {trigger.location}, "
+                    f"signal: {trigger.signal}"
+                )
+            elif (
+                workflow.conditions[0].close.direction
+                == WorkflowDirection.ABOVE
+            ):
                 if (
                     trigger.location == WorkflowLocation.HIGHER
                     and trigger.signal == WorkflowSignal.BREAKOUT
