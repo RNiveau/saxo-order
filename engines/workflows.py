@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List
+from typing import Any, List, Optional
 
 from model import Candle, Indicator, IndicatorType
 from services.indicator_service import bollinger_bands, mobile_average
@@ -19,10 +19,14 @@ class AbstractWorkflow:
             f"get indicator {self.indicator_value}, ut {indicator.ut}"
         )
 
-    def below_condition(self, element: float, spread: float) -> bool:
+    def below_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
         return False
 
-    def above_condition(self, element: float, spread: float) -> bool:
+    def above_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
         return False
 
 
@@ -39,13 +43,19 @@ class BBWorkflow(AbstractWorkflow):
         )
         super().init_workflow(indicator, candles)
 
-    def below_condition(self, element: float, spread: float) -> bool:
+    def below_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        element = element if element is not None else candle.close
         return (
             element <= self.indicator_value
             and element >= self.indicator_value - spread
         )
 
-    def above_condition(self, element: float, spread: float) -> bool:
+    def above_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        element = element if element is not None else candle.close
         return (
             element >= self.indicator_value
             and element <= self.indicator_value + spread
@@ -73,13 +83,19 @@ class ZoneWorkflow(AbstractWorkflow):
         self.indicator_value = (value, zone_value)
         super().init_workflow(indicator, candles)
 
-    def below_condition(self, element: float, _: float) -> bool:
+    def below_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        element = element if element is not None else candle.close
         return (
             element >= self.indicator_value[0]
             and element <= self.indicator_value[1]
         )
 
-    def above_condition(self, element: float, _: float) -> bool:
+    def above_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        element = element if element is not None else candle.close
         return (
             element >= self.indicator_value[0]
             and element <= self.indicator_value[1]
@@ -96,13 +112,19 @@ class MA50Workflow(AbstractWorkflow):
         self.indicator_value = mobile_average(candles, 50)
         super().init_workflow(indicator, candles)
 
-    def below_condition(self, element: float, spread: float) -> bool:
+    def below_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        element = element if element is not None else candle.close
         return (
             element <= self.indicator_value
             and element >= self.indicator_value - spread
         )
 
-    def above_condition(self, element: float, spread: float) -> bool:
+    def above_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        element = element if element is not None else candle.close
         return (
             element >= self.indicator_value
             and element <= self.indicator_value + spread
@@ -122,8 +144,42 @@ class PolariteWorkflow(AbstractWorkflow):
         self.indicator_value = indicator.value
         super().init_workflow(indicator, candles)
 
-    def below_condition(self, element: float, _: float) -> bool:
-        return element <= self.indicator_value
+    def below_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        if element is not None:
+            return (
+                element <= self.indicator_value
+                and element >= self.indicator_value - spread
+            )
+        if (
+            candle.higher >= self.indicator_value
+            and candle.close <= self.indicator_value
+        ):
+            return True
+        if (
+            candle.higher <= self.indicator_value
+            and candle.higher >= self.indicator_value - spread
+        ):
+            return True
+        return False
 
-    def above_condition(self, element: float, _: float) -> bool:
-        return element >= self.indicator_value
+    def above_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        if element is not None:
+            return (
+                element >= self.indicator_value
+                and element <= self.indicator_value + spread
+            )
+        if (
+            candle.lower <= self.indicator_value
+            and candle.close >= self.indicator_value
+        ):
+            return True
+        if (
+            candle.lower >= self.indicator_value
+            and candle.lower <= self.indicator_value + spread
+        ):
+            return True
+        return False

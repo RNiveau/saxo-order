@@ -83,7 +83,7 @@ class Condition:
 
     indicator: Indicator
     close: Close
-    element: WorkflowElement
+    element: Optional[WorkflowElement] = None
 
 
 class Trigger:

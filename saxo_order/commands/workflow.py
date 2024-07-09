@@ -122,12 +122,13 @@ def _yaml_loader(force_from_disk: bool) -> List[Workflow]:
             close = Close(
                 close_data["direction"], close_data["ut"], close_data["spread"]
             )
+            element = condition_data.get("element")
+            if element is not None:
+                element = WorkflowElement.get_value(element)
             condition = Condition(
                 indicator,
                 close,
-                WorkflowElement.get_value(
-                    condition_data.get("element", WorkflowElement.CLOSE)
-                ),
+                element,
             )
             conditions.append(condition)
 

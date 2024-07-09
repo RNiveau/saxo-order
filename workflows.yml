@@ -266,3 +266,26 @@
       order_direction: sell
       quantity: 0.1
 
+
+- name: sell polarite h1 cac40
+  index: CAC40.I
+  cfd: FRA40.I
+  end_date: 2024/08/01
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: polarite
+          ut: h1
+          value: 7630
+      close:
+         direction: below
+         ut: h1
+         spread: 100
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+

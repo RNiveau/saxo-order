@@ -144,8 +144,8 @@ class WorkflowEngine:
         )
 
     def _get_price_from_element(
-        self, candle: Candle, element: WorkflowElement
-    ) -> float:
+        self, candle: Candle, element: Optional[WorkflowElement]
+    ) -> Optional[float]:
         match element:
             case WorkflowElement.CLOSE:
                 return candle.close
@@ -153,6 +153,8 @@ class WorkflowEngine:
                 return candle.higher
             case WorkflowElement.LOW:
                 return candle.lower
+            case None:
+                return None
             case _:
                 raise SaxoException(f"We don't handle {element} price")
 
@@ -176,7 +178,7 @@ class WorkflowEngine:
         trigger_candle = self._get_trigger_candle(workflow)
         if workflow.conditions[0].close.direction == WorkflowDirection.BELOW:
             if run.below_condition(
-                element, workflow.conditions[0].close.spread
+                candle, workflow.conditions[0].close.spread, element
             ):
                 if (
                     trigger.location == WorkflowLocation.LOWER
@@ -201,7 +203,7 @@ class WorkflowEngine:
                 )
         elif workflow.conditions[0].close.direction == WorkflowDirection.ABOVE:
             if run.above_condition(
-                element, workflow.conditions[0].close.spread
+                candle, workflow.conditions[0].close.spread, element
             ):
                 if (
                     trigger.location == WorkflowLocation.HIGHER
