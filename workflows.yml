@@ -281,7 +281,7 @@
       close:
          direction: below
          ut: h1
-         spread: 100
+         spread: 10
   trigger:
       ut: h1
       signal: breakout

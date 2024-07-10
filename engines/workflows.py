@@ -29,6 +29,14 @@ class AbstractWorkflow:
     ) -> bool:
         return False
 
+    def _is_within_indicator_range_minus_spread(
+        self, value: float, spread: float
+    ):
+        return self.indicator_value - spread <= value <= self.indicator_value
+
+    def _is_within_indicator_range_plus_spread(self, value, spread):
+        return self.indicator_value <= value <= self.indicator_value + spread
+
 
 class BBWorkflow(AbstractWorkflow):
 
@@ -46,20 +54,24 @@ class BBWorkflow(AbstractWorkflow):
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
     ) -> bool:
-        element = element if element is not None else candle.close
-        return (
-            element <= self.indicator_value
-            and element >= self.indicator_value - spread
-        )
+        if element is None:
+            return self._is_within_indicator_range_minus_spread(
+                candle.close, spread
+            ) or self._is_within_indicator_range_minus_spread(
+                candle.higher, spread
+            )
+        return self._is_within_indicator_range_minus_spread(element, spread)
 
     def above_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
     ) -> bool:
-        element = element if element is not None else candle.close
-        return (
-            element >= self.indicator_value
-            and element <= self.indicator_value + spread
-        )
+        if element is None:
+            return self._is_within_indicator_range_plus_spread(
+                candle.close, spread
+            ) or self._is_within_indicator_range_plus_spread(
+                candle.lower, spread
+            )
+        return self._is_within_indicator_range_plus_spread(element, spread)
 
 
 class ZoneWorkflow(AbstractWorkflow):
@@ -86,7 +98,14 @@ class ZoneWorkflow(AbstractWorkflow):
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
     ) -> bool:
-        element = element if element is not None else candle.close
+        if element is None:
+            return (
+                candle.close >= self.indicator_value[0]
+                and candle.close <= self.indicator_value[1]
+            ) or (
+                candle.higher >= self.indicator_value[0]
+                and candle.higher <= self.indicator_value[1]
+            )
         return (
             element >= self.indicator_value[0]
             and element <= self.indicator_value[1]
@@ -95,7 +114,14 @@ class ZoneWorkflow(AbstractWorkflow):
     def above_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
     ) -> bool:
-        element = element if element is not None else candle.close
+        if element is None:
+            return (
+                candle.close >= self.indicator_value[0]
+                and candle.close <= self.indicator_value[1]
+            ) or (
+                candle.lower >= self.indicator_value[0]
+                and candle.lower <= self.indicator_value[1]
+            )
         return (
             element >= self.indicator_value[0]
             and element <= self.indicator_value[1]
@@ -115,20 +141,24 @@ class MA50Workflow(AbstractWorkflow):
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
     ) -> bool:
-        element = element if element is not None else candle.close
-        return (
-            element <= self.indicator_value
-            and element >= self.indicator_value - spread
-        )
+        if element is None:
+            return self._is_within_indicator_range_minus_spread(
+                candle.close, spread
+            ) or self._is_within_indicator_range_minus_spread(
+                candle.higher, spread
+            )
+        return self._is_within_indicator_range_minus_spread(element, spread)
 
     def above_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
     ) -> bool:
-        element = element if element is not None else candle.close
-        return (
-            element >= self.indicator_value
-            and element <= self.indicator_value + spread
-        )
+        if element is None:
+            return self._is_within_indicator_range_plus_spread(
+                candle.close, spread
+            ) or self._is_within_indicator_range_plus_spread(
+                candle.lower, spread
+            )
+        return self._is_within_indicator_range_plus_spread(element, spread)
 
 
 class PolariteWorkflow(AbstractWorkflow):
