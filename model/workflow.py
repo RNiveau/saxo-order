@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from model.enum import Direction
 from model.enum_with_get_value import EnumWithGetValue
@@ -13,6 +13,13 @@ class UnitTime(EnumWithGetValue):
     H1 = "h1"
     H4 = "h4"
     W = "weekly"
+
+
+class SignalStrength(EnumWithGetValue):
+
+    STRONG = "strong"
+    WEAK = "weak"
+    MEDIUM = "medium"
 
 
 class WorkflowDirection(EnumWithGetValue):
@@ -133,7 +140,7 @@ class Candle:
     higher: float
     open: float
     close: float
-    ut: UnitTime
+    ut: UnitTime = UnitTime.D
     date: Optional[datetime.datetime] = None
 
 
@@ -145,3 +152,12 @@ class BollingerBands:
     middle: float
     ut: Optional[UnitTime] = None
     date: Optional[datetime.datetime] = None
+
+
+@dataclass
+class ComboSignal:
+    price: float
+    has_been_triggered: bool
+    direction: Direction
+    strength: SignalStrength
+    details: Dict

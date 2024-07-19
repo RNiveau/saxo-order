@@ -7,10 +7,8 @@ from client.aws_client import AwsClient
 from client.saxo_client import SaxoClient
 from model import AssetType, UnitTime
 from saxo_order.commands import catch_exception
-from services.candles_service import CandlesService
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from utils.helper import get_date_utc0
 from utils.logger import Logger
 
 logger = Logger.get_logger("internal")
@@ -174,15 +172,39 @@ def refresh_stocks_list(ctx: Context):
 @click.pass_context
 @catch_exception(handle=SaxoException)
 def technical(ctx: Context):
-    #    logger = Logger.get_logger("technical", logging.DEBUG)
     configuration = Configuration(ctx.obj["config"])
-    workflow_service = CandlesService(SaxoClient(configuration))
-    saxo_client = SaxoClient(configuration)
-    asset = saxo_client.get_asset("ACA:xpar")
-    print(asset)
-    workflow_service.build_hour_candles(
-        "CAC40.I", "FRA40.I", UnitTime.H1, 7, 15, 50, 0, get_date_utc0()
+    from services.candles_service import CandlesService
+
+    candles_service = CandlesService(SaxoClient(configuration))
+    # saxo_client = SaxoClient(configuration)
+    # from client.client_helper import map_data_to_candles
+    # candles = candles_service.build_hour_candles(
+    #     "DAX.I", "CAC.I", UnitTime.H4, 7, 15, 1000, 0)
+    # print(candles)
+    # DAX.I, CAC40.I
+    import datetime
+
+    candles = candles_service.build_hour_candles(
+        "DAX.I",
+        "CAC.I",
+        UnitTime.H1,
+        7,
+        15,
+        250,
+        0,
+        datetime.datetime(2024, 6, 20, 9),
     )
+    # asset = saxo_client.get_asset("dax.i")
+    # candles = saxo_client.get_historical_data(
+    #     asset_type=asset["AssetType"],
+    #     saxo_uic=asset["Identifier"],
+    #     horizon=1440,
+    #     count=250,
+    #     date=datetime.datetime(2024, 4, 16),
+    # )
+    # candles = map_data_to_candles(candles, ut=UnitTime.D)
+    print(candles)
+    # macd0lag(candles)
 
 
 @click.command()

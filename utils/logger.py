@@ -21,5 +21,8 @@ class Logger:
             )
             Logger.__logger.addHandler(ch)
         logger = logging.getLogger(f"k-order.{name}")
-        logger.setLevel(level)
+        if os.getenv("LOG_LEVEL") is not None:
+            logger.setLevel(os.getenv("LOG_LEVEL", logging.INFO))
+        else:
+            logger.setLevel(level)
         return logger

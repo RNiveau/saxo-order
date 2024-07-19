@@ -19,6 +19,27 @@
       order_direction: sell
       quantity: 0.1
 
+- name: sell ma50 h1 dax
+  index: DAX.I
+  cfd: GER40.I
+  end_date: 2024/08/01
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: ma50
+          ut: h1
+      close:
+         direction: below
+         ut: h1
+         spread: 10
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
 - name: sell zone dax
   index: DAX.I
   cfd: GER40.I
@@ -34,7 +55,7 @@
       close:
          direction: below
          ut: h1
-         spread: 30
+         spread: 10
   trigger:
       ut: h1
       signal: breakout
@@ -85,29 +106,6 @@
       quantity: 0.1
 
 
-- name: buy bbb h1 sp500 lower
-  index: US500.I
-  cfd: US500.I
-  end_date: 2024/07/01
-  enable: true
-  dry_run: false
-  is_us: true
-  conditions:
-    - indicator:
-          name: bbb
-          ut: h1
-      close:
-         direction: above
-         ut: h1
-         spread: 10
-  trigger:
-      ut: h1
-      signal: breakout
-      location: higher
-      order_direction: buy
-      quantity: 0.1
-
-
 - name: sell polarite h1 sp500
   index: US500.I
   cfd: US500.I
@@ -119,7 +117,7 @@
     - indicator:
           name: polarite
           ut: h1
-          value: 4580
+          value: 5600
       close:
          direction: below
          ut: h1
@@ -142,7 +140,7 @@
     - indicator:
           name: polarite
           ut: h1
-          value: 7630
+          value: 7650
       close:
          direction: below
          ut: h1
@@ -154,25 +152,25 @@
       order_direction: sell
       quantity: 0.1
 
-- name: sell bbh h4 russel
-  index: US2000SEP24
-  cfd: US2000SEP24
-  end_date: 2024/08/01
-  enable: true
-  dry_run: false
-  conditions:
-    - indicator:
-          name: bbh
-          ut: h4
-          value: 7630
-      close:
-         direction: below
-         ut: h1
-         spread: 10
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
+# - name: sell bbh h4 russel
+#   index: US2000SEP24
+#   cfd: US2000SEP24
+#   end_date: 2024/08/01
+#   enable: true
+#   dry_run: false
+#   conditions:
+#     - indicator:
+#           name: bbh
+#           ut: h4
+#           value: 7630
+#       close:
+#          direction: below
+#          ut: h1
+#          spread: 10
+#   trigger:
+#       ut: h1
+#       signal: breakout
+#       location: lower
+#       order_direction: sell
+#       quantity: 0.1
 

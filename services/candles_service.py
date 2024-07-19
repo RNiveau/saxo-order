@@ -172,6 +172,7 @@ class CandlesService:
             )
         nbr_hours *= 2
         if nbr_hours > 1200:
+            self.logger.debug(f"reduce nbr_hour from {nbr_hours} to 1200")
             nbr_hours = 1200
         asset = self.saxo_client.get_asset(code)
         data = self.saxo_client.get_historical_data(
