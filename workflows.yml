@@ -32,7 +32,7 @@
       close:
          direction: below
          ut: h1
-         spread: 10
+         spread: 20
   trigger:
       ut: h1
       signal: breakout
@@ -50,8 +50,8 @@
     - indicator:
           name: zone
           ut: h1
-          value: 18550
-          zone_value: 18650
+          value: 18360
+          zone_value: 18400
       close:
          direction: below
          ut: h1

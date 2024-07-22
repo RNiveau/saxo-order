@@ -394,6 +394,22 @@ class TestIndicatorService:
                     },
                 ),
             ),
+            (
+                "combo_sell_h1_cac.obj",
+                ComboSignal(
+                    7861.23,
+                    False,
+                    Direction.SELL,
+                    SignalStrength.MEDIUM,
+                    {
+                        "macd": False,
+                        "ma50_over_bb": False,
+                        "price_within_bb": False,
+                        "strong_ma50": False,
+                        "both_bb_flat": True,
+                    },
+                ),
+            ),
         ],
     )
     def test_combo(self, file_candles: str, expected: float):

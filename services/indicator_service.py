@@ -114,9 +114,11 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
         if (
             candles[0].close > bb20.bottom + atr
             and candles[1].close > bb20.bottom + atr
+            and candles[0].lower > bb20.bottom + atr
+            and candles[1].lower > bb20.bottom + atr
         ):
             logger.debug(
-                f"close {candles[0].close} is far the bbb 2.0 {bb20.bottom}"
+                f"candle {candles[0]} is far the bbb 2.0 {bb20.bottom}"
             )
             return None
         buy_combo = ComboSignal(
@@ -174,10 +176,10 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
         if (
             candles[0].close < bb20.up - atr
             and candles[1].close < bb20.up - atr
+            and candles[0].higher < bb20.up - atr
+            and candles[1].higher < bb20.up - atr
         ):
-            logger.debug(
-                f"close {candles[0].close} is far the bbb 2.0 {bb20.up}"
-            )
+            logger.debug(f"candle {candles[0]} is far the bbb 2.0 {bb20.up}")
             return None
         sell_combo = ComboSignal(
             price=0,

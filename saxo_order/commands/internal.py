@@ -185,14 +185,14 @@ def technical(ctx: Context):
     import datetime
 
     candles = candles_service.build_hour_candles(
-        "DAX.I",
+        "CAC40.I",
         "CAC.I",
         UnitTime.H1,
         7,
         15,
         250,
         0,
-        datetime.datetime(2024, 6, 20, 9),
+        datetime.datetime(2024, 6, 12, 18),
     )
     # asset = saxo_client.get_asset("dax.i")
     # candles = saxo_client.get_historical_data(
