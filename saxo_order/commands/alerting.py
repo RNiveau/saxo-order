@@ -43,6 +43,7 @@ def run_alerting(config: str) -> None:
     slack_messages: Dict[str, List[str]] = {
         "double_top": [],
         "container_candle": [],
+        "combo": [],
     }
     has_message = False
     for asset in assets:
@@ -70,7 +71,14 @@ def run_alerting(config: str) -> None:
                 f"{asset['name']}: {date} at {candle.close}"
             )
             has_message = True
-
+        if (combo := indicator_service.combo(candles)) is not None:
+            date = datetime.datetime.now().strftime("%Y-%m-%d")
+            slack_messages["combo"].append(
+                f"{asset['name']}: combo {combo.direction} {combo.strength} "
+                f"{date} at {combo.price} (has been triggered ? "
+                f"{combo.has_been_triggered})"
+            )
+            has_message = True
     if has_message is False:
         slack_client.chat_postMessage(
             channel="#stock",
@@ -124,7 +132,7 @@ def _build_candles(saxo_client: SaxoClient, asset: Dict) -> List[Candle]:
         asset_type=AssetType.STOCK,
         saxo_uic=asset["saxo_uic"],
         horizon=1440,
-        count=20,
+        count=250,
     )
     candles = client_helper.map_data_to_candles(data, ut=UnitTime.D)
     today = datetime.datetime.now()

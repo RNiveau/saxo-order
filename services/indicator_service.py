@@ -101,7 +101,7 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
     atr = average_true_range(candles)
 
     if (bbh_slope < -5 or bbh_slope > 5) and (bbb_slope < -5 or bbb_slope > 5):
-        logger.info(f"BB bands are not flat bbh={bbh_slope}, bbb={bbb_slope}")
+        logger.debug(f"BB bands are not flat bbh={bbh_slope}, bbb={bbb_slope}")
         return None
     if ma50_slope > 3:
         logger.debug(f"testing a buying combo ma50_slope={ma50_slope}")
