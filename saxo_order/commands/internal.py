@@ -190,7 +190,7 @@ def technical(ctx: Context):
         UnitTime.H1,
         7,
         15,
-        250,
+        1200,
         0,
         datetime.datetime(2024, 6, 12, 18),
     )
@@ -204,6 +204,7 @@ def technical(ctx: Context):
     # )
     # candles = map_data_to_candles(candles, ut=UnitTime.D)
     print(candles)
+    print(len(candles))
     # macd0lag(candles)
 
 

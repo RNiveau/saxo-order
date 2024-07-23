@@ -340,22 +340,42 @@ class SaxoClient:
         Get historical data for a specific asset
         First date is the newest and the list is sorted in a decremental way
         """
+        max_items = 1200
         if date is None:
             date = datetime.now()
-        self.logger.debug(
-            f"get_historical_data {saxo_uic}, horizon={horizon},"
-            f" count={count}, {date}"
-        )
-        response = self.session.get(
-            f"{self.configuration.saxo_url}chart/v1/charts/?&Uic={saxo_uic}&"
-            f"AssetType={asset_type}&Horizon={horizon}&Mode=UpTo&Count={count}"
-            f"&Time={date.strftime('%Y-%m-%dT%H:%M:00Z')}"
-        )
-        self._check_response(response)
-        data = response.json()["Data"]
-        for d in data:
-            d["Time"] = datetime.strptime(d["Time"], "%Y-%m-%dT%H:%M:%S.%fZ")
-        data = sorted(data, key=lambda x: x["Time"], reverse=True)
+        real_count = count if count <= max_items else max_items
+        offset = 0
+        data = []
+        while offset + real_count <= count:
+            self.logger.debug(
+                f"get_historical_data {saxo_uic}, horizon={horizon},"
+                f" count={count}, realcount={real_count}, offset={offset}"
+                f", {date}"
+            )
+            response = self.session.get(
+                f"{self.configuration.saxo_url}chart/v1/charts/?&Uic="
+                f"{saxo_uic}&AssetType={asset_type}&Horizon={horizon}"
+                f"&Mode=UpTo&Count={real_count}&"
+                f"Time={date.strftime('%Y-%m-%dT%H:%M:00Z')}"
+            )
+            self._check_response(response)
+            tmp_data = response.json()["Data"]
+            for d in tmp_data:
+                d["Time"] = datetime.strptime(
+                    d["Time"], "%Y-%m-%dT%H:%M:%S.%fZ"
+                )
+            data += sorted(tmp_data, key=lambda x: x["Time"], reverse=True)
+            offset += real_count
+            real_count = (
+                count - offset if count - offset < max_items else max_items
+            )
+            date = (
+                data[-1]["Time"]
+                if data[-1]["Time"] is not None
+                else datetime.now()
+            )
+            if real_count == 0:
+                break
         return data
 
     @staticmethod

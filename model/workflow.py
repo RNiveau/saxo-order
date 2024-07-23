@@ -41,6 +41,7 @@ class WorkflowSignal(EnumWithGetValue):
 
 class IndicatorType(EnumWithGetValue):
     MA50 = "ma50"
+    COMBO = "combo"
     BBB = "bbb"
     BBH = "bbh"
     POL = "polarite"

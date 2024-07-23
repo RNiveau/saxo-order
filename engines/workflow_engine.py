@@ -6,6 +6,7 @@ from slack_sdk import WebClient
 from engines.workflows import (
     AbstractWorkflow,
     BBWorkflow,
+    ComboWorkflow,
     MA50Workflow,
     PolariteWorkflow,
     ZoneWorkflow,
@@ -68,6 +69,15 @@ class WorkflowEngine:
                                 ),
                             )
                         )
+                    case IndicatorType.COMBO:
+                        results.append(
+                            (
+                                workflow,
+                                self._run_workflow(
+                                    workflow, candles, ComboWorkflow()
+                                ),
+                            )
+                        )
                     case IndicatorType.BBB | IndicatorType.BBH:
                         results.append(
                             (
@@ -121,6 +131,8 @@ class WorkflowEngine:
         match indicator.name:
             case IndicatorType.MA50:
                 nbr_hour = 55 if indicator.ut == UnitTime.H1 else 55 * 4
+            case IndicatorType.COMBO:
+                nbr_hour = 250 if indicator.ut == UnitTime.H1 else 250 * 4
             case IndicatorType.BBH | IndicatorType.BBB:
                 nbr_hour = 21 if indicator.ut == UnitTime.H1 else 21 * 4
             case IndicatorType.POL | IndicatorType.ZONE:
@@ -163,22 +175,22 @@ class WorkflowEngine:
     ) -> Optional[Order]:
         run.init_workflow(workflow.conditions[0].indicator, candles)
 
-        candle = self.candles_service.get_candle_per_hour(
+        close_candle = self.candles_service.get_candle_per_hour(
             workflow.cfd, workflow.conditions[0].close.ut, get_date_utc0()
         )
-        if candle is None:
+        if close_candle is None:
             self.logger.error(f"can't retrive candle for {workflow.cfd}")
             raise SaxoException("Can't retrive candle")
 
         element = self._get_price_from_element(
-            candle, workflow.conditions[0].element
+            close_candle, workflow.conditions[0].element
         )
         price = 0.0
         trigger = workflow.trigger
         trigger_candle = self._get_trigger_candle(workflow)
         if workflow.conditions[0].close.direction == WorkflowDirection.BELOW:
             if run.below_condition(
-                candle, workflow.conditions[0].close.spread, element
+                close_candle, workflow.conditions[0].close.spread, element
             ):
                 if (
                     trigger.location == WorkflowLocation.LOWER
@@ -203,7 +215,7 @@ class WorkflowEngine:
                 )
         elif workflow.conditions[0].close.direction == WorkflowDirection.ABOVE:
             if run.above_condition(
-                candle, workflow.conditions[0].close.spread, element
+                close_candle, workflow.conditions[0].close.spread, element
             ):
                 if (
                     trigger.location == WorkflowLocation.HIGHER

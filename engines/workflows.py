@@ -1,8 +1,8 @@
 import logging
 from typing import Any, List, Optional
 
-from model import Candle, Indicator, IndicatorType
-from services.indicator_service import bollinger_bands, mobile_average
+from model import Candle, ComboSignal, Direction, Indicator, IndicatorType
+from services.indicator_service import bollinger_bands, combo, mobile_average
 from utils.exception import SaxoException
 from utils.logger import Logger
 
@@ -213,3 +213,30 @@ class PolariteWorkflow(AbstractWorkflow):
         ):
             return True
         return False
+
+
+class ComboWorkflow(AbstractWorkflow):
+
+    logger = Logger.get_logger("combo-workflow", logging.DEBUG)
+
+    def init_workflow(
+        self, indicator: Indicator, candles: List[Candle]
+    ) -> None:
+        self.indicator_value: Optional[ComboSignal] = combo(candles)
+        super().init_workflow(indicator, candles)
+
+    def below_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        return (
+            self.indicator_value is not None
+            and self.indicator_value.direction == Direction.SELL
+        )
+
+    def above_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        return (
+            self.indicator_value is not None
+            and self.indicator_value.direction == Direction.BUY
+        )
