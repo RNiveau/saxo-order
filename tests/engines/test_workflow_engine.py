@@ -166,5 +166,5 @@ class TestWorkflowEngine:
         assert slack_client.chat_postMessage.call_count == slack_call
         if slack_call > 0:
             assert slack_client.chat_postMessage.call_args_list[0] == call(
-                channel="#stock", text=slack_message
+                channel="#workflows", text=slack_message
             )

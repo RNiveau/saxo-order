@@ -122,7 +122,9 @@ class WorkflowEngine:
                     f"{order[1].code} at {order[1].price}"
                 )
                 self.logger.debug(log)
-                self.slack_client.chat_postMessage(channel="#stock", text=log)
+                self.slack_client.chat_postMessage(
+                    channel="#workflows", text=log
+                )
 
     def _get_candles_from_indicator_ut(
         self, workflow: Workflow, indicator: Indicator
