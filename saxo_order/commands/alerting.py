@@ -47,38 +47,44 @@ def run_alerting(config: str) -> None:
     }
     has_message = False
     for asset in assets:
-        if "saxo_uic" in asset:
-            candles = _build_candles(saxo_client, asset)
-        if (
-            candle := _run_double_top(saxo_client, asset, candles)
-        ) is not None:
-            date = (
-                candle.date.strftime("%Y-%m-%d")
-                if candle.date is not None
-                else ""
-            )
-            slack_messages["double_top"].append(
-                f"{asset['name']}: {date} at {candle.close}"
-            )
-            has_message = True
-        if (candle := _run_containing_candle(asset, candles)) is not None:
-            date = (
-                candle.date.strftime("%Y-%m-%d")
-                if candle.date is not None
-                else ""
-            )
-            slack_messages["container_candle"].append(
-                f"{asset['name']}: {date} at {candle.close}"
-            )
-            has_message = True
-        if (combo := indicator_service.combo(candles)) is not None:
-            date = datetime.datetime.now().strftime("%Y-%m-%d")
-            slack_messages["combo"].append(
-                f"{asset['name']}: combo {combo.direction} {combo.strength} "
-                f"{date} at {combo.price} (has been triggered ? "
-                f"{combo.has_been_triggered})"
-            )
-            has_message = True
+        logger.debug(f"scan {asset['name']}")
+        try:
+            if "saxo_uic" in asset:
+                candles = _build_candles(saxo_client, asset)
+                if (
+                    candle := _run_double_top(saxo_client, asset, candles)
+                ) is not None:
+                    date = (
+                        candle.date.strftime("%Y-%m-%d")
+                        if candle.date is not None
+                        else ""
+                    )
+                    slack_messages["double_top"].append(
+                        f"{asset['name']}: {date} at {candle.close}"
+                    )
+                    has_message = True
+                if (
+                    candle := _run_containing_candle(asset, candles)
+                ) is not None:
+                    date = (
+                        candle.date.strftime("%Y-%m-%d")
+                        if candle.date is not None
+                        else ""
+                    )
+                    slack_messages["container_candle"].append(
+                        f"{asset['name']}: {date} at {candle.close}"
+                    )
+                    has_message = True
+                if (combo := indicator_service.combo(candles)) is not None:
+                    date = datetime.datetime.now().strftime("%Y-%m-%d")
+                    slack_messages["combo"].append(
+                        f"{asset['name']}: combo {combo.direction} "
+                        f"{combo.strength} {date} at {combo.price} "
+                        f"(has been triggered ? {combo.has_been_triggered})"
+                    )
+                    has_message = True
+        except SaxoException as e:
+            logger.error(f"{asset['name']} can't be scanned {e}")
     if has_message is False:
         slack_client.chat_postMessage(
             channel="#stock",
