@@ -363,19 +363,7 @@ class TestIndicatorService:
             ("no_combo_buy_daily_eramet.obj", None),
             (
                 "combo_buy_daily_aca.obj",
-                ComboSignal(
-                    13.146,
-                    False,
-                    Direction.BUY,
-                    SignalStrength.MEDIUM,
-                    {
-                        "macd": False,
-                        "ma50_over_bb": True,
-                        "price_within_bb": False,
-                        "strong_ma50": True,
-                        "both_bb_flat": False,
-                    },
-                ),
+                None,
             ),
             ("no_combo_sell_h4_dax.obj", None),
             (
@@ -407,6 +395,30 @@ class TestIndicatorService:
                         "price_within_bb": False,
                         "strong_ma50": False,
                         "both_bb_flat": True,
+                    },
+                ),
+            ),
+            (
+                "no_combo_daily_stmpa.obj",
+                None,
+            ),
+            (
+                "no_combo_daily_vie.obj",
+                None,
+            ),
+            (
+                "combo_sell_daily_aca.obj",
+                ComboSignal(
+                    13.91,
+                    False,
+                    Direction.SELL,
+                    SignalStrength.MEDIUM,
+                    {
+                        "macd": True,
+                        "ma50_over_bb": False,
+                        "price_within_bb": False,
+                        "strong_ma50": True,
+                        "both_bb_flat": False,
                     },
                 ),
             ),

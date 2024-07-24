@@ -173,39 +173,43 @@ def refresh_stocks_list(ctx: Context):
 @catch_exception(handle=SaxoException)
 def technical(ctx: Context):
     configuration = Configuration(ctx.obj["config"])
-    from services.candles_service import CandlesService
+    # from services.candles_service import CandlesService
 
-    candles_service = CandlesService(SaxoClient(configuration))
-    # saxo_client = SaxoClient(configuration)
+    # candles_service = CandlesService(SaxoClient(configuration))
+    saxo_client = SaxoClient(configuration)
     # from client.client_helper import map_data_to_candles
     # candles = candles_service.build_hour_candles(
     #     "DAX.I", "CAC.I", UnitTime.H4, 7, 15, 1000, 0)
     # print(candles)
     # DAX.I, CAC40.I
-    import datetime
+    # import datetime
 
-    candles = candles_service.build_hour_candles(
-        "CAC40.I",
-        "CAC.I",
-        UnitTime.H1,
-        7,
-        15,
-        1200,
-        0,
-        datetime.datetime(2024, 6, 12, 18),
-    )
-    # asset = saxo_client.get_asset("dax.i")
-    # candles = saxo_client.get_historical_data(
-    #     asset_type=asset["AssetType"],
-    #     saxo_uic=asset["Identifier"],
-    #     horizon=1440,
-    #     count=250,
-    #     date=datetime.datetime(2024, 4, 16),
+    # candles = candles_service.build_hour_candles(
+    #     "CAC40.I",
+    #     "CAC.I",
+    #     UnitTime.H1,
+    #     7,
+    #     15,
+    #     1200,
+    #     0,
+    #     datetime.datetime(2024, 6, 12, 18),
     # )
-    # candles = map_data_to_candles(candles, ut=UnitTime.D)
+    asset = saxo_client.get_asset("aca", "xpar")
+    candles = saxo_client.get_historical_data(
+        asset_type=asset["AssetType"],
+        saxo_uic=asset["Identifier"],
+        horizon=1440,
+        count=250,
+    )
+    from client.client_helper import map_data_to_candles
+
+    candles = map_data_to_candles(candles, ut=UnitTime.D)
     print(candles)
     print(len(candles))
     # macd0lag(candles)
+    from services.indicator_service import slope_percentage
+
+    print(slope_percentage(0, 29.65260, 10, 29.53320))
 
 
 @click.command()

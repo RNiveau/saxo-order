@@ -99,6 +99,8 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
     bbb_slope = slope_percentage(0, bb_first.bottom, 3, bb_last.bottom)
     macd_0lag = macd0lag(candles)
     atr = average_true_range(candles)
+    margin_variation_bb = atr * 0.3
+    margin_variation_ma50 = atr * 0.1
 
     if (bbh_slope < -5 or bbh_slope > 5) and (bbb_slope < -5 or bbb_slope > 5):
         logger.debug(f"BB bands are not flat bbh={bbh_slope}, bbb={bbb_slope}")
@@ -106,21 +108,33 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
     if ma50_slope > 3:
         logger.debug(f"testing a buying combo ma50_slope={ma50_slope}")
         signal = 0
+        if candles[0].close < ma50_last:
+            logger.debug(
+                f"close {candles[0].close} is bellow ma50 {ma50_last}"
+            )
+            return None
         if candles[0].close < bb_last.bottom * 0.999:
             logger.debug(
                 f"close {candles[0].close} is bellow bbb 2.5 {bb_last.bottom}"
             )
             return None
         if (
-            candles[0].close > bb20.bottom + atr
-            and candles[1].close > bb20.bottom + atr
-            and candles[0].lower > bb20.bottom + atr
-            and candles[1].lower > bb20.bottom + atr
+            candles[0].close > bb20.bottom + margin_variation_bb
+            and candles[1].close > bb20.bottom + margin_variation_bb
+            and candles[0].lower > bb20.bottom + margin_variation_bb
+            and candles[1].lower > bb20.bottom + margin_variation_bb
         ):
-            logger.debug(
-                f"candle {candles[0]} is far the bbb 2.0 {bb20.bottom}"
-            )
-            return None
+            if (
+                candles[0].close > ma50_last + margin_variation_ma50
+                and candles[1].close > ma50_last + margin_variation_ma50
+                and candles[0].higher > ma50_last + margin_variation_ma50
+                and candles[1].higher > ma50_last + margin_variation_ma50
+            ):
+                logger.debug(
+                    f"candle {candles[0]} is far from the bbb 2.0 "
+                    f"{bb20.bottom} and from the ma50 {ma50_last}"
+                )
+                return None
         buy_combo = ComboSignal(
             price=0,
             direction=Direction.BUY,
@@ -168,19 +182,31 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
     elif ma50_slope < -3:
         logger.debug(f"testing a selling combo ma50_slope={ma50_slope}")
         signal = 0
+        if candles[0].close > ma50_last:
+            logger.debug(f"close {candles[0].close} is above ma50 {ma50_last}")
+            return None
         if candles[0].close > bb_last.up * 1.001:
             logger.debug(
                 f"close {candles[0].close} is above bbb 2.5 {bb_last.up}"
             )
             return None
         if (
-            candles[0].close < bb20.up - atr
-            and candles[1].close < bb20.up - atr
-            and candles[0].higher < bb20.up - atr
-            and candles[1].higher < bb20.up - atr
+            candles[0].close < bb20.up - margin_variation_bb
+            and candles[1].close < bb20.up - margin_variation_bb
+            and candles[0].higher < bb20.up - margin_variation_bb
+            and candles[1].higher < bb20.up - margin_variation_bb
         ):
-            logger.debug(f"candle {candles[0]} is far the bbb 2.0 {bb20.up}")
-            return None
+            if (
+                candles[0].close < ma50_last - margin_variation_ma50
+                and candles[1].close < ma50_last - margin_variation_ma50
+                and candles[0].higher < ma50_last - margin_variation_ma50
+                and candles[1].higher < ma50_last - margin_variation_ma50
+            ):
+                logger.debug(
+                    f"candle {candles[0]} is far from the bbb 2.0 "
+                    f"{bb20.up} and from the ma50 {ma50_last}"
+                )
+                return None
         sell_combo = ComboSignal(
             price=0,
             direction=Direction.SELL,
