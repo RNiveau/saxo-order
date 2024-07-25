@@ -10,6 +10,7 @@ def resfreh_token_lambda(
         "refresh_token",
         role=lambda_role_arn,
         image_uri=f"{_get_image_uri(repository_url)}",
+        memory_size=256,
         timeout=20,
         environment=aws.lambda_.FunctionEnvironmentArgs(
             variables={"SAXO_CONFIG": "prod_config.yml"}
@@ -58,6 +59,7 @@ def workflows_lambda(
         "workflows",
         role=lambda_role_arn,
         image_uri=f"{_get_image_uri(repository_url)}",
+        memory_size=512,
         timeout=600,
         environment=aws.lambda_.FunctionEnvironmentArgs(
             variables={"SAXO_CONFIG": "prod_config.yml", "LOG_LEVEL": "DEBUG"},
