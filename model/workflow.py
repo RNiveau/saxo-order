@@ -127,9 +127,9 @@ class Workflow:
     name: str
     index: str
     cfd: str
-    end_date: datetime.date
     conditions: List[Condition]
     trigger: Trigger
+    end_date: Optional[datetime.date] = None
     enable: bool = False
     dry_run: bool = True
     is_us: bool = False

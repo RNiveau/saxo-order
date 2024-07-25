@@ -101,9 +101,13 @@ def _yaml_loader(force_from_disk: bool) -> List[Workflow]:
         name = workflow_data["name"]
         index = workflow_data["index"]
         cfd = workflow_data["cfd"]
-        end_date = datetime.datetime.strptime(
-            workflow_data["end_date"], "%Y/%m/%d"
-        ).date()
+        end_date = (
+            datetime.datetime.strptime(
+                workflow_data["end_date"], "%Y/%m/%d"
+            ).date()
+            if workflow_data.get("end_date") is not None
+            else None
+        )
         enable = workflow_data["enable"]
         dry_run = workflow_data["dry_run"]
         is_us = workflow_data.get("is_us", False)

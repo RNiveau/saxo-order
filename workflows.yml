@@ -1,7 +1,6 @@
 - name: sell ma50 h4 dax
   index: DAX.I
   cfd: GER40.I
-  end_date: 2024/08/01
   enable: true
   dry_run: false
   conditions:
@@ -22,7 +21,6 @@
 - name: sell ma50 h1 dax
   index: DAX.I
   cfd: GER40.I
-  end_date: 2024/08/01
   enable: true
   dry_run: false
   conditions:
@@ -43,7 +41,6 @@
 - name: sell zone dax
   index: DAX.I
   cfd: GER40.I
-  end_date: 2024/08/01
   enable: true
   dry_run: false
   conditions:
@@ -66,7 +63,6 @@
 - name: sell ma50 h4 cac
   index: CAC40.I
   cfd: FRA40.I
-  end_date: 2024/08/01
   enable: true
   dry_run: false
   conditions:
@@ -84,28 +80,6 @@
       order_direction: sell
       quantity: 0.1
 
-- name: sell bbh h1 cac high
-  index: CAC40.I
-  cfd: FRA40.I
-  end_date: 2024/08/01
-  enable: true
-  dry_run: false
-  conditions:
-    - indicator:
-          name: bbh
-          ut: h1
-      close:
-         direction: below
-         ut: h1
-         spread: 20
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
-
 - name: sell polarite h1 sp500
   index: US500.I
   cfd: US500.I
@@ -117,7 +91,7 @@
     - indicator:
           name: polarite
           ut: h1
-          value: 5600
+          value: 5480
       close:
          direction: below
          ut: h1
@@ -133,8 +107,7 @@
 - name: sell polarite h1 cac40
   index: CAC40.I
   cfd: FRA40.I
-  end_date: 2024/08/01
-  enable: true
+  enable: false
   dry_run: false
   conditions:
     - indicator:
@@ -155,7 +128,6 @@
 - name: combo h1 cac40
   index: CAC40.I
   cfd: FRA40.I
-  end_date: 2024/08/01
   enable: true
   dry_run: false
   conditions:
@@ -175,7 +147,6 @@
 - name: combo h4 cac40
   index: CAC40.I
   cfd: FRA40.I
-  end_date: 2024/08/01
   enable: true
   dry_run: false
   conditions:
@@ -195,7 +166,6 @@
 - name: combo h1 dax
   index: DAX.I
   cfd: GER40.I
-  end_date: 2024/08/01
   enable: true
   dry_run: false
   conditions:
@@ -215,7 +185,6 @@
 - name: combo h4 dax
   index: DAX.I
   cfd: GER40.I
-  end_date: 2024/08/01
   enable: true
   dry_run: false
   conditions:
@@ -235,13 +204,31 @@
 - name: combo h1 sp500
   index: US500.I
   cfd: US500.I
-  end_date: 2024/08/01
   enable: true
   dry_run: false
   conditions:
     - indicator:
           name: combo
           ut: h1
+      close:
+         direction: below
+         ut: h1
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
+- name: combo h4 sp500
+  index: US500.I
+  cfd: US500.I
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: combo
+          ut: h4
       close:
          direction: below
          ut: h1

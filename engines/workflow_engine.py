@@ -49,7 +49,10 @@ class WorkflowEngine:
     def run(self) -> None:
         results = []
         for workflow in self.workflows:
-            if workflow.enable and workflow.end_date >= get_date_utc0().date():
+            if workflow.enable and (
+                workflow.end_date is None
+                or workflow.end_date >= get_date_utc0().date()
+            ):
                 self.logger.info(f"Run workflow {workflow.name}")
                 condition = workflow.conditions[0]
                 candles = self._get_candles_from_indicator_ut(
