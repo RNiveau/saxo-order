@@ -119,9 +119,12 @@ def _run_double_top(
     candles: List[Candle],
 ) -> Optional[Candle]:
     detail = saxo_client.get_asset_detail(asset["saxo_uic"], AssetType.STOCK)
-    tick = client_helper.get_tick_size(
-        detail["TickSizeScheme"], candles[0].close
-    )
+    if "TickSizeScheme" not in detail:
+        tick = 0.0
+    else:
+        tick = client_helper.get_tick_size(
+            detail["TickSizeScheme"], candles[0].close
+        )
     double_top_candle = indicator_service.double_top(candles, tick)
     if (
         double_top_candle is not None
