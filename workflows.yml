@@ -181,6 +181,7 @@
 - name: combo h1 sp500
   index: US500.I
   cfd: US500.I
+  is_us: true
   enable: true
   dry_run: false
   conditions:
@@ -200,6 +201,7 @@
 - name: combo h4 sp500
   index: US500.I
   cfd: US500.I
+  is_us: true
   enable: true
   dry_run: false
   conditions:

@@ -215,10 +215,18 @@ class CandlesService:
         i = 0
         candles = []
         while i < len(data):
-            if (
-                data[i]["Time"].hour >= open_hour_utc0
-                and data[i]["Time"].hour <= close_hour_utc0
-            ):
+            open_hour_ok = data[i]["Time"].hour >= open_hour_utc0
+            close_hour_ok = (
+                data[i]["Time"].hour <= close_hour_utc0
+                if open_minutes == 0
+                else data[i]["Time"].hour <= close_hour_utc0 + 1
+            )
+            minutes_ok = (
+                data[i]["Time"].minute == 30
+                if open_minutes == 0
+                else data[i]["Time"].minute == 0
+            )
+            if open_hour_ok and close_hour_ok and minutes_ok:
                 if i + 1 < len(data):
                     last = map_data_to_candle(data[i], ut)
                     first = map_data_to_candle(data[i + 1], ut)

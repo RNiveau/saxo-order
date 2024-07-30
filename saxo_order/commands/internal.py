@@ -173,43 +173,44 @@ def refresh_stocks_list(ctx: Context):
 @catch_exception(handle=SaxoException)
 def technical(ctx: Context):
     configuration = Configuration(ctx.obj["config"])
-    # from services.candles_service import CandlesService
+    from services.candles_service import CandlesService
 
-    # candles_service = CandlesService(SaxoClient(configuration))
-    saxo_client = SaxoClient(configuration)
-    # from client.client_helper import map_data_to_candles
+    candles_service = CandlesService(SaxoClient(configuration))
+    # saxo_client = SaxoClient(configuration)
     # candles = candles_service.build_hour_candles(
     #     "DAX.I", "CAC.I", UnitTime.H4, 7, 15, 1000, 0)
     # print(candles)
-    # DAX.I, CAC40.I
-    # import datetime
+    # DAX.I, CAC40.I, US500.I
+    import datetime
 
-    # candles = candles_service.build_hour_candles(
-    #     "CAC40.I",
-    #     "CAC.I",
-    #     UnitTime.H1,
-    #     7,
-    #     15,
-    #     1200,
-    #     0,
-    #     datetime.datetime(2024, 6, 12, 18),
-    # )
-    asset = saxo_client.get_asset("aca", "xpar")
-    candles = saxo_client.get_historical_data(
-        asset_type=asset["AssetType"],
-        saxo_uic=asset["Identifier"],
-        horizon=1440,
-        count=250,
+    # from client.client_helper import map_data_to_candles
+
+    candles = candles_service.build_hour_candles(
+        "US500.I",
+        "US500.I",
+        UnitTime.H1,
+        13,
+        20,
+        50,
+        30,
+        datetime.datetime(2024, 7, 29, 14),
     )
-    from client.client_helper import map_data_to_candles
-
-    candles = map_data_to_candles(candles, ut=UnitTime.D)
     print(candles)
-    print(len(candles))
-    # macd0lag(candles)
-    from services.indicator_service import slope_percentage
+    # asset = saxo_client.get_asset("aca", "xpar")
+    # candles = saxo_client.get_historical_data(
+    #     asset_type=asset["AssetType"],
+    #     saxo_uic=asset["Identifier"],
+    #     horizon=1440,
+    #     count=250,
+    # )
+    # from client.client_helper import map_data_to_candles
 
-    print(slope_percentage(0, 29.65260, 10, 29.53320))
+    # candles = map_data_to_candles(candles, ut=UnitTime.D)
+    # print(candles)
+    # print(len(candles))
+    # macd0lag(candles)
+    # from services.indicator_service import slope_percentage
+    # print(slope_percentage(0, 29.65260, 10, 29.53320))
 
 
 @click.command()
