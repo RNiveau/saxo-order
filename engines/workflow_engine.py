@@ -137,7 +137,7 @@ class WorkflowEngine:
             case IndicatorType.MA50:
                 nbr_hour = 55 if indicator.ut == UnitTime.H1 else 55 * 4
             case IndicatorType.COMBO:
-                nbr_hour = 250 if indicator.ut == UnitTime.H1 else 250 * 4
+                nbr_hour = 750 if indicator.ut == UnitTime.H1 else 750 * 4
             case IndicatorType.BBH | IndicatorType.BBB:
                 nbr_hour = 21 if indicator.ut == UnitTime.H1 else 21 * 4
             case IndicatorType.POL | IndicatorType.ZONE:

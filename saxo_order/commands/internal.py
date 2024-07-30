@@ -191,7 +191,7 @@ def technical(ctx: Context):
         UnitTime.H1,
         13,
         20,
-        50,
+        750,
         30,
         datetime.datetime(2024, 7, 29, 14),
     )

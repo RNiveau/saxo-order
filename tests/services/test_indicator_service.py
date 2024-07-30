@@ -422,6 +422,22 @@ class TestIndicatorService:
                     },
                 ),
             ),
+            (
+                "combo_sell_h1_sp500.obj",
+                ComboSignal(
+                    5472.895,
+                    False,
+                    Direction.SELL,
+                    SignalStrength.MEDIUM,
+                    {
+                        "macd": True,
+                        "ma50_over_bb": False,
+                        "price_within_bb": True,
+                        "strong_ma50": False,
+                        "both_bb_flat": True,
+                    },
+                ),
+            ),
         ],
     )
     def test_combo(self, file_candles: str, expected: float):
