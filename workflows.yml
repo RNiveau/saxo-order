@@ -218,6 +218,27 @@
       order_direction: sell
       quantity: 0.1
 
+- name: sell ma50 h1 sp500
+  index: US500.I
+  cfd: US500.I
+  enable: true
+  dry_run: false
+  is_us: true
+  conditions:
+    - indicator:
+          name: ma50
+          ut: h1
+      close:
+         direction: below
+         ut: h1
+         spread: 10
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
 
 # - name: sell bbh h4 russel
 #   index: US2000SEP24
