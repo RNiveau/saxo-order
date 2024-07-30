@@ -80,40 +80,17 @@
       order_direction: sell
       quantity: 0.1
 
-- name: sell polarite h1 sp500
-  index: US500.I
-  cfd: US500.I
-  end_date: 2024/08/01
-  enable: true
-  dry_run: false
-  is_us: true
-  conditions:
-    - indicator:
-          name: polarite
-          ut: h1
-          value: 5480
-      close:
-         direction: below
-         ut: h1
-         spread: 10
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
-
-- name: sell polarite h1 cac40
+- name: sell zone h1 cac40
   index: CAC40.I
   cfd: FRA40.I
-  enable: false
+  enable: true
   dry_run: false
   conditions:
     - indicator:
-          name: polarite
+          name: zone
           ut: h1
-          value: 7650
+          value: 7535
+          zone_value: 7550
       close:
          direction: below
          ut: h1
