@@ -18,7 +18,9 @@ from model import (
     Trigger,
     Workflow,
     WorkflowElement,
+    WorkflowSignal,
 )
+from model.workflow import WorkflowDirection
 from saxo_order.commands import catch_exception
 from services.candles_service import CandlesService
 from utils.configuration import Configuration
@@ -109,7 +111,7 @@ def _yaml_loader(force_from_disk: bool) -> List[Workflow]:
             else None
         )
         enable = workflow_data["enable"]
-        dry_run = workflow_data["dry_run"]
+        dry_run = workflow_data.get("dry_run", False)
         is_us = workflow_data.get("is_us", False)
 
         conditions_data = workflow_data["conditions"]
@@ -138,14 +140,31 @@ def _yaml_loader(force_from_disk: bool) -> List[Workflow]:
             )
             conditions.append(condition)
 
-        trigger_data = workflow_data["trigger"]
-        trigger = Trigger(
-            ut=trigger_data["ut"],
-            signal=trigger_data["signal"],
-            location=trigger_data["location"],
-            order_direction=trigger_data["order_direction"],
-            quantity=float(trigger_data["quantity"]),
-        )
+        trigger_data = workflow_data.get("trigger", None)
+        if trigger_data is None:
+            trigger = Trigger(
+                ut=indicator.ut,
+                signal=WorkflowSignal.BREAKOUT,
+                location=(
+                    "lower"
+                    if close.direction == WorkflowDirection.BELOW
+                    else "higher"
+                ),
+                order_direction=(
+                    "sell"
+                    if close.direction == WorkflowDirection.BELOW
+                    else "buy"
+                ),
+                quantity=float(0.1),
+            )
+        else:
+            trigger = Trigger(
+                ut=trigger_data["ut"],
+                signal=trigger_data["signal"],
+                location=trigger_data["location"],
+                order_direction=trigger_data["order_direction"],
+                quantity=float(trigger_data["quantity"]),
+            )
 
         workflows.append(
             Workflow(
