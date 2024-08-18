@@ -971,7 +971,7 @@ class TestHelper:
             ),
         ],
     )
-    def test_build_h4_candles(
+    def test_build_h4_candles_from_h1(
         self, candles: List[Candle], open_hour: int, expected: List[Candle]
     ):
         assert (
