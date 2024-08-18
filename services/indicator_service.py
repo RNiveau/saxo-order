@@ -315,7 +315,7 @@ def exponentiel_mobile_average(candles: List, period: int) -> float:
     if len(candles) < period * 3:
         Logger.get_logger("exponentiel_mobile_average").error(
             f"Missing candles to calculate a ema {len(candles)},"
-            f" needed {period*3}"
+            f" needed {period * 3}"
         )
         raise SaxoException("Missing candles")
 
@@ -346,7 +346,7 @@ def average_true_range(candles: List[Candle], period=14) -> float:
     if len(candles) < period * 3:
         Logger.get_logger("average_true_range").error(
             f"Missing candles to calculate an atr {len(candles)},"
-            f" needed {period*3}"
+            f" needed {period * 3}"
         )
         raise SaxoException("Missing candles")
     true_ranges = []

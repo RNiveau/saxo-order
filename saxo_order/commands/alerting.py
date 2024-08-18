@@ -22,20 +22,41 @@ logger = Logger.get_logger("alerting")
 
 @click.command()
 @click.pass_context
+@click.option(
+    "--code",
+    type=str,
+    help="The code of the stock",
+)
+@click.option(
+    "--country-code",
+    type=str,
+    required=True,
+    default="xpar",
+    help="The country code of the asset",
+)
 @catch_exception(handle=SaxoException)
-def alerting(ctx: Context) -> None:
+def alerting(ctx: Context, code: str, country_code: str) -> None:
     config = ctx.obj["config"]
-    run_alerting(config)
-
-
-def run_alerting(config: str) -> None:
-
-    if os.path.isfile("stocks.json"):
-        with open("stocks.json", "r") as f:
-            assets = json.load(f)
+    if code is not None and code != "":
+        saxo_client = SaxoClient(Configuration(config))
+        asset = saxo_client.get_asset(code, country_code)
+        run_alerting(
+            config,
+            [{"name": asset["Description"], "saxo_uic": asset["Identifier"]}],
+        )
     else:
-        print("Fill the stocks.json file first")
-        raise click.Abort()
+        run_alerting(config)
+
+
+def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
+
+    if assets is None:
+        if os.path.isfile("stocks.json"):
+            with open("stocks.json", "r") as f:
+                assets = json.load(f)
+        else:
+            print("Fill the stocks.json file first")
+            raise click.Abort()
 
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
@@ -52,8 +73,12 @@ def run_alerting(config: str) -> None:
             if "saxo_uic" in asset:
                 candles = _build_candles(saxo_client, asset)
                 if (
-                    candle := _run_double_top(saxo_client, asset, candles)
-                ) is not None:
+                    len(assets) == 1
+                    and (
+                        candle := _run_double_top(saxo_client, asset, candles)
+                    )
+                    is not None
+                ):
                     date = (
                         candle.date.strftime("%Y-%m-%d")
                         if candle.date is not None
@@ -85,21 +110,22 @@ def run_alerting(config: str) -> None:
                     has_message = True
         except SaxoException as e:
             logger.error(f"{asset['name']} can't be scanned {e}")
-    if has_message is False:
+    if has_message is False and len(assets) > 1:
         slack_client.chat_postMessage(
             channel="#stock",
             text="No alert for today",
         )
     else:
         for indicator in slack_messages.keys():
-            message = f"Indicator {indicator} \n```"
-            for slack in slack_messages[indicator]:
-                message += f"{slack}\n"
-            message += "```"
-            slack_client.chat_postMessage(
-                channel="#stock",
-                text=message,
-            )
+            if len(slack_messages[indicator]) > 0:
+                message = f"Indicator {indicator} \n```"
+                for slack in slack_messages[indicator]:
+                    message += f"{slack}\n"
+                message += "```"
+                slack_client.chat_postMessage(
+                    channel="#stock",
+                    text=message,
+                )
 
 
 def _run_containing_candle(
