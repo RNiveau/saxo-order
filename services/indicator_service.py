@@ -364,3 +364,24 @@ def true_range(candles: List[Candle]) -> float:
     tr2 = abs(candles[0].higher - candles[1].close)
     tr3 = abs(candles[0].lower - candles[1].close)
     return max(tr, tr2, tr3)
+
+
+def inside_bar(candles: List[Candle]) -> bool:
+    if len(candles) < 2:
+        Logger.get_logger("inside_bar").error(
+            f"Missing candles to calculate an inside_bar {len(candles)}"
+        )
+        raise SaxoException("Missing candles")
+    return (
+        candles[0].lower > candles[1].lower
+        and candles[0].higher < candles[1].higher
+    )
+
+
+def double_inside_bar(candles: List[Candle]) -> bool:
+    if len(candles) < 3:
+        Logger.get_logger("double_inside_bar").error(
+            f"Missing candles to calculate a double_inside_bar {len(candles)}"
+        )
+        raise SaxoException("Missing candles")
+    return inside_bar(candles) and inside_bar(candles[1:])

@@ -65,6 +65,7 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
         "double_top": [],
         "container_candle": [],
         "combo": [],
+        "double_inside_bar": [],
     }
     has_message = False
     for asset in assets:
@@ -100,6 +101,18 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                         f"{asset['name']}: {date} at {candle.close}"
                     )
                     has_message = True
+                if (
+                    candle := _run_double_inside_bar(asset, candles)
+                ) is not None:
+                    date = (
+                        candle.date.strftime("%Y-%m-%d")
+                        if candle.date is not None
+                        else ""
+                    )
+                    slack_messages["double_inside_bar"].append(
+                        f"{asset['name']}: {date} at {candle.close}"
+                    )
+                    has_message = True
                 if (combo := indicator_service.combo(candles)) is not None:
                     date = datetime.datetime.now().strftime("%Y-%m-%d")
                     slack_messages["combo"].append(
@@ -126,6 +139,15 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                     channel="#stock",
                     text=message,
                 )
+
+
+def _run_double_inside_bar(
+    asset: Dict, candles: List[Candle]
+) -> Optional[Candle]:
+    if indicator_service.double_inside_bar(candles):
+        logger.debug(f"{asset['name']}, {candles[0]}")
+        return candles[0]
+    return None
 
 
 def _run_containing_candle(
