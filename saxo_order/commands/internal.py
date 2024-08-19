@@ -2,9 +2,11 @@ import json
 
 import click
 from click.core import Context
+from slack_sdk import WebClient
 
 from client.aws_client import AwsClient
 from client.saxo_client import SaxoClient
+from engines.workflow_loader import load_workflows
 from model import AssetType, UnitTime
 from saxo_order.commands import catch_exception
 from utils.configuration import Configuration
@@ -230,10 +232,24 @@ def sync_workflows(ctx: Context, direction: str):
         raise click.Abort()
     aws_client = AwsClient()
     if direction == "from":
-        workflows = aws_client.get_workflows()
+        workflows_yml = aws_client.get_workflows()
         with open("workflows.yml", "w") as file:
-            file.write(workflows)
+            file.write(workflows_yml)
     else:
         with open("workflows.yml", "r") as file:
             aws_client.save_workflows(file.read())
+
+    configuration = Configuration(ctx.obj["config"])
+    workflows = load_workflows()
+    slack_client = WebClient(token=configuration.slack_token)
+    slack_message = "Workflows currently active:\n```"
+    for workflow in workflows:
+        if workflow.enable is True:
+            slack_message += (
+                f"{workflow.name} {workflow.conditions[0].indicator}\n"
+            )
+    slack_client.chat_postMessage(
+        channel="#workflows",
+        text=f"{slack_message}```",
+    )
     print("Workflows file is synchronized")

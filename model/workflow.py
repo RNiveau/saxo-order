@@ -69,6 +69,14 @@ class Indicator:
         self.value = value
         self.zone_value = zone_value
 
+    def __repr__(self) -> str:
+        repr = f"{self.name} {self.ut}"
+        if self.value is not None:
+            repr += f" {self.value}"
+        if self.zone_value is not None:
+            repr += f" {self.zone_value}"
+        return repr
+
 
 class Close:
     def __init__(

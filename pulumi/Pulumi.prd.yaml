@@ -1,4 +1,4 @@
 encryptionsalt: v1:F5yQisLV6ao=:v1:5ya44HSlB/bfsy/d:Qt8KPAe2cxwkWREoDgDQTbccQtZlwg==
 config:
   aws:region: eu-west-1
-  k-order:image-tag: "1724011524"
+  k-order:image-tag: "1724012474"
