@@ -55,9 +55,15 @@ class WorkflowEngine:
             ):
                 self.logger.info(f"Run workflow {workflow.name}")
                 condition = workflow.conditions[0]
-                candles = self._get_candles_from_indicator_ut(
-                    workflow, condition.indicator
-                )
+                try:
+                    candles = self._get_candles_from_indicator_ut(
+                        workflow, condition.indicator
+                    )
+                except SaxoException as e:
+                    self.logger.error(
+                        f"Can't get candles for {workflow.name} {e}"
+                    )
+                    continue
                 if len(candles) > 0:
                     self.logger.debug(
                         "first candle for this indicator" f" is {candles[0]}"
