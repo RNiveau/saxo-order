@@ -58,28 +58,6 @@
       order_direction: sell
       quantity: 0.1
 
-- name: sell zone h1 cac40
-  index: CAC40.I
-  cfd: FRA40.I
-  enable: true
-  dry_run: false
-  conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 7535
-          zone_value: 7550
-      close:
-         direction: below
-         ut: h1
-         spread: 10
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
 - name: combo h1 cac40
   index: CAC40.I
   cfd: FRA40.I
@@ -92,12 +70,6 @@
       close:
          direction: below
          ut: h1
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
 
 - name: combo h4 cac40
   index: CAC40.I
@@ -111,12 +83,6 @@
       close:
          direction: below
          ut: h1
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
 
 - name: combo h1 dax
   index: DAX.I
@@ -130,12 +96,6 @@
       close:
          direction: below
          ut: h1
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
 
 - name: combo h4 dax
   index: DAX.I
@@ -149,12 +109,6 @@
       close:
          direction: below
          ut: h1
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
 
 - name: combo h1 sp500
   index: US500.I
@@ -169,12 +123,6 @@
       close:
          direction: below
          ut: h1
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
 
 - name: combo h4 sp500
   index: US500.I
@@ -189,12 +137,6 @@
       close:
          direction: below
          ut: h1
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
 
 - name: sell ma50 h1 sp500
   index: US500.I
@@ -210,12 +152,6 @@
          direction: below
          ut: h1
          spread: 10
-  trigger:
-      ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
 
 
 # - name: sell bbh h4 russel
@@ -297,6 +233,98 @@
           ut: h1
           value: 18535
           zone_value: 18560
+      close:
+         direction: below
+         ut: h1
+         spread: 1
+
+- name: sell zone cac
+  index: CAC40.I
+  cfd: FRA40.I
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 7320
+          zone_value: 7335
+      close:
+         direction: below
+         ut: h1
+         spread: 1
+
+- name: sell zone cac
+  index: CAC40.I
+  cfd: FRA40.I
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 7455
+          zone_value: 7480
+      close:
+         direction: below
+         ut: h1
+         spread: 1
+
+- name: sell zone cac
+  index: CAC40.I
+  cfd: FRA40.I
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 7560
+          zone_value: 7575
+      close:
+         direction: below
+         ut: h1
+         spread: 1
+
+- name: sell zone cac
+  index: CAC40.I
+  cfd: FRA40.I
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 7645
+          zone_value: 7660
+      close:
+         direction: below
+         ut: h1
+         spread: 1
+
+- name: sell zone sp500
+  index: US500.I
+  cfd: US500.I
+  enable: true
+  is_us: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 5575
+          zone_value: 5590
+      close:
+         direction: below
+         ut: h1
+         spread: 1
+
+- name: sell zone sp500
+  index: US500.I
+  cfd: US500.I
+  enable: true
+  is_us: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 5635
+          zone_value: 5645
       close:
          direction: below
          ut: h1
