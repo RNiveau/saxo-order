@@ -27,6 +27,7 @@ def handler(event, _):
                     f"Command {event.get('command')} not found"
                 )
     except Exception as e:
+        configuration = Configuration(os.getenv("SAXO_CONFIG"))
         slack_client = WebClient(token=configuration.slack_token)
         slack_client.chat_postMessage(
             channel="#errors",
