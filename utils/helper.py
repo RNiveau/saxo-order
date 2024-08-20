@@ -62,20 +62,26 @@ def build_h4_candles_from_h1(
             candle_date = candles[i].date
             if candle_date is None:
                 i += 1
-            elif candle_date.hour == 15:
+            elif candle_date.hour == 15:  # included 17h utc+2
                 if i + 1 >= len(candles):
                     break
-                candles_h4.append(_internal_build_candle(candles, i, 1))
+                candles_h4.append(
+                    _internal_build_candle(candles, i, 1, UnitTime.H4)
+                )
                 i += 2
-            elif candle_date.hour == 13:
+            elif candle_date.hour == 13:  # included 15h utc+2
                 if i + 3 >= len(candles):
                     break
-                candles_h4.append(_internal_build_candle(candles, i, 3))
+                candles_h4.append(
+                    _internal_build_candle(candles, i, 3, UnitTime.H4)
+                )
                 i += 4
-            elif candle_date.hour == 9:
+            elif candle_date.hour == 9:  # included 11h utc+2
                 if i + 2 >= len(candles):
                     break
-                candles_h4.append(_internal_build_candle(candles, i, 2))
+                candles_h4.append(
+                    _internal_build_candle(candles, i, 2, UnitTime.H4)
+                )
                 i += 3
             else:
                 Logger.get_logger("build_h4_candles_from_h1").debug(
@@ -91,12 +97,16 @@ def build_h4_candles_from_h1(
             elif candle_date.hour == 16:
                 if i + 3 >= len(candles):
                     break
-                candles_h4.append(_internal_build_candle(candles, i, 3))
+                candles_h4.append(
+                    _internal_build_candle(candles, i, 3, UnitTime.H4)
+                )
                 i += 4
             elif candle_date.hour == 19:
                 if i + 2 >= len(candles):
                     break
-                candles_h4.append(_internal_build_candle(candles, i, 2))
+                candles_h4.append(
+                    _internal_build_candle(candles, i, 2, UnitTime.H4)
+                )
                 i += 3
             else:
                 Logger.get_logger("build_h4_candles_from_h1").debug(
@@ -106,8 +116,51 @@ def build_h4_candles_from_h1(
     return candles_h4
 
 
+def build_daily_candles_from_h1(
+    candles: List[Candle], open_hour_utc0: int
+) -> List[Candle]:
+    candles_daily = []
+    if open_hour_utc0 == 7:
+        i = 0
+        while i < len(candles):
+            candle_date = candles[i].date
+            if candle_date is None:
+                i += 1
+            elif candle_date.hour == 15:  # included 17h utc+2
+                if i + 7 >= len(candles):
+                    break
+                candles_daily.append(
+                    _internal_build_candle(candles, i, 8, UnitTime.D)
+                )
+                i += 9
+            else:
+                Logger.get_logger("build_daily_candles_from_h1").debug(
+                    f"Not a daily ending {candles[i].date}"
+                )
+                i += 1
+    elif open_hour_utc0 == 13:
+        i = 0
+        while i < len(candles):
+            candle_date = candles[i].date
+            if candle_date is None:
+                i += 1
+            elif candle_date.hour == 19:
+                if i + 6 >= len(candles):
+                    break
+                candles_daily.append(
+                    _internal_build_candle(candles, i, 6, UnitTime.D)
+                )
+                i += 7
+            else:
+                Logger.get_logger("build_daily_candles_from_h1").debug(
+                    f"Not a daily ending {candles[i].date}"
+                )
+                i += 1
+    return candles_daily
+
+
 def _internal_build_candle(
-    candles: List[Candle], start_index: int, nbr_candles: int
+    candles: List[Candle], start_index: int, nbr_candles: int, ut: UnitTime
 ) -> Candle:
     """internal use by build_h4_candles_from_h1"""
     candle = Candle(
@@ -115,7 +168,7 @@ def _internal_build_candle(
         higher=candles[start_index].higher,
         close=candles[start_index].close,
         open=-1,
-        ut=UnitTime.H4,
+        ut=ut,
     )
     candle.open = candles[start_index + nbr_candles].open
     candle.date = candles[start_index + nbr_candles].date
