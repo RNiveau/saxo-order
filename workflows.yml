@@ -83,6 +83,13 @@
       close:
          direction: below
          ut: h1
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
 
 - name: combo h1 dax
   index: DAX.I
@@ -109,6 +116,12 @@
       close:
          direction: below
          ut: h1
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
 
 - name: combo h1 sp500
   index: US500.I
@@ -137,6 +150,12 @@
       close:
          direction: below
          ut: h1
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
 
 - name: sell ma50 h1 sp500
   index: US500.I
@@ -175,8 +194,6 @@
 #       location: lower
 #       order_direction: sell
 #       quantity: 0.1
-
-# zone dax h1 
 
 - name: sell zone dax
   index: DAX.I

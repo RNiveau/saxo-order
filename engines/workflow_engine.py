@@ -139,13 +139,18 @@ class WorkflowEngine:
         self, workflow: Workflow, indicator: Indicator
     ) -> List[Candle]:
         market = EUMarket() if workflow.is_us is False else USMarket()
+        multiplicator = 1
+        if indicator.ut == UnitTime.H4:
+            multiplicator = 4
+        elif indicator.ut == UnitTime.D:
+            multiplicator = 8
         match indicator.name:
             case IndicatorType.MA50:
-                nbr_hour = 55 if indicator.ut == UnitTime.H1 else 55 * 4
+                nbr_hour = 55 * multiplicator
             case IndicatorType.COMBO:
-                nbr_hour = 750 if indicator.ut == UnitTime.H1 else 750 * 4
+                nbr_hour = 750 * multiplicator
             case IndicatorType.BBH | IndicatorType.BBB:
-                nbr_hour = 21 if indicator.ut == UnitTime.H1 else 21 * 4
+                nbr_hour = 21 * multiplicator
             case IndicatorType.POL | IndicatorType.ZONE:
                 nbr_hour = 1
             case _:
@@ -190,7 +195,10 @@ class WorkflowEngine:
             workflow.cfd, workflow.conditions[0].close.ut, get_date_utc0()
         )
         if close_candle is None:
-            self.logger.error(f"can't retrive candle for {workflow.cfd}")
+            self.logger.error(
+                f"can't retrive close candle for {workflow.cfd} "
+                f"{workflow.name}"
+            )
             raise SaxoException("Can't retrive candle")
 
         element = self._get_price_from_element(
@@ -251,13 +259,15 @@ class WorkflowEngine:
                 )
         return None
 
-    def _get_trigger_candle(self, workflow):
+    def _get_trigger_candle(self, workflow: Workflow) -> Candle:
         # we use the cdf here to run the workflow even in index off hours
         # TODO manage the cfd spread for some index
         trigger_candle = self.candles_service.get_candle_per_hour(
             workflow.cfd, workflow.trigger.ut, get_date_utc0()
         )
         if trigger_candle is None:
-            self.logger.error(f"can't retrive candle for {workflow.cfd}")
+            self.logger.error(
+                f"can't retrive trigger candle for {workflow.cfd}"
+            )
             raise SaxoException("Can't retrive candle")
         return trigger_candle

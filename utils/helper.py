@@ -162,7 +162,7 @@ def build_daily_candles_from_h1(
 def _internal_build_candle(
     candles: List[Candle], start_index: int, nbr_candles: int, ut: UnitTime
 ) -> Candle:
-    """internal use by build_h4_candles_from_h1"""
+    """internal use by build_*_candles_from_h1"""
     candle = Candle(
         lower=candles[start_index].lower,
         higher=candles[start_index].higher,

@@ -6,7 +6,11 @@ from client.client_helper import map_data_to_candle, map_data_to_candles
 from client.saxo_client import SaxoClient
 from model import Candle, UnitTime
 from utils.exception import SaxoException
-from utils.helper import build_h4_candles_from_h1, get_date_utc0
+from utils.helper import (
+    build_daily_candles_from_h1,
+    build_h4_candles_from_h1,
+    get_date_utc0,
+)
 from utils.logger import Logger
 
 
@@ -143,14 +147,9 @@ class CandlesService:
         match ut:
             case UnitTime.H1:
                 return map_data_to_candle(data[0], ut)
-            case UnitTime.H4:
-                for d in data:
-                    if d["Time"].hour in (9, 13, 15):
-                        return map_data_to_candle(d, ut)
             case _:
                 self.logger.error(f"We don't handle this ut : {ut}")
                 raise SaxoException(f"We don't handle this ut : {ut}")
-        return None
 
     def build_hour_candles(
         self,
@@ -244,4 +243,6 @@ class CandlesService:
             i += 1
         if ut == UnitTime.H4:
             return build_h4_candles_from_h1(candles, open_hour_utc0)
+        elif ut == UnitTime.D:
+            return build_daily_candles_from_h1(candles, open_hour_utc0)
         return candles
