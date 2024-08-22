@@ -57,7 +57,12 @@ class CandlesService:
             case UnitTime.H1:
                 modulo = 60
             case _:
-                raise SaxoException(f"We don't handle this ut {ut}")
+                self.logger.error(
+                    f"get_candles_per_minutes: We don't handle this ut {ut}"
+                )
+                raise SaxoException(
+                    f"get_candles_per_minutes: We don't handle this ut {ut}"
+                )
         candles = []
         add_new_candle = True
         last_minute: Candle = Candle(-1, -1, -1, -1, ut)
@@ -148,7 +153,9 @@ class CandlesService:
             case UnitTime.H1:
                 return map_data_to_candle(data[0], ut)
             case _:
-                self.logger.error(f"We don't handle this ut : {ut}")
+                self.logger.error(
+                    f"get_candle_per_hour: We don't handle this ut : {ut}"
+                )
                 raise SaxoException(f"We don't handle this ut : {ut}")
 
     def build_hour_candles(

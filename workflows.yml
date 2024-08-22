@@ -172,7 +172,6 @@
          ut: h1
          spread: 10
 
-
 # - name: sell bbh h4 russel
 #   index: US2000SEP24
 #   cfd: US2000SEP24
@@ -194,6 +193,8 @@
 #       location: lower
 #       order_direction: sell
 #       quantity: 0.1
+
+# ZONES
 
 - name: sell zone dax
   index: DAX.I
