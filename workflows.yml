@@ -256,6 +256,36 @@
          ut: h1
          spread: 1
 
+- name: sell zone dax
+  index: DAX.I
+  cfd: GER40.I
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 18620
+          zone_value: 18650
+      close:
+         direction: below
+         ut: h1
+         spread: 1
+
+- name: sell zone dax
+  index: DAX.I
+  cfd: GER40.I
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 18755
+          zone_value: 18775
+      close:
+         direction: below
+         ut: h1
+         spread: 1
+
 - name: sell zone cac
   index: CAC40.I
   cfd: FRA40.I

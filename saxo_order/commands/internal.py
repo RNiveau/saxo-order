@@ -249,7 +249,7 @@ def sync_workflows(ctx: Context, direction: str):
                 f"{workflow.name} {workflow.conditions[0].indicator}\n"
             )
     slack_client.chat_postMessage(
-        channel="#workflows",
+        channel="#current-workflows",
         text=f"{slack_message}```",
     )
     print("Workflows file is synchronized")
