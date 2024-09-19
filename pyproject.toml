@@ -32,7 +32,7 @@ google-auth-stubs = "^0.2.0"
 isort = "^5.13.2"
 types-beautifulsoup4 = "^4.12.0"
 types-boto3 = "^1.0.2"
-types-pyyaml = "^6.0.12.20240311"
+types-pyyaml = "^6.0.12.20240917"
 flake8 = "^7.1.0"
 
 [tool.poetry.scripts]
