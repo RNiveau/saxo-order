@@ -66,7 +66,7 @@ class WorkflowEngine:
                     continue
                 if len(candles) > 0:
                     self.logger.debug(
-                        "first candle for this indicator is {candles[0]}"
+                        f"first candle for this indicator is {candles[0]}"
                     )
                 match workflow.conditions[0].indicator.name:
                     case IndicatorType.MA50:
