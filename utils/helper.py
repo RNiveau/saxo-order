@@ -53,7 +53,7 @@ def get_date_utc0() -> datetime.datetime:
 
 
 def build_h4_candles_from_h1(
-    candles: List[Candle], open_hour_utc0: int
+    candles: List[Candle], open_hour_utc0: int, extended_hour: bool = False
 ) -> List[Candle]:
     candles_h4 = []
     if open_hour_utc0 == 7:
@@ -62,6 +62,15 @@ def build_h4_candles_from_h1(
             candle_date = candles[i].date
             if candle_date is None:
                 i += 1
+            elif (
+                extended_hour is True and candle_date.hour == 19
+            ):  # included 21h utc+2
+                if i + 3 >= len(candles):
+                    break
+                candles_h4.append(
+                    _internal_build_candle(candles, i, 3, UnitTime.H4)
+                )
+                i += 4
             elif candle_date.hour == 15:  # included 17h utc+2
                 if i + 1 >= len(candles):
                     break
@@ -77,6 +86,24 @@ def build_h4_candles_from_h1(
                 )
                 i += 4
             elif candle_date.hour == 9:  # included 11h utc+2
+                if i + 2 >= len(candles):
+                    break
+                candles_h4.append(
+                    _internal_build_candle(candles, i, 2, UnitTime.H4)
+                )
+                i += 3
+            elif (
+                extended_hour is True and candle_date.hour == 6
+            ):  # included 8h utc+2
+                if i + 3 >= len(candles):
+                    break
+                candles_h4.append(
+                    _internal_build_candle(candles, i, 3, UnitTime.H4)
+                )
+                i += 4
+            elif (
+                extended_hour is True and candle_date.hour == 2
+            ):  # included 4h utc+2
                 if i + 2 >= len(candles):
                     break
                 candles_h4.append(

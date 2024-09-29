@@ -168,6 +168,7 @@ class CandlesService:
         nbr_hours: int,
         open_minutes: int,
         date: datetime.datetime,
+        extended_hour: bool = False,
     ) -> List[Candle]:
         """Build hour candles (or > UT) from a code and take
         in account open and close hour and world wide asset"""
@@ -214,9 +215,8 @@ class CandlesService:
             )
             if len(data) == 0 or data_cfd[0]["Time"] > data[0]["Time"]:
                 data.insert(0, data_cfd[0])
-        if (
-            data[0]["Time"].minute == open_minutes
-        ):  # it means we don't have the last 30 minutes of the current hour
+        if data[0]["Time"].minute == open_minutes:
+            # it means we don't have the last 30 minutes of the current hour
             data = data[1:]
         i = 0
         candles = []
@@ -232,7 +232,9 @@ class CandlesService:
                 if open_minutes == 0
                 else data[i]["Time"].minute == 0
             )
-            if open_hour_ok and close_hour_ok and minutes_ok:
+            if (
+                (open_hour_ok and close_hour_ok) or extended_hour
+            ) and minutes_ok:
                 if i + 1 < len(data):
                     last = map_data_to_candle(data[i], ut)
                     first = map_data_to_candle(data[i + 1], ut)

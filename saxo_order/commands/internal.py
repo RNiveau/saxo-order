@@ -193,9 +193,10 @@ def technical(ctx: Context):
         UnitTime.H1,
         13,
         20,
-        750,
+        10,
         30,
-        datetime.datetime(2024, 7, 29, 14),
+        datetime.datetime(2024, 8, 23, 16),
+        True,
     )
     print(candles)
     # asset = saxo_client.get_asset("aca", "xpar")
