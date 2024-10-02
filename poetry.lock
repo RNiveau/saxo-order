@@ -57,13 +57,13 @@ lxml = ["lxml"]
 
 [[package]]
 name = "binance-connector"
-version = "3.8.1"
+version = "3.9.0"
 description = "This is a lightweight library that works as a connector to Binance public API."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "binance-connector-3.8.1.tar.gz", hash = "sha256:81737c3e2285029e7784947c69f9331acccba07e6e95971c42a3e177028700e8"},
-    {file = "binance_connector-3.8.1-py3-none-any.whl", hash = "sha256:64b3b19918119e7b5589b8d9e6cd79c1c9dabb7a7b9eca49aa5b72d7897f3dff"},
+    {file = "binance-connector-3.9.0.tar.gz", hash = "sha256:cb90b598a2f348c482e6d73ce0b174252ed1cd84d1686a80da147cdb7b5ec336"},
+    {file = "binance_connector-3.9.0-py3-none-any.whl", hash = "sha256:65ce22c8ed02a1164da8f936272645d7c1092408f2e8f1eab7908c6081961374"},
 ]
 
 [package.dependencies]
@@ -1973,4 +1973,4 @@ test = ["websockets"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "a34e86d578c6c092b36767a6b0d496091a81ecc0257bfdc9ebbb605ad65c3b13"
+content-hash = "d4cf441857132f161a4725f223b685f10cd726df313a69b2073deeecb686811d"
