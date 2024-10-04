@@ -1435,12 +1435,12 @@ files = [
 
 [[package]]
 name = "pulumi"
-version = "3.134.1"
+version = "3.135.1"
 description = "Pulumi's Python SDK"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pulumi-3.134.1-py3-none-any.whl", hash = "sha256:74ac0d67454256cea6b2cd338ba64cf3067265299dd5212f740638bb7ecdd2b0"},
+    {file = "pulumi-3.135.1-py3-none-any.whl", hash = "sha256:95a3671c365d9367842b3885027d3059def3876684cccfc9c406c0e80d8bd0ac"},
 ]
 
 [package.dependencies]
@@ -1973,4 +1973,4 @@ test = ["websockets"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "a34e86d578c6c092b36767a6b0d496091a81ecc0257bfdc9ebbb605ad65c3b13"
+content-hash = "36a4267e0dfb726562d38abb1b666a60ed5ba28ea6cd1576795093a699683b94"
