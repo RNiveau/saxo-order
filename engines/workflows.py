@@ -177,6 +177,7 @@ class PolariteWorkflow(AbstractWorkflow):
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
     ) -> bool:
+        self.logger.debug(f"below condition {candle}")
         if element is not None:
             return (
                 element <= self.indicator_value
@@ -197,6 +198,7 @@ class PolariteWorkflow(AbstractWorkflow):
     def above_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
     ) -> bool:
+        self.logger.debug(f"above condition {candle}")
         if element is not None:
             return (
                 element >= self.indicator_value

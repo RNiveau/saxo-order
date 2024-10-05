@@ -262,6 +262,9 @@ class WorkflowEngine:
     def _get_trigger_candle(self, workflow: Workflow) -> Candle:
         # we use the cdf here to run the workflow even in index off hours
         # TODO manage the cfd spread for some index
+        self.logger.debug(
+            f"get trigger candle for {workflow.cfd} {workflow.trigger.ut}"
+        )
         trigger_candle = self.candles_service.get_candle_per_hour(
             workflow.cfd, workflow.trigger.ut, get_date_utc0()
         )

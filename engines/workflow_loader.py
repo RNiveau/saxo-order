@@ -11,6 +11,7 @@ from model.workflow import (
     Condition,
     Indicator,
     Trigger,
+    UnitTime,
     Workflow,
     WorkflowDirection,
     WorkflowElement,
@@ -80,7 +81,8 @@ def load_workflows(force_from_disk: bool = False) -> List[Workflow]:
         trigger_data = workflow_data.get("trigger", None)
         if trigger_data is None:
             trigger = Trigger(
-                ut=indicator.ut,
+                ut=UnitTime.H1,
+                # indicator.ut, due to the bug on close candle, we use H1 here
                 signal=WorkflowSignal.BREAKOUT,
                 location=(
                     "lower"
