@@ -38,3 +38,25 @@ Available indexes are:
 ## Miscellaneous
 
 **get-score**: Based on zone bourse, scan financial data to calculate a score. The score is helpful to understand if a stock is interesting for a long term vision or not.
+
+## Enable autocompletion
+
+In ```.zshrc``` or ```.zprofile```, add the following line:
+
+```zsh
+eval "$(_K_ORDER_COMPLETE=zsh_source k-order)"
+```
+
+If this error appears:
+
+```
+zsh: command not found: compdef
+```
+
+Add the following line:
+
+```zsh
+autoload -U compinit && compinit
+```
+
+Then restart the terminal.
