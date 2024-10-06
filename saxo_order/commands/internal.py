@@ -7,7 +7,7 @@ from slack_sdk import WebClient
 from client.aws_client import AwsClient
 from client.saxo_client import SaxoClient
 from engines.workflow_loader import load_workflows
-from model import AssetType, UnitTime
+from model import AssetType
 from saxo_order.commands import catch_exception
 from utils.configuration import Configuration
 from utils.exception import SaxoException
@@ -175,10 +175,10 @@ def refresh_stocks_list(ctx: Context):
 @catch_exception(handle=SaxoException)
 def technical(ctx: Context):
     configuration = Configuration(ctx.obj["config"])
-    from services.candles_service import CandlesService
+    # from services.candles_service import CandlesService
 
-    candles_service = CandlesService(SaxoClient(configuration))
-    # saxo_client = SaxoClient(configuration)
+    # candles_service = CandlesService(SaxoClient(configuration))
+    saxo_client = SaxoClient(configuration)
     # candles = candles_service.build_hour_candles(
     #     "DAX.I", "CAC.I", UnitTime.H4, 7, 15, 1000, 0)
     # print(candles)
@@ -186,25 +186,26 @@ def technical(ctx: Context):
     import datetime
 
     # from client.client_helper import map_data_to_candles
-
-    candles = candles_service.build_hour_candles(
-        "US500.I",
-        "US500.I",
-        UnitTime.H1,
-        13,
-        20,
-        750,
-        30,
-        datetime.datetime(2024, 7, 29, 14),
+    # candles = candles_service.build_hour_candles(
+    #     "US500.I",
+    #     "US500.I",
+    #     UnitTime.H1,
+    #     13,
+    #     20,
+    #     750,
+    #     30,
+    #     datetime.datetime(2024, 7, 29, 14),
+    # )
+    # print(candles)
+    asset = saxo_client.get_asset("aca", "xpar")
+    candles = saxo_client.get_historical_data(
+        asset_type=asset["AssetType"],
+        saxo_uic=asset["Identifier"],
+        horizon=1,
+        count=1,
+        date=datetime.datetime(2023, 11, 11),
     )
     print(candles)
-    # asset = saxo_client.get_asset("aca", "xpar")
-    # candles = saxo_client.get_historical_data(
-    #     asset_type=asset["AssetType"],
-    #     saxo_uic=asset["Identifier"],
-    #     horizon=1440,
-    #     count=250,
-    # )
     # from client.client_helper import map_data_to_candles
 
     # candles = map_data_to_candles(candles, ut=UnitTime.D)

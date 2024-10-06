@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 import requests
 
@@ -224,4 +226,24 @@ class TestSaxoClient:
 
         requests.Session.post.assert_called_once_with(  # type: ignore
             mocker.ANY, json=expected  # type: ignore
+        )
+
+    def test_is_day_open(self, mocker):
+        client = SaxoClient(configuration=MockConfiguration())
+        mocker.patch.object(
+            client,
+            "get_historical_data",
+            return_value=[{"Time": datetime.datetime(2023, 11, 11, 0, 0, 0)}],
+        )
+        assert (
+            client.is_day_open(
+                "DAX.I", "STOCK", datetime.datetime(2023, 11, 11)
+            )
+            is True
+        )
+        assert (
+            client.is_day_open(
+                "DAX.I", "STOCK", datetime.datetime(2023, 11, 12)
+            )
+            is False
         )

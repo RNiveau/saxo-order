@@ -378,6 +378,14 @@ class SaxoClient:
                 break
         return data
 
+    def is_day_open(
+        self, saxo_uic: str, asset_type: str, date: datetime
+    ) -> bool:
+        data = self.get_historical_data(saxo_uic, asset_type, 1, 1, date)
+        if len(data) == 0:
+            return False
+        return data[0]["Time"].day == date.day
+
     @staticmethod
     def _check_response(response: Response) -> None:
         if response.status_code == 401:
