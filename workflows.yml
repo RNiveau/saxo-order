@@ -434,7 +434,7 @@
     - indicator:
           name: polarite
           ut: h1
-          value: 103.6
+          value: 100.7
       close:
          direction: above
          ut: h1
@@ -584,6 +584,20 @@
           ut: h1
           value: 165
           zone_value: 173
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+- name: buy cassure convergence mediantech
+  index: almdt:xpar
+  cfd: almdt:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: polarite
+          ut: daily
+          value: 4.46
       close:
          direction: above
          ut: h1
