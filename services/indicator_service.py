@@ -1,7 +1,9 @@
+import datetime
 from typing import List, Optional
 
 import numpy
 
+from client.saxo_client import SaxoClient
 from model import (
     BollingerBands,
     Candle,
@@ -385,3 +387,22 @@ def double_inside_bar(candles: List[Candle]) -> bool:
         )
         raise SaxoException("Missing candles")
     return inside_bar(candles) and inside_bar(candles[1:])
+
+
+def number_of_day_between_dates(
+    saxo_client: SaxoClient,
+    saxo_uic: str,
+    asset_type: str,
+    date1: datetime.datetime,
+    date2: datetime.datetime,
+) -> int:
+    diff = 0
+    if date1 > date2:
+        return 0
+    while date1 < date2:
+        date1 += datetime.timedelta(days=1)
+        if date1.weekday() < 5 and saxo_client.is_day_open(
+            saxo_uic=saxo_uic, asset_type=asset_type, date=date1
+        ):
+            diff += 1
+    return diff

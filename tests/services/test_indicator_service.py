@@ -19,6 +19,7 @@ from services.indicator_service import (
     double_top,
     exponentiel_mobile_average,
     macd0lag,
+    number_of_day_between_dates,
     slope_percentage,
 )
 
@@ -466,3 +467,43 @@ class TestIndicatorService:
                 {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
             )
         assert average_true_range(candles) == expected
+
+    def test_number_of_day_between_dates(self, mocker):
+        client = mocker.Mock()
+        client.is_day_open = lambda saxo_uic, asset_type, date: True
+        assert (
+            number_of_day_between_dates(
+                client,
+                "",
+                "",
+                datetime.datetime(2024, 6, 20),
+                datetime.datetime(2024, 6, 21),
+            )
+            == 1
+        )
+
+        assert (
+            number_of_day_between_dates(
+                client,
+                "",
+                "",
+                datetime.datetime(2024, 6, 20),
+                datetime.datetime(2024, 7, 1),
+            )
+            == 7
+        )
+
+        client.is_day_open = (
+            lambda saxo_uic, asset_type, date: date.weekday() != 0
+        )
+
+        assert (
+            number_of_day_between_dates(
+                client,
+                "",
+                "",
+                datetime.datetime(2024, 6, 20),
+                datetime.datetime(2024, 9, 11),
+            )
+            == 47
+        )
