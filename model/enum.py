@@ -24,6 +24,7 @@ class Strategy(EnumWithGetValue):
     SCT = "Support court terme"
     SMT = "Support moyen terme"
     SLT = "Support long terme"
+    SW = "Swing ivt"
     TF = "Trendfollowing"
     VS = "Vente cassure de support"
     VR = "Vente de résistance"
