@@ -27,6 +27,7 @@ from model import (
     WorkflowLocation,
     WorkflowSignal,
 )
+from model.enum import AssetType
 from services.candles_service import CandlesService
 from utils.exception import SaxoException
 from utils.helper import get_date_utc0
@@ -127,13 +128,17 @@ class WorkflowEngine:
             if order[1] is not None:
                 log = (
                     f"Workflow `{order[0].name}` will trigger an order "
-                    f"{order[1].direction} for {order[1].quantity} "
-                    f"{order[1].code} at {order[1].price}"
+                    f"{order[1][1].direction} for {order[1][1].quantity} "
+                    f"{order[1][1].code} at {order[1][1].price}: last price "
+                    f"{order[1][0].close}"
                 )
                 self.logger.debug(log)
-                self.slack_client.chat_postMessage(
-                    channel="#workflows", text=log
+                channel = (
+                    "#workflows-stock"
+                    if order[1][1].asset_type == AssetType.STOCK
+                    else "#workflows"
                 )
+                self.slack_client.chat_postMessage(channel=channel, text=log)
 
     def _get_candles_from_indicator_ut(
         self, workflow: Workflow, indicator: Indicator
@@ -188,7 +193,7 @@ class WorkflowEngine:
 
     def _run_workflow(
         self, workflow: Workflow, candles: List[Candle], run: AbstractWorkflow
-    ) -> Optional[Order]:
+    ) -> Optional[tuple[Candle, Order]]:
         run.init_workflow(workflow.conditions[0].indicator, candles)
 
         close_candle = self.candles_service.get_candle_per_hour(
@@ -221,7 +226,7 @@ class WorkflowEngine:
                         if trigger.order_direction == Direction.SELL
                         else OrderType.LIMIT
                     )
-                    return Order(
+                    return close_candle, Order(
                         code=workflow.cfd,
                         price=price,
                         quantity=trigger.quantity,
@@ -246,7 +251,7 @@ class WorkflowEngine:
                         if trigger.order_direction == Direction.BUY
                         else OrderType.LIMIT
                     )
-                    return Order(
+                    return close_candle, Order(
                         code=workflow.cfd,
                         price=price,
                         quantity=trigger.quantity,

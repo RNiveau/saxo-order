@@ -95,7 +95,7 @@ class TestWorkflowEngine:
                 12,
                 1,
                 "Workflow `Test` will trigger an order Sell"
-                " for 9 FRA40.I at 8",
+                " for 9 FRA40.I at 8: last price 10.6",
             ),
             (
                 Workflow(
@@ -129,7 +129,7 @@ class TestWorkflowEngine:
                 10.5,
                 1,
                 "Workflow `Test` will trigger an order Buy for"
-                " 1 FRA40.I at 11.5",
+                " 1 FRA40.I at 11.5: last price 10.6",
             ),
         ],
     )
@@ -166,5 +166,5 @@ class TestWorkflowEngine:
         assert slack_client.chat_postMessage.call_count == slack_call
         if slack_call > 0:
             assert slack_client.chat_postMessage.call_args_list[0] == call(
-                channel="#workflows", text=slack_message
+                channel="#workflows-stock", text=slack_message
             )
