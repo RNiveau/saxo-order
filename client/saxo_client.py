@@ -22,7 +22,7 @@ from model import (
     Underlying,
 )
 from utils.configuration import Configuration
-from utils.exception import SaxoException
+from utils.exception import EmptyResponseException, SaxoException
 from utils.logger import Logger
 
 
@@ -279,7 +279,13 @@ class SaxoClient:
         orders = []
         for data in response.json()["Data"]:
             date = datetime.fromisoformat(data["ActivityTime"])
-            asset = self.get_asset_detail(data["Uic"], data["AssetType"])
+            try:
+                asset = self.get_asset_detail(data["Uic"], data["AssetType"])
+            except EmptyResponseException:
+                self.logger.error(
+                    f"No asset for {data['Uic']} {data['AssetType']} at {date}"
+                )
+                continue
             report_order = ReportOrder(
                 code=asset["Symbol"].split(":")[0],
                 price=data["AveragePrice"],
@@ -299,7 +305,7 @@ class SaxoClient:
                     underlying_asset_type = (
                         asset["UnderlyingAssetType"]
                         if "UnderlyingAssetType" in asset
-                        else None
+                        else ""
                     )
                     underlying_close = self.get_historical_price(
                         asset["UnderlyingUic"],
@@ -410,6 +416,8 @@ class SaxoClient:
                 )
                 + 1
             )
+        if response.text == "":
+            raise EmptyResponseException()
         json = response.json()
         if "ErrorInfo" in json:
             raise SaxoException(json["ErrorInfo"]["Message"])
