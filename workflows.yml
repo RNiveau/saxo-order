@@ -478,6 +478,21 @@
     - indicator:
           name: zone
           ut: h1
+          value: 87
+          zone_value: 90
+      close:
+         direction: below
+         ut: h1
+         spread: 1
+
+- name: buy zone pernod
+  index: RI:xpar
+  cfd: RI:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
           value: 144
           zone_value: 148
       close:
@@ -589,6 +604,21 @@
          spread: 2
 
 
+- name: buy polarite remy cointreau
+  index: RCOP:xpar
+  cfd: RCOP:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: polarite
+          ut: h1
+          value: 58.3
+      close:
+         direction: above
+         ut: h1
+         spread: 2
+
+
 - name: buy zone lt dassault aviation
   index: am:xpar
   cfd: am:xpar
@@ -603,33 +633,3 @@
          direction: above
          ut: h1
          spread: 1
-
-- name: buy cassure convergence mediantech
-  index: almdt:xpar
-  cfd: almdt:xpar
-  enable: true
-  conditions:
-    - indicator:
-          name: polarite
-          ut: daily
-          value: 4.46
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt cap
-  index: cap:xpar
-  cfd: cap:xpar
-  enable: true
-  conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 114
-          zone_value: 120
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
