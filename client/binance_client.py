@@ -32,6 +32,7 @@ class BinanceClient:
         "THETA",
         "OMG",
         "DGB",
+        "AAVE",
     ]
 
     def __init__(self, key: str, secret: str) -> None:
@@ -68,7 +69,7 @@ class BinanceClient:
             cost = commission * (order.price * usdeur_rate)
             order.taxes = Taxes(cost=cost, taxes=0)
         else:
-            if trade["commissionAsset"] not in ["BUSD", "USDT"]:
+            if trade["commissionAsset"] not in ["BUSD", "USDT", "USDC"]:
                 print(
                     f"Can't calculate commision for the trade: {order.name}: \
                     {trade['price']}$"
