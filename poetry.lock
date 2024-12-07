@@ -1471,7 +1471,6 @@ files = [
 [package.dependencies]
 botocore-stubs = "*"
 types-s3transfer = "*"
-typing-extensions = {version = ">=4.1.0", markers = "python_version < \"3.12\""}
 
 [package.extras]
 accessanalyzer = ["types-boto3-accessanalyzer (>=1.35.0,<1.36.0)"]
@@ -1998,5 +1997,5 @@ test = ["websockets"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = "^3.11"
-content-hash = "a34e86d578c6c092b36767a6b0d496091a81ecc0257bfdc9ebbb605ad65c3b13"
+python-versions = "^3.12"
+content-hash = "a397487cefb32f74551be73be62f51eeb152a013be811d343de83c0674dadd5a"
