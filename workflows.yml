@@ -559,6 +559,21 @@
          ut: h1
          spread: 1
 
+- name: buy zone lt legrand
+  index: lr:xpar
+  cfd: lr:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 77
+          zone_value: 81
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
 - name: buy zone lt euronext
   index: enx:xpar
   cfd: enx:xpar
@@ -629,6 +644,20 @@
           ut: h1
           value: 165
           zone_value: 173
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+- name: mm200 ipsen
+  index: IPN:xpar
+  cfd: IPN:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: polarite
+          ut: h1
+          value: 111
       close:
          direction: above
          ut: h1
