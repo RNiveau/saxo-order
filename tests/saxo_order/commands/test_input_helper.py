@@ -1,7 +1,8 @@
 import pytest
 
-from model import Account
-from saxo_order.commands.input_helper import select_account
+from model import Account, Order
+from model.enum import Direction
+from saxo_order.commands.input_helper import calculate_max_stop, select_account
 
 
 class TestInputHelper:
@@ -103,3 +104,32 @@ class TestInputHelper:
         select_account(saxo_service)
         get_account.assert_called_once_with(account_key)
         assert input_mock.call_count == called_input
+
+    @pytest.mark.parametrize(
+        "order, expected",
+        [
+            (
+                Order(
+                    code="", direction=Direction.BUY, quantity=100, price=100
+                ),
+                97.0,
+            ),
+            (
+                Order(
+                    code="",
+                    direction=Direction.SELL,
+                    quantity=0.2,
+                    price=19230,
+                ),
+                20730.0,
+            ),
+            (
+                Order(
+                    code="", direction=Direction.BUY, quantity=0.2, price=19230
+                ),
+                17730.0,
+            ),
+        ],
+    )
+    def test_max_stop(self, order, expected):
+        assert calculate_max_stop(order) == expected

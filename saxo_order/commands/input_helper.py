@@ -13,6 +13,7 @@ from model import (
     TriggerOrder,
     Underlying,
 )
+from model.enum import Direction
 from saxo_order.service import apply_rules, calculate_taxes, get_earn, get_lost
 from utils.exception import SaxoException
 
@@ -47,10 +48,17 @@ def select_account(client: SaxoClient) -> Account:
     return client.get_account(account["AccountKey"])
 
 
-def get_stop_objective(validate_input: bool) -> tuple:
+def get_stop_objective(
+    validate_input: bool, max_stop: Optional[float]
+) -> tuple:
     try:
+        prompt = (
+            f"What is the stop price (max is {max_stop}) ?"
+            if max_stop is not None
+            else "What is the stop price ?"
+        )
         stop = click.prompt(
-            "What is the stop price ?",
+            prompt,
             type=float,
             show_default=False,
             default=0,
@@ -100,7 +108,8 @@ def update_order(
         else:
             price = conditional_order.price
         underlying = Underlying(price)
-    stop, objective = get_stop_objective(validate_input)
+    max_stop = calculate_max_stop(order) if with_underlying is False else None
+    stop, objective = get_stop_objective(validate_input, max_stop)
     order.stop = stop
     order.objective = objective
     if with_underlying:
@@ -112,6 +121,14 @@ def update_order(
     order.comment = click.prompt("Comment about this position: ", type=str)
     if order.taxes is None:
         order.taxes = calculate_taxes(order)
+
+
+def calculate_max_stop(order: Order) -> float:
+    max_stop = order.quantity * order.price
+    if order.direction == Direction.BUY:
+        return (max_stop - 300.0) / order.quantity
+    else:
+        return (max_stop + 300.0) / order.quantity
 
 
 def get_strategy() -> Optional[Strategy]:
