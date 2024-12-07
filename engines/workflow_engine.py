@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from slack_sdk import WebClient
 
+from client.saxo_client import SaxoClient
 from engines.workflows import (
     AbstractWorkflow,
     BBWorkflow,
@@ -41,11 +42,13 @@ class WorkflowEngine:
         workflows: List[Workflow],
         slack_client: WebClient,
         candles_service: CandlesService,
+        saxo_client: SaxoClient,
     ) -> None:
         self.logger = Logger.get_logger("workflow_engine", logging.DEBUG)
         self.workflows = workflows
         self.slack_client = slack_client
         self.candles_service = candles_service
+        self.saxo_client = saxo_client
 
     def run(self) -> None:
         results = []
@@ -126,6 +129,7 @@ class WorkflowEngine:
                 self.logger.info(f"Workflow {workflow.name} will not run")
         for order in results:
             if order[1] is not None:
+                asset = self.saxo_client.get_asset(order[1][1].code)
                 log = (
                     f"Workflow `{order[0].name}` will trigger an order "
                     f"{order[1][1].direction} for {order[1][1].quantity} "
@@ -135,7 +139,7 @@ class WorkflowEngine:
                 self.logger.debug(log)
                 channel = (
                     "#workflows-stock"
-                    if order[1][1].asset_type == AssetType.STOCK
+                    if asset["AssetType"] == AssetType.STOCK
                     else "#workflows"
                 )
                 self.slack_client.chat_postMessage(channel=channel, text=log)
@@ -233,7 +237,7 @@ class WorkflowEngine:
                         direction=trigger.order_direction,
                         type=order_type,
                     )
-                self.logger.warn(
+                self.logger.warning(
                     f"we don't manage order {trigger.location}, "
                     f"signal: {trigger.signal}"
                 )
@@ -258,7 +262,7 @@ class WorkflowEngine:
                         direction=trigger.order_direction,
                         type=order_type,
                     )
-                self.logger.warn(
+                self.logger.warning(
                     f"we don't manage order {trigger.location}, "
                     f"signal: {trigger.signal}"
                 )

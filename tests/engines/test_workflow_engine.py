@@ -20,6 +20,7 @@ from model import (
     WorkflowLocation,
     WorkflowSignal,
 )
+from model.enum import AssetType
 
 
 class TestWorkflowEngine:
@@ -42,7 +43,7 @@ class TestWorkflowEngine:
             slack_client = mocker.Mock()
             mocker.patch.object(slack_client, "chat_postMessage")
             workflow_engine = WorkflowEngine(
-                workflows, slack_client, mocker.Mock()
+                workflows, slack_client, mocker.Mock(), mocker.Mock()
             )
             workflow_engine.run()
             assert slack_client.chat_postMessage.call_count == 0
@@ -144,6 +145,7 @@ class TestWorkflowEngine:
         workflows = [workflow]
         slack_client = mocker.Mock()
         candles_service = mocker.Mock()
+        saxo_client = mocker.Mock()
         mocker.patch.object(slack_client, "chat_postMessage")
         mocker.patch.object(
             candles_service, "build_hour_candles", return_value=[]
@@ -155,10 +157,15 @@ class TestWorkflowEngine:
                 close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
             ),
         )
+        mocker.patch.object(
+            saxo_client,
+            "get_asset",
+            return_value={"AssetType": AssetType.STOCK},
+        )
         mocker.patch("engines.workflows.mobile_average", return_value=ma)
 
         workflow_engine = WorkflowEngine(
-            workflows, slack_client, candles_service
+            workflows, slack_client, candles_service, saxo_client
         )
         workflow_engine.run()
         assert candles_service.build_hour_candles.call_count == 1

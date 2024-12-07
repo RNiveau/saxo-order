@@ -46,7 +46,8 @@ def execute_workflow(
     config: str, force_from_disk: bool = False, select_workflow: bool = False
 ) -> None:
     configuration = Configuration(config)
-    candles_service = CandlesService(SaxoClient(configuration))
+    saxo_client = SaxoClient(configuration)
+    candles_service = CandlesService(saxo_client)
     workflows = load_workflows(force_from_disk)
 
     if select_workflow is True:
@@ -66,5 +67,6 @@ def execute_workflow(
         workflows=workflows,
         slack_client=WebClient(token=configuration.slack_token),
         candles_service=candles_service,
+        saxo_client=saxo_client,
     )
     engine.run()
