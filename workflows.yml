@@ -663,3 +663,22 @@
          ut: h1
          spread: 1
 
+
+- name: test inclined
+  index: cap:xpar
+  cfd: cap:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          x1:
+            x: "2024-10-15"
+            y: 114
+          x2:
+            x: "2024-10-15"
+            y: 120
+      close:
+         direction: above
+         ut: h1
+         spread: 1

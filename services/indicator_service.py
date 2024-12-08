@@ -339,6 +339,18 @@ def slope_percentage(x1: float, y1: float, x2: float, y2: float) -> float:
     return round((dy / dx) * 100.0, 5)
 
 
+def find_linear_function(x0, y0, x1, y1):
+    # f(x) = ax + b
+    a = (y1 - y0) / (x1 - x0)
+    b = y0 - a * x0
+    return a, b
+
+
+def apply_linear_function(x0, y0, x1, y1, x2):
+    a, b = find_linear_function(x0, y0, x1, y1)
+    return a * x2 + b
+
+
 def average_true_range(candles: List[Candle], period=14) -> float:
     """
     Here is the formula

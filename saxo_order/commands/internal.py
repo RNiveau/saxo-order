@@ -9,6 +9,10 @@ from client.saxo_client import SaxoClient
 from engines.workflow_loader import load_workflows
 from model import AssetType
 from saxo_order.commands import catch_exception
+from services.indicator_service import (
+    apply_linear_function,
+    number_of_day_between_dates,
+)
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.logger import Logger
@@ -198,14 +202,39 @@ def technical(ctx: Context):
     # )
     # print(candles)
     asset = saxo_client.get_asset("aca", "xpar")
-    candles = saxo_client.get_historical_data(
-        asset_type=asset["AssetType"],
-        saxo_uic=asset["Identifier"],
-        horizon=1,
-        count=1,
-        date=datetime.datetime(2023, 11, 11),
+    # candles = saxo_client.get_historical_data(
+    #     asset_type=asset["AssetType"],
+    #     saxo_uic=asset["Identifier"],
+    #     horizon=60,
+    #     count=1,
+    #     date=datetime.datetime(2024, 10, 10, 18),
+    # )
+    # #    print(candles)
+    # candles2 = saxo_client.get_historical_data(
+    #     asset_type=asset["AssetType"],
+    #     saxo_uic=asset["Identifier"],
+    #     horizon=60,
+    #     count=1,
+    #     date=datetime.datetime(2024, 10, 15, 18),
+    # )
+
+    x2 = number_of_day_between_dates(
+        saxo_client,
+        asset["Identifier"],
+        AssetType.STOCK,
+        datetime.datetime(2024, 9, 19, 18),
+        datetime.datetime(2024, 9, 27, 18),
     )
-    print(candles)
+    x3 = number_of_day_between_dates(
+        saxo_client,
+        asset["Identifier"],
+        AssetType.STOCK,
+        datetime.datetime(2024, 9, 19, 18),
+        datetime.datetime(2024, 10, 21, 18),
+    )
+    print(f"x2={x2}, x3={x3}")
+    print(apply_linear_function(0, 27.94, x2, 27.46, x3))
+
     # from client.client_helper import map_data_to_candles
 
     # candles = map_data_to_candles(candles, ut=UnitTime.D)
