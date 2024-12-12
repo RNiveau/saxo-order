@@ -1459,13 +1459,13 @@ types-html5lib = "*"
 
 [[package]]
 name = "types-boto3"
-version = "1.35.76"
-description = "Type annotations for boto3 1.35.76 generated with mypy-boto3-builder 8.5.0"
+version = "1.35.79"
+description = "Type annotations for boto3 1.35.79 generated with mypy-boto3-builder 8.6.3"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "types_boto3-1.35.76-py3-none-any.whl", hash = "sha256:c1d2043f977ad45ef35cfb238218af45e548f3e128b89cc4da1f731de45fe88c"},
-    {file = "types_boto3-1.35.76.tar.gz", hash = "sha256:e6167f509ee1e990a4bc55cca40323efa5a0333008f7134274f1393665505df4"},
+    {file = "types_boto3-1.35.79-py3-none-any.whl", hash = "sha256:11b21c73263ee66e9ea9949bdc428f21f89d75b3d5898a47b91f9ebaaeeee42b"},
+    {file = "types_boto3-1.35.79.tar.gz", hash = "sha256:ff9d6e1e27509d84deda4ff46ba87a9330e1ec58fa4a92e4e783ec3e2797986c"},
 ]
 
 [package.dependencies]
@@ -1519,7 +1519,7 @@ bedrock-data-automation-runtime = ["types-boto3-bedrock-data-automation-runtime 
 bedrock-runtime = ["types-boto3-bedrock-runtime (>=1.35.0,<1.36.0)"]
 billing = ["types-boto3-billing (>=1.35.0,<1.36.0)"]
 billingconductor = ["types-boto3-billingconductor (>=1.35.0,<1.36.0)"]
-boto3 = ["boto3 (==1.35.76)", "botocore (==1.35.76)"]
+boto3 = ["boto3 (==1.35.79)"]
 braket = ["types-boto3-braket (>=1.35.0,<1.36.0)"]
 budgets = ["types-boto3-budgets (>=1.35.0,<1.36.0)"]
 ce = ["types-boto3-ce (>=1.35.0,<1.36.0)"]
@@ -1630,7 +1630,7 @@ forecastquery = ["types-boto3-forecastquery (>=1.35.0,<1.36.0)"]
 frauddetector = ["types-boto3-frauddetector (>=1.35.0,<1.36.0)"]
 freetier = ["types-boto3-freetier (>=1.35.0,<1.36.0)"]
 fsx = ["types-boto3-fsx (>=1.35.0,<1.36.0)"]
-full = ["types-boto3-full"]
+full = ["types-boto3-full (>=1.35.0,<1.36.0)"]
 gamelift = ["types-boto3-gamelift (>=1.35.0,<1.36.0)"]
 geo-maps = ["types-boto3-geo-maps (>=1.35.0,<1.36.0)"]
 geo-places = ["types-boto3-geo-places (>=1.35.0,<1.36.0)"]
@@ -1998,4 +1998,4 @@ test = ["websockets"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "984e5244f53d73901d82080ce27653e5025b671a61b678a7be0e3e20b9171e1e"
+content-hash = "a772326ed86511af719f3e7318808e0bc425810dc0addb369d01801eda98e41c"
