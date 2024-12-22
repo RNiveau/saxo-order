@@ -4,6 +4,7 @@ from slack_sdk import WebClient
 
 from client.saxo_auth_client import SaxoAuthClient
 from saxo_order.commands.alerting import run_alerting
+from saxo_order.commands.snapshot import execute_snapshot
 from saxo_order.commands.workflow import execute_workflow
 from utils.configuration import Configuration
 from utils.exception import SaxoException
@@ -22,6 +23,8 @@ def handler(event, _):
                 run_alerting(os.getenv("SAXO_CONFIG"))
             case "workflows":
                 execute_workflow(os.getenv("SAXO_CONFIG"))
+            case "snapshot":
+                execute_snapshot(os.getenv("SAXO_CONFIG"))
             case _:
                 raise SaxoException(
                     f"Command {event.get('command')} not found"
