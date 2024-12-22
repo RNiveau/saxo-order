@@ -14,6 +14,7 @@ import saxo_order.commands.set_order as set_order
 import saxo_order.commands.set_stop_limit_order as set_stop_limit_order
 import saxo_order.commands.shortcuts as shortcurts
 import saxo_order.commands.workflow as workflow
+from saxo_order.commands import snapshot
 
 
 @click.group()
@@ -99,6 +100,7 @@ k_order.add_command(alerting.alerting)
 k_order.add_command(get_score.get_score)
 k_order.add_command(auth.auth)
 k_order.add_command(available_funds.available_funds)
+k_order.add_command(snapshot.snapshot)
 k_order.add_command(get_report.get_report)
 k_order.add_command(search.search)
 k_order.add_command(workflow.workflow)

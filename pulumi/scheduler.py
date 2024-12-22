@@ -24,6 +24,25 @@ def alerting_schedule(
     )
 
 
+def snapshot_schedule(
+    lambda_arn: str, scheduler_role_arn: str
+) -> aws.scheduler.Schedule:
+    return aws.scheduler.Schedule(
+        "snapshot",
+        schedule_expression="cron(1 8-18 ? * 2-6 *)",
+        flexible_time_window={"mode": "OFF"},
+        target=aws.scheduler.ScheduleTargetArgs(
+            arn=lambda_arn,
+            role_arn=scheduler_role_arn,
+            input='{"command": "snapshot"}',
+            retry_policy=aws.scheduler.ScheduleTargetRetryPolicyArgs(
+                maximum_event_age_in_seconds=60,
+                maximum_retry_attempts=0,
+            ),
+        ),
+    )
+
+
 def refresh_token_schedule(
     lambda_arn: str, scheduler_role_arn: str
 ) -> aws.scheduler.Schedule:

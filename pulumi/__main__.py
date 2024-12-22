@@ -28,11 +28,20 @@ workflow_lambda = ecr_repository.repository_url.apply(
         repository_url, lambda_role.arn
     )
 )
+snapshot_lambda = ecr_repository.repository_url.apply(
+    lambda repository_url: lambda_.snapshot_lambda(
+        repository_url, lambda_role.arn
+    )
+)
+
 pulumi.Output.all(
-    refresh_token_lambda.arn, alerting_lambda.arn, workflow_lambda.arn
+    refresh_token_lambda.arn,
+    alerting_lambda.arn,
+    workflow_lambda.arn,
+    snapshot_lambda.arn,
 ).apply(
     lambda args: iam.scheduler_role_policy(
-        scheduler_role.id, [args[0], args[1], args[2]]
+        scheduler_role.id, [args[0], args[1], args[2], args[3]]
     )
 )
 pulumi.Output.all(
@@ -55,6 +64,14 @@ pulumi.Output.all(
     lambda_arn=refresh_token_lambda.arn, role_arn=scheduler_role.arn
 ).apply(
     lambda args: scheduler.refresh_token_schedule(
+        args["lambda_arn"], args["role_arn"]
+    )
+)
+
+pulumi.Output.all(
+    lambda_arn=snapshot_lambda.arn, role_arn=scheduler_role.arn
+).apply(
+    lambda args: scheduler.snapshot_schedule(
         args["lambda_arn"], args["role_arn"]
     )
 )
