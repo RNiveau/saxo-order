@@ -32,7 +32,7 @@ google-api-python-client-stubs = "^1.24.0"
 google-auth-stubs = "^0.2.0"
 isort = "^5.13.2"
 types-beautifulsoup4 = "^4.12.0"
-types-boto3 = "^1.0.2"
+types-boto3 = "^1.35.88"
 types-pyyaml = "^6.0.12.20240311"
 flake8 = "^7.1.0"
 
