@@ -146,14 +146,16 @@ def show_report(orders, currencies_rate):
 @click.pass_context
 @catch_exception(handle=SaxoException)
 def get_stacking_report(ctx: Context, file: str, type: str):
-    coin_column = 1 if type == "Locked" else 2
-    value_column = 2 if type == "Locked" else 3
+    coin_column = 1
+    value_column = 2
     with open(file, "r") as f:
         lines = f.readlines()
     cryptos: Dict = {}
     lines.pop(0)
     for line in lines:
         tab = line.split(",")
+        for i in range(len(tab)):
+            tab[i] = tab[i].replace('"', "")
         quantity = float(tab[value_column])
         try:
             date = datetime.strptime(tab[0], "%Y-%m-%d")
