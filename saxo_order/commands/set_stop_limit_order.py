@@ -1,17 +1,16 @@
 import click
 from click.core import Context
 
-from client.gsheet_client import GSheetClient
 from client.saxo_client import SaxoClient
 from model import Currency, Direction, Order, OrderType
 from saxo_order.commands import catch_exception
+from saxo_order.commands.common import logs_order
 from saxo_order.commands.input_helper import (
     confirm_order,
     select_account,
     update_order,
     validate_buy_order,
 )
-from saxo_order.service import calculate_currency
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.logger import Logger
@@ -66,10 +65,4 @@ def set_stop_limit_order(
         order=order,
         saxo_uic=asset["Identifier"],
     )
-    gsheet_client = GSheetClient(
-        key_path=configuration.gsheet_creds_path,
-        spreadsheet_id=configuration.spreadsheet_id,
-    )
-    new_order = calculate_currency(order, configuration.currencies_rate)
-    result = gsheet_client.create_order(account, new_order, order)
-    print(f"Row {result['updates']['updatedRange']} appended.")
+    logs_order(configuration, order, account)

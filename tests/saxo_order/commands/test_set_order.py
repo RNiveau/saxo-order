@@ -34,7 +34,11 @@ class TestSetOrder:
             return_value=mocker.Mock(),
         )
         mocker.patch(
-            "saxo_order.commands.set_order.GSheetClient",
+            "saxo_order.commands.common.WebClient",
+            return_value=mocker.Mock(),
+        )
+        mocker.patch(
+            "saxo_order.commands.common.GSheetClient",
             return_value=gsheet_service,
         )
         mocker.patch(
