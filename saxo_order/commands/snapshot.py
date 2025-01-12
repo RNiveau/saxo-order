@@ -118,6 +118,6 @@ def execute_snapshot(config: str):
         )
         slack_client.chat_postMessage(
             channel="#snapshots",
-            text=f"{index} ```{table}```",
+            text=f"{index} ({candles_h1[0].close}) ```{table}```",
         )
         print(table)
