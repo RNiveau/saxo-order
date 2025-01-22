@@ -1086,18 +1086,18 @@ six = ">=1.12,<2.0"
 
 [[package]]
 name = "pulumi-aws"
-version = "6.65.0"
+version = "6.67.0"
 description = "A Pulumi package for creating and managing Amazon Web Services (AWS) cloud resources."
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 files = [
-    {file = "pulumi_aws-6.65.0-py3-none-any.whl", hash = "sha256:1472b33a92504fa9758a02db35cfd3cfb5d34e4913fd0edc4dac9f8cf5c44938"},
-    {file = "pulumi_aws-6.65.0.tar.gz", hash = "sha256:2cdd5750a2827b1e887aad921391f7914b3e493c2fe5d12fbd1f835254ac17ed"},
+    {file = "pulumi_aws-6.67.0-py3-none-any.whl", hash = "sha256:c5def0242b650510b68702d4cdacf0a7a34d1cf3c73c734006c74ec60fe9d86d"},
+    {file = "pulumi_aws-6.67.0.tar.gz", hash = "sha256:f53b6a07dfe14430d46226d611317a24d21f79e97c5ef4dfa0ebc99b46a12025"},
 ]
 
 [package.dependencies]
 parver = ">=0.2.1"
-pulumi = ">=3.136.0,<4.0.0"
+pulumi = ">=3.142.0,<4.0.0"
 semver = ">=2.8.1"
 
 [[package]]
@@ -2028,4 +2028,4 @@ test = ["websockets"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "1c8636587d3d6abdfa88102314afb7f4102e9574882751e36c902f2e5ffcc818"
+content-hash = "a4cc72cbd5cc0caf2e50d9c52eca0b86946eb70d2ca29945245680351c0d07ad"
