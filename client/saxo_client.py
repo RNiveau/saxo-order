@@ -325,8 +325,10 @@ class SaxoClient:
             f"&AssetType={asset_type}&Horizon=1&Mode=From&"
             f"Count=2&Time={date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         )
-        if response.status_code == 403:
-            print(f"Can't rertrieve information for {saxo_uic} {asset_type}")
+        if response.status_code == 403 or response.status_code == 404:
+            self.logger.warning(
+                f"Can't rertrieve information for {saxo_uic} {asset_type}"
+            )
             return 0.0
         self._check_response(response)
         data = response.json()["Data"]
@@ -364,6 +366,11 @@ class SaxoClient:
                 f"&Mode=UpTo&Count={real_count}&"
                 f"Time={date.strftime('%Y-%m-%dT%H:%M:00Z')}"
             )
+            if response.status_code == 403 or response.status_code == 404:
+                self.logger.warning(
+                    f"Can't rertrieve information for {saxo_uic} {asset_type}"
+                )
+                return []
             self._check_response(response)
             tmp_data = response.json()["Data"]
             for d in tmp_data:

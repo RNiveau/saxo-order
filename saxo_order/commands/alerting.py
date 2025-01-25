@@ -194,7 +194,8 @@ def _build_candles(saxo_client: SaxoClient, asset: Dict) -> List[Candle]:
     candles = client_helper.map_data_to_candles(data, ut=UnitTime.D)
     today = datetime.datetime.now()
     if (
-        candles[0].date is not None
+        len(candles) > 0
+        and candles[0].date is not None
         and today.day != candles[0].date.day
         and today.weekday() < 5
     ):
