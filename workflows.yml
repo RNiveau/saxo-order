@@ -1,3 +1,43 @@
+- name: buy bbb h1 dax
+  index: DAX.I
+  cfd: GER40.I
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: bbb
+          ut: h1
+      close:
+         direction: above
+         ut: h1
+         spread: 20
+  trigger:
+      ut: h1
+      signal: breakout
+      location: higher
+      order_direction: buy
+      quantity: 0.1
+
+- name: sell bbh h1 dax
+  index: DAX.I
+  cfd: GER40.I
+  enable: true
+  dry_run: false
+  conditions:
+    - indicator:
+          name: bbh
+          ut: h1
+      close:
+         direction: below
+         ut: h1
+         spread: 20
+  trigger:
+      ut: h1
+      signal: breakout
+      location: lower
+      order_direction: sell
+      quantity: 0.1
+
 - name: sell ma50 h4 dax
   index: DAX.I
   cfd: GER40.I
@@ -411,3 +451,4 @@
          direction: above
          ut: h1
          spread: 1
+
