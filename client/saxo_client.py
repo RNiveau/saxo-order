@@ -25,6 +25,14 @@ from utils.configuration import Configuration
 from utils.exception import EmptyResponseException, SaxoException
 from utils.logger import Logger
 
+RATE_LIMITING_KEYS = [
+    (
+        "X-RateLimit-RefDataInstrumentsMinute-Remaining",
+        "X-RateLimit-RefDataInstrumentsMinute-Reset",
+    ),
+    ("X-RateLimit-ChartMinute-Remaining", "X-RateLimit-ChartMinute-Reset"),
+]
+
 
 class SaxoClient:
     def __init__(self, configuration: Configuration) -> None:
@@ -403,26 +411,10 @@ class SaxoClient:
     def _check_response(response: Response) -> None:
         if response.status_code == 401:
             raise SaxoException("The access_token is expired")
-        if (
-            "X-RateLimit-RefDataInstrumentsMinute-Remaining"
-            in response.headers
-            and int(
-                response.headers[
-                    "X-RateLimit-RefDataInstrumentsMinute-Remaining"
-                ]
-            )
-            <= 1
-        ):
-            key = "X-RateLimit-RefDataInstrumentsMinute-Reset"
-            print(f"Rate limiting: wait {response.headers[key]}")
-            time.sleep(
-                int(
-                    response.headers[
-                        "X-RateLimit-RefDataInstrumentsMinute-Reset"
-                    ]
-                )
-                + 1
-            )
+        if response.status_code == 429:
+            print(f"Rate limiting: ${response.headers}")
+        for remaining_key, reset_key in RATE_LIMITING_KEYS:
+            SaxoClient.handle_rate_limiting(response, remaining_key, reset_key)
         if response.text == "":
             raise EmptyResponseException()
         json = response.json()
@@ -431,3 +423,13 @@ class SaxoClient:
         if response.status_code == 400:
             raise SaxoException(json)
         response.raise_for_status()
+
+    @staticmethod
+    def handle_rate_limiting(response, remaining_key, reset_key):
+        if (
+            remaining_key in response.headers
+            and int(response.headers[remaining_key]) <= 1
+        ):
+            wait_time = int(response.headers[reset_key]) + 1
+            print(f"Rate limiting: wait {wait_time}")
+            time.sleep(wait_time)
