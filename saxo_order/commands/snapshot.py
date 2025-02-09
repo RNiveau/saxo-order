@@ -1,4 +1,5 @@
 from typing import List
+
 import click
 from click.core import Context
 from prettytable import PrettyTable
@@ -80,7 +81,25 @@ def execute_snapshot(config: str):
         am50_h4 = mobile_average(candles=candles_h4, period=50)
         am50_daily = mobile_average(candles=candles_daily, period=50)
         table.field_names = ["Indicator", "H1", "H4", "Daily"]
-        zones = find_zones([am50_h1, am50_h4, am50_daily, bb_h1_2.bottom, bb_h4_2.bottom, bb_daily_2.bottom, bb_h1_25.bottom, bb_h4_25.bottom, bb_daily_25.bottom, bb_h1_2.up, bb_h4_2.up, bb_daily_2.up, bb_h1_25.up, bb_h4_25.up, bb_daily_25.up])
+        zones = find_zones(
+            [
+                am50_h1,
+                am50_h4,
+                am50_daily,
+                bb_h1_2.bottom,
+                bb_h4_2.bottom,
+                bb_daily_2.bottom,
+                bb_h1_25.bottom,
+                bb_h4_25.bottom,
+                bb_daily_25.bottom,
+                bb_h1_2.up,
+                bb_h4_2.up,
+                bb_daily_2.up,
+                bb_h1_25.up,
+                bb_h4_25.up,
+                bb_daily_25.up,
+            ]
+        )
         # next step: deflatten the zones to show a different symbol.
         # create a method to show the value
         table.add_row(
@@ -96,7 +115,7 @@ def execute_snapshot(config: str):
                 "BBH 2.0",
                 f"{bb_h1_2.up:.2f} {'*' if bb_h1_2.up in zones else ''}",
                 f"{bb_h4_2.up:.2f} {'*' if bb_h4_2.up in zones else ''}",
-                f"{bb_daily_2.up:.2f} {'*' if bb_daily_2.up in zones else ''}"
+                f"{bb_daily_2.up:.2f} {'*' if bb_daily_2.up in zones else ''}",
             ]
         )
         table.add_row(
@@ -129,6 +148,7 @@ def execute_snapshot(config: str):
         )
         print(table)
 
+
 def find_zones(numbers: List[float]) -> List[List[float]]:
     sorted_numbers = sorted(numbers)
     zones = []
@@ -140,8 +160,8 @@ def find_zones(numbers: List[float]) -> List[List[float]]:
         else:
             zones.append(current_zone)
             current_zone = [sorted_numbers[i]]
-    
+
     if current_zone:
         zones.append(current_zone)
-    
+
     return list(filter(lambda x: len(x) > 1, zones))
