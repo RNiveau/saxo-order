@@ -54,9 +54,22 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
         if os.path.isfile("stocks.json"):
             with open("stocks.json", "r") as f:
                 assets = json.load(f)
+            logger.debug("Stocks file loaded")
         else:
-            print("Fill the stocks.json file first")
+            logger.error("Fill the stocks.json file first")
             raise click.Abort()
+        if os.path.isfile("followup-stocks.json"):
+            with open("followup-stocks.json", "r") as f:
+                assets += json.load(f)
+            logger.debug("Followup stocks file loaded")
+        else:
+            logger.warning(
+                "Fill the followup-stocks.json to include other stocks"
+            )
+
+    if assets is None or len(assets) == 0:
+        logger.error("No stocks to alert")
+        raise click.Abort()
 
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
