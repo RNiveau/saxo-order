@@ -329,7 +329,7 @@ class SaxoClient:
         self, saxo_uic: int, date: datetime, asset_type: str
     ) -> float:
         response = self.session.get(
-            f"{self.configuration.saxo_url}chart/v1/charts/?Uic={saxo_uic}"
+            f"{self.configuration.saxo_url}chart/v3/charts/?Uic={saxo_uic}"
             f"&AssetType={asset_type}&Horizon=1&Mode=From&"
             f"Count=2&Time={date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         )
@@ -369,7 +369,7 @@ class SaxoClient:
                 f", {date}"
             )
             response = self.session.get(
-                f"{self.configuration.saxo_url}chart/v1/charts/?&Uic="
+                f"{self.configuration.saxo_url}chart/v3/charts/?&Uic="
                 f"{saxo_uic}&AssetType={asset_type}&Horizon={horizon}"
                 f"&Mode=UpTo&Count={real_count}&"
                 f"Time={date.strftime('%Y-%m-%dT%H:%M:00Z')}"
