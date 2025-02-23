@@ -452,3 +452,16 @@
          ut: h1
          spread: 1
 
+- name: buy cassure resistance W elior group
+  index: ELIOR:xpar
+  cfd: ELIOR:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: daily
+          value: 2.72
+          zone_value: 2.80
+      close:
+         direction: above
+         ut: h1
