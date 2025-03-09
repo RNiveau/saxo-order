@@ -53,6 +53,13 @@ class WorkflowElement(EnumWithGetValue):
     HIGH = "high"
     LOW = "low"
 
+@dataclass
+class LineFormula:
+
+    m: float
+    b: float
+    first_x: int
+
 
 class Indicator:
     def __init__(

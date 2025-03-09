@@ -45,6 +45,7 @@ class Signal(EnumWithGetValue):
     FIBO = "Fibo 50%"
     POL = "Polarité"
     RP = "Reprise de l'open"
+    TOU = "Touchette zone de prix"
     TMM7 = "Touchette mm7"
     TMM20 = "Touchette mm20"
     TMM50 = "Touchette mm50"
@@ -92,3 +93,7 @@ class OrderType(EnumWithGetValue):
     OCO = "oco"
     STOP_LIMIT = "stoplimit"
     MARKET = "market"
+
+class LineType(EnumWithGetValue):
+    HIGH = "high"
+    LOW = "low"
