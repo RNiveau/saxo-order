@@ -452,3 +452,46 @@
          ut: h1
          spread: 1
 
+- name: buy cassure resistance W elior group
+  index: ELIOR:xpar
+  cfd: ELIOR:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: daily
+          value: 2.72
+          zone_value: 2.80
+      close:
+         direction: above
+         ut: h1
+
+- name: buy support xfab
+  index: xfab:xpar
+  cfd: xfab:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: daily
+          value: 4.15
+          zone_value: 4.34
+      close:
+         direction: above
+         ut: h1
+         spread: 0.3
+
+- name: buy cassurance resistance xfab
+  index: xfab:xpar
+  cfd: xfab:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: daily
+          value: 5.3
+          zone_value: 5.4
+      close:
+         direction: above
+         ut: h1
+         spread: 0.3
