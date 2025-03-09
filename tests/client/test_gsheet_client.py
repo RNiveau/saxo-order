@@ -62,7 +62,7 @@ class TestGsheetClient:
         assert row[14] == "=(M2-C2)/(C2-J2)"
         assert row[17] == 5
         assert row[18] == 10
-        assert row[19] == "=F2+Q2+R2"
+        assert row[19] == "=F2+R2+S2"
         assert row[29] == "name"
         assert row[31] is None
         assert row[41] == "comment"
@@ -98,7 +98,7 @@ class TestGsheetClient:
         assert row[14] == "=(M2-G2)/(G2-J2)"
         assert row[17] == 5
         assert row[18] == 10
-        assert row[19] == "=F2+Q2+R2"
+        assert row[19] == "=F2+R2+S2"
         assert row[29] == "name"
         assert row[31] is None
         assert row[41] == "comment"
@@ -143,7 +143,7 @@ class TestGsheetClient:
 
         assert requests[1]["values"][0][0] == 5
         assert requests[1]["values"][0][1] == 10
-        assert requests[1]["values"][0][2] == "=F1+Q1+R1"
+        assert requests[1]["values"][0][2] == "=F1+R1+S1"
         assert requests[1]["values"][0][3] == "10/01/2023"
         assert requests[1]["values"][0][4] == "CASH"
 
@@ -189,7 +189,7 @@ class TestGsheetClient:
 
         assert requests[1]["values"][0][0] == 5
         assert requests[1]["values"][0][1] == 10
-        assert requests[1]["values"][0][2] == "=F1+Q1+R1"
+        assert requests[1]["values"][0][2] == "=F1+R1+S1"
         assert requests[1]["values"][0][3] == "10/01/2023"
         assert requests[1]["values"][0][4] == "CASH"
 

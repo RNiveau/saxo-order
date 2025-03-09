@@ -55,7 +55,7 @@ class GSheetClient:
         return [
             taxes.cost,
             taxes.taxes,
-            f"=F{number_rows}+Q{number_rows}+R{number_rows}",
+            f"=F{number_rows}+R{number_rows}+S{number_rows}",
             date,
             typ,
         ]
