@@ -5,7 +5,10 @@ import pytest
 
 from model import Candle, UnitTime
 from model.enum import LineType
-from services.congestion_indicator import calculate_line, calculate_congestion_indicator
+from services.congestion_indicator import (
+    calculate_congestion_indicator,
+    calculate_line,
+)
 
 # Viridien 02/01/2025 to 10/01/2025
 candles_viridien = [
@@ -67,6 +70,7 @@ candles_viridien = [
     ),
 ]
 
+
 class TestCandlesService:
 
     @pytest.mark.parametrize(
@@ -94,14 +98,10 @@ class TestCandlesService:
             (candles_viridien, 1),
         ],
     )
-    def test_congestion_indicator(
-        self, candles: List[Candle], expected
-    ):
+    def test_congestion_indicator(self, candles: List[Candle], expected):
         assert (
             calculate_congestion_indicator(
                 candles=candles,
             )
             == expected
         )
-
-

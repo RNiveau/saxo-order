@@ -94,6 +94,7 @@ class OrderType(EnumWithGetValue):
     STOP_LIMIT = "stoplimit"
     MARKET = "market"
 
+
 class LineType(EnumWithGetValue):
     HIGH = "high"
     LOW = "low"

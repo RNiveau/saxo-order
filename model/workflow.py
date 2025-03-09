@@ -53,6 +53,7 @@ class WorkflowElement(EnumWithGetValue):
     HIGH = "high"
     LOW = "low"
 
+
 @dataclass
 class LineFormula:
 
