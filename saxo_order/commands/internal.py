@@ -197,15 +197,47 @@ def technical(ctx: Context):
     #     datetime.datetime(2024, 7, 29, 14),
     # )
     # print(candles)
-    asset = saxo_client.get_asset("aca", "xpar")
+    asset = saxo_client.get_asset("viri", "xpar")
     candles = saxo_client.get_historical_data(
         asset_type=asset["AssetType"],
         saxo_uic=asset["Identifier"],
-        horizon=1,
-        count=1,
-        date=datetime.datetime(2023, 11, 11),
+        horizon=1440,
+        count=60,
+        date=datetime.datetime(2025, 3, 10),
     )
-    print(candles)
+    # with open("tests/services/files/candles_viridien.obj", "w") as f:
+    #     f.write(str(candles))
+    # should return 03/03 and 06/03
+
+    # print(candles)
+
+    from services.congestion_indicator import calculate_congestion_indicator
+    from client.client_helper import map_data_to_candles
+    from model import UnitTime
+
+    candles = map_data_to_candles(candles, ut=UnitTime.D)
+    with open("tests/services/files/candles_viridien.obj", "w") as f:
+        f.write(str(candles))
+        
+    # with open("tests/services/files/candles_viridien.obj", "w") as f:
+    #     f.write(str(candles))
+    congestion = calculate_congestion_indicator(candles)
+    print(f"Congestion indicator: {congestion}")
+
+    # asset = saxo_client.get_asset("gle", "xpar")
+    # candles = saxo_client.get_historical_data(
+    #     asset_type=asset["AssetType"],
+    #     saxo_uic=asset["Identifier"],
+    #     horizon=1440,
+    #     count=100,
+    #     date=datetime.datetime(2025, 3, 5),
+    # )
+    # # candles = candles[:-3]    # print(candles)
+    # candles = map_data_to_candles(candles, ut=UnitTime.D)
+    # congestion = calculate_congestion_indicator(candles)
+    # print(f"Congestion indicator: {congestion}")
+
+
     # from client.client_helper import map_data_to_candles
 
     # candles = map_data_to_candles(candles, ut=UnitTime.D)

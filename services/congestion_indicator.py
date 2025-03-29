@@ -59,12 +59,13 @@ def calculate_congestion_indicator(candles: List[Candle]) -> int:
 
     """
     toleration_high = 1.002
+    touch_points: List[Candle] = []
     # toleration_low = 0.998
     for back_test in range(min(50, len(candles)), 3, -1):
         # all points are bellow the line ?
         # test several second highest
         lineOk = 0
-        # for whichHigh in range(0, 2):
+        touch_points = []
         line_formula, candle = calculate_line(
             LineType.HIGH, candles, back_test, 0
         )
@@ -78,7 +79,10 @@ def calculate_congestion_indicator(candles: List[Candle]) -> int:
             if y2 * toleration_high < candles[tmpX].higher:
                 lineOk = 0
                 break
+            # Check if candle touches the line within 0.02% tolerance
+            if abs((y2 - candles[tmpX].higher) / y2) < 0.0002:
+                touch_points.append(candles[tmpX])
         if lineOk == 1:
             break
     # should return list of points where the candle touches the line
-    return lineOk
+    return touch_points if lineOk else []

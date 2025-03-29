@@ -93,12 +93,14 @@ class TestCandlesService:
         )
 
     @pytest.mark.parametrize(
-        "candles, expected",
+        "file, expected",
         [
-            (candles_viridien, 1),
+            ("candles_viridien.obj", 1),
         ],
     )
-    def test_congestion_indicator(self, candles: List[Candle], expected):
+    def test_congestion_indicator(self, file: str, expected):
+        with open(f"tests/services/files/{file}", "r") as f:
+            candles = eval(f.read(), {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime})
         assert (
             calculate_congestion_indicator(
                 candles=candles,
