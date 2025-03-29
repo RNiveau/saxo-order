@@ -59,7 +59,7 @@ def apply_rules(
 def calculate_taxes(order: Order) -> Taxes:
     total = order.price * order.quantity
     cost = max(2, total * 0.0008)
-    taxes = 0.003 * total if order.asset_type == AssetType.STOCK else 0
+    taxes = 0.004 * total if order.asset_type == AssetType.STOCK else 0
     if order.asset_type in [AssetType.CFDINDEX, AssetType.CFDFUTURE]:
         cost = 0
     return Taxes(cost, taxes)
