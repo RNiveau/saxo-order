@@ -229,17 +229,18 @@
          ut: h1
          spread: 1
 
-- name: zone lt interparfum
+- name: buy zone interparfum
   index: ITP:xpar
   cfd: ITP:xpar
   enable: true
   conditions:
     - indicator:
-          name: polarite
-          ut: daily
+          name: zone
+          ut: h1
           value: 35
+          zone_value: 37
       close:
-         direction: above
+         direction: below
          ut: h1
          spread: 1
 
@@ -251,12 +252,13 @@
     - indicator:
           name: zone
           ut: h1
-          value: 33
-          zone_value: 35
+          value: 29
+          zone_value: 27
       close:
          direction: below
          ut: h1
          spread: 1
+
 
 - name: buy zone pernod
   index: RI:xpar
@@ -495,3 +497,95 @@
          direction: above
          ut: h1
          spread: 0.3
+
+- name: buy zone lt apple
+  index: AAPL:xnas
+  cfd: AAPL:xnas
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 193
+          zone_value: 200
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+- name: buy zone lt apple
+  index: AAPL:xnas
+  cfd: AAPL:xnas
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 164
+          zone_value: 171
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+- name: buy zone lt apple
+  index: AAPL:xnas
+  cfd: AAPL:xnas
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 128
+          zone_value: 135
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+
+- name: buy zone lt google
+  index: GOOG:xnas
+  cfd: GOOG:xnas
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 120
+          zone_value: 126
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+- name: buy zone lt google
+  index: GOOG:xnas
+  cfd: GOOG:xnas
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 80
+          zone_value: 90
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+- name: buy zone lt nike
+  index: NKE:xnys
+  cfd: NKE:xnys
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 49
+          zone_value: 52
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
