@@ -141,7 +141,9 @@ class CandlesService:
         self, code: str, ut: UnitTime, date: datetime.datetime
     ) -> Optional[Candle]:
         """Return last h1 or h4 candle"""
+        self.logger.debug(f"get_candle_per_hour {code}")
         asset = self.saxo_client.get_asset(code)
+        self.logger.debug(asset)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
