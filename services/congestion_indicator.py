@@ -16,8 +16,8 @@ def calculate_line(
     mathematiques/l-equation-d-une-droite-a-partir-de-coordonnees-m1319
     Y = mX + b
     """
-    tab_high: List[float] = [0, 0, 0]
-    tab_index: List[int] = [0, 0, 0]
+    tab_high: List[float] = [0] * 3
+    tab_index: List[int] = [0] * 3
 
     first_index = 1
     if line_type == LineType.HIGH:
@@ -62,27 +62,31 @@ def calculate_congestion_indicator(candles: List[Candle]) -> int:
     touch_points: List[Candle] = []
     # toleration_low = 0.998
     for back_test in range(min(50, len(candles)), 3, -1):
-        # all points are bellow the line ?
-        # test several second highest
-        lineOk = 0
-        touch_points = []
-        line_formula, candle = calculate_line(
-            LineType.HIGH, candles, back_test, 0
-        )
-        # drop too small line
-        if line_formula.first_x < 3:
-            lineOk = 0
-            continue
-        lineOk = 1
-        for tmpX in range(line_formula.first_x, 0, -1):
-            y2 = line_formula.m * tmpX + line_formula.b
-            if y2 * toleration_high < candles[tmpX].higher:
-                lineOk = 0
+        for which_high in range(0, 3):
+            # all points are bellow the line ?
+            # test several second highest
+            line_ok = 0
+            touch_points = []
+            line_formula, candle = calculate_line(
+                LineType.HIGH, candles, back_test, which_high
+            )
+            # drop too small line
+            if line_formula.first_x < 3:
+                line_ok = 0
+                continue
+            line_ok = 1
+            for tmp_x in range(line_formula.first_x, 0, -1):
+                y2 = line_formula.m * tmp_x + line_formula.b
+                if y2 * toleration_high < candles[tmp_x].higher:
+                    line_ok = 0
+                    break
+                # Check if candle touches the line within 0.02% tolerance
+                if abs((y2 - candles[tmp_x].higher) / y2) < 0.0002:
+                    touch_points.append(candles[tmp_x])
+            if line_ok == 1:
                 break
-            # Check if candle touches the line within 0.02% tolerance
-            if abs((y2 - candles[tmpX].higher) / y2) < 0.0002:
-                touch_points.append(candles[tmpX])
-        if lineOk == 1:
+        if line_ok == 1:
             break
+
     # should return list of points where the candle touches the line
-    return touch_points if lineOk else []
+    return touch_points if line_ok else []

@@ -127,6 +127,7 @@ class WorkflowEngine:
                         raise SaxoException()
             else:
                 self.logger.info(f"Workflow {workflow.name} will not run")
+
         for order in results:
             if order[1] is not None:
                 asset = self.saxo_client.get_asset(order[1][1].code)

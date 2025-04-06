@@ -95,15 +95,27 @@ class TestCandlesService:
     @pytest.mark.parametrize(
         "file, expected",
         [
-            ("candles_viridien.obj", 1),
+            (
+                "candles_viridien.obj",
+                [datetime.datetime(2025, 3, 3), datetime.datetime(2025, 3, 6)],
+            ),
+            (
+                "candles_viridien2.obj",
+                [
+                    datetime.datetime(2025, 1, 16),
+                    datetime.datetime(2025, 3, 6),
+                ],
+            ),
         ],
     )
     def test_congestion_indicator(self, file: str, expected):
         with open(f"tests/services/files/{file}", "r") as f:
-            candles = eval(f.read(), {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime})
-        assert (
-            calculate_congestion_indicator(
-                candles=candles,
+            candles = eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
             )
-            == expected
+        touch_points = calculate_congestion_indicator(
+            candles=candles,
         )
+        # check la position du 27/01
+        assert [t.date for t in touch_points] == expected

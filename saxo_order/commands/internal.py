@@ -203,7 +203,7 @@ def technical(ctx: Context):
         saxo_uic=asset["Identifier"],
         horizon=1440,
         count=60,
-        date=datetime.datetime(2025, 3, 10),
+        date=datetime.datetime(2025, 2, 19),
     )
     # with open("tests/services/files/candles_viridien.obj", "w") as f:
     #     f.write(str(candles))
@@ -211,14 +211,14 @@ def technical(ctx: Context):
 
     # print(candles)
 
-    from services.congestion_indicator import calculate_congestion_indicator
     from client.client_helper import map_data_to_candles
     from model import UnitTime
+    from services.congestion_indicator import calculate_congestion_indicator
 
     candles = map_data_to_candles(candles, ut=UnitTime.D)
-    with open("tests/services/files/candles_viridien.obj", "w") as f:
+    with open("tests/services/files/candles_viridien2.obj", "w") as f:
         f.write(str(candles))
-        
+
     # with open("tests/services/files/candles_viridien.obj", "w") as f:
     #     f.write(str(candles))
     congestion = calculate_congestion_indicator(candles)
@@ -236,7 +236,6 @@ def technical(ctx: Context):
     # candles = map_data_to_candles(candles, ut=UnitTime.D)
     # congestion = calculate_congestion_indicator(candles)
     # print(f"Congestion indicator: {congestion}")
-
 
     # from client.client_helper import map_data_to_candles
 
