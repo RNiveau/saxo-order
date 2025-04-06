@@ -230,6 +230,7 @@
          spread: 1
 
 - name: buy zone interparfum
+- name: buy zone interparfum
   index: ITP:xpar
   cfd: ITP:xpar
   enable: true
@@ -237,9 +238,13 @@
     - indicator:
           name: zone
           ut: h1
+          name: zone
+          ut: h1
           value: 35
           zone_value: 37
+          zone_value: 37
       close:
+         direction: below
          direction: below
          ut: h1
          spread: 1
@@ -254,10 +259,13 @@
           ut: h1
           value: 29
           zone_value: 27
+          value: 29
+          zone_value: 27
       close:
          direction: below
          ut: h1
          spread: 1
+
 
 
 - name: buy zone pernod
@@ -584,6 +592,36 @@
           ut: h1
           value: 49
           zone_value: 52
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+- name: buy zone lt capgemini
+  index: cap:xpar
+  cfd: cap:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 113
+          zone_value: 120
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+- name: buy zone lt capgemini
+  index: cap:xpar
+  cfd: cap:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 88
+          zone_value: 92
       close:
          direction: above
          ut: h1
