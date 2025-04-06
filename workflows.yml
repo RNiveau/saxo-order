@@ -230,7 +230,6 @@
          spread: 1
 
 - name: buy zone interparfum
-- name: buy zone interparfum
   index: ITP:xpar
   cfd: ITP:xpar
   enable: true
@@ -626,4 +625,5 @@
          direction: above
          ut: h1
          spread: 1
+
 
