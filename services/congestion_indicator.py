@@ -9,15 +9,15 @@ def calculate_line(
     candles: List[Candle],
     max_len: int,
     which_second_point: int,
-) -> tuple[LineFormula, Candle]:
+) -> LineFormula:
     """
     Calculate the line of the congestion indicator
     Based on the formula https://www.alloprof.qc.ca/fr/eleves/bv/
     mathematiques/l-equation-d-une-droite-a-partir-de-coordonnees-m1319
     Y = mX + b
     """
-    tab_high: List[float] = [0] * 3
-    tab_index: List[int] = [0] * 3
+    tab_high: List[float] = [0] * len(candles)
+    tab_index: List[int] = [0] * len(candles)
 
     first_index = 1
     if line_type == LineType.HIGH:
@@ -29,9 +29,11 @@ def calculate_line(
         if (line_type == LineType.HIGH and candles[i].higher > first_high) or (
             line_type == LineType.LOW and candles[i].lower < first_high
         ):
-            tab_high[2], tab_high[1] = tab_high[1], tab_high[0]
+            for j in range(len(tab_high) - 1, 0, -1):
+                tab_high[j] = tab_high[j - 1]
             tab_high[0] = first_high
-            tab_index[2], tab_index[1] = tab_index[1], tab_index[0]
+            for j in range(len(tab_index) - 1, 0, -1):
+                tab_index[j] = tab_index[j - 1]
             tab_index[0] = first_index
             first_high = (
                 candles[i].higher
@@ -49,7 +51,7 @@ def calculate_line(
         first_index = 0
         m = b = 0
 
-    return LineFormula(m=m, b=b, first_x=first_index), candles[first_index]
+    return LineFormula(m=m, b=b, first_x=first_index)
 
 
 def calculate_congestion_indicator(candles: List[Candle]) -> int:
@@ -61,13 +63,14 @@ def calculate_congestion_indicator(candles: List[Candle]) -> int:
     toleration_high = 1.002
     touch_points: List[Candle] = []
     # toleration_low = 0.998
-    for back_test in range(min(50, len(candles)), 3, -1):
-        for which_high in range(0, 3):
+    max_lookback = min(50, len(candles))
+    for back_test in range(max_lookback, 3, -1):
+        for which_high in range(0, max_lookback):
             # all points are bellow the line ?
             # test several second highest
             line_ok = 0
             touch_points = []
-            line_formula, candle = calculate_line(
+            line_formula = calculate_line(
                 LineType.HIGH, candles, back_test, which_high
             )
             # drop too small line
