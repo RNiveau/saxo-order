@@ -380,7 +380,6 @@ class SaxoClient:
                 )
                 return []
             self._check_response(response)
-            print(response.json())
             tmp_data = response.json()["Data"]
             for d in tmp_data:
                 d["Time"] = datetime.strptime(
