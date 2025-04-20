@@ -626,4 +626,32 @@
          ut: h1
          spread: 1
 
+- name: buy zone lt lvmh
+  index: mc:xpar
+  cfd: mc:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 406
+          zone_value: 436
+      close:
+         direction: above
+         ut: h1
+         spread: 1
 
+- name: buy zone lt lvmh
+  index: mc:xpar
+  cfd: mc:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 288
+          zone_value: 316
+      close:
+         direction: above
+         ut: h1
+         spread: 1
