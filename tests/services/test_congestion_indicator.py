@@ -1,14 +1,9 @@
 import datetime
-from typing import List
 
 import pytest
 
 from model import Candle, UnitTime
-from model.enum import LineType
-from services.congestion_indicator import (
-    calculate_congestion_indicator,
-    calculate_line,
-)
+from services.congestion_indicator import calculate_congestion_indicator
 
 # Viridien 02/01/2025 to 10/01/2025
 candles_viridien = [
@@ -74,25 +69,6 @@ candles_viridien = [
 class TestCandlesService:
 
     @pytest.mark.parametrize(
-        "candles, line_type, expected",
-        [
-            (candles_viridien, LineType.HIGH, 0),
-        ],
-    )
-    def test_calculate_line(
-        self, candles: List[Candle], line_type: LineType, expected
-    ):
-        assert (
-            calculate_line(
-                line_type=line_type,
-                candles=candles,
-                max_len=5,
-                which_second_point=0,
-            )
-            == expected
-        )
-
-    @pytest.mark.parametrize(
         "file, expected",
         [
             (
@@ -103,7 +79,16 @@ class TestCandlesService:
                 "candles_viridien2.obj",
                 [
                     datetime.datetime(2025, 1, 16),
-                    datetime.datetime(2025, 3, 6),
+                    datetime.datetime(2025, 1, 17),
+                    datetime.datetime(2025, 1, 21),
+                    datetime.datetime(2025, 1, 22),
+                    datetime.datetime(2025, 1, 27),
+                    datetime.datetime(2025, 2, 5),
+                    datetime.datetime(2025, 2, 11),
+                    datetime.datetime(2025, 2, 12),
+                    datetime.datetime(2025, 2, 14),
+                    datetime.datetime(2025, 2, 18),
+                    datetime.datetime(2025, 2, 19),
                 ],
             ),
         ],

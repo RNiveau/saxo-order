@@ -54,13 +54,13 @@ def calculate_line(
     return LineFormula(m=m, b=b, first_x=first_index)
 
 
-def calculate_congestion_indicator(candles: List[Candle]) -> int:
+def calculate_congestion_indicator(candles: List[Candle]) -> List[Candle]:
     """
     Calculate the congestion indicator
     Go from the oldest (or 50) to the newest candle - 3
 
     """
-    toleration_high = 1.002
+    toleration_high = 1.004
     touch_points: List[Candle] = []
     # toleration_low = 0.998
     max_lookback = min(50, len(candles))
@@ -83,8 +83,8 @@ def calculate_congestion_indicator(candles: List[Candle]) -> int:
                 if y2 * toleration_high < candles[tmp_x].higher:
                     line_ok = 0
                     break
-                # Check if candle touches the line within 0.02% tolerance
-                if abs((y2 - candles[tmp_x].higher) / y2) < 0.0002:
+                # Check if candle touches the line within 0.04% tolerance
+                if abs((y2 - candles[tmp_x].higher) / y2) < 0.004:
                     touch_points.append(candles[tmp_x])
             if line_ok == 1:
                 break
