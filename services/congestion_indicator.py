@@ -2,6 +2,7 @@ from typing import List
 
 from model.enum import LineType
 from model.workflow import Candle, LineFormula
+from services.indicator_service import slope_percentage
 
 
 def calculate_line(
@@ -85,6 +86,18 @@ def calculate_congestion_indicator(candles: List[Candle]) -> List[Candle]:
                     break
                 # Check if candle touches the line within 0.04% tolerance
                 if abs((y2 - candles[tmp_x].higher) / y2) < 0.004:
+                    if line_formula.first_x != tmp_x:
+                        if (
+                            slope_percentage(
+                                line_formula.first_x,
+                                candles[line_formula.first_x].higher,
+                                line_formula.first_x + tmp_x,
+                                y2,
+                            )
+                            < -500
+                        ):
+                            line_ok = 0
+                            break
                     touch_points.append(candles[tmp_x])
             if line_ok == 1:
                 break
