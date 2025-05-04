@@ -197,13 +197,13 @@ def technical(ctx: Context):
     #     datetime.datetime(2024, 7, 29, 14),
     # )
     # print(candles)
-    asset = saxo_client.get_asset("viri", "xpar")
+    asset = saxo_client.get_asset("chbe", "xpar")
     candles = saxo_client.get_historical_data(
         asset_type=asset["AssetType"],
         saxo_uic=asset["Identifier"],
         horizon=1440,
-        count=12,
-        date=datetime.datetime(2025, 4, 26),
+        count=20,
+        date=datetime.datetime(2025, 5, 2),
     )
     # with open("tests/services/files/candles_viridien.obj", "w") as f:
     #     f.write(str(candles))
@@ -216,7 +216,7 @@ def technical(ctx: Context):
     from services.congestion_indicator import calculate_congestion_indicator
 
     candles = map_data_to_candles(candles, ut=UnitTime.D)
-    with open("tests/services/files/candles_viridien3.obj", "w") as f:
+    with open("tests/services/files/candles_beneteau.obj", "w") as f:
         f.write(str(candles))
 
     # with open("tests/services/files/candles_viridien.obj", "w") as f:
