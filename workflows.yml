@@ -416,36 +416,6 @@
          ut: h1
          spread: 1
 
-- name: buy polarite remy cointreau
-  index: RCOP:xpar
-  cfd: RCOP:xpar
-  enable: true
-  conditions:
-    - indicator:
-          name: polarite
-          ut: h1
-          value: 58.3
-      close:
-         direction: above
-         ut: h1
-         spread: 2
-
-
-- name: buy polarite remy cointreau
-  index: RCOP:xpar
-  cfd: RCOP:xpar
-  enable: false
-  conditions:
-    - indicator:
-          name: polarite
-          ut: h1
-          value: 58.3
-      close:
-         direction: above
-         ut: h1
-         spread: 2
-
-
 - name: buy zone lt dassault aviation
   index: am:xpar
   cfd: am:xpar
@@ -655,3 +625,18 @@
          direction: above
          ut: h1
          spread: 1
+
+- name: buy zone lt total
+  index: tte:xpar
+  cfd: tte:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: daily
+          value: 48
+          zone_value: 50.3
+      close:
+         direction: above
+         ut: h1
+         spread: 0.3
