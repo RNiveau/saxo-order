@@ -95,6 +95,8 @@ class TestCandlesService:
                     datetime.datetime(2025, 4, 15, 0, 0),
                 ],
             ),
+            add a test without return
+            add a test with another value
         ],
     )
     def test_congestion_indicator(self, file: str, expected):
