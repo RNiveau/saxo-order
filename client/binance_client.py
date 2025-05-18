@@ -1,9 +1,12 @@
+import logging
 from datetime import datetime
 from typing import Dict, List
 
+from binance.error import ClientError
 from binance.spot import Spot  # type: ignore
 
 from model import AssetType, Currency, Direction, ReportOrder, Taxes
+from utils.logger import Logger
 
 
 class BinanceClient:
@@ -37,6 +40,7 @@ class BinanceClient:
     ]
 
     def __init__(self, key: str, secret: str) -> None:
+        self.logger = Logger.get_logger("binance_client", logging.INFO)
         self.client = Spot(key, secret)
 
     def _merge_trades(self, trades: List) -> List:
@@ -84,12 +88,22 @@ class BinanceClient:
         self, symbol: str, date: str, usdeur_rate: float
     ) -> List[ReportOrder]:
         timestamp = datetime.strptime(date, "%Y/%m/%d").timestamp() * 1000
-        trades = self.client.my_trades(
-            f"{symbol}BUSD", startTime=int(timestamp)
-        )
-        trades += self.client.my_trades(
-            f"{symbol}USDT", startTime=int(timestamp)
-        )
+        try:
+            trades = self.client.my_trades(
+                f"{symbol}BUSD", startTime=int(timestamp)
+            )
+        except ClientError as e:
+            self.logger.error(f"{symbol}BUSD {e}")
+            return []
+        try:
+            trades += self.client.my_trades(
+                f"{symbol}USDT", startTime=int(timestamp)
+            )
+            trades += self.client.my_trades(
+                f"{symbol}USDC", startTime=int(timestamp)
+            )
+        except ClientError as e:
+            self.logger.error(f"{symbol}USDC / USDT {e}")
         orders = []
         for trade in self._merge_trades(trades):
             direction = (
