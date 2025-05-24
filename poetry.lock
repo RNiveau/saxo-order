@@ -1023,6 +1023,18 @@ files = [
 ]
 
 [[package]]
+name = "pip"
+version = "25.1.1"
+description = "The PyPA recommended tool for installing Python packages."
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "pip-25.1.1-py3-none-any.whl", hash = "sha256:2913a38a2abf4ea6b64ab507bd9e967f3b53dc1ede74b01b0931e1ce548751af"},
+    {file = "pip-25.1.1.tar.gz", hash = "sha256:3de45d411d308d5054c2168185d8da7f9a2cd753dbac8acbfa88a8909ecd9077"},
+]
+
+[[package]]
 name = "platformdirs"
 version = "4.3.6"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`."
@@ -1114,19 +1126,20 @@ files = [
 
 [[package]]
 name = "pulumi"
-version = "3.144.1"
+version = "3.148.0"
 description = "Pulumi's Python SDK"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "pulumi-3.144.1-py3-none-any.whl", hash = "sha256:42a7c66d81000874e0ec44bfaacfe56a0dbf5cc0060014b10d064e0bc01580f7"},
+    {file = "pulumi-3.148.0-py3-none-any.whl", hash = "sha256:1ea1314ea6f9d95ce225ac91ff631f90d0079f705922c81ed9a05ce954b2d238"},
 ]
 
 [package.dependencies]
 debugpy = ">=1.8.7,<1.9.0"
 dill = ">=0.3,<1.0"
 grpcio = ">=1.66.2,<1.67.0"
+pip = ">=24.3.1,<26"
 protobuf = ">=4.21,<5.0"
 pyyaml = ">=6.0,<7.0"
 semver = ">=2.13,<3.0"
@@ -2109,4 +2122,4 @@ test = ["websockets"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "29c6e5e55b0bb6efa1b0308dd1544f0c03019950b59fb9b9f68a86ec0bfc9bb1"
+content-hash = "e079f577611b0662f944c90289043b57ed9f8031e84c3508ea9b42b21a875972"
