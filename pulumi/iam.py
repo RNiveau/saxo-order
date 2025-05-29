@@ -80,6 +80,40 @@ def scheduler_role_policy(role_id: int, lambda_arns: List[str]) -> None:
     )
 
 
+def dynamodb_policy(
+    dynamodb_table: aws.dynamodb.Table, lambda_role: aws.iam.Role
+) -> None:
+    lambda_policy = aws.iam.Policy(
+        "lambdaPolicy",
+        description="A policy to allow Lambda to access DynamoDB",
+        policy=dynamodb_table.arn.apply(
+            lambda arn: f"""{{
+            "Version": "2012-10-17",
+            "Statement": [
+                {{
+                    "Action": [
+                        "dynamodb:Query",
+                        "dynamodb:Scan",
+                        "dynamodb:GetItem",
+                        "dynamodb:PutItem",
+                        "dynamodb:UpdateItem",
+                        "dynamodb:DeleteItem"
+                    ],
+                    "Effect": "Allow",
+                    "Resource": "{arn}"
+                }}
+            ]
+        }}"""
+        ),
+    )
+
+    aws.iam.RolePolicyAttachment(
+        "lambdaPolicyAttachment",
+        role=lambda_role.name,
+        policy_arn=lambda_policy.arn,
+    )
+
+
 def k_order_user() -> tuple:
     user = aws.iam.User("k-order")
     access_key = aws.iam.AccessKey("k-order-accesskey", user=user.name)

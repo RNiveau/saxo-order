@@ -1,3 +1,4 @@
+import dynamodb
 import ecr
 import iam
 import lambda_
@@ -13,6 +14,7 @@ bucket = s3.bucket()
 lambda_role = iam.lambda_role()
 scheduler_role = iam.scheduler_role(caller_identity.account_id)
 ecr_repository = ecr.ecr_repository()
+dynamodb_table = dynamodb.dynamodb_table()
 refresh_token_lambda = ecr_repository.repository_url.apply(
     lambda repository_url: lambda_.resfreh_token_lambda(
         repository_url, lambda_role.arn
@@ -33,6 +35,8 @@ snapshot_lambda = ecr_repository.repository_url.apply(
         repository_url, lambda_role.arn
     )
 )
+
+iam.dynamodb_policy(dynamodb_table, lambda_role)
 
 pulumi.Output.all(
     refresh_token_lambda.arn,
@@ -98,3 +102,4 @@ pulumi.export("account_id", caller_identity.account_id)
 pulumi.export("user_arn", user.arn)
 pulumi.export("access_key_id", access_key.id)
 pulumi.export("secret_access_key", access_key.secret)
+pulumi.export("dynamodb_table_name", dynamodb_table.name)
