@@ -3,7 +3,7 @@ import os
 import boto3
 
 
-class AwsClient:
+class S3Client:
 
     BUCKET_NAME = "k-order"
     ACCESS_TOKEN = "access_token"
@@ -14,27 +14,27 @@ class AwsClient:
 
     def get_access_token(self) -> str:
         response = self.s3.get_object(
-            Bucket=AwsClient.BUCKET_NAME, Key=AwsClient.ACCESS_TOKEN
+            Bucket=S3Client.BUCKET_NAME, Key=S3Client.ACCESS_TOKEN
         )
         return response["Body"].read().decode("utf-8")
 
     def save_access_token(self, access_token: str, refresh_token: str) -> None:
         self.s3.put_object(
-            Bucket=AwsClient.BUCKET_NAME,
-            Key=AwsClient.ACCESS_TOKEN,
+            Bucket=S3Client.BUCKET_NAME,
+            Key=S3Client.ACCESS_TOKEN,
             Body=f"{access_token}\n{refresh_token}\n",
         )
 
     def get_workflows(self) -> str:
         response = self.s3.get_object(
-            Bucket=AwsClient.BUCKET_NAME, Key=AwsClient.WORKFLOWS
+            Bucket=S3Client.BUCKET_NAME, Key=S3Client.WORKFLOWS
         )
         return response["Body"].read().decode("utf-8")
 
     def save_workflows(self, content: str) -> None:
         self.s3.put_object(
-            Bucket=AwsClient.BUCKET_NAME,
-            Key=AwsClient.WORKFLOWS,
+            Bucket=S3Client.BUCKET_NAME,
+            Key=S3Client.WORKFLOWS,
             Body=f"{content}\n",
         )
 

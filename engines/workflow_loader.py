@@ -5,7 +5,7 @@ from typing import List
 
 import yaml
 
-from client.aws_client import AwsClient
+from client.aws_client import S3Client
 from model.workflow import (
     Close,
     Condition,
@@ -23,9 +23,9 @@ from utils.logger import Logger
 
 def load_workflows(force_from_disk: bool = False) -> List[Workflow]:
     logger = Logger.get_logger("workflow_loader", logging.DEBUG)
-    if AwsClient.is_aws_context() and force_from_disk is False:
+    if S3Client.is_aws_context() and force_from_disk is False:
         logger.info("Load workflows.yml from AWS")
-        workflows_data = yaml.safe_load(AwsClient().get_workflows())
+        workflows_data = yaml.safe_load(S3Client().get_workflows())
     elif os.path.isfile("workflows.yml"):
         with open("workflows.yml", "r") as file:
             logger.info(

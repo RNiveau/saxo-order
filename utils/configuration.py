@@ -3,7 +3,7 @@ from typing import Dict, Tuple
 
 import yaml
 
-from client.aws_client import AwsClient
+from client.aws_client import S3Client
 from utils.logger import Logger
 
 
@@ -19,7 +19,7 @@ class Configuration:
                 self.secrets = yaml.safe_load(f)
         self.access_token = ""
         self.refresh_token = ""
-        self.aws_client = AwsClient() if AwsClient.is_aws_context() else None
+        self.aws_client = S3Client() if S3Client.is_aws_context() else None
         self.load_tokens()
 
     def load_tokens(self) -> None:

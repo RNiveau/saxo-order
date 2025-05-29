@@ -4,7 +4,7 @@ import click
 from click.core import Context
 from slack_sdk import WebClient
 
-from client.aws_client import AwsClient
+from client.aws_client import S3Client
 from client.saxo_client import SaxoClient
 from engines.workflow_loader import load_workflows
 from model import AssetType
@@ -259,10 +259,10 @@ def technical(ctx: Context):
 )
 @catch_exception(handle=SaxoException)
 def sync_workflows(ctx: Context, direction: str):
-    if AwsClient.is_aws_context() is False:
+    if S3Client.is_aws_context() is False:
         print("Configure aws token first")
         raise click.Abort()
-    aws_client = AwsClient()
+    aws_client = S3Client()
     if direction == "from":
         workflows_yml = aws_client.get_workflows()
         with open("workflows.yml", "w") as file:
