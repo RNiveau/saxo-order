@@ -160,6 +160,31 @@ class Candle:
     ut: UnitTime = UnitTime.D
     date: Optional[datetime.datetime] = None
 
+    def to_dict(self) -> Dict:
+        return {
+            "lower": self.lower,
+            "higher": self.higher,
+            "open": self.open,
+            "close": self.close,
+            "ut": self.ut.value,
+            "date": self.date.isoformat() if self.date else None,
+        }
+
+    @staticmethod
+    def from_dict(data: Dict) -> "Candle":
+        return Candle(
+            lower=data["lower"],
+            higher=data["higher"],
+            open=data["open"],
+            close=data["close"],
+            ut=UnitTime(data["ut"]),
+            date=(
+                datetime.datetime.fromisoformat(data["date"])
+                if data["date"]
+                else None
+            ),
+        )
+
 
 @dataclass
 class BollingerBands:

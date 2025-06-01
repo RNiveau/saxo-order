@@ -8,10 +8,11 @@ from click.core import Context
 from slack_sdk import WebClient
 
 from client import client_helper
+from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
-from model import AssetType, Candle, UnitTime
+from model import AlertType, AssetType, Candle, UnitTime
 from saxo_order.commands import catch_exception
-from services import indicator_service
+from services import congestion_indicator, indicator_service
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.helper import build_daily_candle_from_hours
@@ -42,7 +43,13 @@ def alerting(ctx: Context, code: str, country_code: str) -> None:
         asset = saxo_client.get_asset(code, country_code)
         run_alerting(
             config,
-            [{"name": asset["Description"], "saxo_uic": asset["Identifier"]}],
+            [
+                {
+                    "name": asset["Description"],
+                    "code": asset["Symbol"],
+                    "saxo_uic": asset["Identifier"],
+                }
+            ],
         )
     else:
         run_alerting(config)
@@ -51,21 +58,7 @@ def alerting(ctx: Context, code: str, country_code: str) -> None:
 def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
 
     if assets is None:
-        if os.path.isfile("stocks.json"):
-            with open("stocks.json", "r") as f:
-                assets = json.load(f)
-            logger.debug("Stocks file loaded")
-        else:
-            logger.error("Fill the stocks.json file first")
-            raise click.Abort()
-        if os.path.isfile("followup-stocks.json"):
-            with open("followup-stocks.json", "r") as f:
-                assets += json.load(f)
-            logger.debug("Followup stocks file loaded")
-        else:
-            logger.warning(
-                "Fill the followup-stocks.json to include other stocks"
-            )
+        assets = _load_assets()
 
     if assets is None or len(assets) == 0:
         logger.error("No stocks to alert")
@@ -79,6 +72,7 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
         "container_candle": [],
         "combo": [],
         "double_inside_bar": [],
+        "congestion": [],
     }
     has_message = False
     for asset in assets:
@@ -86,6 +80,60 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
         try:
             if "saxo_uic" in asset:
                 candles = _build_candles(saxo_client, asset)
+                congestion_indicator = _run_congestion_indicator(
+                    asset, candles, 20, 2
+                )
+                if (
+                    congestion_indicator is not None
+                    and len(congestion_indicator) > 0
+                ):
+                    id = DynamoDBClient().get_indicator(congestion_indicator)
+                    if id is None:
+                        date = datetime.datetime.now().strftime("%Y-%m-%d")
+                        touch_points = [
+                            f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "  # noqa: E501
+                            + f"{c.higher} {c.lower}"
+                            for c in congestion_indicator
+                        ]
+                        slack_messages["congestion"].append(
+                            f"{asset['name']}: Congestion detected on {date}\n"
+                            + "Touch points:\n"
+                            + "\n".join(touch_points)
+                        )
+                        has_message = True
+                        DynamoDBClient().store_indicator(
+                            asset["code"],
+                            datetime.datetime.now(),
+                            AlertType.CONGESTION20,
+                            congestion_indicator,
+                        )
+                congestion_indicator = _run_congestion_indicator(
+                    asset, candles, 100, 3
+                )
+                if (
+                    congestion_indicator is not None
+                    and len(congestion_indicator) > 0
+                ):
+                    id = DynamoDBClient().get_indicator(congestion_indicator)
+                    if id is None:
+                        date = datetime.datetime.now().strftime("%Y-%m-%d")
+                        touch_points = [
+                            f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "  # noqa: E501
+                            + f"{c.higher} {c.lower}"
+                            for c in congestion_indicator
+                        ]
+                        slack_messages["congestion"].append(
+                            f"{asset['name']}: Congestion detected on {date}\n"
+                            + "Touch points:\n"
+                            + "\n".join(touch_points)
+                        )
+                        has_message = True
+                        DynamoDBClient().store_indicator(
+                            asset["code"],
+                            datetime.datetime.now(),
+                            AlertType.CONGESTION100,
+                            congestion_indicator,
+                        )
                 if (
                     len(assets) == 1
                     and (
@@ -174,6 +222,22 @@ def _run_containing_candle(
     return None
 
 
+def _run_congestion_indicator(
+    asset: Dict,
+    candles: List[Candle],
+    candle_length: int = 20,
+    minimal_touch_points: int = 3,
+) -> Optional[List[Candle]]:
+    indicator = congestion_indicator.calculate_congestion_indicator(
+        candles=candles[:candle_length],
+        minimal_touch_points=minimal_touch_points,
+    )
+    if len(indicator) > 0:
+        logger.debug(f"{asset['name']}, {indicator}")
+        return indicator
+    return None
+
+
 def _run_double_top(
     saxo_client: SaxoClient,
     asset: Dict,
@@ -225,3 +289,20 @@ def _build_candles(saxo_client: SaxoClient, asset: Dict) -> List[Candle]:
         if hour_candle is not None:
             candles.insert(0, hour_candle)
     return candles
+
+
+def _load_assets() -> List[Dict]:
+    if os.path.isfile("stocks.json"):
+        with open("stocks.json", "r") as f:
+            assets = json.load(f)
+        logger.debug("Stocks file loaded")
+    else:
+        logger.error("Fill the stocks.json file first")
+        raise click.Abort()
+    if os.path.isfile("followup-stocks.json"):
+        with open("followup-stocks.json", "r") as f:
+            assets += json.load(f)
+        logger.debug("Followup stocks file loaded")
+    else:
+        logger.warning("Fill the followup-stocks.json to include other stocks")
+    return assets

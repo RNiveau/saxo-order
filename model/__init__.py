@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from model.enum import (  # noqa: F401
+    AlertType,
     AssetType,
     Currency,
     Direction,

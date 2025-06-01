@@ -98,3 +98,12 @@ class OrderType(EnumWithGetValue):
 class LineType(EnumWithGetValue):
     HIGH = "high"
     LOW = "low"
+
+
+class AlertType(EnumWithGetValue):
+    CONGESTION20 = "congestion20"
+    CONGESTION100 = "congestion100"
+    COMBO = "combo"
+    DOUBLE_TOP = "double_top"
+    DOUBLE_INSIDE_BAR = "double_inside_bar"
+    CONTAINING_CANDLE = "containing_candle"
