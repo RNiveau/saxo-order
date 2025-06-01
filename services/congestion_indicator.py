@@ -55,7 +55,9 @@ def calculate_line(
     return LineFormula(m=m, b=b, first_x=first_index)
 
 
-def calculate_congestion_indicator(candles: List[Candle]) -> List[Candle]:
+def calculate_congestion_indicator(
+    candles: List[Candle], minimal_touch_points: int = 2
+) -> List[Candle]:
     """
     Calculate the congestion indicator
     Go from the oldest (or 50) to the newest candle - 3
@@ -100,9 +102,13 @@ def calculate_congestion_indicator(candles: List[Candle]) -> List[Candle]:
                             break
                     touch_points.append(candles[tmp_x])
             if line_ok == 1:
-                break
+                if len(touch_points) >= minimal_touch_points:
+                    break
+                touch_points = []
         if line_ok == 1:
-            break
+            if len(touch_points) >= minimal_touch_points:
+                break
+            touch_points = []
 
     # should return list of points where the candle touches the line
     return touch_points if line_ok else []
