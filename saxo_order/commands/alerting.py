@@ -193,7 +193,13 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
         for indicator in slack_messages.keys():
             if len(slack_messages[indicator]) > 0:
                 message = f"Indicator {indicator} \n```"
-                for slack in slack_messages[indicator]:
+                for index, slack in enumerate(slack_messages[indicator]):
+                    if index % 10 == 0 and index != 0:
+                        slack_client.chat_postMessage(
+                            channel="#stock",
+                            text=f"{message}\n```",
+                        )
+                        message = f"Indicator {indicator} \n```"
                     message += f"{slack}\n"
                 message += "```"
                 slack_client.chat_postMessage(
