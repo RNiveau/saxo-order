@@ -1,11 +1,13 @@
 import datetime
 import json
+import logging
 import os
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import boto3
 
 from utils.json_util import dumps_indicator, hash_indicator
+from utils.logger import Logger
 
 
 class AwsClient:
@@ -56,6 +58,7 @@ class S3Client(AwsClient):
 class DynamoDBClient(AwsClient):
 
     def __init__(self) -> None:
+        self.logger = Logger.get_logger("dynamodb_client", logging.INFO)
         self.dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
 
     def store_indicator(
@@ -64,10 +67,10 @@ class DynamoDBClient(AwsClient):
         date: datetime.datetime,
         indicator_type: str,
         indicator: Any,
-    ) -> str:
+    ) -> Dict[str, Any]:
         indicator_str = dumps_indicator(indicator)
         md5_hash = hash_indicator(indicator_str)
-        return self.dynamodb.Table("indicators").put_item(
+        response = self.dynamodb.Table("indicators").put_item(
             Item={
                 "id": md5_hash,
                 "code": code,
@@ -76,6 +79,9 @@ class DynamoDBClient(AwsClient):
                 "json": indicator_str,
             }
         )
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB put_item error: {response}")
+        return response
 
     def get_indicator(self, indicator: Any) -> Optional[Any]:
         indicator_json = dumps_indicator(indicator)
@@ -83,12 +89,18 @@ class DynamoDBClient(AwsClient):
         response = self.dynamodb.Table("indicators").get_item(
             Key={"id": md5_hash}
         )
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB get_item error: {response}")
+            return None
         if "Item" not in response:
             return None
         return json.loads(response["Item"]["json"])
 
     def get_indicator_by_id(self, id: str) -> Optional[Any]:
         response = self.dynamodb.Table("indicators").get_item(Key={"id": id})
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB get_item error: {response}")
+            return None
         if "Item" not in response:
             return None
         return json.loads(response["Item"]["json"])
