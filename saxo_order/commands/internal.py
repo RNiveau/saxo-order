@@ -14,6 +14,7 @@ from model import AssetType, UnitTime
 from saxo_order.commands import catch_exception
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+from utils.json_util import dumps_indicator
 from utils.logger import Logger
 
 logger = Logger.get_logger("internal")
@@ -199,15 +200,15 @@ You are an expert in swing and short-term trading.
 
 I will give you a list of daily candlesticks with the following format for the stock {asset["Description"]}:
 
-@dataclass  
-class Candle:  
-    lower: float  
-    higher: float  
-    open: float  
-    close: float  
-    ut: UnitTime = UnitTime.D  
-    date: Optional[datetime.datetime] = None  
-Each candle includes date, volume, open, high, low, and close.
+{{
+    "lower": float, 
+    "higher": float, 
+    "open": float, 
+    "close": float, 
+    "ut": str,
+    "date": datetime.datetime
+}}
+Each candle includes date, open, high, low, close and unit time.
 
 I want you to analyze the entire series and deliver a clear, structured swing long scenario as if you were a professional market technician.
 
@@ -221,7 +222,8 @@ Please provide:
 Be concise, sharp, and professional. No fluff or unnecessary explanations.
 
 Here is the data:
-{candles}    """
+{dumps_indicator(candles)}
+"""
     print(prompt)
 
 
@@ -258,7 +260,7 @@ def technical(ctx: Context):
         horizon=1440,
         count=40,
     )
-    print(candles)
+    print(dumps_indicator(candles))
     # with open("tests/services/files/candles_viridien.obj", "w") as f:
     #     f.write(str(candles))
     # should return 03/03 and 06/03
