@@ -1,3 +1,5 @@
+# flake8: noqa: W291
+
 import json
 
 import click
@@ -5,9 +7,10 @@ from click.core import Context
 from slack_sdk import WebClient
 
 from client.aws_client import S3Client
+from client.client_helper import map_data_to_candles
 from client.saxo_client import SaxoClient
 from engines.workflow_loader import load_workflows
-from model import AssetType
+from model import AssetType, UnitTime
 from saxo_order.commands import catch_exception
 from utils.configuration import Configuration
 from utils.exception import SaxoException
@@ -173,6 +176,58 @@ def refresh_stocks_list(ctx: Context):
 @click.command()
 @click.pass_context
 @catch_exception(handle=SaxoException)
+@click.option(
+    "--code",
+    type=str,
+    required=True,
+    help="Stock code",
+    prompt="What is the stock code ?",
+)
+def get_gpt_prompt(ctx: Context, code: str):
+    configuration = Configuration(ctx.obj["config"])
+    saxo_client = SaxoClient(configuration)
+    asset = saxo_client.get_asset(code, "xpar")
+    candles = saxo_client.get_historical_data(
+        asset_type=asset["AssetType"],
+        saxo_uic=asset["Identifier"],
+        horizon=1440,
+        count=150,
+    )
+    candles = map_data_to_candles(candles, ut=UnitTime.D)
+    prompt = f"""
+You are an expert in swing and short-term trading.
+
+I will give you a list of daily candlesticks with the following format for the stock {asset["Description"]}:
+
+@dataclass  
+class Candle:  
+    lower: float  
+    higher: float  
+    open: float  
+    close: float  
+    ut: UnitTime = UnitTime.D  
+    date: Optional[datetime.datetime] = None  
+Each candle includes date, volume, open, high, low, and close.
+
+I want you to analyze the entire series and deliver a clear, structured swing long scenario as if you were a professional market technician.
+
+Please provide:
+- A global market structure/context analysis
+- A bullish swing trade scenario based on the support
+- Suggested entry, stop, and target levels (T1, T2, T3) and when to set the break-even
+- A summary table with key levels
+- A psychological interpretation of the price/volume behavior
+
+Be concise, sharp, and professional. No fluff or unnecessary explanations.
+
+Here is the data:
+{candles}    """
+    print(prompt)
+
+
+@click.command()
+@click.pass_context
+@catch_exception(handle=SaxoException)
 def technical(ctx: Context):
     configuration = Configuration(ctx.obj["config"])
     # from services.candles_service import CandlesService
@@ -183,7 +238,6 @@ def technical(ctx: Context):
     #     "DAX.I", "CAC.I", UnitTime.H4, 7, 15, 1000, 0)
     # print(candles)
     # DAX.I, CAC40.I, US500.I
-    import datetime
 
     # from client.client_helper import map_data_to_candles
     # candles = candles_service.build_hour_candles(
@@ -197,14 +251,14 @@ def technical(ctx: Context):
     #     datetime.datetime(2024, 7, 29, 14),
     # )
     # print(candles)
-    asset = saxo_client.get_asset("chbe", "xpar")
+    asset = saxo_client.get_asset("ri", "xpar")
     candles = saxo_client.get_historical_data(
         asset_type=asset["AssetType"],
         saxo_uic=asset["Identifier"],
         horizon=1440,
-        count=20,
-        date=datetime.datetime(2025, 5, 2),
+        count=40,
     )
+    print(candles)
     # with open("tests/services/files/candles_viridien.obj", "w") as f:
     #     f.write(str(candles))
     # should return 03/03 and 06/03
@@ -216,8 +270,8 @@ def technical(ctx: Context):
     from services.congestion_indicator import calculate_congestion_indicator
 
     candles = map_data_to_candles(candles, ut=UnitTime.D)
-    with open("tests/services/files/candles_beneteau.obj", "w") as f:
-        f.write(str(candles))
+    # with open("tests/services/files/candles_beneteau.obj", "w") as f:
+    #     f.write(str(candles))
 
     # with open("tests/services/files/candles_viridien.obj", "w") as f:
     #     f.write(str(candles))
