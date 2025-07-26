@@ -1,0 +1,98 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Overview
+
+saxo-order is a Python CLI tool for managing trading orders across Saxo Bank and Binance, with financial reporting, stock analysis, and automated workflows deployed on AWS Lambda.
+
+## Common Development Commands
+
+```bash
+# Install dependencies
+poetry install
+
+# Run tests
+poetry run pytest
+poetry run pytest --cov  # with coverage
+
+# Run a single test
+poetry run pytest tests/path/to/test_file.py::test_function_name
+
+# Code quality
+poetry run black .       # Format code
+poetry run isort .       # Sort imports
+poetry run mypy .        # Type checking
+poetry run flake8        # Linting
+
+# Run the CLI
+poetry run k-order --help
+```
+
+## High-Level Architecture
+
+The codebase follows a layered architecture:
+
+1. **CLI Layer** (`saxo_order/commands/`): Click-based commands that parse arguments and orchestrate services
+2. **Service Layer** (`services/`): Business logic for indicators, candles, and domain operations
+3. **Client Layer** (`client/`): API integrations with external services (Saxo, Binance, Google Sheets)
+4. **Model Layer** (`model/`): Data structures and domain models
+5. **Infrastructure** (`pulumi/`): AWS resources managed as code (Lambda, ECR, DynamoDB, S3)
+
+## Key Patterns
+
+- **Command Pattern**: Each CLI command is a separate module in `saxo_order/commands/`
+- **Dependency Injection**: Services receive clients as constructor parameters
+- **Configuration**: YAML-based with environment variable overrides
+- **Testing**: Mirror source structure in `tests/` with mocked external dependencies
+- **Deployment**: Docker-based Lambda functions deployed via Pulumi
+
+## Important Files
+
+- `saxo_order/service.py`: Core service orchestration
+- `lambda_function.py`: AWS Lambda entry point for scheduled tasks
+- `engines/workflow.py`: Workflow engine for automated processes
+- `config.yml` / `secrets.yml`: Configuration files (secrets.yml is gitignored)
+- `deploy.sh`: Deployment script that builds Docker image and updates infrastructure
+
+## Testing Guidelines
+
+When writing tests:
+- Place test files in `tests/` mirroring the source structure
+- Use pytest fixtures for common test data
+- Mock external API calls using `unittest.mock`
+- Test data files go in `tests/services/files/`
+
+## Deployment
+
+The project deploys to AWS Lambda:
+1. Build Docker image with dependencies
+2. Push to AWS ECR
+3. Update Lambda function via Pulumi
+4. Scheduled execution via EventBridge
+
+Use `./deploy.sh` to deploy changes (requires AWS credentials configured).
+
+## Commit Convention
+
+This project follows conventional commit format:
+
+```
+<type>: <description>
+
+[optional body]
+```
+
+Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code refactoring
+- `test`: Test additions or modifications
+- `chore`: Build process or auxiliary tool changes
+
+Examples:
+- `feat: add portfolio analysis command`
+- `fix: correct order calculation in Saxo client`
+- `chore: update dependencies`
