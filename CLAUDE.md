@@ -55,6 +55,10 @@ The codebase follows a layered architecture:
 - `config.yml` / `secrets.yml`: Configuration files (secrets.yml is gitignored)
 - `deploy.sh`: Deployment script that builds Docker image and updates infrastructure
 
+## Important guidelines
+
+- The Candle list has always the newest candle with the index 0, and the oldest with the last index
+
 ## Testing Guidelines
 
 When writing tests:
