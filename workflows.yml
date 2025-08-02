@@ -379,8 +379,38 @@
     - indicator:
           name: zone
           ut: h1
-          value: 77
-          zone_value: 81
+          value: 103
+          zone_value: 104.6
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+- name: buy zone lt schneider
+  index: su:xpar
+  cfd: su:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 73
+          zone_value: 79
+      close:
+         direction: above
+         ut: h1
+         spread: 1
+
+- name: buy zone lt schneider
+  index: su:xpar
+  cfd: su:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 173
+          zone_value: 180
       close:
          direction: above
          ut: h1
@@ -640,3 +670,19 @@
          direction: above
          ut: h1
          spread: 0.3
+
+- name: buy zone lt total
+  index: tte:xpar
+  cfd: tte:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: daily
+          value: 29
+          zone_value: 33
+      close:
+         direction: above
+         ut: h1
+         spread: 0.3
+
