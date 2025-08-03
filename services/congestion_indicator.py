@@ -1,8 +1,9 @@
-from typing import List
+from typing import List, Tuple
 
 from model.enum import LineType
 from model.workflow import Candle, LineFormula
 from services.indicator_service import slope_percentage
+from utils.logger import Logger
 
 
 def calculate_line(
@@ -26,7 +27,7 @@ def calculate_line(
     elif line_type == LineType.LOW:
         first_high = candles[1].lower
 
-    for i in range(1, min(max_len, len(candles))):
+    for i in range(1, min(max_len + 1, len(candles))):
         if (line_type == LineType.HIGH and candles[i].higher > first_high) or (
             line_type == LineType.LOW and candles[i].lower < first_high
         ):
@@ -57,7 +58,9 @@ def calculate_line(
 
 def calculate_congestion_indicator(
     candles: List[Candle], minimal_touch_points: int = 2
-) -> List[Candle]:
+) -> Tuple[List[Candle], List[Candle]]:
+    #    CREER UN TYPE AVEC LIGNE UP LIGNE DOWN
+    #    MAJ UTILISER LE TYPE
     """
     Calculate the congestion indicator
     Go from the oldest (or 50) to the newest candle - 3
@@ -65,6 +68,9 @@ def calculate_congestion_indicator(
     """
     toleration_high = 1.004
     touch_points: List[Candle] = []
+    logger = Logger.get_logger("congestion_indicator")
+    line_ok = 0
+
     # toleration_low = 0.998
     max_lookback = min(50, len(candles))
     for back_test in range(max_lookback, 3, -1):
@@ -93,7 +99,8 @@ def calculate_congestion_indicator(
                             slope_percentage(
                                 line_formula.first_x,
                                 candles[line_formula.first_x].higher,
-                                line_formula.first_x + tmp_x,
+                                line_formula.first_x
+                                + (line_formula.first_x - tmp_x),
                                 y2,
                             )
                             < -500
@@ -109,6 +116,57 @@ def calculate_congestion_indicator(
             if len(touch_points) >= minimal_touch_points:
                 break
             touch_points = []
+    if len(touch_points) == 0:
+        logger.debug(f"No touch points found for {candles[0].date}")
+        return ([], [])
+    logger.debug(f"Touch points found for {touch_points}")
 
-    # should return list of points where the candle touches the line
-    return touch_points if line_ok else []
+    touch_points_low: List[Candle] = []
+    toleration_low = 0.996
+    max_lookback = min(50, len(candles))
+    for back_test in range(max_lookback, 3, -1):
+        for which_low in range(0, max_lookback):
+            # all points are above the line ?
+            # test several second lowest
+            line_ok = 0
+            touch_points_low = []
+            line_formula = calculate_line(
+                LineType.LOW, candles, back_test, which_low
+            )
+            # drop too small line
+            if line_formula.first_x < 3:
+                line_ok = 0
+                continue
+            line_ok = 1
+            for tmp_x in range(line_formula.first_x, 0, -1):
+                y2 = line_formula.m * tmp_x + line_formula.b
+                if y2 * toleration_low > candles[tmp_x].lower:
+                    line_ok = 0
+                    break
+                # Check if candle touches the line within 0.04% tolerance
+                if abs((y2 - candles[tmp_x].lower) / y2) < 0.004:
+                    if line_formula.first_x != tmp_x:
+                        if (
+                            slope_percentage(
+                                line_formula.first_x,
+                                candles[line_formula.first_x].lower,
+                                line_formula.first_x
+                                + (line_formula.first_x - tmp_x),
+                                y2,
+                            )
+                            > 80
+                        ):
+                            line_ok = 0
+                            break
+                    touch_points_low.append(candles[tmp_x])
+            if line_ok == 1:
+                if len(touch_points_low) >= minimal_touch_points:
+                    break
+                touch_points_low = []
+        if line_ok == 1:
+            if len(touch_points_low) >= minimal_touch_points:
+                break
+            touch_points_low = []
+
+    logger.debug(f"Touch points low found for {touch_points_low}")
+    return (touch_points, touch_points_low) if line_ok else ([], [])
