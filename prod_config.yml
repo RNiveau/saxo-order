@@ -2,5 +2,5 @@ auth_url: https://live.logonvalidation.net/
 saxo_url: https://gateway.saxobank.com/openapi/
 spreadsheet_id: 1oGvJLXe4wFRNzB0GbQgWYIMmM_kYaMQILqRRIh1pyO0
 currencies_rate:
-  usdeur: 0.92
+  usdeur: 0.86
   jpyeur: 0.0061
