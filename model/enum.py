@@ -9,6 +9,7 @@ class Strategy(EnumWithGetValue):
     COMBO = "Combo"
     CONG = "Congestion"
     DIV = "Dividende"
+    DINS = "Double inside bar"
     EH = "Engloblante haussière"
     INTRA = "Intraday"
     IVT = "IVT"
