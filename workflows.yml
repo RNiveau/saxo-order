@@ -686,3 +686,18 @@
          ut: h1
          spread: 0.3
 
+- name: buy resistance forvia
+  index: frvia:xpar
+  cfd: frvia:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: daily
+          value: 11.15
+          zone_value: 11.26
+      close:
+         direction: above
+         ut: h1
+         spread: 0.1
+
