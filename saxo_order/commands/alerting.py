@@ -85,7 +85,7 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                 )
                 if (
                     congestion_indicator is not None
-                    and len(congestion_indicator) > 0
+                    and len(congestion_indicator[0]) > 0
                 ):
                     id = DynamoDBClient().get_indicator(congestion_indicator)
                     if id is None:
@@ -93,7 +93,7 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                         touch_points = [
                             f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "  # noqa: E501
                             + f"{c.higher} {c.lower}"
-                            for c in congestion_indicator
+                            for c in congestion_indicator[0]
                         ]
                         slack_messages["congestion"].append(
                             f"{asset['name']}: Congestion detected on {date}\n"
@@ -112,7 +112,7 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                 )
                 if (
                     congestion_indicator is not None
-                    and len(congestion_indicator) > 0
+                    and len(congestion_indicator[0]) > 0
                 ):
                     id = DynamoDBClient().get_indicator(congestion_indicator)
                     if id is None:
@@ -120,7 +120,7 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                         touch_points = [
                             f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "  # noqa: E501
                             + f"{c.higher} {c.lower}"
-                            for c in congestion_indicator
+                            for c in congestion_indicator[0]
                         ]
                         slack_messages["congestion"].append(
                             f"{asset['name']}: Congestion detected on {date}\n"

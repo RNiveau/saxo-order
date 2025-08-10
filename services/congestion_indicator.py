@@ -66,6 +66,8 @@ def calculate_congestion_indicator(
     Go from the oldest (or 50) to the newest candle - 3
 
     """
+    if len(candles) == 0:
+        return ([], [])
     toleration_high = 1.004
     touch_points: List[Candle] = []
     logger = Logger.get_logger("congestion_indicator")
