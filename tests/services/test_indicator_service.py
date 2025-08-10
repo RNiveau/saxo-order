@@ -450,23 +450,24 @@ class TestIndicatorService:
         assert combo(candles) == expected
 
     @pytest.mark.parametrize(
-        "file_candles, expected",
+        "file_candles, period, expected",
         [
-            (
-                "combo_buy_daily_cac.obj",
-                74.95462,
-            ),
-            ("combo_buy_h4_dax.obj", 79.38263),
-            ("atr_aca_daily.obj", 0.29201),
+            ("combo_buy_daily_cac.obj", 14, 74.95462),
+            ("combo_buy_h4_dax.obj", 14, 79.38263),
+            ("atr_aca_daily.obj", 14, 0.29201),
+            ("candles_viridien_super_trend.obj", 14, 2.79457),
+            ("candles_viridien_super_trend.obj", 10, 2.99427),
         ],
     )
-    def test_average_true_range(self, file_candles: str, expected: float):
+    def test_average_true_range(
+        self, file_candles: str, period: int, expected: float
+    ):
         with open(f"tests/services/files/{file_candles}", "r") as f:
             candles = eval(
                 f.read(),
                 {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
             )
-        assert average_true_range(candles) == expected
+        assert average_true_range(candles, period) == expected
 
     def test_number_of_day_between_dates(self, mocker):
         client = mocker.Mock()
