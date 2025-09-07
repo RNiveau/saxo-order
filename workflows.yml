@@ -701,3 +701,18 @@
          ut: h1
          spread: 0.1
 
+- name: buy zone long term ipsos
+  index: ISOS:xpar
+  cfd: ISOS:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: daily
+          value: 33.3
+          zone_value: 31.80
+      close:
+         direction: above
+         ut: h1
+         spread: 0.1
+
