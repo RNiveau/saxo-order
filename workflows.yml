@@ -716,3 +716,18 @@
          ut: h1
          spread: 0.1
 
+- name: buy zone long term veto
+  index: VETO:xpar
+  cfd: VETO:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: daily
+          value: 65.5
+          zone_value: 60.5
+      close:
+         direction: above
+         ut: h1
+         spread: 0.1
+
