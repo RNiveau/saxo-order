@@ -6,6 +6,7 @@ class Strategy(EnumWithGetValue):
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
     CRANGE = "Cassure de range"
+    ROB = "Cassure de ROB"
     COMBO = "Combo"
     CONG = "Congestion"
     DIV = "Dividende"
