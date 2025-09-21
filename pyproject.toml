@@ -20,6 +20,9 @@ boto3 = "^1.37.26"
 pulumi = {version = "^3.148.0", extras = ["pulumi"]}
 pulumi-aws = {version = "^6.52.0", extras = ["pulumi"]}
 prettytable = "^3.12.0"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
+pydantic = "^2.9.0"
 
 [tool.poetry.dev-dependencies]
 black = "^24.2.0"
@@ -38,6 +41,7 @@ flake8 = "^7.1.0"
 
 [tool.poetry.scripts]
 k-order = "saxo_order.commands.k_order:k_order"
+k-api = "run_api:main"
 
 [build-system]
 requires = ["poetry>=0.12"]
