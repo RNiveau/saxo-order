@@ -731,3 +731,17 @@
          ut: h1
          spread: 0.1
 
+- name: buy support W ERF
+  index: eufi:xpar
+  cfd: eufi:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: polarite
+          ut: daily
+          value: 61.5
+      close:
+         direction: above
+         ut: h1
+         spread: 0.1
+
