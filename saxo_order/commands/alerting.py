@@ -1,7 +1,7 @@
 import datetime
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import click
 from click.core import Context
@@ -233,12 +233,12 @@ def _run_congestion_indicator(
     candles: List[Candle],
     candle_length: int = 20,
     minimal_touch_points: int = 3,
-) -> Optional[List[Candle]]:
+) -> Optional[Tuple[List[Candle], List[Candle]]]:
     indicator = congestion_indicator.calculate_congestion_indicator(
         candles=candles[:candle_length],
         minimal_touch_points=minimal_touch_points,
     )
-    if len(indicator) > 0:
+    if len(indicator[0]) > 0:
         logger.debug(f"{asset['name']}, {indicator}")
         return indicator
     return None
