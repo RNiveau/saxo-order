@@ -1,6 +1,8 @@
 import os
 from functools import lru_cache
+from typing import Union
 
+from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from utils.configuration import Configuration
 from utils.logger import Logger
@@ -16,10 +18,26 @@ def get_configuration() -> Configuration:
     return Configuration(config_file)
 
 
-def get_saxo_client() -> SaxoClient:
+def get_saxo_client() -> Union[SaxoClient, MockSaxoClient]:
     """
     Create SaxoClient instance with configuration.
     This is a dependency that can be injected into FastAPI endpoints.
+
+    Returns MockSaxoClient if no access token is available.
+    SaxoClient handles its own token refresh strategy.
     """
     config = get_configuration()
-    return SaxoClient(config)
+
+    if not config.access_token:
+        logger.warning(
+            "No access token found, using MockSaxoClient for local development"
+        )
+        return MockSaxoClient(config)
+
+    logger.debug("Using SaxoClient with token refresh capability")
+    try:
+        return SaxoClient(config)
+    except Exception as e:
+        logger.error(f"Failed to initialize SaxoClient: {e}")
+        logger.warning("Falling back to MockSaxoClient")
+        return MockSaxoClient(config)

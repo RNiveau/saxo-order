@@ -10,19 +10,30 @@ from utils.logger import Logger
 class Configuration:
     def __init__(self, config_file: str):
         self.logger = Logger.get_logger("configuration")
+        self.config = {}  # Initialize config as empty dict
+        self.secrets = {}  # Initialize secrets as empty dict
+
         if os.path.isfile(config_file):
             self.logger.info(f"Open {config_file} configuration")
             with open(config_file, "r") as f:
                 self.config = yaml.safe_load(f)
+        else:
+            self.logger.warning(
+                f"Config file {config_file} not found, using empty config"
+            )
+
         if os.path.isfile("secrets.yml"):
             with open("secrets.yml", "r") as f:
                 self.secrets = yaml.safe_load(f)
+        else:
+            self.logger.warning("secrets.yml not found, using empty secrets")
         self.access_token = ""
         self.refresh_token = ""
         self.aws_client = S3Client() if S3Client.is_aws_context() else None
         self.load_tokens()
 
     def load_tokens(self) -> None:
+        content = ""
         if self.aws_client is not None:
             self.logger.info("Load tokens from aws")
             content = self.aws_client.get_access_token()
@@ -31,12 +42,19 @@ class Configuration:
                 self.logger.info("Load tokens from disk")
                 with open("access_token", "r") as f:
                     content = f.read()
-        contents = content.strip().split("\n")
-        if len(contents) == 2:
-            self.access_token = contents[0]
-            self.refresh_token = contents[1]
+            else:
+                self.logger.warning("No access_token file found")
+                return
+
+        if content:
+            contents = content.strip().split("\n")
+            if len(contents) == 2:
+                self.access_token = contents[0]
+                self.refresh_token = contents[1]
+            else:
+                self.logger.error("Can't decode access token")
         else:
-            self.logger.error("Can't decode access token")
+            self.logger.warning("Empty access token content")
 
     def save_tokens(self, access_token: str, refresh_token: str) -> None:
         self.access_token = access_token
