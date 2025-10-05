@@ -241,7 +241,6 @@
           ut: h1
           value: 35
           zone_value: 37
-          zone_value: 37
       close:
          direction: below
          direction: below
@@ -258,13 +257,25 @@
           ut: h1
           value: 29
           zone_value: 27
-          value: 29
-          zone_value: 27
       close:
          direction: below
          ut: h1
          spread: 1
 
+- name: buy zone interparfum
+  index: ITP:xpar
+  cfd: ITP:xpar
+  enable: true
+  conditions:
+    - indicator:
+          name: zone
+          ut: h1
+          value: 24
+          zone_value: 24.5
+      close:
+         direction: below
+         ut: h1
+         spread: 1
 
 
 - name: buy zone pernod
