@@ -33,13 +33,81 @@ logger = Logger.get_logger("workflow", logging.DEBUG)
     default="n",
     help="Select the workflow to run",
 )
-def workflow(ctx: Context, force_from_disk: str, select_workflow: str):
+def run(ctx: Context, force_from_disk: str, select_workflow: str):
+    """Run workflows."""
     config = ctx.obj["config"]
     execute_workflow(
         config,
         True if force_from_disk == "y" else False,
         True if select_workflow == "y" else False,
     )
+
+
+@click.command()
+@click.pass_context
+@click.option(
+    "--code",
+    type=str,
+    required=True,
+    help="The asset code (e.g., itp, DAX.I)",
+)
+@click.option(
+    "--country-code",
+    type=str,
+    required=False,
+    default="xpar",
+    help="The country code of the asset (e.g., xpar)",
+)
+@click.option(
+    "--force-from-disk",
+    type=click.Choice(["y", "n"]),
+    required=True,
+    default="n",
+    help="Load the workflows file from disk",
+)
+@catch_exception(handle=SaxoException)
+def asset(ctx: Context, code: str, country_code: str, force_from_disk: str):
+    """List all workflows for a specific asset."""
+    symbol = f"{code}:{country_code}" if country_code else code
+    workflows = load_workflows(True if force_from_disk == "y" else False)
+
+    matching_workflows = [
+        w
+        for w in workflows
+        if w.index.lower() == code.lower() or w.index.lower() == symbol.lower()
+    ]
+
+    if not matching_workflows:
+        print(f"No workflows found for asset: {symbol}")
+        return
+
+    print(f"\nWorkflows for {symbol}:")
+    print("=" * 80)
+    for workflow in matching_workflows:
+        status = "✓ ENABLED" if workflow.enable else "✗ DISABLED"
+        dry_run = " [DRY RUN]" if workflow.dry_run else ""
+        print(f"\n{workflow.name} - {status}{dry_run}")
+        print(f"  Index: {workflow.index}")
+        print(f"  CFD: {workflow.cfd}")
+        if workflow.end_date:
+            print(f"  End Date: {workflow.end_date}")
+        print("  Conditions:")
+        for cond in workflow.conditions:
+            element_str = f" ({cond.element.value})" if cond.element else ""
+            print(
+                f"    - {cond.indicator.name.value} {cond.indicator.ut.value}"
+                f" {cond.close.direction.value} close"
+                f" {cond.close.ut.value}{element_str}"
+            )
+        print("  Trigger:")
+        print(
+            f"    - {workflow.trigger.signal.value} "
+            f"{workflow.trigger.location.value}"
+            f" -> {workflow.trigger.order_direction.value}"
+            f" (qty: {workflow.trigger.quantity})"
+        )
+    print("\n" + "=" * 80)
+    print(f"Total: {len(matching_workflows)} workflow(s)")
 
 
 def execute_workflow(

@@ -13,7 +13,7 @@ import saxo_order.commands.set_oco_order as set_oco_order
 import saxo_order.commands.set_order as set_order
 import saxo_order.commands.set_stop_limit_order as set_stop_limit_order
 import saxo_order.commands.shortcuts as shortcurts
-import saxo_order.commands.workflow as workflow
+import saxo_order.commands.workflow as worflows
 from saxo_order.commands import snapshot
 
 
@@ -67,6 +67,12 @@ def set(
 
 
 @click.group()
+@click.pass_context
+def workflow(ctx: Context):
+    pass
+
+
+@click.group()
 @click.option(
     "--quantity",
     type=float,
@@ -95,6 +101,7 @@ k_order.add_command(set)
 k_order.add_command(shortcut)
 k_order.add_command(binance)
 k_order.add_command(internal)
+k_order.add_command(workflow)
 
 k_order.add_command(alerting.alerting)
 k_order.add_command(get_score.get_score)
@@ -103,11 +110,13 @@ k_order.add_command(available_funds.available_funds)
 k_order.add_command(snapshot.snapshot)
 k_order.add_command(get_report.get_report)
 k_order.add_command(search.search)
-k_order.add_command(workflow.workflow)
 
 set.add_command(set_order.set_order)
 set.add_command(set_oco_order.set_oco_order)
 set.add_command(set_stop_limit_order.set_stop_limit_order)
+
+workflow.add_command(worflows.asset)
+workflow.add_command(worflows.run)
 
 shortcut.add_command(shortcurts.dax)
 shortcut.add_command(shortcurts.cac)
