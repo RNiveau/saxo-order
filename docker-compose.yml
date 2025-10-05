@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - ./prod_config.yml:/app/prod_config.yml:ro
+      - ./secrets.yml:/app/secrets.yml:ro
+      - ./access_token:/app/access_token:ro
+      - ~/.aws:/root/.aws:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - AWS_PROFILE=default
+      - CONFIG_FILE=prod_config.yml
+    command: python run_api_docker.py
+    networks:
+      - saxo-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - saxo-network
+
+networks:
+  saxo-network:
+    driver: bridge
