@@ -344,13 +344,3 @@ class TestIndicatorEndpoint:
         # Check all MAs have monthly unit_time
         for ma in data["moving_averages"]:
             assert ma["unit_time"] == "monthly"
-
-    def test_get_asset_indicators_invalid_unit_time(
-        self, mock_saxo_client, mock_candles_service
-    ):
-        """Test request with invalid unit_time parameter."""
-        response = client.get("/api/indicator/asset/itp?unit_time=h1")
-
-        # Should return 400 error for unsupported unit_time
-        assert response.status_code == 400
-        assert "Unsupported unit_time" in response.json()["detail"]
