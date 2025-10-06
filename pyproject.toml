@@ -14,7 +14,7 @@ google-api-python-client = "^2.146.0"
 google-auth-oauthlib = "^1.2.0"
 binance-connector = "^3.7.0"
 beautifulsoup4 = "^4.12.3"
-slack-sdk = "^3.30.0"
+slack-sdk = "^3.36.0"
 numpy = "^2.1.1"
 boto3 = "^1.37.26"
 pulumi = {version = "^3.148.0", extras = ["pulumi"]}
