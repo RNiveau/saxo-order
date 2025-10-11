@@ -81,29 +81,35 @@ def scheduler_role_policy(role_id: int, lambda_arns: List[str]) -> None:
 
 
 def dynamodb_policy(
-    dynamodb_table: aws.dynamodb.Table, lambda_role: aws.iam.Role
+    dynamodb_tables: List[aws.dynamodb.Table], lambda_role: aws.iam.Role
 ) -> None:
+    import json
+
     lambda_policy = aws.iam.Policy(
         "lambdaPolicy",
         description="A policy to allow Lambda to access DynamoDB",
-        policy=dynamodb_table.arn.apply(
-            lambda arn: f"""{{
-            "Version": "2012-10-17",
-            "Statement": [
-                {{
-                    "Action": [
-                        "dynamodb:Query",
-                        "dynamodb:Scan",
-                        "dynamodb:GetItem",
-                        "dynamodb:PutItem",
-                        "dynamodb:UpdateItem",
-                        "dynamodb:DeleteItem"
+        policy=pulumi.Output.all(
+            *[table.arn for table in dynamodb_tables]
+        ).apply(
+            lambda arns: json.dumps(
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Action": [
+                                "dynamodb:Query",
+                                "dynamodb:Scan",
+                                "dynamodb:GetItem",
+                                "dynamodb:PutItem",
+                                "dynamodb:UpdateItem",
+                                "dynamodb:DeleteItem",
+                            ],
+                            "Effect": "Allow",
+                            "Resource": arns,
+                        }
                     ],
-                    "Effect": "Allow",
-                    "Resource": "{arn}"
-                }}
-            ]
-        }}"""
+                }
+            )
         ),
     )
 
