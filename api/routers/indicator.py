@@ -62,9 +62,6 @@ async def get_asset_indicators(
             code=code, country_code=country_code, unit_time=ut
         )
 
-    except HTTPException:
-        # Re-raise HTTPException (don't catch it)
-        raise
     except SaxoException as e:
         logger.error(
             f"Saxo error getting indicators for {code} ({unit_time}): {e}"
