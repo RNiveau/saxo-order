@@ -1,0 +1,211 @@
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import {
+  workflowService,
+  indicatorService,
+  type WorkflowInfo,
+  type AssetWorkflowsResponse,
+  type AssetIndicatorsResponse,
+} from '../services/api';
+import { IndicatorCard } from '../components/IndicatorCard';
+import './AssetDetail.css';
+
+export function AssetDetail() {
+  const { symbol } = useParams<{ symbol: string }>();
+  const [workflowData, setWorkflowData] = useState<AssetWorkflowsResponse | null>(null);
+  const [indicatorData, setIndicatorData] = useState<AssetIndicatorsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [indicatorLoading, setIndicatorLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [indicatorError, setIndicatorError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (symbol) {
+      fetchWorkflows(symbol);
+      fetchIndicators(symbol);
+    }
+  }, [symbol]);
+
+  const fetchWorkflows = async (assetSymbol: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await workflowService.getAssetWorkflows(assetSymbol);
+      setWorkflowData(data);
+    } catch (err) {
+      setError('Failed to fetch workflows for this asset');
+      console.error('Workflow fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchIndicators = async (assetSymbol: string) => {
+    try {
+      setIndicatorLoading(true);
+      setIndicatorError(null);
+      // Parse symbol to extract code and country_code
+      const [code, countryCode = 'xpar'] = assetSymbol.split(':');
+      const data = await indicatorService.getAssetIndicators(code, countryCode);
+      setIndicatorData(data);
+    } catch (err) {
+      setIndicatorError('Failed to fetch indicators for this asset');
+      console.error('Indicator fetch error:', err);
+    } finally {
+      setIndicatorLoading(false);
+    }
+  };
+
+  const renderWorkflowStatus = (workflow: WorkflowInfo) => {
+    if (!workflow.enabled) {
+      return <span className="status-badge disabled">✗ Disabled</span>;
+    }
+    if (workflow.dry_run) {
+      return (
+        <>
+          <span className="status-badge enabled">✓ Enabled</span>
+          <span className="status-badge dry-run">Dry Run</span>
+        </>
+      );
+    }
+    return <span className="status-badge enabled">✓ Enabled</span>;
+  };
+
+  return (
+    <div className="asset-detail-container">
+      <h2>Asset: {symbol}</h2>
+
+      {/* Indicators Section */}
+      {indicatorLoading && <div className="loading">Loading indicators...</div>}
+      {indicatorError && <div className="error">{indicatorError}</div>}
+      {!indicatorLoading && !indicatorError && indicatorData && (
+        <IndicatorCard indicators={indicatorData} />
+      )}
+
+      {/* Workflows Section */}
+      {loading && <div className="loading">Loading workflows...</div>}
+
+      {error && <div className="error">{error}</div>}
+
+      {!loading && !error && workflowData && (
+        <>
+          {workflowData.total === 0 ? (
+            <div className="no-workflows">
+              No workflows found for asset: {workflowData.asset_symbol}
+            </div>
+          ) : (
+            <div className="workflows-section">
+              <div className="workflows-header">
+                <h3>Workflows for {workflowData.asset_symbol}</h3>
+                <div className="workflow-count">
+                  Total: {workflowData.total} workflow{workflowData.total !== 1 ? 's' : ''}
+                </div>
+              </div>
+
+              <div className="workflows-list">
+                {workflowData.workflows.map((workflow, index) => (
+                  <div key={index} className="workflow-card">
+                    <div className="workflow-header">
+                      <h4>{workflow.name}</h4>
+                      <div className="workflow-status">
+                        {renderWorkflowStatus(workflow)}
+                      </div>
+                    </div>
+
+                    <div className="workflow-details">
+                      <div className="detail-row">
+                        <span className="label">Index:</span>
+                        <span className="value">{workflow.index}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">CFD:</span>
+                        <span className="value">{workflow.cfd}</span>
+                      </div>
+                      {workflow.end_date && (
+                        <div className="detail-row">
+                          <span className="label">End Date:</span>
+                          <span className="value">{workflow.end_date}</span>
+                        </div>
+                      )}
+                      {workflow.is_us && (
+                        <div className="detail-row">
+                          <span className="label">Market:</span>
+                          <span className="value badge-us">US Market</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="workflow-section">
+                      <h5>Conditions</h5>
+                      <div className="conditions-list">
+                        {workflow.conditions.map((condition, condIndex) => (
+                          <div key={condIndex} className="condition-item">
+                            <div className="condition-text">
+                              <span className="indicator-name">
+                                {condition.indicator.name}
+                              </span>
+                              <span className="indicator-ut">
+                                {condition.indicator.unit_time}
+                              </span>
+                              {condition.indicator.value !== undefined && (
+                                <span className="indicator-value">
+                                  = {condition.indicator.value}
+                                </span>
+                              )}
+                              {condition.indicator.zone_value !== undefined && (
+                                <span className="indicator-zone">
+                                  (zone: {condition.indicator.zone_value})
+                                </span>
+                              )}
+                              <span className="direction">
+                                {condition.close.direction}
+                              </span>
+                              <span className="close-label">close</span>
+                              <span className="close-ut">
+                                {condition.close.unit_time}
+                              </span>
+                              {condition.close.value !== undefined && (
+                                <span className="close-value">
+                                  ({condition.close.value})
+                                </span>
+                              )}
+                              {condition.element && (
+                                <span className="element">
+                                  [{condition.element}]
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="workflow-section">
+                      <h5>Trigger</h5>
+                      <div className="trigger-info">
+                        <div className="trigger-text">
+                          <span className="trigger-signal">{workflow.trigger.signal}</span>
+                          <span className="trigger-location">{workflow.trigger.location}</span>
+                          <span className="arrow">→</span>
+                          <span className={`trigger-direction ${workflow.trigger.order_direction}`}>
+                            {workflow.trigger.order_direction.toUpperCase()}
+                          </span>
+                          <span className="trigger-quantity">
+                            (qty: {workflow.trigger.quantity})
+                          </span>
+                        </div>
+                        <div className="trigger-detail">
+                          Unit Time: <span className="value">{workflow.trigger.unit_time}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

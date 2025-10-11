@@ -1,0 +1,228 @@
+.indicator-card {
+  background: #1a1a1a;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid #2a2a2a;
+}
+
+.indicator-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #2a2a2a;
+}
+
+.indicator-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.indicator-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.unit-time-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.tradingview-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #2962ff;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.tradingview-link:hover {
+  background: #1e53e5;
+  transform: translateY(-1px);
+}
+
+.tradingview-link:active {
+  transform: translateY(0);
+}
+
+.price-section {
+  margin-bottom: 24px;
+}
+
+.price-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.current-price,
+.variation {
+  padding: 16px;
+  border-radius: 8px;
+  background: #252525;
+}
+
+.current-price {
+  border-left: 4px solid #1976d2;
+}
+
+.variation {
+  border-left: 4px solid #6e6e6e;
+}
+
+.variation.positive {
+  background: #1a2f1a;
+  border-left-color: #4caf50;
+}
+
+.variation.negative {
+  background: #2f1a1a;
+  border-left-color: #f44336;
+}
+
+.current-price .label,
+.variation .label {
+  display: block;
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.current-price .value,
+.variation .value {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: #e0e0e0;
+}
+
+.variation.positive .value {
+  color: #66bb6a;
+}
+
+.variation.negative .value {
+  color: #ef5350;
+}
+
+.moving-averages-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.ma-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.ma-item {
+  background: #252525;
+  border-radius: 8px;
+  padding: 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid #2a2a2a;
+}
+
+.ma-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: #3a3a3a;
+}
+
+.ma-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ma-period {
+  font-size: 14px;
+  font-weight: 600;
+  color: #999;
+}
+
+.ma-indicator {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.ma-indicator.above {
+  color: #66bb6a;
+}
+
+.ma-indicator.below {
+  color: #ef5350;
+}
+
+.ma-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e0e0e0;
+  margin-bottom: 8px;
+}
+
+.ma-status {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.ma-status.above {
+  background: #1a2f1a;
+  color: #66bb6a;
+}
+
+.ma-status.below {
+  background: #2f1a1a;
+  color: #ef5350;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .indicator-card {
+    padding: 16px;
+  }
+
+  .price-info {
+    grid-template-columns: 1fr;
+  }
+
+  .ma-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+  }
+
+  .ma-item {
+    padding: 12px;
+  }
+
+  .current-price .value,
+  .variation .value {
+    font-size: 20px;
+  }
+}

@@ -13,6 +13,7 @@ class UnitTime(EnumWithGetValue):
     H1 = "h1"
     H4 = "h4"
     W = "weekly"
+    M = "monthly"
 
 
 class SignalStrength(EnumWithGetValue):
