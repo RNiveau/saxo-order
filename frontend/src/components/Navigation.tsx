@@ -32,16 +32,6 @@ export function Navigation() {
             Search
           </button>
         </form>
-        <ul className="nav-menu">
-          <li>
-            <NavLink
-              to="/available-funds"
-              className={({ isActive }) => isActive ? 'active' : ''}
-            >
-              Available Funds
-            </NavLink>
-          </li>
-        </ul>
       </div>
     </nav>
   );

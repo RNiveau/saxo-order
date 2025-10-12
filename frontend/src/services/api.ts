@@ -164,3 +164,46 @@ export const indicatorService = {
     return response.data;
   },
 };
+
+export interface WatchlistItem {
+  id: string;
+  asset_symbol: string;
+  country_code: string;
+  current_price: number;
+  variation_pct: number;
+  added_at: string;
+}
+
+export interface WatchlistResponse {
+  items: WatchlistItem[];
+  total: number;
+}
+
+export interface AddToWatchlistRequest {
+  asset_id: string;
+  asset_symbol: string;
+  country_code: string;
+}
+
+export interface AddToWatchlistResponse {
+  message: string;
+  asset_id: string;
+  asset_symbol: string;
+}
+
+export const watchlistService = {
+  getWatchlist: async (): Promise<WatchlistResponse> => {
+    const response = await api.get<WatchlistResponse>('/api/watchlist');
+    return response.data;
+  },
+
+  addToWatchlist: async (
+    request: AddToWatchlistRequest
+  ): Promise<AddToWatchlistResponse> => {
+    const response = await api.post<AddToWatchlistResponse>(
+      '/api/watchlist',
+      request
+    );
+    return response.data;
+  },
+};

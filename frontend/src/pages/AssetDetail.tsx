@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import {
   workflowService,
   indicatorService,
+  watchlistService,
   type WorkflowInfo,
   type AssetWorkflowsResponse,
   type AssetIndicatorsResponse,
@@ -18,6 +19,9 @@ export function AssetDetail() {
   const [indicatorLoading, setIndicatorLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [indicatorError, setIndicatorError] = useState<string | null>(null);
+  const [addingToWatchlist, setAddingToWatchlist] = useState(false);
+  const [watchlistSuccess, setWatchlistSuccess] = useState<string | null>(null);
+  const [watchlistError, setWatchlistError] = useState<string | null>(null);
 
   useEffect(() => {
     if (symbol) {
@@ -56,6 +60,36 @@ export function AssetDetail() {
     }
   };
 
+  const handleAddToWatchlist = async () => {
+    if (!symbol) return;
+
+    try {
+      setAddingToWatchlist(true);
+      setWatchlistError(null);
+      setWatchlistSuccess(null);
+
+      // Parse symbol to extract code and country_code
+      const [code, countryCode = 'xpar'] = symbol.split(':');
+
+      // Use the code as asset_id (you might want to use identifier if available)
+      await watchlistService.addToWatchlist({
+        asset_id: code,
+        asset_symbol: symbol,
+        country_code: countryCode,
+      });
+
+      setWatchlistSuccess(`Added ${symbol} to watchlist`);
+      setTimeout(() => setWatchlistSuccess(null), 3000);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || 'Failed to add to watchlist';
+      setWatchlistError(errorMessage);
+      console.error('Add to watchlist error:', err);
+      setTimeout(() => setWatchlistError(null), 5000);
+    } finally {
+      setAddingToWatchlist(false);
+    }
+  };
+
   const renderWorkflowStatus = (workflow: WorkflowInfo) => {
     if (!workflow.enabled) {
       return <span className="status-badge disabled">✗ Disabled</span>;
@@ -73,7 +107,19 @@ export function AssetDetail() {
 
   return (
     <div className="asset-detail-container">
-      <h2>Asset: {symbol}</h2>
+      <div className="asset-header">
+        <h2>Asset: {symbol}</h2>
+        <button
+          onClick={handleAddToWatchlist}
+          disabled={addingToWatchlist}
+          className="add-to-watchlist-btn"
+        >
+          {addingToWatchlist ? 'Adding...' : '+ Add to Watchlist'}
+        </button>
+      </div>
+
+      {watchlistSuccess && <div className="success">{watchlistSuccess}</div>}
+      {watchlistError && <div className="error">{watchlistError}</div>}
 
       {/* Indicators Section */}
       {indicatorLoading && <div className="loading">Loading indicators...</div>}

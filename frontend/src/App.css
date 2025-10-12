@@ -24,7 +24,21 @@ body {
   flex-direction: column;
 }
 
+.app-container {
+  display: flex;
+  flex: 1;
+  padding-top: 60px;
+}
+
 .app-main {
   flex: 1;
+  margin-left: 300px;
   background-color: #0f1419;
+  min-height: calc(100vh - 60px);
+}
+
+@media (max-width: 768px) {
+  .app-main {
+    margin-left: 250px;
+  }
 }
