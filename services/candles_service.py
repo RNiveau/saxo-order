@@ -1,8 +1,9 @@
 import datetime
 import logging
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from client.client_helper import map_data_to_candle, map_data_to_candles
+from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from model import Candle, UnitTime
 from utils.exception import SaxoException
@@ -16,9 +17,45 @@ from utils.logger import Logger
 
 class CandlesService:
 
-    def __init__(self, saxo_client: SaxoClient):
+    def __init__(self, saxo_client: Union[SaxoClient, MockSaxoClient]):
         self.logger = Logger.get_logger("candles_service", logging.DEBUG)
         self.saxo_client = saxo_client
+
+    def get_latest_candle(self, code: str) -> Candle:
+        """
+        Get the most recent candle (1-minute) for an asset.
+
+        This is used to get the current price when the market is open
+        or the most recent close when the market is closed.
+
+        Args:
+            code: Asset code (e.g., 'itp')
+
+        Returns:
+            The most recent 1-minute candle
+
+        Raises:
+            SaxoException: If unable to fetch the latest candle
+        """
+        self.logger.debug(f"get_latest_candle({code})")
+        asset = self.saxo_client.get_asset(code)
+        data = self.saxo_client.get_historical_data(
+            saxo_uic=asset["Identifier"],
+            asset_type=asset["AssetType"],
+            horizon=1,
+            count=1,
+            date=datetime.datetime.now(datetime.UTC),
+        )
+        if not data:
+            raise SaxoException(
+                f"No data returned for latest candle of {code}"
+            )
+        candles = map_data_to_candles(data, None)
+        if not candles:
+            raise SaxoException(
+                f"No candles after mapping for latest candle of {code}"
+            )
+        return candles[0]
 
     def get_candles_per_minutes(
         self,

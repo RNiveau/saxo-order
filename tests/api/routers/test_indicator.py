@@ -5,7 +5,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
-from api.routers.indicator import get_saxo_client
+from api.routers.indicator import get_candles_service, get_saxo_client
+from model import Candle
 from utils.exception import SaxoException
 
 client = TestClient(app)
@@ -26,6 +27,29 @@ def mock_saxo_client():
 
     app.dependency_overrides[get_saxo_client] = override_get_saxo_client
     yield mock_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def mock_candles_service():
+    """Mock CandlesService with get_latest_candle method."""
+    mock_service = MagicMock()
+    # Default: return a candle with close price of 100.0
+    mock_service.get_latest_candle.return_value = Candle(
+        open=100.0,
+        close=100.0,
+        lower=99.0,
+        higher=101.0,
+        date=datetime.datetime.now(datetime.UTC),
+    )
+
+    def override_get_candles_service():
+        return mock_service
+
+    app.dependency_overrides[get_candles_service] = (
+        override_get_candles_service
+    )
+    yield mock_service
     app.dependency_overrides.clear()
 
 
@@ -54,7 +78,7 @@ def mock_historical_data():
 
 class TestIndicatorEndpoint:
     def test_get_asset_indicators_success(
-        self, mock_saxo_client, mock_historical_data
+        self, mock_saxo_client, mock_candles_service, mock_historical_data
     ):
         """Test successful retrieval of indicators for an asset."""
         mock_saxo_client.get_historical_data.return_value = (
@@ -99,7 +123,7 @@ class TestIndicatorEndpoint:
         )
 
     def test_get_asset_indicators_with_default_country_code(
-        self, mock_saxo_client, mock_historical_data
+        self, mock_saxo_client, mock_candles_service, mock_historical_data
     ):
         """Test indicator retrieval with default country_code."""
         mock_saxo_client.get_historical_data.return_value = (
@@ -113,7 +137,9 @@ class TestIndicatorEndpoint:
         assert data["asset_symbol"] == "itp:xpar"
         mock_saxo_client.get_asset.assert_called_once_with("itp", "xpar")
 
-    def test_get_asset_indicators_insufficient_data(self, mock_saxo_client):
+    def test_get_asset_indicators_insufficient_data(
+        self, mock_saxo_client, mock_candles_service
+    ):
         """Test when there's insufficient historical data."""
         # Return only 50 candles (need 200 for MA200)
         short_data = []
@@ -136,7 +162,9 @@ class TestIndicatorEndpoint:
         assert response.status_code == 400
         assert "Insufficient data" in response.json()["detail"]
 
-    def test_get_asset_indicators_asset_not_found(self, mock_saxo_client):
+    def test_get_asset_indicators_asset_not_found(
+        self, mock_saxo_client, mock_candles_service
+    ):
         """Test when asset is not found."""
         mock_saxo_client.get_asset.side_effect = SaxoException(
             "Stock itp:xpar doesn't exist"
@@ -147,7 +175,9 @@ class TestIndicatorEndpoint:
         assert response.status_code == 400
         assert "doesn't exist" in response.json()["detail"]
 
-    def test_get_asset_indicators_unexpected_error(self, mock_saxo_client):
+    def test_get_asset_indicators_unexpected_error(
+        self, mock_saxo_client, mock_candles_service
+    ):
         """Test handling of unexpected errors."""
         mock_saxo_client.get_asset.side_effect = Exception("Network error")
 
@@ -157,15 +187,21 @@ class TestIndicatorEndpoint:
         assert response.json()["detail"] == "Internal server error"
 
     def test_get_asset_indicators_price_above_below_ma(
-        self, mock_saxo_client, mock_historical_data
+        self, mock_saxo_client, mock_candles_service, mock_historical_data
     ):
         """Test is_above flag reflects price position relative to MA."""
-        # Modify data so current price (newest candle) is clearly positioned
-        # Current price will be at index 0 after sorting
-        modified_data = mock_historical_data.copy()
-        modified_data[0]["Close"] = 120.0  # High current price
+        # Set high current price via latest candle
+        mock_candles_service.get_latest_candle.return_value = Candle(
+            open=120.0,
+            close=120.0,
+            lower=119.0,
+            higher=121.0,
+            date=datetime.datetime.now(datetime.UTC),
+        )
 
-        mock_saxo_client.get_historical_data.return_value = modified_data
+        mock_saxo_client.get_historical_data.return_value = (
+            mock_historical_data
+        )
 
         response = client.get("/api/indicator/asset/itp")
 
@@ -182,15 +218,59 @@ class TestIndicatorEndpoint:
             ), f"MA{ma['period']} should be below price"
 
     def test_get_asset_indicators_variation_calculation(
-        self, mock_saxo_client, mock_historical_data
+        self, mock_saxo_client, mock_candles_service, mock_historical_data
     ):
         """Test that variation percentage is calculated correctly."""
+        # Set current price to 105.0 via latest candle
+        mock_candles_service.get_latest_candle.return_value = Candle(
+            open=105.0,
+            close=105.0,
+            lower=104.0,
+            higher=106.0,
+            date=datetime.datetime.now(datetime.UTC),
+        )
+
+        # Most recent complete candle (index 0) has close of 100.0
+        mock_saxo_client.get_historical_data.return_value = (
+            mock_historical_data
+        )
+
+        response = client.get("/api/indicator/asset/itp")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["current_price"] == 105.0
+        # Variation: (105 - 100) / 100 * 100 = 5.0%
+        assert data["variation_pct"] == 5.0
+
+    def test_get_asset_indicators_variation_same_period(
+        self, mock_saxo_client, mock_candles_service, mock_historical_data
+    ):
+        """Test variation when latest candle is from same period.
+
+        E.g., on Sunday, both latest and most recent complete are Friday.
+        """
+        # Friday's date
+        friday_date = datetime.datetime(2024, 1, 5, 16, 0, 0)
+
+        # Latest candle is from Friday (last trading day)
+        mock_candles_service.get_latest_candle.return_value = Candle(
+            open=100.0,
+            close=100.0,
+            lower=99.0,
+            higher=101.0,
+            date=friday_date,
+        )
+
+        # Historical data: candles[0] is Friday, candles[1] is Thursday
         modified_data = mock_historical_data.copy()
-        # Set yesterday's close (index 1) to 100.0
-        # Set today's close (index 0) to 105.0
-        # Expected variation: (105 - 100) / 100 * 100 = 5.0%
-        modified_data[0]["Close"] = 105.0
-        modified_data[1]["Close"] = 100.0
+        modified_data[0]["Time"] = friday_date  # Friday
+        modified_data[0]["Close"] = 100.0
+        modified_data[1]["Time"] = datetime.datetime(
+            2024, 1, 4, 16, 0, 0
+        )  # Thursday
+        modified_data[1]["Close"] = 95.0
 
         mock_saxo_client.get_historical_data.return_value = modified_data
 
@@ -199,8 +279,11 @@ class TestIndicatorEndpoint:
         assert response.status_code == 200
         data = response.json()
 
-        assert data["current_price"] == 105.0
-        assert data["variation_pct"] == 5.0
+        assert data["current_price"] == 100.0
+        # Since latest candle is from same day as candles[0] (both Friday),
+        # variation should be calculated against candles[1] (Thursday)
+        # Variation: (100 - 95) / 95 * 100 = 5.26%
+        assert data["variation_pct"] == 5.26
 
     def test_get_asset_indicators_missing_code(self):
         """Test request without required code parameter."""
@@ -211,7 +294,7 @@ class TestIndicatorEndpoint:
         assert response.status_code in [404, 307]
 
     def test_get_asset_indicators_weekly_unit_time(
-        self, mock_saxo_client, mock_historical_data
+        self, mock_saxo_client, mock_candles_service, mock_historical_data
     ):
         """Test indicator retrieval with weekly unit time."""
         mock_saxo_client.get_historical_data.return_value = (
@@ -237,7 +320,7 @@ class TestIndicatorEndpoint:
             assert ma["unit_time"] == "weekly"
 
     def test_get_asset_indicators_monthly_unit_time(
-        self, mock_saxo_client, mock_historical_data
+        self, mock_saxo_client, mock_candles_service, mock_historical_data
     ):
         """Test indicator retrieval with monthly unit time."""
         mock_saxo_client.get_historical_data.return_value = (
@@ -262,7 +345,9 @@ class TestIndicatorEndpoint:
         for ma in data["moving_averages"]:
             assert ma["unit_time"] == "monthly"
 
-    def test_get_asset_indicators_invalid_unit_time(self, mock_saxo_client):
+    def test_get_asset_indicators_invalid_unit_time(
+        self, mock_saxo_client, mock_candles_service
+    ):
         """Test request with invalid unit_time parameter."""
         response = client.get("/api/indicator/asset/itp?unit_time=h1")
 

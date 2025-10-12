@@ -4,6 +4,7 @@ from typing import Union
 
 from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
+from services.candles_service import CandlesService
 from utils.configuration import Configuration
 from utils.logger import Logger
 
@@ -41,3 +42,12 @@ def get_saxo_client() -> Union[SaxoClient, MockSaxoClient]:
         logger.error(f"Failed to initialize SaxoClient: {e}")
         logger.warning("Falling back to MockSaxoClient")
         return MockSaxoClient(config)
+
+
+def get_candles_service() -> CandlesService:
+    """
+    Create CandlesService instance.
+    This is a dependency that can be injected into FastAPI endpoints.
+    """
+    saxo_client = get_saxo_client()
+    return CandlesService(saxo_client)

@@ -1,9 +1,11 @@
+import datetime
 from typing import List
 
 from api.models.indicator import AssetIndicatorsResponse, MovingAverageInfo
 from client.client_helper import map_data_to_candles
 from client.saxo_client import SaxoClient
 from model import Candle, UnitTime
+from services.candles_service import CandlesService
 from services.indicator_service import mobile_average
 from utils.exception import SaxoException
 from utils.logger import Logger
@@ -23,8 +25,40 @@ class IndicatorService:
         UnitTime.M: 43200,  # 30 days = 43200 minutes
     }
 
-    def __init__(self, saxo_client: SaxoClient):
+    def __init__(
+        self, saxo_client: SaxoClient, candles_service: CandlesService
+    ):
         self.saxo_client = saxo_client
+        self.candles_service = candles_service
+
+    def _is_same_period(
+        self,
+        date1: datetime.datetime,
+        date2: datetime.datetime,
+        unit_time: UnitTime,
+    ) -> bool:
+        """
+        Check if two dates are in the same period based on unit_time.
+
+        Args:
+            date1: First date
+            date2: Second date
+            unit_time: Unit time (D=daily, W=weekly, M=monthly)
+
+        Returns:
+            True if dates are in the same period, False otherwise
+        """
+        if unit_time == UnitTime.D:
+            # Same day
+            return date1.date() == date2.date()
+        elif unit_time == UnitTime.W:
+            # Same ISO week
+            return date1.isocalendar()[:2] == date2.isocalendar()[:2]
+        elif unit_time == UnitTime.M:
+            # Same month
+            return (date1.year, date1.month) == (date2.year, date2.month)
+        else:
+            return False
 
     def get_asset_indicators(
         self,
@@ -78,11 +112,35 @@ class IndicatorService:
                 f"({unit_time.value}): {len(candles)}"
             )
 
-        # Current price is the close of the newest candle (index 0)
-        current_price = candles[0].close
+        # Get current price from latest minute candle
+        # This handles incomplete daily/hourly candles as per CLAUDE.md
+        try:
+            latest_candle = self.candles_service.get_latest_candle(code)
+            current_price = latest_candle.close
+        except SaxoException as e:
+            # Fallback: use the close of the most recent historical candle
+            logger.warning(
+                f"Failed to get latest candle for {symbol}: {e}. "
+                f"Using historical candle close."
+            )
+            current_price = candles[0].close
+            latest_candle = candles[0]
 
-        # Variation from previous period (candles[1] is previous period)
-        previous_close = candles[1].close
+        # Determine previous close for variation calculation
+        # If latest candle is from the same period as candles[0] (e.g., both Friday),
+        # use candles[1] (e.g., Thursday) as previous
+        # Otherwise, use candles[0] as previous (e.g., Monday's incomplete candle vs Friday)
+        if latest_candle.date and candles[0].date:
+            same_period = self._is_same_period(
+                latest_candle.date, candles[0].date, unit_time
+            )
+            previous_close = (
+                candles[1].close if same_period else candles[0].close
+            )
+        else:
+            # No date info, fall back to candles[0]
+            previous_close = candles[0].close
+
         variation_pct = round(
             ((current_price - previous_close) / previous_close) * 100, 2
         )

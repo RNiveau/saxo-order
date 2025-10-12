@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from api.dependencies import get_saxo_client
+from api.dependencies import get_candles_service, get_saxo_client
 from api.models.indicator import AssetIndicatorsResponse
 from api.services.indicator_service import IndicatorService
 from client.saxo_client import SaxoClient
 from model import UnitTime
+from services.candles_service import CandlesService
 from utils.exception import SaxoException
 from utils.logger import Logger
 
@@ -27,6 +28,7 @@ async def get_asset_indicators(
         description="Unit time for indicators (daily, weekly, monthly)",
     ),
     saxo_client: SaxoClient = Depends(get_saxo_client),
+    candles_service: CandlesService = Depends(get_candles_service),
 ):
     """
     Get indicator data for a specific asset.
@@ -57,7 +59,7 @@ async def get_asset_indicators(
                 f"Supported values: {[u.value for u in SUPPORTED_UNIT_TIMES]}",
             )
 
-        indicator_service = IndicatorService(saxo_client)
+        indicator_service = IndicatorService(saxo_client, candles_service)
         return indicator_service.get_asset_indicators(
             code=code, country_code=country_code, unit_time=ut
         )
