@@ -18,6 +18,7 @@ class MovingAverageInfo(BaseModel):
 
 class AssetIndicatorsResponse(BaseModel):
     asset_symbol: str = Field(description="Asset symbol queried")
+    description: str = Field(description="Asset description/name")
     current_price: float = Field(description="Current price (latest close)")
     variation_pct: float = Field(
         description="Percentage variation from previous period's close"

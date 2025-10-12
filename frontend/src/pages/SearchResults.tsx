@@ -26,8 +26,10 @@ export function SearchResults() {
 
       // Auto-redirect if only one result
       if (data.results.length === 1) {
-        const symbol = data.results[0].symbol;
-        navigate(`/asset/${encodeURIComponent(symbol)}`);
+        const result = data.results[0];
+        navigate(`/asset/${encodeURIComponent(result.symbol)}`, {
+          state: { description: result.description }
+        });
         return;
       }
 
@@ -40,8 +42,8 @@ export function SearchResults() {
     }
   };
 
-  const handleAssetClick = (symbol: string) => {
-    navigate(`/asset/${encodeURIComponent(symbol)}`);
+  const handleAssetClick = (symbol: string, description: string) => {
+    navigate(`/asset/${encodeURIComponent(symbol)}`, { state: { description } });
   };
 
   return (
@@ -77,7 +79,7 @@ export function SearchResults() {
                 {results.map((result) => (
                   <tr
                     key={result.identifier}
-                    onClick={() => handleAssetClick(result.symbol)}
+                    onClick={() => handleAssetClick(result.symbol, result.description)}
                     className="result-row"
                   >
                     <td className="symbol">{result.symbol}</td>

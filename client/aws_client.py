@@ -106,13 +106,18 @@ class DynamoDBClient(AwsClient):
         return json.loads(response["Item"]["json"])
 
     def add_to_watchlist(
-        self, asset_id: str, asset_symbol: str, country_code: str
+        self,
+        asset_id: str,
+        asset_symbol: str,
+        description: str,
+        country_code: str,
     ) -> Dict[str, Any]:
         """Add an asset to the watchlist."""
         response = self.dynamodb.Table("watchlist").put_item(
             Item={
                 "id": asset_id,
                 "asset_symbol": asset_symbol,
+                "description": description,
                 "country_code": country_code,
                 "added_at": datetime.datetime.now(
                     datetime.timezone.utc

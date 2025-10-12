@@ -11,10 +11,22 @@
   margin-bottom: 1.5rem;
 }
 
+.asset-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .asset-detail-container h2 {
   color: #e6edf3;
   margin: 0;
   font-size: 1.75rem;
+}
+
+.asset-symbol {
+  color: #8b949e;
+  font-size: 0.9rem;
+  font-family: monospace;
 }
 
 .add-to-watchlist-btn {

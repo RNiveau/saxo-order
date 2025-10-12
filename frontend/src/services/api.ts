@@ -141,6 +141,7 @@ export interface MovingAverageInfo {
 
 export interface AssetIndicatorsResponse {
   asset_symbol: string;
+  description: string;
   current_price: number;
   variation_pct: number;
   unit_time: string;
@@ -168,6 +169,7 @@ export const indicatorService = {
 export interface WatchlistItem {
   id: string;
   asset_symbol: string;
+  description: string;
   country_code: string;
   current_price: number;
   variation_pct: number;
@@ -182,6 +184,7 @@ export interface WatchlistResponse {
 export interface AddToWatchlistRequest {
   asset_id: string;
   asset_symbol: string;
+  description: string;
   country_code: string;
 }
 

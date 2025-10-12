@@ -27,8 +27,8 @@ export function Sidebar() {
     }
   };
 
-  const handleWatchlistItemClick = (symbol: string) => {
-    navigate(`/asset/${encodeURIComponent(symbol)}`);
+  const handleWatchlistItemClick = (symbol: string, description: string) => {
+    navigate(`/asset/${encodeURIComponent(symbol)}`, { state: { description } });
   };
 
   const formatVariation = (variation: number) => {
@@ -82,8 +82,11 @@ export function Sidebar() {
               <li
                 key={item.id}
                 className="watchlist-item"
-                onClick={() => handleWatchlistItemClick(item.asset_symbol)}
+                onClick={() => handleWatchlistItemClick(item.asset_symbol, item.description)}
               >
+                <div className="watchlist-item-name">
+                  {item.description || item.asset_symbol}
+                </div>
                 <div className="watchlist-item-symbol">
                   {item.asset_symbol}
                 </div>

@@ -57,6 +57,7 @@ class WatchlistService:
                     WatchlistItem(
                         id=item["id"],
                         asset_symbol=asset_symbol,
+                        description=item.get("description", ""),
                         country_code=country_code,
                         current_price=round(current_price, 4),
                         variation_pct=variation_pct,
@@ -72,6 +73,7 @@ class WatchlistService:
                     WatchlistItem(
                         id=item["id"],
                         asset_symbol=item.get("asset_symbol", ""),
+                        description=item.get("description", ""),
                         country_code=item.get("country_code", "xpar"),
                         current_price=0.0,
                         variation_pct=0.0,

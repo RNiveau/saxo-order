@@ -20,6 +20,7 @@ def mock_saxo_client():
         "Identifier": 123,
         "AssetType": "Stock",
         "Symbol": "ITP:xpar",
+        "Description": "Interparfums SA",
     }
 
     def override_get_saxo_client():
@@ -92,13 +93,15 @@ class TestIndicatorEndpoint:
 
         # Check response structure
         assert "asset_symbol" in data
+        assert "description" in data
         assert "current_price" in data
         assert "variation_pct" in data
         assert "unit_time" in data
         assert "moving_averages" in data
 
-        # Check asset symbol and unit_time
+        # Check asset symbol, description, and unit_time
         assert data["asset_symbol"] == "itp:xpar"
+        assert data["description"] == "Interparfums SA"
         assert data["unit_time"] == "daily"
 
         # Check we have all 4 moving averages

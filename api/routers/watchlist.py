@@ -65,6 +65,7 @@ async def get_watchlist(
 async def add_to_watchlist(
     request: AddToWatchlistRequest,
     dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
+    saxo_client: SaxoClient = Depends(get_saxo_client),
 ):
     """
     Add an asset to the watchlist.
@@ -76,12 +77,19 @@ async def add_to_watchlist(
         AddToWatchlistResponse with success message
     """
     try:
+        # Fetch asset from Saxo API to get the real description
+        asset = saxo_client.get_asset(request.asset_id, request.country_code)
+        description = asset["Description"]
+
         dynamodb_client.add_to_watchlist(
-            request.asset_id, request.asset_symbol, request.country_code
+            request.asset_id,
+            request.asset_symbol,
+            description,
+            request.country_code,
         )
 
         return AddToWatchlistResponse(
-            message=f"Asset {request.asset_symbol} added to watchlist",
+            message=f"Asset {description} added to watchlist",
             asset_id=request.asset_id,
             asset_symbol=request.asset_symbol,
         )
