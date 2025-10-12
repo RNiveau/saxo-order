@@ -117,9 +117,19 @@ class TestIndicatorEndpoint:
             assert isinstance(ma["value"], (int, float))
 
         # Verify SaxoClient was called correctly
-        mock_saxo_client.get_asset.assert_called_once_with("itp", "xpar")
-        mock_saxo_client.get_historical_data.assert_called_once_with(
+        # get_asset is called twice: once in get_asset_indicators,
+        # once in get_price_and_variation
+        assert mock_saxo_client.get_asset.call_count == 2
+        mock_saxo_client.get_asset.assert_called_with("itp", "xpar")
+
+        # get_historical_data is called twice: once with count=210 for MAs,
+        # once with count=3 for price/variation
+        assert mock_saxo_client.get_historical_data.call_count == 2
+        mock_saxo_client.get_historical_data.assert_any_call(
             saxo_uic=123, asset_type="Stock", horizon=1440, count=210
+        )
+        mock_saxo_client.get_historical_data.assert_any_call(
+            saxo_uic=123, asset_type="Stock", horizon=1440, count=3
         )
 
     def test_get_asset_indicators_with_default_country_code(
@@ -135,7 +145,10 @@ class TestIndicatorEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["asset_symbol"] == "itp:xpar"
-        mock_saxo_client.get_asset.assert_called_once_with("itp", "xpar")
+
+        # get_asset is called twice
+        assert mock_saxo_client.get_asset.call_count == 2
+        mock_saxo_client.get_asset.assert_called_with("itp", "xpar")
 
     def test_get_asset_indicators_insufficient_data(
         self, mock_saxo_client, mock_candles_service
@@ -311,8 +324,14 @@ class TestIndicatorEndpoint:
         assert data["asset_symbol"] == "itp:xpar"
 
         # Verify correct horizon was used (10080 = 7 days in minutes)
-        mock_saxo_client.get_historical_data.assert_called_once_with(
+        # get_historical_data is called twice: once with count=210,
+        # once with count=3
+        assert mock_saxo_client.get_historical_data.call_count == 2
+        mock_saxo_client.get_historical_data.assert_any_call(
             saxo_uic=123, asset_type="Stock", horizon=10080, count=210
+        )
+        mock_saxo_client.get_historical_data.assert_any_call(
+            saxo_uic=123, asset_type="Stock", horizon=10080, count=3
         )
 
         # Check all MAs have weekly unit_time
@@ -337,8 +356,14 @@ class TestIndicatorEndpoint:
         assert data["asset_symbol"] == "itp:xpar"
 
         # Verify correct horizon was used (43200 = 30 days in minutes)
-        mock_saxo_client.get_historical_data.assert_called_once_with(
+        # get_historical_data is called twice: once with count=210,
+        # once with count=3
+        assert mock_saxo_client.get_historical_data.call_count == 2
+        mock_saxo_client.get_historical_data.assert_any_call(
             saxo_uic=123, asset_type="Stock", horizon=43200, count=210
+        )
+        mock_saxo_client.get_historical_data.assert_any_call(
+            saxo_uic=123, asset_type="Stock", horizon=43200, count=3
         )
 
         # Check all MAs have monthly unit_time

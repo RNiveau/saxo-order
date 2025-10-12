@@ -122,3 +122,11 @@ class DynamoDBClient(AwsClient):
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB put_item error: {response}")
         return response
+
+    def get_watchlist(self) -> list[Dict[str, Any]]:
+        """Get all assets in the watchlist."""
+        response = self.dynamodb.Table("watchlist").scan()
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB scan error: {response}")
+            return []
+        return response.get("Items", [])

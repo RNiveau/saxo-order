@@ -60,6 +60,79 @@ class IndicatorService:
         else:
             return False
 
+    def get_price_and_variation(
+        self,
+        code: str,
+        country_code: str = "xpar",
+        unit_time: UnitTime = UnitTime.D,
+    ) -> tuple[float, float]:
+        """
+        Get current price and variation for an asset without calculating MAs.
+
+        Args:
+            code: Asset code (e.g., "itp", "DAX.I")
+            country_code: Country code (e.g., "xpar")
+            unit_time: Unit time for calculations
+                (D=daily, W=weekly, M=monthly)
+
+        Returns:
+            Tuple of (current_price, variation_pct)
+
+        Raises:
+            SaxoException: If asset not found or insufficient data
+        """
+        symbol = f"{code}:{country_code}" if country_code else code
+        asset = self.saxo_client.get_asset(code, country_code)
+
+        # Get horizon based on unit_time
+        horizon = self.HORIZON_MAP[unit_time]
+
+        # Fetch only 3 candles (enough for current + previous)
+        data = self.saxo_client.get_historical_data(
+            saxo_uic=asset["Identifier"],
+            asset_type=asset["AssetType"],
+            horizon=horizon,
+            count=3,
+        )
+
+        if len(data) < 2:
+            raise SaxoException(
+                f"Insufficient data for {symbol} ({unit_time.value}): "
+                f"only {len(data)} candles available, need at least 2"
+            )
+
+        # Convert to Candle objects (newest first)
+        candles: List[Candle] = map_data_to_candles(data, None)
+
+        # Get current price from latest minute candle
+        try:
+            latest_candle = self.candles_service.get_latest_candle(code)
+            current_price = latest_candle.close
+        except SaxoException as e:
+            logger.warning(
+                f"Failed to get latest candle for {symbol}: {e}. "
+                f"Using historical candle close."
+            )
+            current_price = candles[0].close
+            latest_candle = candles[0]
+
+        # Determine previous close for variation calculation
+        if latest_candle.date and candles[0].date:
+            same_period = self._is_same_period(
+                latest_candle.date, candles[0].date, unit_time
+            )
+            previous_close = (
+                candles[1].close if same_period else candles[0].close
+            )
+        else:
+            previous_close = candles[0].close
+
+        variation_pct = round(
+            ((current_price - previous_close) / previous_close) * 100, 2
+        )
+
+        return current_price, variation_pct
+
     def get_asset_indicators(
         self,
         code: str,
@@ -112,37 +185,9 @@ class IndicatorService:
                 f"({unit_time.value}): {len(candles)}"
             )
 
-        # Get current price from latest minute candle
-        # This handles incomplete daily/hourly candles as per CLAUDE.md
-        try:
-            latest_candle = self.candles_service.get_latest_candle(code)
-            current_price = latest_candle.close
-        except SaxoException as e:
-            # Fallback: use the close of the most recent historical candle
-            logger.warning(
-                f"Failed to get latest candle for {symbol}: {e}. "
-                f"Using historical candle close."
-            )
-            current_price = candles[0].close
-            latest_candle = candles[0]
-
-        # Determine previous close for variation calculation
-        # If latest candle is from the same period as candles[0] (e.g., both Friday),
-        # use candles[1] (e.g., Thursday) as previous
-        # Otherwise, use candles[0] as previous (e.g., Monday's incomplete candle vs Friday)
-        if latest_candle.date and candles[0].date:
-            same_period = self._is_same_period(
-                latest_candle.date, candles[0].date, unit_time
-            )
-            previous_close = (
-                candles[1].close if same_period else candles[0].close
-            )
-        else:
-            # No date info, fall back to candles[0]
-            previous_close = candles[0].close
-
-        variation_pct = round(
-            ((current_price - previous_close) / previous_close) * 100, 2
+        # Get current price and variation
+        current_price, variation_pct = self.get_price_and_variation(
+            code, country_code, unit_time
         )
 
         # Calculate moving averages

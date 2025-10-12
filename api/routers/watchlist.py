@@ -1,7 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.models.watchlist import AddToWatchlistRequest, AddToWatchlistResponse
+from api.dependencies import get_candles_service, get_saxo_client
+from api.models.watchlist import (
+    AddToWatchlistRequest,
+    AddToWatchlistResponse,
+    WatchlistResponse,
+)
+from api.services.indicator_service import IndicatorService
+from api.services.watchlist_service import WatchlistService
 from client.aws_client import AwsClient, DynamoDBClient
+from client.saxo_client import SaxoClient
+from services.candles_service import CandlesService
 from utils.logger import Logger
 
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
@@ -20,6 +29,36 @@ def get_dynamodb_client() -> DynamoDBClient:
             "Set AWS_PROFILE environment variable.",
         )
     return DynamoDBClient()
+
+
+def get_watchlist_service(
+    saxo_client: SaxoClient = Depends(get_saxo_client),
+    candles_service: CandlesService = Depends(get_candles_service),
+    dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
+) -> WatchlistService:
+    """
+    Create WatchlistService instance.
+    This is a dependency that can be injected into FastAPI endpoints.
+    """
+    indicator_service = IndicatorService(saxo_client, candles_service)
+    return WatchlistService(dynamodb_client, indicator_service)
+
+
+@router.get("", response_model=WatchlistResponse)
+async def get_watchlist(
+    watchlist_service: WatchlistService = Depends(get_watchlist_service),
+):
+    """
+    Get all watchlist items with current prices and variations.
+
+    Returns:
+        WatchlistResponse with all watchlist items
+    """
+    try:
+        return watchlist_service.get_watchlist()
+    except Exception as e:
+        logger.error(f"Unexpected error getting watchlist: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("", response_model=AddToWatchlistResponse)

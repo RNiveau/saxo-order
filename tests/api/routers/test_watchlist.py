@@ -4,7 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
-from api.routers.watchlist import get_dynamodb_client
+from api.models.watchlist import WatchlistItem, WatchlistResponse
+from api.routers.watchlist import get_dynamodb_client, get_watchlist_service
 
 client = TestClient(app)
 
@@ -29,7 +30,92 @@ def mock_dynamodb_client():
     app.dependency_overrides.clear()
 
 
+@pytest.fixture
+def mock_watchlist_service():
+    """Mock WatchlistService."""
+    mock_service = MagicMock()
+
+    # Default mock data
+    mock_service.get_watchlist.return_value = WatchlistResponse(
+        items=[
+            WatchlistItem(
+                id="1",
+                asset_symbol="itp:xpar",
+                country_code="xpar",
+                current_price=100.0,
+                variation_pct=5.0,
+                added_at="2024-01-01T00:00:00Z",
+            ),
+            WatchlistItem(
+                id="2",
+                asset_symbol="DAX.I:xetr",
+                country_code="xetr",
+                current_price=15000.0,
+                variation_pct=-2.5,
+                added_at="2024-01-02T00:00:00Z",
+            ),
+        ],
+        total=2,
+    )
+
+    def override_get_watchlist_service():
+        return mock_service
+
+    app.dependency_overrides[get_watchlist_service] = (
+        override_get_watchlist_service
+    )
+    yield mock_service
+    app.dependency_overrides.clear()
+
+
 class TestWatchlistEndpoint:
+    def test_get_watchlist_success(self, mock_watchlist_service):
+        """Test successful retrieval of watchlist."""
+        response = client.get("/api/watchlist")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Check response structure
+        assert "items" in data
+        assert "total" in data
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+
+        # Check first item
+        item1 = data["items"][0]
+        assert item1["id"] == "1"
+        assert item1["asset_symbol"] == "itp:xpar"
+        assert item1["current_price"] == 100.0
+        assert item1["variation_pct"] == 5.0
+
+        # Verify service was called
+        mock_watchlist_service.get_watchlist.assert_called_once()
+
+    def test_get_watchlist_empty(self, mock_watchlist_service):
+        """Test retrieval of empty watchlist."""
+        mock_watchlist_service.get_watchlist.return_value = WatchlistResponse(
+            items=[], total=0
+        )
+
+        response = client.get("/api/watchlist")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+        assert len(data["items"]) == 0
+
+    def test_get_watchlist_unexpected_error(self, mock_watchlist_service):
+        """Test handling of unexpected errors in get watchlist."""
+        mock_watchlist_service.get_watchlist.side_effect = Exception(
+            "Database error"
+        )
+
+        response = client.get("/api/watchlist")
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Internal server error"
+
     def test_add_to_watchlist_success(self, mock_dynamodb_client):
         """Test successfully adding an asset to watchlist."""
         response = client.post(
