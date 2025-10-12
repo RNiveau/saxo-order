@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import fund, indicator, search, workflow
+from api.routers import fund, indicator, search, watchlist, workflow
 from utils.logger import Logger
 
 logger = Logger.get_logger("api_main")
@@ -42,6 +42,7 @@ app.add_middleware(
 app.include_router(fund.router)
 app.include_router(indicator.router)
 app.include_router(search.router)
+app.include_router(watchlist.router)
 app.include_router(workflow.router)
 
 

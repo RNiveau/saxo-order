@@ -124,3 +124,43 @@ def k_order_user() -> tuple:
     user = aws.iam.User("k-order")
     access_key = aws.iam.AccessKey("k-order-accesskey", user=user.name)
     return user, access_key
+
+
+def user_dynamodb_policy(
+    dynamodb_tables: List[aws.dynamodb.Table], user: aws.iam.User
+) -> None:
+    import json
+
+    user_policy = aws.iam.Policy(
+        "userDynamoDBPolicy",
+        description="A policy to allow k-order user to access DynamoDB",
+        policy=pulumi.Output.all(
+            *[table.arn for table in dynamodb_tables]
+        ).apply(
+            lambda arns: json.dumps(
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Action": [
+                                "dynamodb:Query",
+                                "dynamodb:Scan",
+                                "dynamodb:GetItem",
+                                "dynamodb:PutItem",
+                                "dynamodb:UpdateItem",
+                                "dynamodb:DeleteItem",
+                            ],
+                            "Effect": "Allow",
+                            "Resource": arns,
+                        }
+                    ],
+                }
+            )
+        ),
+    )
+
+    aws.iam.UserPolicyAttachment(
+        "userDynamoDBPolicyAttachment",
+        user=user.name,
+        policy_arn=user_policy.arn,
+    )

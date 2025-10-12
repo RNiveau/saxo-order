@@ -38,6 +38,7 @@ snapshot_lambda = ecr_repository.repository_url.apply(
 )
 
 iam.dynamodb_policy([indicator_table, watchlist_table], lambda_role)
+iam.user_dynamodb_policy([indicator_table, watchlist_table], user)
 
 pulumi.Output.all(
     refresh_token_lambda.arn,

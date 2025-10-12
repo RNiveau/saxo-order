@@ -104,3 +104,21 @@ class DynamoDBClient(AwsClient):
         if "Item" not in response:
             return None
         return json.loads(response["Item"]["json"])
+
+    def add_to_watchlist(
+        self, asset_id: str, asset_symbol: str, country_code: str
+    ) -> Dict[str, Any]:
+        """Add an asset to the watchlist."""
+        response = self.dynamodb.Table("watchlist").put_item(
+            Item={
+                "id": asset_id,
+                "asset_symbol": asset_symbol,
+                "country_code": country_code,
+                "added_at": datetime.datetime.now(
+                    datetime.timezone.utc
+                ).isoformat(),
+            }
+        )
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB put_item error: {response}")
+        return response
