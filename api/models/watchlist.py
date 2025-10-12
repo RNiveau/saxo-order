@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class AddToWatchlistRequest(BaseModel):
     asset_id: str = Field(description="Unique identifier for the asset")
     asset_symbol: str = Field(description="Asset symbol (e.g., 'itp:xpar')")
+    description: str = Field(description="Asset description/name")
     country_code: str = Field(
         default="xpar", description="Country code (e.g., 'xpar')"
     )
@@ -20,6 +21,7 @@ class AddToWatchlistResponse(BaseModel):
 class WatchlistItem(BaseModel):
     id: str = Field(description="Unique identifier for the watchlist item")
     asset_symbol: str = Field(description="Asset symbol (e.g., 'itp:xpar')")
+    description: str = Field(description="Asset description/name")
     country_code: str = Field(description="Country code (e.g., 'xpar')")
     current_price: float = Field(description="Current price of the asset")
     variation_pct: float = Field(

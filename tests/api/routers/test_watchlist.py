@@ -5,9 +5,34 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 from api.models.watchlist import WatchlistItem, WatchlistResponse
-from api.routers.watchlist import get_dynamodb_client, get_watchlist_service
+from api.routers.watchlist import (
+    get_dynamodb_client,
+    get_saxo_client,
+    get_watchlist_service,
+)
 
 client = TestClient(app)
+
+
+@pytest.fixture
+def mock_saxo_client():
+    """Mock SaxoClient."""
+    mock_client = MagicMock()
+
+    # Default mock behavior - return asset with description
+    mock_client.get_asset.return_value = {
+        "Identifier": 123,
+        "AssetType": "Stock",
+        "Symbol": "ITP:xpar",
+        "Description": "Interparfums SA",
+    }
+
+    def override_get_saxo_client():
+        return mock_client
+
+    app.dependency_overrides[get_saxo_client] = override_get_saxo_client
+    yield mock_client
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -41,6 +66,7 @@ def mock_watchlist_service():
             WatchlistItem(
                 id="1",
                 asset_symbol="itp:xpar",
+                description="Interparfums SA",
                 country_code="xpar",
                 current_price=100.0,
                 variation_pct=5.0,
@@ -49,6 +75,7 @@ def mock_watchlist_service():
             WatchlistItem(
                 id="2",
                 asset_symbol="DAX.I:xetr",
+                description="DAX Index",
                 country_code="xetr",
                 current_price=15000.0,
                 variation_pct=-2.5,
@@ -116,13 +143,16 @@ class TestWatchlistEndpoint:
         assert response.status_code == 500
         assert response.json()["detail"] == "Internal server error"
 
-    def test_add_to_watchlist_success(self, mock_dynamodb_client):
+    def test_add_to_watchlist_success(
+        self, mock_saxo_client, mock_dynamodb_client
+    ):
         """Test successfully adding an asset to watchlist."""
         response = client.post(
             "/api/watchlist",
             json={
                 "asset_id": "123",
                 "asset_symbol": "itp:xpar",
+                "description": "Interparfums SA",
                 "country_code": "xpar",
             },
         )
@@ -138,20 +168,27 @@ class TestWatchlistEndpoint:
         # Check response values
         assert data["asset_id"] == "123"
         assert data["asset_symbol"] == "itp:xpar"
-        assert "itp:xpar" in data["message"]
+        assert "Interparfums SA" in data["message"]
 
-        # Verify DynamoDB client was called correctly
+        # Verify Saxo client was called to fetch asset
+        mock_saxo_client.get_asset.assert_called_once_with("123", "xpar")
+
+        # Verify DynamoDB client was called correctly with fetched description
         mock_dynamodb_client.add_to_watchlist.assert_called_once_with(
-            "123", "itp:xpar", "xpar"
+            "123", "itp:xpar", "Interparfums SA", "xpar"
         )
 
     def test_add_to_watchlist_with_default_country_code(
-        self, mock_dynamodb_client
+        self, mock_saxo_client, mock_dynamodb_client
     ):
         """Test adding asset with default country code."""
         response = client.post(
             "/api/watchlist",
-            json={"asset_id": "456", "asset_symbol": "aapl:xnas"},
+            json={
+                "asset_id": "456",
+                "asset_symbol": "aapl:xnas",
+                "description": "Apple Inc",
+            },
         )
 
         assert response.status_code == 200
@@ -159,9 +196,12 @@ class TestWatchlistEndpoint:
         assert data["asset_id"] == "456"
         assert data["asset_symbol"] == "aapl:xnas"
 
+        # Verify Saxo client was called with default country code
+        mock_saxo_client.get_asset.assert_called_once_with("456", "xpar")
+
         # Verify default country code was used
         mock_dynamodb_client.add_to_watchlist.assert_called_once_with(
-            "456", "aapl:xnas", "xpar"
+            "456", "aapl:xnas", "Interparfums SA", "xpar"
         )
 
     def test_add_to_watchlist_missing_required_fields(self):
@@ -175,7 +215,11 @@ class TestWatchlistEndpoint:
         """Test request with missing asset_id."""
         response = client.post(
             "/api/watchlist",
-            json={"asset_symbol": "itp:xpar", "country_code": "xpar"},
+            json={
+                "asset_symbol": "itp:xpar",
+                "description": "Test",
+                "country_code": "xpar",
+            },
         )
 
         assert response.status_code == 422  # Validation error
@@ -184,12 +228,18 @@ class TestWatchlistEndpoint:
         """Test request with missing asset_symbol."""
         response = client.post(
             "/api/watchlist",
-            json={"asset_id": "123", "country_code": "xpar"},
+            json={
+                "asset_id": "123",
+                "description": "Test",
+                "country_code": "xpar",
+            },
         )
 
         assert response.status_code == 422  # Validation error
 
-    def test_add_to_watchlist_unexpected_error(self, mock_dynamodb_client):
+    def test_add_to_watchlist_unexpected_error(
+        self, mock_saxo_client, mock_dynamodb_client
+    ):
         """Test handling of unexpected errors."""
         mock_dynamodb_client.add_to_watchlist.side_effect = Exception(
             "DynamoDB error"
@@ -200,6 +250,7 @@ class TestWatchlistEndpoint:
             json={
                 "asset_id": "789",
                 "asset_symbol": "test:xpar",
+                "description": "Test Asset",
                 "country_code": "xpar",
             },
         )
@@ -208,22 +259,23 @@ class TestWatchlistEndpoint:
         assert response.json()["detail"] == "Internal server error"
 
     def test_add_to_watchlist_various_asset_symbols(
-        self, mock_dynamodb_client
+        self, mock_saxo_client, mock_dynamodb_client
     ):
         """Test adding various types of asset symbols."""
         test_cases = [
-            ("1", "itp:xpar", "xpar"),
-            ("2", "DAX.I:xetr", "xetr"),
-            ("3", "aapl:xnas", "xnas"),
-            ("4", "btcusd:crypto", "crypto"),
+            ("1", "itp:xpar", "Interparfums SA", "xpar"),
+            ("2", "DAX.I:xetr", "DAX Index", "xetr"),
+            ("3", "aapl:xnas", "Apple Inc", "xnas"),
+            ("4", "btcusd:crypto", "Bitcoin USD", "crypto"),
         ]
 
-        for asset_id, asset_symbol, country_code in test_cases:
+        for asset_id, asset_symbol, description, country_code in test_cases:
             response = client.post(
                 "/api/watchlist",
                 json={
                     "asset_id": asset_id,
                     "asset_symbol": asset_symbol,
+                    "description": description,
                     "country_code": country_code,
                 },
             )
@@ -233,7 +285,9 @@ class TestWatchlistEndpoint:
             assert data["asset_id"] == asset_id
             assert data["asset_symbol"] == asset_symbol
 
-    def test_add_to_watchlist_duplicate_asset(self, mock_dynamodb_client):
+    def test_add_to_watchlist_duplicate_asset(
+        self, mock_saxo_client, mock_dynamodb_client
+    ):
         """Test adding the same asset twice.
 
         Should succeed - DynamoDB put_item overwrites existing items.
@@ -241,6 +295,7 @@ class TestWatchlistEndpoint:
         request_data = {
             "asset_id": "123",
             "asset_symbol": "itp:xpar",
+            "description": "Interparfums SA",
             "country_code": "xpar",
         }
 

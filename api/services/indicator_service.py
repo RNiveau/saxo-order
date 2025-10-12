@@ -220,6 +220,7 @@ class IndicatorService:
 
         return AssetIndicatorsResponse(
             asset_symbol=symbol,
+            description=asset["Description"],
             current_price=round(current_price, 4),
             variation_pct=variation_pct,
             unit_time=unit_time.value,

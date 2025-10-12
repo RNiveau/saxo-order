@@ -27,8 +27,8 @@ export function Watchlist() {
     }
   };
 
-  const handleAssetClick = (symbol: string) => {
-    navigate(`/asset/${encodeURIComponent(symbol)}`);
+  const handleAssetClick = (symbol: string, description: string) => {
+    navigate(`/asset/${encodeURIComponent(symbol)}`, { state: { description } });
   };
 
   const formatPrice = (price: number) => {
@@ -68,6 +68,7 @@ export function Watchlist() {
             <table>
               <thead>
                 <tr>
+                  <th>Asset</th>
                   <th>Symbol</th>
                   <th>Current Price</th>
                   <th>Variation</th>
@@ -78,9 +79,10 @@ export function Watchlist() {
                 {items.map((item) => (
                   <tr
                     key={item.id}
-                    onClick={() => handleAssetClick(item.asset_symbol)}
+                    onClick={() => handleAssetClick(item.asset_symbol, item.description)}
                     className="watchlist-row"
                   >
+                    <td className="description">{item.description || item.asset_symbol}</td>
                     <td className="symbol">{item.asset_symbol}</td>
                     <td className="price">{formatPrice(item.current_price)}</td>
                     <td className={`variation ${item.variation_pct >= 0 ? 'positive' : 'negative'}`}>

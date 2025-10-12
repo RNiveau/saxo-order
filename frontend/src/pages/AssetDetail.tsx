@@ -71,14 +71,19 @@ export function AssetDetail() {
       // Parse symbol to extract code and country_code
       const [code, countryCode = 'xpar'] = symbol.split(':');
 
+      // Use any placeholder description - backend will fetch the real one
+      const description = 'placeholder';
+
       // Use the code as asset_id (you might want to use identifier if available)
       await watchlistService.addToWatchlist({
         asset_id: code,
         asset_symbol: symbol,
+        description: description,
         country_code: countryCode,
       });
 
-      setWatchlistSuccess(`Added ${symbol} to watchlist`);
+      const assetName = indicatorData?.description || symbol;
+      setWatchlistSuccess(`Added ${assetName} to watchlist`);
       setTimeout(() => setWatchlistSuccess(null), 3000);
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Failed to add to watchlist';
@@ -108,7 +113,10 @@ export function AssetDetail() {
   return (
     <div className="asset-detail-container">
       <div className="asset-header">
-        <h2>Asset: {symbol}</h2>
+        <div className="asset-title">
+          <h2>{indicatorData?.description || symbol}</h2>
+          {indicatorData?.description && <div className="asset-symbol">{symbol}</div>}
+        </div>
         <button
           onClick={handleAddToWatchlist}
           disabled={addingToWatchlist}
