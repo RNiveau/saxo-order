@@ -19,13 +19,17 @@ def get_configuration() -> Configuration:
     return Configuration(config_file)
 
 
+@lru_cache()
 def get_saxo_client() -> Union[SaxoClient, MockSaxoClient]:
     """
-    Create SaxoClient instance with configuration.
+    Get cached SaxoClient instance with configuration.
     This is a dependency that can be injected into FastAPI endpoints.
 
     Returns MockSaxoClient if no access token is available.
     SaxoClient handles its own token refresh strategy.
+
+    The client is cached as a singleton to ensure token refresh state
+    is shared across all requests.
     """
     config = get_configuration()
 
@@ -44,10 +48,13 @@ def get_saxo_client() -> Union[SaxoClient, MockSaxoClient]:
         return MockSaxoClient(config)
 
 
+@lru_cache()
 def get_candles_service() -> CandlesService:
     """
-    Create CandlesService instance.
+    Get cached CandlesService instance.
     This is a dependency that can be injected into FastAPI endpoints.
+
+    Uses the same cached saxo_client to ensure consistent token state.
     """
     saxo_client = get_saxo_client()
     return CandlesService(saxo_client)
