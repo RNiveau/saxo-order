@@ -135,3 +135,19 @@ class DynamoDBClient(AwsClient):
             self.logger.error(f"DynamoDB scan error: {response}")
             return []
         return response.get("Items", [])
+
+    def remove_from_watchlist(self, asset_id: str) -> Dict[str, Any]:
+        """Remove an asset from the watchlist."""
+        response = self.dynamodb.Table("watchlist").delete_item(
+            Key={"id": asset_id}
+        )
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB delete_item error: {response}")
+        return response
+
+    def is_in_watchlist(self, asset_id: str) -> bool:
+        """Check if an asset is in the watchlist."""
+        response = self.dynamodb.Table("watchlist").get_item(
+            Key={"id": asset_id}
+        )
+        return "Item" in response

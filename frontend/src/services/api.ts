@@ -194,6 +194,16 @@ export interface AddToWatchlistResponse {
   asset_symbol: string;
 }
 
+export interface RemoveFromWatchlistResponse {
+  message: string;
+  asset_id: string;
+}
+
+export interface CheckWatchlistResponse {
+  in_watchlist: boolean;
+  asset_id: string;
+}
+
 export const watchlistService = {
   getWatchlist: async (): Promise<WatchlistResponse> => {
     const response = await api.get<WatchlistResponse>('/api/watchlist');
@@ -206,6 +216,22 @@ export const watchlistService = {
     const response = await api.post<AddToWatchlistResponse>(
       '/api/watchlist',
       request
+    );
+    return response.data;
+  },
+
+  removeFromWatchlist: async (
+    assetId: string
+  ): Promise<RemoveFromWatchlistResponse> => {
+    const response = await api.delete<RemoveFromWatchlistResponse>(
+      `/api/watchlist/${assetId}`
+    );
+    return response.data;
+  },
+
+  checkWatchlist: async (assetId: string): Promise<CheckWatchlistResponse> => {
+    const response = await api.get<CheckWatchlistResponse>(
+      `/api/watchlist/check/${assetId}`
     );
     return response.data;
   },
