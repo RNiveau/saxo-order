@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { watchlistService, type WatchlistItem } from '../services/api';
+import { getTradingViewUrl } from '../utils/tradingview';
 import './Watchlist.css';
 
 export function Watchlist() {
@@ -40,11 +41,6 @@ export function Watchlist() {
     return `${sign}${variation.toFixed(2)}%`;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-  };
-
   return (
     <div className="watchlist-container">
       <h2>Watchlist</h2>
@@ -72,7 +68,6 @@ export function Watchlist() {
                   <th>Symbol</th>
                   <th>Current Price</th>
                   <th>Variation</th>
-                  <th>Added At</th>
                 </tr>
               </thead>
               <tbody>
@@ -82,13 +77,26 @@ export function Watchlist() {
                     onClick={() => handleAssetClick(item.asset_symbol, item.description)}
                     className="watchlist-row"
                   >
-                    <td className="description">{item.description || item.asset_symbol}</td>
+                    <td className="description">
+                      <div className="description-with-icon">
+                        <span className="description-text">{item.description || item.asset_symbol}</span>
+                        <a
+                          href={getTradingViewUrl(item.asset_symbol)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="tradingview-icon"
+                          onClick={(e) => e.stopPropagation()}
+                          title="View on TradingView"
+                        >
+                          📈
+                        </a>
+                      </div>
+                    </td>
                     <td className="symbol">{item.asset_symbol}</td>
                     <td className="price">{formatPrice(item.current_price)}</td>
                     <td className={`variation ${item.variation_pct >= 0 ? 'positive' : 'negative'}`}>
                       {formatVariation(item.variation_pct)}
                     </td>
-                    <td className="added-at">{formatDate(item.added_at)}</td>
                   </tr>
                 ))}
               </tbody>

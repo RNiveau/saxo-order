@@ -97,6 +97,28 @@
   font-weight: 600;
 }
 
+.description-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.description-text {
+  flex: 1;
+}
+
+.tradingview-icon {
+  font-size: 1.2rem;
+  text-decoration: none;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.tradingview-icon:hover {
+  opacity: 1;
+}
+
 .watchlist-row .symbol {
   color: #8b949e;
   font-size: 0.9rem;
@@ -119,9 +141,4 @@
 
 .watchlist-row .variation.negative {
   color: #f85149;
-}
-
-.watchlist-row .added-at {
-  color: #8b949e;
-  font-size: 0.9rem;
 }

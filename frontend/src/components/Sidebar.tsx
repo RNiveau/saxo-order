@@ -58,13 +58,22 @@ export function Sidebar() {
               <span className="label">Available Funds</span>
             </NavLink>
           </li>
+          <li>
+            <NavLink
+              to="/watchlist"
+              className={({ isActive }) => isActive ? 'active' : ''}
+            >
+              <span className="icon">⭐</span>
+              <span className="label">Watchlist</span>
+            </NavLink>
+          </li>
         </ul>
       </nav>
 
       <div className="sidebar-section">
         <div className="sidebar-section-header">
-          <span className="icon">⭐</span>
-          <span className="label">Watchlist</span>
+          <span className="icon">📊</span>
+          <span className="label">Live Watchlist</span>
         </div>
 
         {loading && <div className="sidebar-loading">Loading...</div>}

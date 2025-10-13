@@ -1,4 +1,5 @@
 import type { AssetIndicatorsResponse } from '../services/api';
+import { getTradingViewUrl } from '../utils/tradingview';
 import './IndicatorCard.css';
 
 interface IndicatorCardProps {
@@ -21,26 +22,6 @@ export function IndicatorCard({ indicators }: IndicatorCardProps) {
     return 'neutral';
   };
 
-  const getTradingViewLink = () => {
-    // Parse asset_symbol to get code and country_code
-    const [code, countryCode = 'xpar'] = indicators.asset_symbol.split(':');
-
-    // Map country codes to TradingView exchanges
-    const exchangeMap: Record<string, string> = {
-      'xpar': 'EURONEXT',
-      'xnas': 'NASDAQ',
-      'xnys': 'NYSE',
-      'xlon': 'LSE',
-      'xfra': 'FWB',
-      'xetr': 'XETR',
-    };
-
-    const exchange = exchangeMap[countryCode.toLowerCase()] || 'EURONEXT';
-    const symbol = code.toUpperCase();
-
-    return `https://www.tradingview.com/chart/?symbol=${exchange}:${symbol}`;
-  };
-
   return (
     <div className="indicator-card">
       <div className="indicator-header">
@@ -48,7 +29,7 @@ export function IndicatorCard({ indicators }: IndicatorCardProps) {
         <div className="indicator-header-actions">
           <span className="unit-time-badge">{indicators.unit_time}</span>
           <a
-            href={getTradingViewLink()}
+            href={getTradingViewUrl(indicators.asset_symbol)}
             target="_blank"
             rel="noopener noreferrer"
             className="tradingview-link"
