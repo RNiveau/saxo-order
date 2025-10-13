@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { watchlistService, type WatchlistItem } from '../services/api';
+import { isMarketOpen } from '../utils/marketHours';
 import './Sidebar.css';
 
 export function Sidebar() {
@@ -8,21 +9,6 @@ export function Sidebar() {
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const isMarketOpen = () => {
-    const now = new Date();
-    const hours = now.getHours();
-    const day = now.getDay();
-
-    // Market closed on weekends (0 = Sunday, 6 = Saturday)
-    if (day === 0 || day === 6) return false;
-
-    // Market open between 9:00 and 17:30 (local time)
-    if (hours < 9 || hours >= 18) return false;
-    if (hours === 17 && now.getMinutes() >= 30) return false;
-
-    return true;
-  };
 
   useEffect(() => {
     loadWatchlist();
