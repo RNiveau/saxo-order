@@ -22,11 +22,14 @@ export function AssetDetail() {
   const [addingToWatchlist, setAddingToWatchlist] = useState(false);
   const [watchlistSuccess, setWatchlistSuccess] = useState<string | null>(null);
   const [watchlistError, setWatchlistError] = useState<string | null>(null);
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [checkingWatchlist, setCheckingWatchlist] = useState(false);
 
   useEffect(() => {
     if (symbol) {
       fetchWorkflows(symbol);
       fetchIndicators(symbol);
+      checkWatchlistStatus(symbol);
     }
   }, [symbol]);
 
@@ -60,7 +63,20 @@ export function AssetDetail() {
     }
   };
 
-  const handleAddToWatchlist = async () => {
+  const checkWatchlistStatus = async (assetSymbol: string) => {
+    try {
+      setCheckingWatchlist(true);
+      const [code] = assetSymbol.split(':');
+      const response = await watchlistService.checkWatchlist(code);
+      setIsInWatchlist(response.in_watchlist);
+    } catch (err) {
+      console.error('Check watchlist error:', err);
+    } finally {
+      setCheckingWatchlist(false);
+    }
+  };
+
+  const handleToggleWatchlist = async () => {
     if (!symbol) return;
 
     try {
@@ -70,25 +86,31 @@ export function AssetDetail() {
 
       // Parse symbol to extract code and country_code
       const [code, countryCode = 'xpar'] = symbol.split(':');
-
-      // Use any placeholder description - backend will fetch the real one
-      const description = 'placeholder';
-
-      // Use the code as asset_id (you might want to use identifier if available)
-      await watchlistService.addToWatchlist({
-        asset_id: code,
-        asset_symbol: symbol,
-        description: description,
-        country_code: countryCode,
-      });
-
       const assetName = indicatorData?.description || symbol;
-      setWatchlistSuccess(`Added ${assetName} to watchlist`);
+
+      if (isInWatchlist) {
+        // Remove from watchlist
+        await watchlistService.removeFromWatchlist(code);
+        setWatchlistSuccess(`Removed ${assetName} from watchlist`);
+        setIsInWatchlist(false);
+      } else {
+        // Add to watchlist
+        const description = 'placeholder';
+        await watchlistService.addToWatchlist({
+          asset_id: code,
+          asset_symbol: symbol,
+          description: description,
+          country_code: countryCode,
+        });
+        setWatchlistSuccess(`Added ${assetName} to watchlist`);
+        setIsInWatchlist(true);
+      }
+
       setTimeout(() => setWatchlistSuccess(null), 3000);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to add to watchlist';
+      const errorMessage = err.response?.data?.detail || 'Failed to update watchlist';
       setWatchlistError(errorMessage);
-      console.error('Add to watchlist error:', err);
+      console.error('Watchlist toggle error:', err);
       setTimeout(() => setWatchlistError(null), 5000);
     } finally {
       setAddingToWatchlist(false);
@@ -118,11 +140,17 @@ export function AssetDetail() {
           {indicatorData?.description && <div className="asset-symbol">{symbol}</div>}
         </div>
         <button
-          onClick={handleAddToWatchlist}
-          disabled={addingToWatchlist}
+          onClick={handleToggleWatchlist}
+          disabled={addingToWatchlist || checkingWatchlist}
           className="add-to-watchlist-btn"
         >
-          {addingToWatchlist ? 'Adding...' : '+ Add to Watchlist'}
+          {addingToWatchlist
+            ? isInWatchlist
+              ? 'Removing...'
+              : 'Adding...'
+            : isInWatchlist
+            ? '- Remove from Watchlist'
+            : '+ Add to Watchlist'}
         </button>
       </div>
 

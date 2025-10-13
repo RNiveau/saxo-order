@@ -4,6 +4,8 @@ from api.dependencies import get_candles_service, get_saxo_client
 from api.models.watchlist import (
     AddToWatchlistRequest,
     AddToWatchlistResponse,
+    CheckWatchlistResponse,
+    RemoveFromWatchlistResponse,
     WatchlistResponse,
 )
 from api.services.indicator_service import IndicatorService
@@ -42,6 +44,32 @@ def get_watchlist_service(
     """
     indicator_service = IndicatorService(saxo_client, candles_service)
     return WatchlistService(dynamodb_client, indicator_service)
+
+
+@router.get("/check/{asset_id}", response_model=CheckWatchlistResponse)
+async def check_watchlist(
+    asset_id: str,
+    dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
+):
+    """
+    Check if an asset is in the watchlist.
+
+    Args:
+        asset_id: ID of the asset to check
+
+    Returns:
+        CheckWatchlistResponse with in_watchlist boolean
+    """
+    try:
+        in_watchlist = dynamodb_client.is_in_watchlist(asset_id)
+
+        return CheckWatchlistResponse(
+            in_watchlist=in_watchlist,
+            asset_id=asset_id,
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error checking watchlist {asset_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("", response_model=WatchlistResponse)
@@ -96,5 +124,33 @@ async def add_to_watchlist(
     except Exception as e:
         logger.error(
             f"Unexpected error adding to watchlist {request.asset_symbol}: {e}"
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.delete("/{asset_id}", response_model=RemoveFromWatchlistResponse)
+async def remove_from_watchlist(
+    asset_id: str,
+    dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
+):
+    """
+    Remove an asset from the watchlist.
+
+    Args:
+        asset_id: ID of the asset to remove
+
+    Returns:
+        RemoveFromWatchlistResponse with success message
+    """
+    try:
+        dynamodb_client.remove_from_watchlist(asset_id)
+
+        return RemoveFromWatchlistResponse(
+            message="Asset removed from watchlist",
+            asset_id=asset_id,
+        )
+    except Exception as e:
+        logger.error(
+            f"Unexpected error removing from watchlist {asset_id}: {e}"
         )
         raise HTTPException(status_code=500, detail="Internal server error")

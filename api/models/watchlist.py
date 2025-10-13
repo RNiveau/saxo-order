@@ -33,3 +33,13 @@ class WatchlistItem(BaseModel):
 class WatchlistResponse(BaseModel):
     items: List[WatchlistItem] = Field(description="List of watchlist items")
     total: int = Field(description="Total number of items in watchlist")
+
+
+class RemoveFromWatchlistResponse(BaseModel):
+    message: str = Field(description="Success message")
+    asset_id: str = Field(description="Asset ID that was removed")
+
+
+class CheckWatchlistResponse(BaseModel):
+    in_watchlist: bool = Field(description="Whether asset is in watchlist")
+    asset_id: str = Field(description="Asset ID that was checked")
