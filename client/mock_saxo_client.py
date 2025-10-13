@@ -2,7 +2,8 @@
 Mock Saxo client for local development without authentication.
 """
 
-from typing import Any, Dict, List
+import datetime
+from typing import Any, Dict, List, Optional
 
 from model import Account
 
@@ -141,3 +142,22 @@ class MockSaxoClient:
                 "Status": "Working",
             },
         ]
+
+    def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
+        """Return mock asset data."""
+        return {
+            "Identifier": 12345,
+            "Symbol": f"{code}:{market}" if market else code,
+            "AssetType": "Stock",
+        }
+
+    def get_historical_data(
+        self,
+        saxo_uic: str,
+        asset_type: str,
+        horizon: int,
+        count: int,
+        date: Optional[datetime.datetime] = None,
+    ) -> List:
+        """Return mock historical data."""
+        return []

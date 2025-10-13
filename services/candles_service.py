@@ -21,7 +21,9 @@ class CandlesService:
         self.logger = Logger.get_logger("candles_service", logging.DEBUG)
         self.saxo_client = saxo_client
 
-    def get_latest_candle(self, code: str) -> Candle:
+    def get_latest_candle(
+        self, code: str, market: Optional[str] = None
+    ) -> Candle:
         """
         Get the most recent candle (1-minute) for an asset.
 
@@ -30,6 +32,7 @@ class CandlesService:
 
         Args:
             code: Asset code (e.g., 'itp')
+            market: Market/exchange code (e.g., 'xpar')
 
         Returns:
             The most recent 1-minute candle
@@ -37,8 +40,8 @@ class CandlesService:
         Raises:
             SaxoException: If unable to fetch the latest candle
         """
-        self.logger.debug(f"get_latest_candle({code})")
-        asset = self.saxo_client.get_asset(code)
+        self.logger.debug(f"get_latest_candle({code}, {market})")
+        asset = self.saxo_client.get_asset(code, market)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],

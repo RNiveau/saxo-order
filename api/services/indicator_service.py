@@ -106,7 +106,9 @@ class IndicatorService:
 
         # Get current price from latest minute candle
         try:
-            latest_candle = self.candles_service.get_latest_candle(code)
+            latest_candle = self.candles_service.get_latest_candle(
+                code, country_code
+            )
             current_price = latest_candle.close
         except SaxoException as e:
             logger.warning(
