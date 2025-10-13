@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { watchlistService, type WatchlistItem } from '../services/api';
+import { isMarketOpen } from '../utils/marketHours';
 import './Sidebar.css';
 
 export function Sidebar() {
@@ -11,6 +12,15 @@ export function Sidebar() {
 
   useEffect(() => {
     loadWatchlist();
+
+    // Auto-refresh every 30 seconds if market is open
+    const intervalId = setInterval(() => {
+      if (isMarketOpen()) {
+        loadWatchlist();
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const loadWatchlist = async () => {
@@ -74,6 +84,14 @@ export function Sidebar() {
         <div className="sidebar-section-header">
           <span className="icon">📊</span>
           <span className="label">Live Watchlist</span>
+          <button
+            className="reload-button"
+            onClick={loadWatchlist}
+            disabled={loading}
+            title="Reload watchlist"
+          >
+            🔄
+          </button>
         </div>
 
         {loading && <div className="sidebar-loading">Loading...</div>}

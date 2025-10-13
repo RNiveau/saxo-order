@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { watchlistService, type WatchlistItem } from '../services/api';
 import { getTradingViewUrl } from '../utils/tradingview';
+import { isMarketOpen } from '../utils/marketHours';
 import './Watchlist.css';
 
 export function Watchlist() {
@@ -12,6 +13,15 @@ export function Watchlist() {
 
   useEffect(() => {
     loadWatchlist();
+
+    // Auto-refresh every 30 seconds if market is open
+    const intervalId = setInterval(() => {
+      if (isMarketOpen()) {
+        loadWatchlist();
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const loadWatchlist = async () => {
@@ -43,7 +53,17 @@ export function Watchlist() {
 
   return (
     <div className="watchlist-container">
-      <h2>Watchlist</h2>
+      <div className="watchlist-header-container">
+        <h2>Watchlist</h2>
+        <button
+          className="reload-button"
+          onClick={loadWatchlist}
+          disabled={loading}
+          title="Reload watchlist"
+        >
+          🔄 Reload
+        </button>
+      </div>
 
       {loading && <div className="loading">Loading watchlist...</div>}
 
