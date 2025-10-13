@@ -76,6 +76,27 @@
   background: #0d1117;
 }
 
+.sidebar-section-header .reload-button {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  cursor: pointer;
+  padding: 0.25rem;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.sidebar-section-header .reload-button:hover:not(:disabled) {
+  color: #58a6ff;
+  transform: rotate(90deg);
+}
+
+.sidebar-section-header .reload-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .sidebar-section-header .icon {
   font-size: 1.2rem;
   width: 24px;

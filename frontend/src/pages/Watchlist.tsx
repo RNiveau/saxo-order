@@ -10,8 +10,32 @@ export function Watchlist() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isMarketOpen = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const day = now.getDay();
+
+    // Market closed on weekends (0 = Sunday, 6 = Saturday)
+    if (day === 0 || day === 6) return false;
+
+    // Market open between 9:00 and 17:30 (local time)
+    if (hours < 9 || hours >= 18) return false;
+    if (hours === 17 && now.getMinutes() >= 30) return false;
+
+    return true;
+  };
+
   useEffect(() => {
     loadWatchlist();
+
+    // Auto-refresh every 30 seconds if market is open
+    const intervalId = setInterval(() => {
+      if (isMarketOpen()) {
+        loadWatchlist();
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const loadWatchlist = async () => {
@@ -43,7 +67,17 @@ export function Watchlist() {
 
   return (
     <div className="watchlist-container">
-      <h2>Watchlist</h2>
+      <div className="watchlist-header-container">
+        <h2>Watchlist</h2>
+        <button
+          className="reload-button"
+          onClick={loadWatchlist}
+          disabled={loading}
+          title="Reload watchlist"
+        >
+          🔄 Reload
+        </button>
+      </div>
 
       {loading && <div className="loading">Loading watchlist...</div>}
 
