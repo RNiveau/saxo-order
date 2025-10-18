@@ -70,6 +70,33 @@ class Configuration:
                 f.write(f"{access_token}\n")
                 f.write(f"{refresh_token}\n")
 
+    def reload_tokens_from_s3(self) -> bool:
+        """
+        Reload tokens from S3 in API mode.
+        Returns True if tokens were updated, False otherwise.
+        """
+        if self.aws_client is None:
+            self.logger.warning(
+                "Cannot reload tokens from S3: AWS client not available"
+            )
+            return False
+
+        old_access_token = self.access_token
+        old_refresh_token = self.refresh_token
+
+        self.logger.info("Reloading tokens from S3")
+        self.load_tokens()
+
+        if (
+            self.access_token == old_access_token
+            and self.refresh_token == old_refresh_token
+        ):
+            self.logger.debug("Tokens unchanged in S3")
+            return False
+
+        self.logger.info("Tokens reloaded from S3")
+        return True
+
     @property
     def app_key(self) -> str:
         return self.secrets["app_key"]
@@ -108,3 +135,7 @@ class Configuration:
     @property
     def slack_token(self) -> str:
         return self.secrets["slack_token"]
+
+    @property
+    def api_mode(self) -> bool:
+        return os.getenv("API_MODE", "false").lower() == "true"

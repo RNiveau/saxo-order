@@ -17,6 +17,7 @@ services:
       - PYTHONUNBUFFERED=1
       - AWS_PROFILE=default
       - CONFIG_FILE=prod_config.yml
+      - API_MODE=true
     command: python run_api_docker.py
     networks:
       - saxo-network

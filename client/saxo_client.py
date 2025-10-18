@@ -52,6 +52,31 @@ class SaxoClient:
 
     def refresh_token(self, request, *args, **kwargs):
         if request.status_code == 401:
+            # In API mode, first try to reload tokens from S3
+            # (another container may have already refreshed them)
+            if self.configuration.api_mode:
+                self.logger.info(
+                    "API mode: attempting to reload tokens from S3 first"
+                )
+                if self.configuration.reload_tokens_from_s3():
+                    self.logger.info(
+                        "Tokens reloaded from S3, retrying request"
+                    )
+                    auth_header = f"Bearer {self.configuration.access_token}"
+                    self.session.headers.update({"Authorization": auth_header})
+                    request.request.headers["Authorization"] = (
+                        self.session.headers["Authorization"]
+                    )
+                    retry_response = self.session.send(request.request)
+
+                    # If still 401, proceed to refresh token API call
+                    if retry_response.status_code != 401:
+                        return retry_response
+                    self.logger.info(
+                        "Still 401 after S3 reload, calling refresh token API"
+                    )
+
+            # Standard refresh flow: call refresh token API
             auth_client = SaxoAuthClient(self.configuration)
             access_token, refresh_token = auth_client.refresh_token()
             self.configuration.save_tokens(access_token, refresh_token)
