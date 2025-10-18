@@ -111,19 +111,27 @@ class DynamoDBClient(AwsClient):
         asset_symbol: str,
         description: str,
         country_code: str,
+        asset_identifier: Optional[int] = None,
+        asset_type: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Add an asset to the watchlist."""
-        response = self.dynamodb.Table("watchlist").put_item(
-            Item={
-                "id": asset_id,
-                "asset_symbol": asset_symbol,
-                "description": description,
-                "country_code": country_code,
-                "added_at": datetime.datetime.now(
-                    datetime.timezone.utc
-                ).isoformat(),
-            }
-        )
+        """Add an asset to the watchlist with cached metadata."""
+        item: Dict[str, Any] = {
+            "id": asset_id,
+            "asset_symbol": asset_symbol,
+            "description": description,
+            "country_code": country_code,
+            "added_at": datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat(),
+        }
+
+        # Add cached asset metadata if provided
+        if asset_identifier is not None:
+            item["asset_identifier"] = asset_identifier
+        if asset_type is not None:
+            item["asset_type"] = asset_type
+
+        response = self.dynamodb.Table("watchlist").put_item(Item=item)
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB put_item error: {response}")
         return response

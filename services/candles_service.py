@@ -22,7 +22,11 @@ class CandlesService:
         self.saxo_client = saxo_client
 
     def get_latest_candle(
-        self, code: str, market: Optional[str] = None
+        self,
+        code: str,
+        market: Optional[str] = None,
+        asset_identifier: Optional[int] = None,
+        asset_type: Optional[str] = None,
     ) -> Candle:
         """
         Get the most recent candle (1-minute) for an asset.
@@ -33,6 +37,8 @@ class CandlesService:
         Args:
             code: Asset code (e.g., 'itp')
             market: Market/exchange code (e.g., 'xpar')
+            asset_identifier: Optional cached Saxo UIC to skip get_asset call
+            asset_type: Optional cached asset type to skip get_asset call
 
         Returns:
             The most recent 1-minute candle
@@ -41,10 +47,19 @@ class CandlesService:
             SaxoException: If unable to fetch the latest candle
         """
         self.logger.debug(f"get_latest_candle({code}, {market})")
-        asset = self.saxo_client.get_asset(code, market)
+
+        # Use cached metadata if available, otherwise fetch from API
+        if asset_identifier is not None and asset_type is not None:
+            saxo_uic = asset_identifier
+            saxo_asset_type = asset_type
+        else:
+            asset = self.saxo_client.get_asset(code, market)
+            saxo_uic = asset["Identifier"]
+            saxo_asset_type = asset["AssetType"]
+
         data = self.saxo_client.get_historical_data(
-            saxo_uic=asset["Identifier"],
-            asset_type=asset["AssetType"],
+            saxo_uic=saxo_uic,
+            asset_type=saxo_asset_type,
             horizon=1,
             count=1,
             date=datetime.datetime.now(datetime.UTC),

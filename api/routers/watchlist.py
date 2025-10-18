@@ -106,14 +106,19 @@ async def add_to_watchlist(
     """
     try:
         # Fetch asset from Saxo API to get the real description
+        # and cache metadata
         asset = saxo_client.get_asset(request.asset_id, request.country_code)
         description = asset["Description"]
+        asset_identifier = asset["Identifier"]
+        asset_type = asset["AssetType"]
 
         dynamodb_client.add_to_watchlist(
             request.asset_id,
             request.asset_symbol,
             description,
             request.country_code,
+            asset_identifier=asset_identifier,
+            asset_type=asset_type,
         )
 
         return AddToWatchlistResponse(

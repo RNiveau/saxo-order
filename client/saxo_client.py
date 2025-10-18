@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import datetime
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -88,10 +89,12 @@ class SaxoClient:
             ]
             return self.session.send(request.request)
 
+    @lru_cache(maxsize=256)
     def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
         symbol = (
             f"{code}:{market}" if market is not None and market != "" else code
         )
+        self.logger.debug(f"get_asset {symbol}")
         data = self._find_asset(symbol)
         data = list(
             filter(lambda x: x["Symbol"].lower() == symbol.lower(), data)
@@ -371,7 +374,7 @@ class SaxoClient:
 
     def get_historical_data(
         self,
-        saxo_uic: str,
+        saxo_uic: str | int,
         asset_type: str,
         horizon: int,
         count: int,
@@ -381,6 +384,9 @@ class SaxoClient:
         Get historical data for a specific asset
         First date is the newest and the list is sorted in a decremental way
         """
+        # Convert to string if int provided (for compatibility)
+        saxo_uic = str(saxo_uic)
+
         max_items = 1200
         if date is None:
             date = datetime.now()

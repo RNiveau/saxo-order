@@ -175,7 +175,12 @@ class TestWatchlistEndpoint:
 
         # Verify DynamoDB client was called correctly with fetched description
         mock_dynamodb_client.add_to_watchlist.assert_called_once_with(
-            "123", "itp:xpar", "Interparfums SA", "xpar"
+            "123",
+            "itp:xpar",
+            "Interparfums SA",
+            "xpar",
+            asset_identifier=123,
+            asset_type="Stock",
         )
 
     def test_add_to_watchlist_with_default_country_code(
@@ -201,7 +206,12 @@ class TestWatchlistEndpoint:
 
         # Verify default country code was used
         mock_dynamodb_client.add_to_watchlist.assert_called_once_with(
-            "456", "aapl:xnas", "Interparfums SA", "xpar"
+            "456",
+            "aapl:xnas",
+            "Interparfums SA",
+            "xpar",
+            asset_identifier=123,
+            asset_type="Stock",
         )
 
     def test_add_to_watchlist_missing_required_fields(self):
