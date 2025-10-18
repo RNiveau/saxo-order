@@ -22,7 +22,7 @@ pulumi-aws = {version = "^7.8.0", extras = ["pulumi"]}
 prettytable = "^3.12.0"
 fastapi = "^0.115.0"
 uvicorn = {extras = ["standard"], version = "^0.32.0"}
-pydantic = "^2.9.0"
+pydantic = "^2.12.3"
 
 [tool.poetry.dev-dependencies]
 black = "^25.9.0"
