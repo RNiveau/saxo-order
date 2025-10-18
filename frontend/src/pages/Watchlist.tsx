@@ -14,14 +14,44 @@ export function Watchlist() {
   useEffect(() => {
     loadWatchlist();
 
-    // Auto-refresh every 30 seconds if market is open
-    const intervalId = setInterval(() => {
-      if (isMarketOpen()) {
-        loadWatchlist();
-      }
-    }, 30000);
+    let intervalId: NodeJS.Timeout | null = null;
 
-    return () => clearInterval(intervalId);
+    // Function to start/stop auto-refresh based on visibility
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Reload immediately when tab becomes visible
+        if (isMarketOpen()) {
+          loadWatchlist();
+        }
+        // Start auto-refresh when tab becomes visible
+        if (!intervalId) {
+          intervalId = setInterval(() => {
+            if (isMarketOpen()) {
+              loadWatchlist();
+            }
+          }, 60000); // 1 minute
+        }
+      } else {
+        // Stop auto-refresh when tab is hidden
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      }
+    };
+
+    // Start auto-refresh immediately if visible
+    handleVisibilityChange();
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const loadWatchlist = async () => {
@@ -54,7 +84,7 @@ export function Watchlist() {
   return (
     <div className="watchlist-container">
       <div className="watchlist-header-container">
-        <h2>Watchlist</h2>
+        <h2>Watchlist {loading && <span className="loading-indicator">🔄</span>}</h2>
         <button
           className="reload-button"
           onClick={loadWatchlist}
@@ -65,17 +95,15 @@ export function Watchlist() {
         </button>
       </div>
 
-      {loading && <div className="loading">Loading watchlist...</div>}
-
       {error && <div className="error">{error}</div>}
 
-      {!loading && !error && items.length === 0 && (
+      {!error && items.length === 0 && !loading && (
         <div className="no-items">
           Your watchlist is empty. Add assets by searching for them and clicking "Add to Watchlist".
         </div>
       )}
 
-      {!loading && items.length > 0 && (
+      {items.length > 0 && (
         <div className="watchlist-list">
           <div className="watchlist-header">
             {items.length} asset{items.length !== 1 ? 's' : ''} in watchlist

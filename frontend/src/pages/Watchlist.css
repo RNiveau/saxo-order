@@ -15,6 +15,24 @@
   color: #e6edf3;
   margin: 0;
   font-size: 1.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.loading-indicator {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  font-size: 1.25rem;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .watchlist-header-container .reload-button {
