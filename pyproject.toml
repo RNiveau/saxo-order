@@ -27,7 +27,7 @@ pydantic = "^2.9.0"
 [tool.poetry.dev-dependencies]
 black = "^25.9.0"
 pytest = "^8.1.1"
-pytest-cov = "^6.0.0"
+pytest-cov = "^7.0.0"
 mypy = "^1.15.0"
 pytest-mock = "^3.14.0"
 mock = "^5.1.0"
