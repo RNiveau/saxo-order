@@ -153,7 +153,7 @@ class MockSaxoClient:
 
     def get_historical_data(
         self,
-        saxo_uic: str,
+        saxo_uic: str | int,
         asset_type: str,
         horizon: int,
         count: int,

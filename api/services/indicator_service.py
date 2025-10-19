@@ -1,5 +1,5 @@
 import datetime
-from typing import List
+from typing import List, Optional
 
 from api.models.indicator import AssetIndicatorsResponse, MovingAverageInfo
 from client.client_helper import map_data_to_candles
@@ -65,6 +65,8 @@ class IndicatorService:
         code: str,
         country_code: str = "xpar",
         unit_time: UnitTime = UnitTime.D,
+        asset_identifier: Optional[int] = None,
+        asset_type: Optional[str] = None,
     ) -> tuple[float, float]:
         """
         Get current price and variation for an asset without calculating MAs.
@@ -74,6 +76,8 @@ class IndicatorService:
             country_code: Country code (e.g., "xpar")
             unit_time: Unit time for calculations
                 (D=daily, W=weekly, M=monthly)
+            asset_identifier: Optional cached Saxo UIC to skip get_asset call
+            asset_type: Optional cached asset type to skip get_asset call
 
         Returns:
             Tuple of (current_price, variation_pct)
@@ -82,15 +86,23 @@ class IndicatorService:
             SaxoException: If asset not found or insufficient data
         """
         symbol = f"{code}:{country_code}" if country_code else code
-        asset = self.saxo_client.get_asset(code, country_code)
+
+        # Use cached metadata if available, otherwise fetch from API
+        if asset_identifier is not None and asset_type is not None:
+            saxo_uic = asset_identifier
+            saxo_asset_type = asset_type
+        else:
+            asset = self.saxo_client.get_asset(code, country_code)
+            saxo_uic = asset["Identifier"]
+            saxo_asset_type = asset["AssetType"]
 
         # Get horizon based on unit_time
         horizon = self.HORIZON_MAP[unit_time]
 
         # Fetch only 3 candles (enough for current + previous)
         data = self.saxo_client.get_historical_data(
-            saxo_uic=asset["Identifier"],
-            asset_type=asset["AssetType"],
+            saxo_uic=saxo_uic,
+            asset_type=saxo_asset_type,
             horizon=horizon,
             count=3,
         )
@@ -107,7 +119,10 @@ class IndicatorService:
         # Get current price from latest minute candle
         try:
             latest_candle = self.candles_service.get_latest_candle(
-                code, country_code
+                code,
+                country_code,
+                asset_identifier=saxo_uic,
+                asset_type=saxo_asset_type,
             )
             current_price = latest_candle.close
         except SaxoException as e:

@@ -1,9 +1,11 @@
 import logging
 import time
 from datetime import datetime
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 import requests
+from cachetools import TTLCache
 from requests import Response
 from requests.adapters import HTTPAdapter, Retry
 
@@ -39,6 +41,9 @@ class SaxoClient:
         self.logger = Logger.get_logger("saxo_client", logging.INFO)
         self.session = requests.Session()
         self.configuration = configuration
+        # Cache for historical data with 30 min TTL
+        # (only for horizon=60 and horizon=1440)
+        self.historical_data_cache: TTLCache = TTLCache(maxsize=256, ttl=1800)
         self.session.headers.update(
             {"Authorization": f"Bearer {configuration.access_token}"}
         )
@@ -88,10 +93,12 @@ class SaxoClient:
             ]
             return self.session.send(request.request)
 
+    @lru_cache(maxsize=256)
     def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
         symbol = (
             f"{code}:{market}" if market is not None and market != "" else code
         )
+        self.logger.debug(f"get_asset {symbol}")
         data = self._find_asset(symbol)
         data = list(
             filter(lambda x: x["Symbol"].lower() == symbol.lower(), data)
@@ -369,9 +376,39 @@ class SaxoClient:
             return 0.0
         return get_price_from_saxo_data(data[0])
 
-    def get_historical_data(
+    def _get_historical_data_cache_key(
         self,
         saxo_uic: str,
+        asset_type: str,
+        horizon: int,
+        count: int,
+        date: Optional[datetime],
+    ) -> tuple:
+        """
+        Generate cache key for historical data.
+
+        Args:
+            saxo_uic: Asset identifier
+            asset_type: Type of asset
+            horizon: Time horizon in minutes
+            count: Number of data points
+            date: Optional date (if None, uses current time rounded to minute)
+
+        Returns:
+            Cache key tuple
+        """
+        if date:
+            date_key = date.isoformat()
+        else:
+            now = datetime.now()
+            # Round to nearest minute for cache sharing
+            rounded = now.replace(second=0, microsecond=0)
+            date_key = rounded.isoformat()
+        return (saxo_uic, asset_type, horizon, count, date_key)
+
+    def get_historical_data(
+        self,
+        saxo_uic: str | int,
         asset_type: str,
         horizon: int,
         count: int,
@@ -380,7 +417,28 @@ class SaxoClient:
         """
         Get historical data for a specific asset
         First date is the newest and the list is sorted in a decremental way
+
+        Caches data for horizon=60 (hourly) and horizon=1440 (daily)
+        with 30min TTL
         """
+        # Convert to string if int provided (for compatibility)
+        saxo_uic = str(saxo_uic)
+
+        # Store original date for cache key
+        original_date = date
+
+        # Check cache only for hourly (60) and daily (1440) horizons
+        if horizon in [60, 1440]:
+            cache_key = self._get_historical_data_cache_key(
+                saxo_uic, asset_type, horizon, count, original_date
+            )
+
+            if cache_key in self.historical_data_cache:
+                self.logger.debug(
+                    f"Cache HIT for {saxo_uic} horizon={horizon} count={count}"
+                )
+                return self.historical_data_cache[cache_key]
+
         max_items = 1200
         if date is None:
             date = datetime.now()
@@ -422,6 +480,17 @@ class SaxoClient:
             )
             if real_count == 0:
                 break
+
+        # Store in cache if applicable
+        if horizon in [60, 1440]:
+            cache_key = self._get_historical_data_cache_key(
+                saxo_uic, asset_type, horizon, count, original_date
+            )
+            self.historical_data_cache[cache_key] = data
+            self.logger.debug(
+                f"Cache STORED for {saxo_uic} horizon={horizon} count={count}"
+            )
+
         return data
 
     def is_day_open(

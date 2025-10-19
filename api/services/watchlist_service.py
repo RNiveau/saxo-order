@@ -44,12 +44,18 @@ class WatchlistService:
                 else:
                     code = asset_symbol
 
+                # Get cached metadata if available
+                asset_identifier = item.get("asset_identifier")
+                asset_type = item.get("asset_type")
+
                 # Get current price and variation using IndicatorService
                 current_price, variation_pct = (
                     self.indicator_service.get_price_and_variation(
                         code=code,
                         country_code=country_code,
                         unit_time=UnitTime.D,
+                        asset_identifier=asset_identifier,
+                        asset_type=asset_type,
                     )
                 )
 
