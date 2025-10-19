@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 import requests
+from cachetools import TTLCache
 from requests import Response
 from requests.adapters import HTTPAdapter, Retry
 
@@ -40,6 +41,9 @@ class SaxoClient:
         self.logger = Logger.get_logger("saxo_client", logging.INFO)
         self.session = requests.Session()
         self.configuration = configuration
+        # Cache for historical data with 30 min TTL
+        # (only for horizon=60 and horizon=1440)
+        self.historical_data_cache: TTLCache = TTLCache(maxsize=256, ttl=1800)
         self.session.headers.update(
             {"Authorization": f"Bearer {configuration.access_token}"}
         )
@@ -383,9 +387,34 @@ class SaxoClient:
         """
         Get historical data for a specific asset
         First date is the newest and the list is sorted in a decremental way
+
+        Caches data for horizon=60 (hourly) and horizon=1440 (daily)
+        with 30min TTL
         """
         # Convert to string if int provided (for compatibility)
         saxo_uic = str(saxo_uic)
+
+        # Store original date for cache key
+        original_date = date
+
+        # Check cache only for hourly (60) and daily (1440) horizons
+        if horizon in [60, 1440]:
+            # Create cache key with all parameters
+            # Round timestamp to nearest minute for better cache sharing
+            if original_date:
+                date_key = original_date.isoformat()
+            else:
+                now = datetime.now()
+                # Round to nearest minute for cache sharing
+                rounded = now.replace(second=0, microsecond=0)
+                date_key = rounded.isoformat()
+            cache_key = (saxo_uic, asset_type, horizon, count, date_key)
+
+            if cache_key in self.historical_data_cache:
+                self.logger.debug(
+                    f"Cache HIT for {saxo_uic} horizon={horizon} count={count}"
+                )
+                return self.historical_data_cache[cache_key]
 
         max_items = 1200
         if date is None:
@@ -428,6 +457,22 @@ class SaxoClient:
             )
             if real_count == 0:
                 break
+
+        # Store in cache if applicable
+        if horizon in [60, 1440]:
+            if original_date:
+                date_key = original_date.isoformat()
+            else:
+                now = datetime.now()
+                # Round to nearest minute for cache sharing
+                rounded = now.replace(second=0, microsecond=0)
+                date_key = rounded.isoformat()
+            cache_key = (saxo_uic, asset_type, horizon, count, date_key)
+            self.historical_data_cache[cache_key] = data
+            self.logger.debug(
+                f"Cache STORED for {saxo_uic} horizon={horizon} count={count}"
+            )
+
         return data
 
     def is_day_open(
