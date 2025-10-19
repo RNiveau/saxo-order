@@ -376,6 +376,36 @@ class SaxoClient:
             return 0.0
         return get_price_from_saxo_data(data[0])
 
+    def _get_cache_key(
+        self,
+        saxo_uic: str,
+        asset_type: str,
+        horizon: int,
+        count: int,
+        date: Optional[datetime],
+    ) -> tuple:
+        """
+        Generate cache key for historical data.
+
+        Args:
+            saxo_uic: Asset identifier
+            asset_type: Type of asset
+            horizon: Time horizon in minutes
+            count: Number of data points
+            date: Optional date (if None, uses current time rounded to minute)
+
+        Returns:
+            Cache key tuple
+        """
+        if date:
+            date_key = date.isoformat()
+        else:
+            now = datetime.now()
+            # Round to nearest minute for cache sharing
+            rounded = now.replace(second=0, microsecond=0)
+            date_key = rounded.isoformat()
+        return (saxo_uic, asset_type, horizon, count, date_key)
+
     def get_historical_data(
         self,
         saxo_uic: str | int,
@@ -399,16 +429,9 @@ class SaxoClient:
 
         # Check cache only for hourly (60) and daily (1440) horizons
         if horizon in [60, 1440]:
-            # Create cache key with all parameters
-            # Round timestamp to nearest minute for better cache sharing
-            if original_date:
-                date_key = original_date.isoformat()
-            else:
-                now = datetime.now()
-                # Round to nearest minute for cache sharing
-                rounded = now.replace(second=0, microsecond=0)
-                date_key = rounded.isoformat()
-            cache_key = (saxo_uic, asset_type, horizon, count, date_key)
+            cache_key = self._get_cache_key(
+                saxo_uic, asset_type, horizon, count, original_date
+            )
 
             if cache_key in self.historical_data_cache:
                 self.logger.debug(
@@ -460,14 +483,9 @@ class SaxoClient:
 
         # Store in cache if applicable
         if horizon in [60, 1440]:
-            if original_date:
-                date_key = original_date.isoformat()
-            else:
-                now = datetime.now()
-                # Round to nearest minute for cache sharing
-                rounded = now.replace(second=0, microsecond=0)
-                date_key = rounded.isoformat()
-            cache_key = (saxo_uic, asset_type, horizon, count, date_key)
+            cache_key = self._get_cache_key(
+                saxo_uic, asset_type, horizon, count, original_date
+            )
             self.historical_data_cache[cache_key] = data
             self.logger.debug(
                 f"Cache STORED for {saxo_uic} horizon={horizon} count={count}"
