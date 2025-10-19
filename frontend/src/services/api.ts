@@ -174,6 +174,7 @@ export interface WatchlistItem {
   current_price: number;
   variation_pct: number;
   added_at: string;
+  labels: string[];
 }
 
 export interface WatchlistResponse {
@@ -186,6 +187,7 @@ export interface AddToWatchlistRequest {
   asset_symbol: string;
   description: string;
   country_code: string;
+  labels?: string[];
 }
 
 export interface AddToWatchlistResponse {
@@ -202,6 +204,16 @@ export interface RemoveFromWatchlistResponse {
 export interface CheckWatchlistResponse {
   in_watchlist: boolean;
   asset_id: string;
+}
+
+export interface UpdateLabelsRequest {
+  labels: string[];
+}
+
+export interface UpdateLabelsResponse {
+  message: string;
+  asset_id: string;
+  labels: string[];
 }
 
 export const watchlistService = {
@@ -232,6 +244,17 @@ export const watchlistService = {
   checkWatchlist: async (assetId: string): Promise<CheckWatchlistResponse> => {
     const response = await api.get<CheckWatchlistResponse>(
       `/api/watchlist/check/${assetId}`
+    );
+    return response.data;
+  },
+
+  updateLabels: async (
+    assetId: string,
+    labels: string[]
+  ): Promise<UpdateLabelsResponse> => {
+    const response = await api.patch<UpdateLabelsResponse>(
+      `/api/watchlist/${assetId}/labels`,
+      { labels }
     );
     return response.data;
   },

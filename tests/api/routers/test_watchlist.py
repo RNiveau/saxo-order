@@ -71,6 +71,7 @@ def mock_watchlist_service():
                 current_price=100.0,
                 variation_pct=5.0,
                 added_at="2024-01-01T00:00:00Z",
+                labels=[],
             ),
             WatchlistItem(
                 id="2",
@@ -80,6 +81,7 @@ def mock_watchlist_service():
                 current_price=15000.0,
                 variation_pct=-2.5,
                 added_at="2024-01-02T00:00:00Z",
+                labels=["short-term"],
             ),
         ],
         total=2,
@@ -181,6 +183,7 @@ class TestWatchlistEndpoint:
             "xpar",
             asset_identifier=123,
             asset_type="Stock",
+            labels=[],
         )
 
     def test_add_to_watchlist_with_default_country_code(
@@ -212,6 +215,7 @@ class TestWatchlistEndpoint:
             "xpar",
             asset_identifier=123,
             asset_type="Stock",
+            labels=[],
         )
 
     def test_add_to_watchlist_missing_required_fields(self):
@@ -319,3 +323,105 @@ class TestWatchlistEndpoint:
 
         # Both should succeed
         assert mock_dynamodb_client.add_to_watchlist.call_count == 2
+
+    def test_add_to_watchlist_with_labels(
+        self, mock_saxo_client, mock_dynamodb_client
+    ):
+        """Test adding asset with labels."""
+        response = client.post(
+            "/api/watchlist",
+            json={
+                "asset_id": "123",
+                "asset_symbol": "itp:xpar",
+                "description": "Interparfums SA",
+                "country_code": "xpar",
+                "labels": ["short-term"],
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["asset_id"] == "123"
+
+        # Verify labels were passed to DynamoDB
+        mock_dynamodb_client.add_to_watchlist.assert_called_once_with(
+            "123",
+            "itp:xpar",
+            "Interparfums SA",
+            "xpar",
+            asset_identifier=123,
+            asset_type="Stock",
+            labels=["short-term"],
+        )
+
+    def test_update_labels_success(self, mock_dynamodb_client):
+        """Test successfully updating labels for a watchlist item."""
+        mock_dynamodb_client.is_in_watchlist.return_value = True
+        mock_dynamodb_client.update_watchlist_labels.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200}
+        }
+
+        response = client.patch(
+            "/api/watchlist/123/labels",
+            json={"labels": ["short-term"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message"] == "Labels updated successfully"
+        assert data["asset_id"] == "123"
+        assert data["labels"] == ["short-term"]
+
+        # Verify methods were called
+        mock_dynamodb_client.is_in_watchlist.assert_called_once_with("123")
+        mock_dynamodb_client.update_watchlist_labels.assert_called_once_with(
+            "123", ["short-term"]
+        )
+
+    def test_update_labels_not_found(self, mock_dynamodb_client):
+        """Test updating labels for non-existent watchlist item."""
+        mock_dynamodb_client.is_in_watchlist.return_value = False
+
+        response = client.patch(
+            "/api/watchlist/999/labels",
+            json={"labels": ["short-term"]},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Asset not found in watchlist"
+
+    def test_update_labels_empty_list(self, mock_dynamodb_client):
+        """Test updating labels with empty list (removing all labels)."""
+        mock_dynamodb_client.is_in_watchlist.return_value = True
+        mock_dynamodb_client.update_watchlist_labels.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200}
+        }
+
+        response = client.patch(
+            "/api/watchlist/123/labels",
+            json={"labels": []},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["labels"] == []
+
+        mock_dynamodb_client.update_watchlist_labels.assert_called_once_with(
+            "123", []
+        )
+
+    def test_update_labels_multiple_labels(self, mock_dynamodb_client):
+        """Test updating with multiple labels."""
+        mock_dynamodb_client.is_in_watchlist.return_value = True
+        mock_dynamodb_client.update_watchlist_labels.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200}
+        }
+
+        response = client.patch(
+            "/api/watchlist/123/labels",
+            json={"labels": ["short-term", "high-priority", "tech"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["labels"] == ["short-term", "high-priority", "tech"]

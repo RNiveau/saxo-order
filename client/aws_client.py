@@ -113,8 +113,9 @@ class DynamoDBClient(AwsClient):
         country_code: str,
         asset_identifier: Optional[int] = None,
         asset_type: Optional[str] = None,
+        labels: Optional[list[str]] = None,
     ) -> Dict[str, Any]:
-        """Add an asset to the watchlist with cached metadata."""
+        """Add an asset to the watchlist with cached metadata and labels."""
         item: Dict[str, Any] = {
             "id": asset_id,
             "asset_symbol": asset_symbol,
@@ -123,6 +124,7 @@ class DynamoDBClient(AwsClient):
             "added_at": datetime.datetime.now(
                 datetime.timezone.utc
             ).isoformat(),
+            "labels": labels if labels is not None else [],
         }
 
         # Add cached asset metadata if provided
@@ -159,3 +161,17 @@ class DynamoDBClient(AwsClient):
             Key={"id": asset_id}
         )
         return "Item" in response
+
+    def update_watchlist_labels(
+        self, asset_id: str, labels: list[str]
+    ) -> Dict[str, Any]:
+        """Update labels for a watchlist item."""
+        response = self.dynamodb.Table("watchlist").update_item(
+            Key={"id": asset_id},
+            UpdateExpression="SET labels = :labels",
+            ExpressionAttributeValues={":labels": labels},
+            ReturnValues="ALL_NEW",
+        )
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB update_item error: {response}")
+        return response

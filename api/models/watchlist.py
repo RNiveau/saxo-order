@@ -10,6 +10,10 @@ class AddToWatchlistRequest(BaseModel):
     country_code: str = Field(
         default="xpar", description="Country code (e.g., 'xpar')"
     )
+    labels: List[str] = Field(
+        default_factory=list,
+        description="Labels for the asset (e.g., ['short-term'])",
+    )
 
 
 class AddToWatchlistResponse(BaseModel):
@@ -28,6 +32,10 @@ class WatchlistItem(BaseModel):
         description="Percentage variation from previous period"
     )
     added_at: str = Field(description="ISO timestamp when added to watchlist")
+    labels: List[str] = Field(
+        default_factory=list,
+        description="Labels for the asset (e.g., ['short-term'])",
+    )
 
 
 class WatchlistResponse(BaseModel):
@@ -43,3 +51,13 @@ class RemoveFromWatchlistResponse(BaseModel):
 class CheckWatchlistResponse(BaseModel):
     in_watchlist: bool = Field(description="Whether asset is in watchlist")
     asset_id: str = Field(description="Asset ID that was checked")
+
+
+class UpdateLabelsRequest(BaseModel):
+    labels: List[str] = Field(description="Labels to set for the asset")
+
+
+class UpdateLabelsResponse(BaseModel):
+    message: str = Field(description="Success message")
+    asset_id: str = Field(description="Asset ID that was updated")
+    labels: List[str] = Field(description="Updated labels")

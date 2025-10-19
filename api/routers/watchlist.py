@@ -6,6 +6,8 @@ from api.models.watchlist import (
     AddToWatchlistResponse,
     CheckWatchlistResponse,
     RemoveFromWatchlistResponse,
+    UpdateLabelsRequest,
+    UpdateLabelsResponse,
     WatchlistResponse,
 )
 from api.services.indicator_service import IndicatorService
@@ -119,6 +121,7 @@ async def add_to_watchlist(
             request.country_code,
             asset_identifier=asset_identifier,
             asset_type=asset_type,
+            labels=request.labels,
         )
 
         return AddToWatchlistResponse(
@@ -158,4 +161,41 @@ async def remove_from_watchlist(
         logger.error(
             f"Unexpected error removing from watchlist {asset_id}: {e}"
         )
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.patch("/{asset_id}/labels", response_model=UpdateLabelsResponse)
+async def update_watchlist_labels(
+    asset_id: str,
+    request: UpdateLabelsRequest,
+    dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
+):
+    """
+    Update labels for a watchlist item.
+
+    Args:
+        asset_id: ID of the asset to update
+        request: UpdateLabelsRequest with new labels
+
+    Returns:
+        UpdateLabelsResponse with success message
+    """
+    try:
+        # Check if asset exists in watchlist
+        if not dynamodb_client.is_in_watchlist(asset_id):
+            raise HTTPException(
+                status_code=404, detail="Asset not found in watchlist"
+            )
+
+        dynamodb_client.update_watchlist_labels(asset_id, request.labels)
+
+        return UpdateLabelsResponse(
+            message="Labels updated successfully",
+            asset_id=asset_id,
+            labels=request.labels,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error updating labels for {asset_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

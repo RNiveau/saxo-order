@@ -105,26 +105,35 @@ export function Sidebar() {
 
         {!loading && watchlistItems.length > 0 && (
           <ul className="watchlist-items">
-            {watchlistItems.map((item) => (
-              <li
-                key={item.id}
-                className="watchlist-item"
-                onClick={() => handleWatchlistItemClick(item.asset_symbol, item.description)}
-              >
-                <div className="watchlist-item-name">
-                  {item.description || item.asset_symbol}
-                </div>
-                <div className="watchlist-item-symbol">
-                  {item.asset_symbol}
-                </div>
-                <div className="watchlist-item-details">
-                  <span className="price">{item.current_price.toFixed(2)}</span>
-                  <span className={`variation ${item.variation_pct >= 0 ? 'positive' : 'negative'}`}>
-                    {formatVariation(item.variation_pct)}
-                  </span>
-                </div>
-              </li>
-            ))}
+            {watchlistItems.map((item, index) => {
+              const isShortTerm = item.labels.includes('short-term');
+              const prevItem = index > 0 ? watchlistItems[index - 1] : null;
+              const prevIsShortTerm = prevItem?.labels.includes('short-term');
+              const showDivider = prevIsShortTerm && !isShortTerm;
+
+              return (
+                <li key={item.id}>
+                  {showDivider && <div className="watchlist-divider" />}
+                  <div
+                    className="watchlist-item"
+                    onClick={() => handleWatchlistItemClick(item.asset_symbol, item.description)}
+                  >
+                    <div className="watchlist-item-name">
+                      {item.description || item.asset_symbol}
+                    </div>
+                    <div className="watchlist-item-symbol">
+                      {item.asset_symbol}
+                    </div>
+                    <div className="watchlist-item-details">
+                      <span className="price">{item.current_price.toFixed(2)}</span>
+                      <span className={`variation ${item.variation_pct >= 0 ? 'positive' : 'negative'}`}>
+                        {formatVariation(item.variation_pct)}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

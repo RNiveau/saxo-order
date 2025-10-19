@@ -24,9 +24,11 @@ class WatchlistService:
     def get_watchlist(self) -> WatchlistResponse:
         """
         Get all watchlist items with current prices and variations.
+        Items are sorted with short-term labeled items first (alphabetically),
+        then other items (alphabetically).
 
         Returns:
-            WatchlistResponse with enriched watchlist data
+            WatchlistResponse with enriched and sorted watchlist data
         """
         # Get watchlist from DynamoDB
         watchlist_items = self.dynamodb_client.get_watchlist()
@@ -68,6 +70,7 @@ class WatchlistService:
                         current_price=round(current_price, 4),
                         variation_pct=variation_pct,
                         added_at=item.get("added_at", ""),
+                        labels=item.get("labels", []),
                     )
                 )
             except SaxoException as e:
@@ -84,6 +87,7 @@ class WatchlistService:
                         current_price=0.0,
                         variation_pct=0.0,
                         added_at=item.get("added_at", ""),
+                        labels=item.get("labels", []),
                     )
                 )
             except Exception as e:
@@ -92,6 +96,15 @@ class WatchlistService:
                     f"{item.get('asset_symbol', 'unknown')}: {e}"
                 )
 
-        return WatchlistResponse(
-            items=enriched_items, total=len(enriched_items)
-        )
+        # Sort items: short-term positions first (alphabetically),
+        # then other items (alphabetically)
+        def sort_key(item: WatchlistItem) -> tuple:
+            has_short_term = "short-term" in item.labels
+            description = item.description.lower() if item.description else ""
+            # Items with short-term label get priority (0), others get (1)
+            # Then sort alphabetically by description
+            return (0 if has_short_term else 1, description)
+
+        sorted_items = sorted(enriched_items, key=sort_key)
+
+        return WatchlistResponse(items=sorted_items, total=len(sorted_items))

@@ -131,6 +131,35 @@
   margin: 0;
 }
 
+.watchlist-items > li {
+  list-style: none;
+}
+
+.watchlist-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    #30363d 20%,
+    #30363d 80%,
+    transparent
+  );
+  margin: 0.75rem 1rem;
+  position: relative;
+}
+
+.watchlist-divider::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 3px;
+  background: #30363d;
+  border-radius: 2px;
+}
+
 .watchlist-item {
   padding: 0.75rem 1.5rem;
   cursor: pointer;

@@ -24,6 +24,8 @@ export function AssetDetail() {
   const [watchlistError, setWatchlistError] = useState<string | null>(null);
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [checkingWatchlist, setCheckingWatchlist] = useState(false);
+  const [isShortTerm, setIsShortTerm] = useState(false);
+  const [updatingLabel, setUpdatingLabel] = useState(false);
 
   useEffect(() => {
     if (symbol) {
@@ -69,6 +71,15 @@ export function AssetDetail() {
       const [code] = assetSymbol.split(':');
       const response = await watchlistService.checkWatchlist(code);
       setIsInWatchlist(response.in_watchlist);
+
+      // If in watchlist, get the full watchlist to check labels
+      if (response.in_watchlist) {
+        const watchlistData = await watchlistService.getWatchlist();
+        const item = watchlistData.items.find(item => item.id === code);
+        if (item) {
+          setIsShortTerm(item.labels.includes('short-term'));
+        }
+      }
     } catch (err) {
       console.error('Check watchlist error:', err);
     } finally {
@@ -93,6 +104,7 @@ export function AssetDetail() {
         await watchlistService.removeFromWatchlist(code);
         setWatchlistSuccess(`Removed ${assetName} from watchlist`);
         setIsInWatchlist(false);
+        setIsShortTerm(false);
       } else {
         // Add to watchlist
         const description = 'placeholder';
@@ -114,6 +126,36 @@ export function AssetDetail() {
       setTimeout(() => setWatchlistError(null), 5000);
     } finally {
       setAddingToWatchlist(false);
+    }
+  };
+
+  const handleToggleShortTerm = async () => {
+    if (!symbol) return;
+
+    try {
+      setUpdatingLabel(true);
+      setWatchlistError(null);
+      setWatchlistSuccess(null);
+
+      const [code] = symbol.split(':');
+      const assetName = indicatorData?.description || symbol;
+
+      // Toggle the short-term label
+      const newLabels = isShortTerm ? [] : ['short-term'];
+      await watchlistService.updateLabels(code, newLabels);
+
+      setIsShortTerm(!isShortTerm);
+      const action = isShortTerm ? 'Removed from' : 'Added to';
+      setWatchlistSuccess(`${action} short-term positions: ${assetName}`);
+
+      setTimeout(() => setWatchlistSuccess(null), 3000);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || 'Failed to update label';
+      setWatchlistError(errorMessage);
+      console.error('Label toggle error:', err);
+      setTimeout(() => setWatchlistError(null), 5000);
+    } finally {
+      setUpdatingLabel(false);
     }
   };
 
@@ -139,19 +181,36 @@ export function AssetDetail() {
           <h2>{indicatorData?.description || symbol}</h2>
           {indicatorData?.description && <div className="asset-symbol">{symbol}</div>}
         </div>
-        <button
-          onClick={handleToggleWatchlist}
-          disabled={addingToWatchlist || checkingWatchlist}
-          className="add-to-watchlist-btn"
-        >
-          {addingToWatchlist
-            ? isInWatchlist
-              ? 'Removing...'
-              : 'Adding...'
-            : isInWatchlist
-            ? '- Remove from Watchlist'
-            : '+ Add to Watchlist'}
-        </button>
+        <div className="asset-actions">
+          <button
+            onClick={handleToggleWatchlist}
+            disabled={addingToWatchlist || checkingWatchlist}
+            className="add-to-watchlist-btn"
+          >
+            {addingToWatchlist
+              ? isInWatchlist
+                ? 'Removing...'
+                : 'Adding...'
+              : isInWatchlist
+              ? '- Remove from Watchlist'
+              : '+ Add to Watchlist'}
+          </button>
+          {isInWatchlist && (
+            <button
+              onClick={handleToggleShortTerm}
+              disabled={updatingLabel || checkingWatchlist}
+              className={`short-term-btn ${isShortTerm ? 'active' : ''}`}
+            >
+              {updatingLabel
+                ? isShortTerm
+                  ? 'Removing...'
+                  : 'Adding...'
+                : isShortTerm
+                ? '⭐ Close Short Term Position'
+                : '⭐ Short Term Position'}
+            </button>
+          )}
+        </div>
       </div>
 
       {watchlistSuccess && <div className="success">{watchlistSuccess}</div>}
