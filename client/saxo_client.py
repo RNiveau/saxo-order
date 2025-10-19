@@ -376,7 +376,7 @@ class SaxoClient:
             return 0.0
         return get_price_from_saxo_data(data[0])
 
-    def _get_cache_key(
+    def _get_historical_data_cache_key(
         self,
         saxo_uic: str,
         asset_type: str,
@@ -429,7 +429,7 @@ class SaxoClient:
 
         # Check cache only for hourly (60) and daily (1440) horizons
         if horizon in [60, 1440]:
-            cache_key = self._get_cache_key(
+            cache_key = self._get_historical_data_cache_key(
                 saxo_uic, asset_type, horizon, count, original_date
             )
 
@@ -483,7 +483,7 @@ class SaxoClient:
 
         # Store in cache if applicable
         if horizon in [60, 1440]:
-            cache_key = self._get_cache_key(
+            cache_key = self._get_historical_data_cache_key(
                 saxo_uic, asset_type, horizon, count, original_date
             )
             self.historical_data_cache[cache_key] = data
