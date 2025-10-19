@@ -23,6 +23,7 @@ export function Report() {
     index: number;
   } | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [savedOrderIndices, setSavedOrderIndices] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     loadAccounts();
@@ -186,7 +187,7 @@ export function Report() {
             </thead>
             <tbody>
               {orders.map((order, index) => (
-                <tr key={index}>
+                <tr key={index} className={savedOrderIndices.has(index) ? 'saved-order' : ''}>
                   <td>{formatDate(order.date)}</td>
                   <td>
                     <div className="symbol-cell">
@@ -266,6 +267,8 @@ export function Report() {
             setSelectedOrder(null);
           }}
           onSuccess={() => {
+            // Mark this order as saved
+            setSavedOrderIndices(prev => new Set(prev).add(selectedOrder.index));
             setShowModal(false);
             setSelectedOrder(null);
             loadReport();

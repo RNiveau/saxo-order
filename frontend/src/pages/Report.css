@@ -156,6 +156,16 @@
   background: #0d1117;
 }
 
+.orders-table tbody tr.saved-order {
+  background: #1c1f26;
+  opacity: 0.6;
+}
+
+.orders-table tbody tr.saved-order:hover {
+  background: #21262d;
+  opacity: 0.7;
+}
+
 .symbol-cell {
   display: flex;
   flex-direction: column;
