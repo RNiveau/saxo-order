@@ -1,5 +1,5 @@
 import datetime
-from typing import List
+from typing import List, Optional
 
 from api.models.indicator import AssetIndicatorsResponse, MovingAverageInfo
 from client.client_helper import map_data_to_candles
@@ -65,8 +65,8 @@ class IndicatorService:
         code: str,
         country_code: str = "xpar",
         unit_time: UnitTime = UnitTime.D,
-        asset_identifier: int | None = None,
-        asset_type: str | None = None,
+        asset_identifier: Optional[int] = None,
+        asset_type: Optional[str] = None,
     ) -> tuple[float, float]:
         """
         Get current price and variation for an asset without calculating MAs.
