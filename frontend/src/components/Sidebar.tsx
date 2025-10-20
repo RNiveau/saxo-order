@@ -13,14 +13,48 @@ export function Sidebar() {
   useEffect(() => {
     loadWatchlist();
 
-    // Auto-refresh every 30 seconds if market is open
-    const intervalId = setInterval(() => {
-      if (isMarketOpen()) {
-        loadWatchlist();
-      }
-    }, 30000);
+    let intervalId: NodeJS.Timeout | null = null;
+    let lastLoadTime = Date.now();
 
-    return () => clearInterval(intervalId);
+    // Function to start/stop auto-refresh based on visibility
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Reload only if more than 1 minute has passed since last load
+        const timeSinceLastLoad = Date.now() - lastLoadTime;
+        if (isMarketOpen() && timeSinceLastLoad >= 60000) {
+          loadWatchlist();
+          lastLoadTime = Date.now();
+        }
+        // Start auto-refresh when tab becomes visible
+        if (!intervalId) {
+          intervalId = setInterval(() => {
+            if (isMarketOpen() && !document.hidden) {
+              loadWatchlist();
+              lastLoadTime = Date.now();
+            }
+          }, 60000); // 1 minute
+        }
+      } else {
+        // Stop auto-refresh when tab is hidden
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      }
+    };
+
+    // Start auto-refresh immediately if visible
+    handleVisibilityChange();
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const loadWatchlist = async () => {
