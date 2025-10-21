@@ -1,4 +1,7 @@
+from operator import attrgetter
 from typing import Dict, List, Optional
+
+from cachetools import TTLCache, cachedmethod
 
 from client.gsheet_client import GSheetClient
 from client.saxo_client import SaxoClient
@@ -17,6 +20,10 @@ class ReportService:
         self.client = client
         self.configuration = configuration
         self.currencies_rate = configuration.currencies_rate
+        # Cache for report data with 5 min TTL
+        self._report_cache: TTLCache[str, List[ReportOrder]] = TTLCache(
+            maxsize=128, ttl=300
+        )
 
     def _find_account_dict(self, account_identifier: str) -> Dict:
         """
@@ -61,6 +68,7 @@ class ReportService:
 
         return account_dict
 
+    @cachedmethod(cache=attrgetter("_report_cache"))
     def get_orders_report(
         self, account_id: str, from_date: str
     ) -> List[ReportOrder]:
