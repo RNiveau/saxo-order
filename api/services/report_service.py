@@ -62,15 +62,14 @@ class ReportService:
         return account_dict
 
     def get_orders_report(
-        self, account_id: str, from_date: str, to_date: Optional[str] = None
+        self, account_id: str, from_date: str
     ) -> List[ReportOrder]:
         """
-        Get orders report for a specific account and date range.
+        Get orders report for a specific account from a given date.
 
         Args:
             account_id: Saxo account ID or DisplayName
             from_date: Start date in YYYY-MM-DD format
-            to_date: Optional end date (not used in current implementation)
 
         Returns:
             List of ReportOrder objects

@@ -64,7 +64,6 @@ class ReportListResponse(BaseModel):
     orders: list[ReportOrderResponse]
     total_count: int = Field(..., description="Total number of orders")
     from_date: str
-    to_date: Optional[str] = None
 
 
 class ReportSummaryResponse(BaseModel):

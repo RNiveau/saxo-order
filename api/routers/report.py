@@ -1,5 +1,3 @@
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import get_configuration, get_saxo_client
@@ -34,21 +32,18 @@ async def get_report_config():
 async def get_report_orders(
     account_id: str = Query(..., description="Saxo account ID"),
     from_date: str = Query(..., description="Start date (YYYY-MM-DD format)"),
-    to_date: Optional[str] = Query(None, description="End date (optional)"),
     client: SaxoClient = Depends(get_saxo_client),
     config: Configuration = Depends(get_configuration),
 ):
     """
-    Get trading report orders for a specific account and date range.
+    Get trading report orders for a specific account from a given date.
 
     Returns a list of executed orders with currency conversion and
     summary data.
     """
     try:
         report_service = ReportService(client, config)
-        orders = report_service.get_orders_report(
-            account_id, from_date, to_date
-        )
+        orders = report_service.get_orders_report(account_id, from_date)
 
         # Convert orders to response format
         order_responses = []
@@ -66,7 +61,6 @@ async def get_report_orders(
             orders=order_responses,
             total_count=len(order_responses),
             from_date=from_date,
-            to_date=to_date,
         )
 
     except ValueError as e:
@@ -87,7 +81,6 @@ async def get_report_orders(
 async def get_report_summary(
     account_id: str = Query(..., description="Saxo account ID"),
     from_date: str = Query(..., description="Start date (YYYY-MM-DD format)"),
-    to_date: Optional[str] = Query(None, description="End date (optional)"),
     client: SaxoClient = Depends(get_saxo_client),
     config: Configuration = Depends(get_configuration),
 ):
@@ -98,9 +91,7 @@ async def get_report_summary(
     """
     try:
         report_service = ReportService(client, config)
-        orders = report_service.get_orders_report(
-            account_id, from_date, to_date
-        )
+        orders = report_service.get_orders_report(account_id, from_date)
 
         summary = report_service.calculate_summary(orders)
         return ReportSummaryResponse(**summary)
