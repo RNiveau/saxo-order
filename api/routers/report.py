@@ -12,12 +12,22 @@ from api.models.report import (
 )
 from api.services.report_service import ReportService
 from client.saxo_client import SaxoClient
+from model import Signal, Strategy
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.logger import Logger
 
 router = APIRouter(prefix="/api/report", tags=["report"])
 logger = Logger.get_logger("report_router")
+
+
+@router.get("/config")
+async def get_report_config():
+    """Get report configuration including strategies and signals."""
+    return {
+        "strategies": [{"value": s.name, "label": s.value} for s in Strategy],
+        "signals": [{"value": s.name, "label": s.value} for s in Signal],
+    }
 
 
 @router.get("/orders", response_model=ReportListResponse)
