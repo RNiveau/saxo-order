@@ -56,31 +56,9 @@ async def get_report_orders(
             price_eur, total_eur, _, _ = report_service.convert_order_to_eur(
                 order
             )
-
             order_responses.append(
-                ReportOrderResponse(
-                    code=order.code,
-                    name=order.name,
-                    date=order.date.isoformat(),
-                    direction=(
-                        order.direction.value if order.direction else "UNKNOWN"
-                    ),
-                    quantity=order.quantity,
-                    price=order.price,
-                    price_eur=(
-                        price_eur if order.currency.value != "EURO" else None
-                    ),
-                    total=order.price * order.quantity,
-                    total_eur=total_eur,
-                    currency=order.currency.value,
-                    asset_type=(
-                        order.asset_type.value
-                        if hasattr(order.asset_type, "value")
-                        else str(order.asset_type)
-                    ),
-                    underlying_price=(
-                        order.underlying.price if order.underlying else None
-                    ),
+                ReportOrderResponse.from_report_order(
+                    order, price_eur=price_eur, total_eur=total_eur
                 )
             )
 

@@ -2,22 +2,60 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from model import AssetType, Currency, Direction, ReportOrder
+
 
 class ReportOrderResponse(BaseModel):
-    """Response model for a single report order."""
+    """Response model for a single report order.
+
+    Maps from model.ReportOrder for API serialization.
+    """
 
     code: str
     name: str
     date: str
-    direction: str  # BUY or SELL
+    direction: Optional[Direction] = None
     quantity: float
     price: float
+    currency: Currency
+    asset_type: AssetType
+    # Additional fields for frontend display
     price_eur: Optional[float] = None
     total: float
-    total_eur: Optional[float] = None
-    currency: str
-    asset_type: str
+    total_eur: float
     underlying_price: Optional[float] = None
+
+    @classmethod
+    def from_report_order(
+        cls,
+        order: ReportOrder,
+        price_eur: Optional[float] = None,
+        total_eur: float = 0.0,
+    ) -> "ReportOrderResponse":
+        """Convert a ReportOrder domain model to API response."""
+        # Handle asset_type which can be either AssetType enum or string
+        asset_type_value = (
+            order.asset_type
+            if isinstance(order.asset_type, AssetType)
+            else AssetType.get_value(order.asset_type)
+        )
+
+        return cls(
+            code=order.code,
+            name=order.name,
+            date=order.date.isoformat(),
+            direction=order.direction,
+            quantity=order.quantity,
+            price=order.price,
+            currency=order.currency,
+            asset_type=asset_type_value,
+            price_eur=price_eur if order.currency != Currency.EURO else None,
+            total=order.price * order.quantity,
+            total_eur=total_eur,
+            underlying_price=(
+                order.underlying.price if order.underlying else None
+            ),
+        )
 
 
 class ReportListResponse(BaseModel):
