@@ -40,7 +40,15 @@ class GSheetClient:
 
     def _generate_r_v_block(self, order: Order, number_rows: int) -> List:
         taxes = Taxes(0, 0) if order.taxes is None else order.taxes
-        locale.setlocale(locale.LC_ALL, "fr_FR")
+        try:
+            locale.setlocale(locale.LC_ALL, "fr_FR")
+        except locale.Error:
+            # Fallback if fr_FR locale is not available (e.g., in Docker)
+            try:
+                locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")
+            except locale.Error:
+                # If neither works, use default locale
+                pass
         date = (
             order.date.strftime("%d/%m/%Y")  # type: ignore
             if isinstance(order, ReportOrder) is True

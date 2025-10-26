@@ -259,3 +259,126 @@ export const watchlistService = {
     return response.data;
   },
 };
+
+export interface ReportOrder {
+  code: string;
+  name: string;
+  date: string;
+  direction: string;
+  quantity: number;
+  price: number;
+  price_eur: number | null;
+  total: number;
+  total_eur: number;
+  currency: string;
+  asset_type: string;
+  underlying_price: number | null;
+}
+
+export interface ReportListResponse {
+  orders: ReportOrder[];
+  total_count: number;
+  from_date: string;
+  to_date: string | null;
+}
+
+export interface ReportSummary {
+  total_orders: number;
+  total_volume_eur: number;
+  total_fees_eur: number;
+  buy_orders: number;
+  buy_volume_eur: number;
+  sell_orders: number;
+  sell_volume_eur: number;
+}
+
+export interface CreateGSheetOrderRequest {
+  account_id: string;
+  from_date: string;
+  order_index: number;
+  stop?: number;
+  objective?: number;
+  strategy?: string;
+  signal?: string;
+  comment?: string;
+}
+
+export interface UpdateGSheetOrderRequest {
+  account_id: string;
+  from_date: string;
+  order_index: number;
+  line_number: number;
+  close: boolean;
+  stopped: boolean;
+  be_stopped: boolean;
+  stop?: number;
+  objective?: number;
+  strategy?: string;
+  signal?: string;
+  comment?: string;
+}
+
+export const reportService = {
+  getOrders: async (
+    accountId: string,
+    fromDate: string,
+    toDate?: string
+  ): Promise<ReportListResponse> => {
+    const params: Record<string, string> = {
+      account_id: accountId,
+      from_date: fromDate,
+    };
+    if (toDate) {
+      params.to_date = toDate;
+    }
+    const response = await api.get<ReportListResponse>('/api/report/orders', { params });
+    return response.data;
+  },
+
+  getSummary: async (
+    accountId: string,
+    fromDate: string,
+    toDate?: string
+  ): Promise<ReportSummary> => {
+    const params: Record<string, string> = {
+      account_id: accountId,
+      from_date: fromDate,
+    };
+    if (toDate) {
+      params.to_date = toDate;
+    }
+    const response = await api.get<ReportSummary>('/api/report/summary', { params });
+    return response.data;
+  },
+
+  createGSheetOrder: async (
+    request: CreateGSheetOrderRequest
+  ): Promise<{ status: string; message: string }> => {
+    const response = await api.post('/api/report/gsheet/create', request);
+    return response.data;
+  },
+
+  updateGSheetOrder: async (
+    request: UpdateGSheetOrderRequest
+  ): Promise<{ status: string; message: string }> => {
+    const response = await api.post('/api/report/gsheet/update', request);
+    return response.data;
+  },
+};
+
+export interface EnumOption {
+  value: string;
+  label: string;
+}
+
+export interface ReportConfig {
+  strategies: EnumOption[];
+  signals: EnumOption[];
+}
+
+export const reportConfigService = {
+  getConfig: async (): Promise<ReportConfig> => {
+    const response = await api.get<ReportConfig>('/api/report/config');
+    return response.data;
+  },
+};

@@ -28,12 +28,15 @@ async def get_accounts(client: SaxoClient = Depends(get_saxo_client)):
         for acc in accounts:
             account_key = acc["AccountKey"]
             try:
-                # Use get_account to fetch full account details with balance
+                # Get DisplayName from the account list
+                account_name = acc.get("DisplayName", "NoName")
+
+                # Use get_account to fetch balance details
                 account = client.get_account(account_key)
                 account_list.append(
                     AccountInfo(
                         account_id=acc["AccountId"],
-                        account_name=account.name,
+                        account_name=account_name,
                         total_fund=account.fund,
                         available_fund=account.available_fund,
                     )
