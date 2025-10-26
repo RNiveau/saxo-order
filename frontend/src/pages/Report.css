@@ -381,6 +381,11 @@
   color: #e6edf3;
 }
 
+.form-group label .required {
+  color: #f85149;
+  margin-left: 0.25rem;
+}
+
 .form-group input[type='number'],
 .form-group input[type='text'],
 .form-group select,

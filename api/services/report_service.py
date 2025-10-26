@@ -5,7 +5,7 @@ from cachetools import TTLCache, cachedmethod
 
 from client.gsheet_client import GSheetClient
 from client.saxo_client import SaxoClient
-from model import Account, Currency, Direction, ReportOrder
+from model import Account, Currency, Direction, ReportOrder, Signal, Strategy
 from saxo_order.service import calculate_currency, calculate_taxes
 from utils.configuration import Configuration
 from utils.logger import Logger
@@ -180,8 +180,8 @@ class ReportService:
         order: ReportOrder,
         stop: Optional[float] = None,
         objective: Optional[float] = None,
-        strategy: Optional[str] = None,
-        signal: Optional[str] = None,
+        strategy: Strategy = None,  # type: ignore
+        signal: Signal = None,  # type: ignore
         comment: Optional[str] = None,
     ):
         """
@@ -192,10 +192,19 @@ class ReportService:
             order: ReportOrder object
             stop: Stop loss price
             objective: Target price
-            strategy: Trading strategy
-            signal: Trading signal
+            strategy: Trading strategy (required)
+            signal: Trading signal (required)
             comment: Additional comment
+
+        Raises:
+            ValueError: If strategy or signal is not provided
         """
+        if not strategy:
+            raise ValueError(
+                "Strategy is required when creating a new position"
+            )
+        if not signal:
+            raise ValueError("Signal is required when creating a new position")
         # Get account
         account_dict = self._find_account_dict(account_id)
 
@@ -208,8 +217,8 @@ class ReportService:
         # Update order with user inputs
         order.stop = stop
         order.objective = objective
-        order.strategy = strategy  # type: ignore
-        order.signal = signal  # type: ignore
+        order.strategy = strategy.value  # type: ignore
+        order.signal = signal.value  # type: ignore
         order.comment = comment
         order.open_position = True
 
@@ -235,8 +244,8 @@ class ReportService:
         be_stopped: bool = False,
         stop: Optional[float] = None,
         objective: Optional[float] = None,
-        strategy: Optional[str] = None,
-        signal: Optional[str] = None,
+        strategy: Optional[Strategy] = None,
+        signal: Optional[Signal] = None,
         comment: Optional[str] = None,
     ):
         """
@@ -251,8 +260,8 @@ class ReportService:
             be_stopped: Whether order was break-even stopped
             stop: Optional updated stop loss
             objective: Optional updated target
-            strategy: Optional updated strategy
-            signal: Optional updated signal
+            strategy: Optional updated strategy enum
+            signal: Optional updated signal enum
             comment: Optional updated comment
         """
         # Update order with user inputs
@@ -261,9 +270,9 @@ class ReportService:
         if objective is not None:
             order.objective = objective
         if strategy is not None:
-            order.strategy = strategy  # type: ignore
+            order.strategy = strategy.value  # type: ignore
         if signal is not None:
-            order.signal = signal  # type: ignore
+            order.signal = signal.value  # type: ignore
         if comment is not None:
             order.comment = comment
 

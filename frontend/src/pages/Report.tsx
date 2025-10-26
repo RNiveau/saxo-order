@@ -351,9 +351,19 @@ function OrderModal({
     setError(null);
 
     try {
-      // Convert enum keys to labels (display values)
-      const strategyLabel = strategy ? strategies.find(s => s.value === strategy)?.label : undefined;
-      const signalLabel = signal ? signals.find(s => s.value === signal)?.label : undefined;
+      // Validate required fields for new positions
+      if (positionType === 'open') {
+        if (!strategy) {
+          setError('Strategy is required for new positions');
+          setLoading(false);
+          return;
+        }
+        if (!signal) {
+          setError('Signal is required for new positions');
+          setLoading(false);
+          return;
+        }
+      }
 
       if (positionType === 'open') {
         await reportService.createGSheetOrder({
@@ -362,8 +372,8 @@ function OrderModal({
           order_index: orderIndex,
           stop: stop ? parseFloat(stop) : undefined,
           objective: objective ? parseFloat(objective) : undefined,
-          strategy: strategyLabel,
-          signal: signalLabel,
+          strategy: strategy,  // Send enum key directly
+          signal: signal,  // Send enum key directly
           comment: comment || undefined,
         });
       } else {
@@ -385,8 +395,8 @@ function OrderModal({
             be_stopped: false,
             stop: stop ? parseFloat(stop) : undefined,
             objective: objective ? parseFloat(objective) : undefined,
-            strategy: strategyLabel,
-            signal: signalLabel,
+            strategy: strategy || undefined,  // Send enum key directly or undefined
+            signal: signal || undefined,  // Send enum key directly or undefined
             comment: comment || undefined,
           });
         } else {
@@ -404,7 +414,20 @@ function OrderModal({
       }
       onSuccess();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to save to Google Sheets');
+      // Handle Pydantic validation errors (array of objects) or string errors
+      const detail = err.response?.data?.detail;
+      let errorMessage = 'Failed to save to Google Sheets';
+
+      if (Array.isArray(detail)) {
+        // Pydantic validation errors
+        errorMessage = detail.map((e: any) => `${e.loc?.join('.')}: ${e.msg}`).join(', ');
+      } else if (typeof detail === 'string') {
+        errorMessage = detail;
+      } else if (detail && typeof detail === 'object') {
+        errorMessage = JSON.stringify(detail);
+      }
+
+      setError(errorMessage);
       console.error('Save error:', err);
     } finally {
       setLoading(false);
@@ -500,26 +523,28 @@ function OrderModal({
                 </div>
               )}
               <div className="form-group">
-                <label>Strategy:</label>
+                <label>Strategy: <span className="required">*</span></label>
                 <select
                   value={strategy}
                   onChange={(e) => setStrategy(e.target.value)}
+                  required
                 >
                   {strategies.map((s) => (
-                    <option key={s.value} value={s.value}>
+                    <option key={s.value} value={s.value} disabled={s.value === ''}>
                       {s.label}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
-                <label>Signal:</label>
+                <label>Signal: <span className="required">*</span></label>
                 <select
                   value={signal}
                   onChange={(e) => setSignal(e.target.value)}
+                  required
                 >
                   {signals.map((s) => (
-                    <option key={s.value} value={s.value}>
+                    <option key={s.value} value={s.value} disabled={s.value === ''}>
                       {s.label}
                     </option>
                   ))}

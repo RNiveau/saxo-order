@@ -1,8 +1,8 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from model import AssetType, Currency, Direction, ReportOrder
+from model import AssetType, Currency, Direction, ReportOrder, Signal, Strategy
 
 
 class ReportOrderResponse(BaseModel):
@@ -82,27 +82,75 @@ class CreateGSheetOrderRequest(BaseModel):
     """Request model for creating order in Google Sheets."""
 
     account_id: str
-    from_date: str  # Date used to fetch orders
-    order_index: int  # Index in the orders list
+    from_date: str
+    order_index: int
     stop: Optional[float] = None
     objective: Optional[float] = None
-    strategy: Optional[str] = None
-    signal: Optional[str] = None
+    strategy: Strategy
+    signal: Signal
     comment: Optional[str] = None
+
+    @field_validator("strategy", mode="before")
+    @classmethod
+    def parse_strategy(cls, v):
+        """Parse strategy by name if it's a string."""
+        if isinstance(v, str):
+            try:
+                return Strategy[v]  # Try to get by name
+            except KeyError:
+                return Strategy(v)  # Fall back to value
+        return v
+
+    @field_validator("signal", mode="before")
+    @classmethod
+    def parse_signal(cls, v):
+        """Parse signal by name if it's a string."""
+        if isinstance(v, str):
+            try:
+                return Signal[v]  # Try to get by name
+            except KeyError:
+                return Signal(v)  # Fall back to value
+        return v
 
 
 class UpdateGSheetOrderRequest(BaseModel):
     """Request model for updating order in Google Sheets."""
 
     account_id: str
-    from_date: str  # Date used to fetch orders
-    order_index: int  # Index in the orders list
-    line_number: int  # Sheet row to update
-    close: bool = False  # Whether to close the position
+    from_date: str
+    order_index: int
+    line_number: int
+    close: bool = False
     stopped: bool = False
     be_stopped: bool = False
     stop: Optional[float] = None
     objective: Optional[float] = None
-    strategy: Optional[str] = None
-    signal: Optional[str] = None
+    strategy: Optional[Strategy] = None
+    signal: Optional[Signal] = None
     comment: Optional[str] = None
+
+    @field_validator("strategy", mode="before")
+    @classmethod
+    def parse_strategy(cls, v):
+        """Parse strategy by name if it's a string."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return Strategy[v]  # Try to get by name
+            except KeyError:
+                return Strategy(v)  # Fall back to value
+        return v
+
+    @field_validator("signal", mode="before")
+    @classmethod
+    def parse_signal(cls, v):
+        """Parse signal by name if it's a string."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return Signal[v]  # Try to get by name
+            except KeyError:
+                return Signal(v)  # Fall back to value
+        return v
