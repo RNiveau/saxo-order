@@ -20,6 +20,10 @@ class ReportService:
         self.client = client
         self.configuration = configuration
         self.currencies_rate = configuration.currencies_rate
+        self.gsheet_client = GSheetClient(
+            key_path=configuration.gsheet_creds_path,
+            spreadsheet_id=configuration.spreadsheet_id,
+        )
         # Cache for report data with 5 min TTL
         self._report_cache: TTLCache[str, List[ReportOrder]] = TTLCache(
             maxsize=128, ttl=300
@@ -192,12 +196,6 @@ class ReportService:
             signal: Trading signal
             comment: Additional comment
         """
-        # Initialize GSheet client
-        gsheet_client = GSheetClient(
-            key_path=self.configuration.gsheet_creds_path,
-            spreadsheet_id=self.configuration.spreadsheet_id,
-        )
-
         # Get account
         account_dict = self._find_account_dict(account_id)
 
@@ -223,7 +221,7 @@ class ReportService:
         assert isinstance(report_order, ReportOrder)
 
         # Create in Google Sheets
-        gsheet_client.create_order(
+        self.gsheet_client.create_order(
             account=account, order=report_order, original_order=order
         )
 
@@ -255,12 +253,6 @@ class ReportService:
             signal: Optional updated signal
             comment: Optional updated comment
         """
-        # Initialize GSheet client
-        gsheet_client = GSheetClient(
-            key_path=self.configuration.gsheet_creds_path,
-            spreadsheet_id=self.configuration.spreadsheet_id,
-        )
-
         # Update order with user inputs
         if stop is not None:
             order.stop = stop
@@ -285,7 +277,7 @@ class ReportService:
         assert isinstance(report_order, ReportOrder)
 
         # Update in Google Sheets
-        gsheet_client.update_order(
+        self.gsheet_client.update_order(
             order=report_order,
             original_order=order,
             line_to_update=line_number,
