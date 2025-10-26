@@ -308,6 +308,7 @@ export interface UpdateGSheetOrderRequest {
   from_date: string;
   order_index: number;
   line_number: number;
+  close: boolean;
   stopped: boolean;
   be_stopped: boolean;
   stop?: number;

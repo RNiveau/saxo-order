@@ -98,6 +98,7 @@ class UpdateGSheetOrderRequest(BaseModel):
     from_date: str  # Date used to fetch orders
     order_index: int  # Index in the orders list
     line_number: int  # Sheet row to update
+    close: bool = False  # Whether to close the position
     stopped: bool = False
     be_stopped: bool = False
     stop: Optional[float] = None

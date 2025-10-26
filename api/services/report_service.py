@@ -230,6 +230,7 @@ class ReportService:
         account_id: str,
         order: ReportOrder,
         line_number: int,
+        close: bool = False,
         stopped: bool = False,
         be_stopped: bool = False,
         stop: Optional[float] = None,
@@ -245,6 +246,7 @@ class ReportService:
             account_id: Saxo account ID
             order: ReportOrder object
             line_number: Sheet row number to update
+            close: Whether to close the position
             stopped: Whether order was stopped out
             be_stopped: Whether order was break-even stopped
             stop: Optional updated stop loss
@@ -265,9 +267,8 @@ class ReportService:
         if comment is not None:
             order.comment = comment
 
-        # If both stopped and be_stopped are False,
-        # it's an update that keeps position open
-        order.open_position = not (stopped or be_stopped)
+        # Position is closed if close=True, regardless of stopped/be_stopped
+        order.open_position = not close
         order.stopped = stopped
         order.be_stopped = be_stopped
         order.taxes = calculate_taxes(order)

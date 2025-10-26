@@ -380,6 +380,7 @@ function OrderModal({
             from_date: fromDate,
             order_index: orderIndex,
             line_number: parseInt(lineNumber),
+            close: false,
             stopped: false,
             be_stopped: false,
             stop: stop ? parseFloat(stop) : undefined,
@@ -395,6 +396,7 @@ function OrderModal({
             from_date: fromDate,
             order_index: orderIndex,
             line_number: parseInt(lineNumber),
+            close: true,
             stopped,
             be_stopped: beStopped,
           });

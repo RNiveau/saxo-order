@@ -184,6 +184,7 @@ async def update_gsheet_order(
             account_id=request.account_id,
             order=order,
             line_number=request.line_number,
+            close=request.close,
             stopped=request.stopped,
             be_stopped=request.be_stopped,
             stop=request.stop,
