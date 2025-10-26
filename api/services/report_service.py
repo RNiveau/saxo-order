@@ -29,7 +29,7 @@ class ReportService:
             maxsize=128, ttl=300
         )
 
-    def _find_account_dict(self, account_identifier: str) -> Dict:
+    def _find_account(self, account_identifier: str) -> Account:
         """
         Find account by either AccountId or DisplayName.
 
@@ -37,7 +37,7 @@ class ReportService:
             account_identifier: Either AccountId or DisplayName
 
         Returns:
-            Account dictionary from Saxo API
+            Account object with full details including DisplayName
 
         Raises:
             ValueError: If account not found
@@ -60,17 +60,17 @@ class ReportService:
             for acc in accounts:
                 try:
                     account_key = acc["AccountKey"]
-                    full_account = self.client.get_account(account_key)
-                    if full_account.name == account_identifier:
-                        account_dict = acc
-                        break
+                    account = self.client.get_account(account_key)
+                    if account.name == account_identifier:
+                        return account
                 except Exception:
                     continue
 
         if not account_dict:
             raise ValueError(f"Account {account_identifier} not found")
 
-        return account_dict
+        # Return full account details with DisplayName
+        return self.client.get_account(account_dict["AccountKey"])
 
     @cachedmethod(cache=attrgetter("_report_cache"))
     def get_orders_report(
@@ -86,17 +86,8 @@ class ReportService:
         Returns:
             List of ReportOrder objects
         """
-        # Get account details
-        account_dict = self._find_account_dict(account_id)
-
-        if not account_dict:
-            raise ValueError(f"Account {account_id} not found")
-
-        account = Account(
-            key=account_dict["AccountKey"],
-            name=account_dict["AccountId"],
-            client_key=account_dict["ClientKey"],
-        )
+        # Get account with full details
+        account = self._find_account(account_id)
 
         # Get orders from Saxo
         orders = self.client.get_report(account, from_date)
@@ -205,14 +196,9 @@ class ReportService:
             )
         if not signal:
             raise ValueError("Signal is required when creating a new position")
-        # Get account
-        account_dict = self._find_account_dict(account_id)
 
-        account = Account(
-            key=account_dict["AccountKey"],
-            name=account_dict["AccountId"],
-            client_key=account_dict["ClientKey"],
-        )
+        # Get account with full details including DisplayName
+        account = self._find_account(account_id)
 
         # Update order with user inputs
         order.stop = stop
