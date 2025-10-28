@@ -24,6 +24,8 @@ export function Report() {
   } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [savedOrderIndices, setSavedOrderIndices] = useState<Set<number>>(new Set());
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [hiddenOrderIndices, setHiddenOrderIndices] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     loadAccounts();
@@ -52,6 +54,8 @@ export function Report() {
       setLoading(true);
       setError(null);
       setSavedOrderIndices(new Set());
+      setHiddenOrderIndices(new Set());
+      setSearchTerm('');
 
       const [ordersData, summaryData] = await Promise.all([
         reportService.getOrders(selectedAccount, fromDate),
@@ -73,6 +77,10 @@ export function Report() {
     setShowModal(true);
   };
 
+  const handleDeleteOrder = (index: number) => {
+    setHiddenOrderIndices(prev => new Set(prev).add(index));
+  };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('fr-FR', {
       year: 'numeric',
@@ -80,6 +88,19 @@ export function Report() {
       day: '2-digit',
     });
   };
+
+  const filteredOrders = orders.filter((order, index) => {
+    if (hiddenOrderIndices.has(index)) return false;
+
+    if (!searchTerm) return true;
+
+    const search = searchTerm.toLowerCase();
+    const matchesName = order.code.toLowerCase().includes(search) ||
+                        order.name.toLowerCase().includes(search);
+    const matchesDate = formatDate(order.date).includes(search);
+
+    return matchesName || matchesDate;
+  });
 
   const formatPrice = (price: number, decimals: number = 2) => {
     return price.toFixed(decimals);
@@ -129,6 +150,22 @@ export function Report() {
             {loading ? 'Loading...' : 'Load Report'}
           </button>
         </div>
+
+        {orders.length > 0 && (
+          <div className="search-bar">
+            <input
+              type="text"
+              placeholder="Search by name or date..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button className="clear-search" onClick={() => setSearchTerm('')}>
+                ×
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -187,8 +224,10 @@ export function Report() {
               </tr>
             </thead>
             <tbody>
-              {orders.map((order, index) => (
-                <tr key={index} className={savedOrderIndices.has(index) ? 'saved-order' : ''}>
+              {filteredOrders.map((order, index) => {
+                const originalIndex = orders.indexOf(order);
+                return (
+                <tr key={originalIndex} className={savedOrderIndices.has(originalIndex) ? 'saved-order' : ''}>
                   <td>{formatDate(order.date)}</td>
                   <td>
                     <div className="symbol-cell">
@@ -237,14 +276,22 @@ export function Report() {
                   <td>
                     <button
                       className="manage-button"
-                      onClick={() => handleOrderClick(order, index)}
+                      onClick={() => handleOrderClick(order, originalIndex)}
                       title="Manage order"
                     >
                       📝
                     </button>
+                    <button
+                      className="delete-button"
+                      onClick={() => handleDeleteOrder(originalIndex)}
+                      title="Hide order"
+                    >
+                      🗑️
+                    </button>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
         </div>
@@ -267,11 +314,9 @@ export function Report() {
             setSelectedOrder(null);
           }}
           onSuccess={() => {
-            // Mark this order as saved
             setSavedOrderIndices(prev => new Set(prev).add(selectedOrder.index));
             setShowModal(false);
             setSelectedOrder(null);
-            loadReport();
           }}
         />
       )}
