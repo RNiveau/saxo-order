@@ -28,7 +28,12 @@ class ReportService:
         self._report_cache: TTLCache[str, List[ReportOrder]] = TTLCache(
             maxsize=128, ttl=300
         )
+        # Cache for account data with 5 min TTL
+        self._account_cache: TTLCache[str, Account] = TTLCache(
+            maxsize=128, ttl=300
+        )
 
+    @cachedmethod(cache=attrgetter("_account_cache"))
     def _find_account(self, account_identifier: str) -> Account:
         """
         Find account by either AccountId or DisplayName.
@@ -42,6 +47,10 @@ class ReportService:
         Raises:
             ValueError: If account not found
         """
+        logger.debug(
+            f"Cache MISS for _find_account({account_identifier}) "
+            f"- fetching from Saxo API"
+        )
         accounts_data = self.client.get_accounts()
         accounts = accounts_data.get("Data", [])
 
@@ -86,6 +95,10 @@ class ReportService:
         Returns:
             List of ReportOrder objects
         """
+        logger.debug(
+            f"Cache MISS for get_orders_report({account_id}, {from_date}) "
+            f"- fetching from Saxo API"
+        )
         # Get account with full details
         account = self._find_account(account_id)
 
