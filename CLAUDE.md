@@ -60,8 +60,9 @@ The codebase follows a layered architecture:
 - ALWAYS suggest a plan before implementing something
 - NEVER implement a plan without a human validation
 - The Candle list has always the newest candle with the index 0, and the oldest with the last index
-- Outside the SaxoService, the candle object must be used everywhere. 
-- The saxo api doesn't return the current day (horizon 1440) or current hour (horizon 60). You have to rebuild it with a smaller horizon 
+- Outside the SaxoService, the candle object must be used everywhere.
+- The saxo api doesn't return the current day (horizon 1440) or current hour (horizon 60). You have to rebuild it with a smaller horizon
+- DO NOT add unnecessary inline comments explaining obvious code (e.g., "// Use unique account ID", "// Send enum key directly"). Keep code clean and self-documenting 
 
 
 ## Testing Guidelines
