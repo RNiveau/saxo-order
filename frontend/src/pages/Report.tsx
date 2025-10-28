@@ -51,6 +51,7 @@ export function Report() {
     try {
       setLoading(true);
       setError(null);
+      setSavedOrderIndices(new Set());
 
       const [ordersData, summaryData] = await Promise.all([
         reportService.getOrders(selectedAccount, fromDate),
