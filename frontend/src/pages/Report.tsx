@@ -73,7 +73,7 @@ export function Report() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return new Date(dateStr).toLocaleDateString('fr-FR', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -260,7 +260,6 @@ export function Report() {
           order={selectedOrder.order}
           orderIndex={selectedOrder.index}
           accountId={selectedAccount}
-          accountName={accounts.find(a => a.account_id === selectedAccount)?.account_name || selectedAccount}
           fromDate={fromDate}
           onClose={() => {
             setShowModal(false);
@@ -283,7 +282,6 @@ interface OrderModalProps {
   order: ReportOrder;
   orderIndex: number;
   accountId: string;
-  accountName: string;
   fromDate: string;
   onClose: () => void;
   onSuccess: () => void;
@@ -293,7 +291,6 @@ function OrderModal({
   order,
   orderIndex,
   accountId,
-  accountName,
   fromDate,
   onClose,
   onSuccess,
@@ -367,13 +364,13 @@ function OrderModal({
 
       if (positionType === 'open') {
         await reportService.createGSheetOrder({
-          account_id: accountName,
+          account_id: accountId,
           from_date: fromDate,
           order_index: orderIndex,
           stop: stop ? parseFloat(stop) : undefined,
           objective: objective ? parseFloat(objective) : undefined,
-          strategy: strategy,  // Send enum key directly
-          signal: signal,  // Send enum key directly
+          strategy: strategy,
+          signal: signal,
           comment: comment || undefined,
         });
       } else {
@@ -384,9 +381,8 @@ function OrderModal({
         }
 
         if (updateKeepsOpen) {
-          // Update an open position (adjust stop/objective)
           await reportService.updateGSheetOrder({
-            account_id: accountName,
+            account_id: accountId,
             from_date: fromDate,
             order_index: orderIndex,
             line_number: parseInt(lineNumber),
@@ -395,14 +391,13 @@ function OrderModal({
             be_stopped: false,
             stop: stop ? parseFloat(stop) : undefined,
             objective: objective ? parseFloat(objective) : undefined,
-            strategy: strategy || undefined,  // Send enum key directly or undefined
-            signal: signal || undefined,  // Send enum key directly or undefined
+            strategy: strategy || undefined,
+            signal: signal || undefined,
             comment: comment || undefined,
           });
         } else {
-          // Close the position
           await reportService.updateGSheetOrder({
-            account_id: accountName,
+            account_id: accountId,
             from_date: fromDate,
             order_index: orderIndex,
             line_number: parseInt(lineNumber),
@@ -449,7 +444,7 @@ function OrderModal({
         <div className="modal-body">
           <div className="order-info">
             <div className="info-row">
-              <span>Date:</span> <strong>{new Date(order.date).toLocaleDateString()}</strong>
+              <span>Date:</span> <strong>{new Date(order.date).toLocaleDateString('fr-FR')}</strong>
             </div>
             <div className="info-row">
               <span>Direction:</span> <strong>{order.direction}</strong>
