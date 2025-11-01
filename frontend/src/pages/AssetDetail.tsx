@@ -39,7 +39,10 @@ export function AssetDetail() {
     try {
       setLoading(true);
       setError(null);
-      const data = await workflowService.getAssetWorkflows(assetSymbol);
+      const parts = assetSymbol.split(':');
+      const code = parts[0];
+      const countryCode = parts.length > 1 ? parts[1] : '';
+      const data = await workflowService.getAssetWorkflows(code, countryCode);
       setWorkflowData(data);
     } catch (err) {
       setError('Failed to fetch workflows for this asset');
@@ -54,7 +57,9 @@ export function AssetDetail() {
       setIndicatorLoading(true);
       setIndicatorError(null);
       // Parse symbol to extract code and country_code
-      const [code, countryCode = 'xpar'] = assetSymbol.split(':');
+      const parts = assetSymbol.split(':');
+      const code = parts[0];
+      const countryCode = parts.length > 1 ? parts[1] : '';
       const data = await indicatorService.getAssetIndicators(code, countryCode);
       setIndicatorData(data);
     } catch (err) {
@@ -96,7 +101,9 @@ export function AssetDetail() {
       setWatchlistSuccess(null);
 
       // Parse symbol to extract code and country_code
-      const [code, countryCode = 'xpar'] = symbol.split(':');
+      const parts = symbol.split(':');
+      const code = parts[0];
+      const countryCode = parts.length > 1 ? parts[1] : '';
       const assetName = indicatorData?.description || symbol;
 
       if (isInWatchlist) {

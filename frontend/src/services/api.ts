@@ -144,6 +144,7 @@ export interface AssetIndicatorsResponse {
   description: string;
   current_price: number;
   variation_pct: number;
+  currency: string;
   unit_time: string;
   moving_averages: MovingAverageInfo[];
 }
@@ -173,6 +174,7 @@ export interface WatchlistItem {
   country_code: string;
   current_price: number;
   variation_pct: number;
+  currency: string;
   added_at: string;
   labels: string[];
 }
@@ -256,6 +258,13 @@ export const watchlistService = {
       `/api/watchlist/${assetId}/labels`,
       { labels }
     );
+    return response.data;
+  },
+};
+
+export const indexesService = {
+  getIndexes: async (): Promise<WatchlistResponse> => {
+    const response = await api.get<WatchlistResponse>('/api/indexes');
     return response.data;
   },
 };

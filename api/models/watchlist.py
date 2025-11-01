@@ -2,6 +2,8 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
+from model import Currency
+
 
 class AddToWatchlistRequest(BaseModel):
     asset_id: str = Field(description="Unique identifier for the asset")
@@ -30,6 +32,9 @@ class WatchlistItem(BaseModel):
     current_price: float = Field(description="Current price of the asset")
     variation_pct: float = Field(
         description="Percentage variation from previous period"
+    )
+    currency: Currency = Field(
+        description="Currency code (e.g., 'EUR', 'USD')"
     )
     added_at: str = Field(description="ISO timestamp when added to watchlist")
     labels: List[str] = Field(

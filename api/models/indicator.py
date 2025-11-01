@@ -2,6 +2,8 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
+from model import Currency
+
 
 class MovingAverageInfo(BaseModel):
     period: int = Field(
@@ -22,6 +24,9 @@ class AssetIndicatorsResponse(BaseModel):
     current_price: float = Field(description="Current price (latest close)")
     variation_pct: float = Field(
         description="Percentage variation from previous period's close"
+    )
+    currency: Currency = Field(
+        description="Currency code (e.g., 'EUR', 'USD')"
     )
     unit_time: str = Field(
         description="Unit time used for calculations (daily, weekly, monthly)"
