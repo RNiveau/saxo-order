@@ -7,8 +7,21 @@ interface IndicatorCardProps {
 }
 
 export function IndicatorCard({ indicators }: IndicatorCardProps) {
-  const formatPrice = (price: number) => {
-    return price.toFixed(4);
+  const formatPrice = (price: number, currency: string) => {
+    // Format with thousands separator
+    const formatted = price.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    // Add currency symbol on the right
+    if (currency === 'USD') {
+      return `${formatted} $`;
+    } else if (currency === 'EUR') {
+      return `${formatted} €`;
+    } else {
+      return `${formatted} ${currency}`;
+    }
   };
 
   const formatVariation = (variation: number) => {
@@ -44,7 +57,7 @@ export function IndicatorCard({ indicators }: IndicatorCardProps) {
         <div className="price-info">
           <div className="current-price">
             <span className="label">Current Price</span>
-            <span className="value">{formatPrice(indicators.current_price)}</span>
+            <span className="value">{formatPrice(indicators.current_price, indicators.currency)}</span>
           </div>
           <div className={`variation ${getVariationClass(indicators.variation_pct)}`}>
             <span className="label">Variation</span>
@@ -64,7 +77,7 @@ export function IndicatorCard({ indicators }: IndicatorCardProps) {
                   {ma.is_above ? '▲' : '▼'}
                 </span>
               </div>
-              <div className="ma-value">{formatPrice(ma.value)}</div>
+              <div className="ma-value">{formatPrice(ma.value, indicators.currency)}</div>
               <div className={`ma-status ${ma.is_above ? 'above' : 'below'}`}>
                 {ma.is_above ? 'Above MA' : 'Below MA'}
               </div>

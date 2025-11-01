@@ -4,7 +4,7 @@ from typing import List, Optional
 from api.models.indicator import AssetIndicatorsResponse, MovingAverageInfo
 from client.client_helper import map_data_to_candles
 from client.saxo_client import SaxoClient
-from model import Candle, UnitTime
+from model import Candle, Currency, UnitTime
 from services.candles_service import CandlesService
 from services.indicator_service import mobile_average
 from utils.exception import SaxoException
@@ -240,6 +240,7 @@ class IndicatorService:
             description=asset["Description"],
             current_price=round(current_price, 4),
             variation_pct=variation_pct,
+            currency=Currency.get_value(asset.get("CurrencyCode", "EUR")),
             unit_time=unit_time.value,
             moving_averages=moving_averages,
         )
