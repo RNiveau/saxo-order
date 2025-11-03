@@ -39,21 +39,6 @@
   box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.3);
 }
 
-.loading {
-  text-align: center;
-  color: #8b949e;
-  padding: 2rem;
-}
-
-.error {
-  background-color: #2d0a0a;
-  color: #ff7b72;
-  border: 1px solid #da3633;
-  padding: 1rem;
-  border-radius: 6px;
-  margin: 1rem 0;
-}
-
 .fund-card {
   background: #161b22;
   border: 1px solid #30363d;

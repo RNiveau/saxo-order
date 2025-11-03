@@ -105,26 +105,6 @@
   justify-content: center;
 }
 
-.sidebar-loading,
-.sidebar-error,
-.sidebar-empty {
-  padding: 1rem 1.5rem;
-  text-align: center;
-  font-size: 0.85rem;
-}
-
-.sidebar-loading {
-  color: #58a6ff;
-}
-
-.sidebar-error {
-  color: #f85149;
-}
-
-.sidebar-empty {
-  color: #8b949e;
-}
-
 .watchlist-items {
   list-style: none;
   padding: 0 0 4rem 0;
@@ -201,16 +181,6 @@
 
 .watchlist-item-details .variation {
   font-size: 0.85rem;
-  font-weight: 600;
-  font-family: monospace;
-}
-
-.watchlist-item-details .variation.positive {
-  color: #3fb950;
-}
-
-.watchlist-item-details .variation.negative {
-  color: #f85149;
 }
 
 @media (max-width: 768px) {
