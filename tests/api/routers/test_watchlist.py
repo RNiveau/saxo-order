@@ -10,6 +10,7 @@ from api.routers.watchlist import (
     get_saxo_client,
     get_watchlist_service,
 )
+from model import Currency
 
 client = TestClient(app)
 
@@ -25,6 +26,7 @@ def mock_saxo_client():
         "AssetType": "Stock",
         "Symbol": "ITP:xpar",
         "Description": "Interparfums SA",
+        "CurrencyCode": "EUR",
     }
 
     def override_get_saxo_client():
@@ -70,6 +72,7 @@ def mock_watchlist_service():
                 country_code="xpar",
                 current_price=100.0,
                 variation_pct=5.0,
+                currency=Currency.EURO,
                 added_at="2024-01-01T00:00:00Z",
                 labels=[],
             ),
@@ -80,6 +83,7 @@ def mock_watchlist_service():
                 country_code="xetr",
                 current_price=15000.0,
                 variation_pct=-2.5,
+                currency=Currency.EURO,
                 added_at="2024-01-02T00:00:00Z",
                 labels=["short-term"],
             ),
