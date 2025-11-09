@@ -2,6 +2,7 @@ import datetime
 from typing import List, Optional
 
 from api.models.indicator import AssetIndicatorsResponse, MovingAverageInfo
+from client.aws_client import DynamoDBClient
 from client.client_helper import map_data_to_candles
 from client.saxo_client import SaxoClient
 from model import Candle, Currency, UnitTime
@@ -26,10 +27,14 @@ class IndicatorService:
     }
 
     def __init__(
-        self, saxo_client: SaxoClient, candles_service: CandlesService
+        self,
+        saxo_client: SaxoClient,
+        candles_service: CandlesService,
+        dynamodb_client: Optional[DynamoDBClient] = None,
     ):
         self.saxo_client = saxo_client
         self.candles_service = candles_service
+        self.dynamodb_client = dynamodb_client
 
     def _is_same_period(
         self,
@@ -235,6 +240,18 @@ class IndicatorService:
                 f"({unit_time.value})"
             )
 
+        # Get TradingView URL if DynamoDB client is available
+        tradingview_url = None
+        if self.dynamodb_client:
+            try:
+                tradingview_url = self.dynamodb_client.get_tradingview_link(
+                    code
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get TradingView link for {code}: {e}"
+                )
+
         return AssetIndicatorsResponse(
             asset_symbol=symbol,
             description=asset["Description"],
@@ -243,4 +260,5 @@ class IndicatorService:
             currency=Currency.get_value(asset.get("CurrencyCode", "EUR")),
             unit_time=unit_time.value,
             moving_averages=moving_averages,
+            tradingview_url=tradingview_url,
         )

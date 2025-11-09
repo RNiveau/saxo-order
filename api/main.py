@@ -4,11 +4,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import (
+    asset_details,
     fund,
     indexes,
     indicator,
     report,
     search,
+    tradingview,
     watchlist,
     workflow,
 )
@@ -47,11 +49,13 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(asset_details.router)
 app.include_router(fund.router)
 app.include_router(indexes.router)
 app.include_router(indicator.router)
 app.include_router(report.router)
 app.include_router(search.router)
+app.include_router(tradingview.router)
 app.include_router(watchlist.router)
 app.include_router(workflow.router)
 

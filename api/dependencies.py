@@ -1,7 +1,10 @@
 import os
 from functools import lru_cache
-from typing import Union
+from typing import Optional, Union
 
+from fastapi import HTTPException
+
+from client.aws_client import AwsClient, DynamoDBClient
 from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from services.candles_service import CandlesService
@@ -58,3 +61,31 @@ def get_candles_service() -> CandlesService:
     """
     saxo_client = get_saxo_client()
     return CandlesService(saxo_client)
+
+
+def get_dynamodb_client() -> DynamoDBClient:
+    """
+    Create DynamoDBClient instance.
+    Validates AWS context before allowing access.
+
+    This is a dependency that can be injected into FastAPI endpoints.
+    """
+    if not AwsClient.is_aws_context():
+        raise HTTPException(
+            status_code=403,
+            detail="AWS context not available. "
+            "Set AWS_PROFILE environment variable.",
+        )
+    return DynamoDBClient()
+
+
+def get_dynamodb_client_optional() -> Optional[DynamoDBClient]:
+    """
+    Get DynamoDB client if AWS context is available, otherwise None.
+
+    This is a dependency that can be injected into FastAPI endpoints
+    where DynamoDB access is optional.
+    """
+    if AwsClient.is_aws_context():
+        return DynamoDBClient()
+    return None

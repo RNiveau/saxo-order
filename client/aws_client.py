@@ -175,3 +175,37 @@ class DynamoDBClient(AwsClient):
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB update_item error: {response}")
         return response
+
+    def set_asset_detail(
+        self, asset_id: str, tradingview_url: str
+    ) -> Dict[str, Any]:
+        """Store or update TradingView link for an asset."""
+        item = {
+            "asset_id": asset_id,
+            "tradingview_url": tradingview_url,
+            "updated_at": datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat(),
+        }
+
+        response = self.dynamodb.Table("asset_details").put_item(Item=item)
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB put_item error: {response}")
+        return response
+
+    def get_asset_detail(self, asset_id: str) -> Optional[Dict[str, Any]]:
+        """Get asset details including TradingView link."""
+        response = self.dynamodb.Table("asset_details").get_item(
+            Key={"asset_id": asset_id}
+        )
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB get_item error: {response}")
+            return None
+        return response.get("Item")
+
+    def get_tradingview_link(self, asset_id: str) -> Optional[str]:
+        """Convenience method to get just the TradingView URL for an asset."""
+        detail = self.get_asset_detail(asset_id)
+        if detail:
+            return detail.get("tradingview_url")
+        return None

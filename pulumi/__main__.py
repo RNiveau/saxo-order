@@ -16,6 +16,7 @@ scheduler_role = iam.scheduler_role(caller_identity.account_id)
 ecr_repository = ecr.ecr_repository()
 indicator_table = dynamodb.indicator_table()
 watchlist_table = dynamodb.watchlist_table()
+asset_details_table = dynamodb.asset_details_table()
 refresh_token_lambda = ecr_repository.repository_url.apply(
     lambda repository_url: lambda_.resfreh_token_lambda(
         repository_url, lambda_role.arn
@@ -37,8 +38,12 @@ snapshot_lambda = ecr_repository.repository_url.apply(
     )
 )
 
-iam.dynamodb_policy([indicator_table, watchlist_table], lambda_role)
-iam.user_dynamodb_policy([indicator_table, watchlist_table], user)
+iam.dynamodb_policy(
+    [indicator_table, watchlist_table, asset_details_table], lambda_role
+)
+iam.user_dynamodb_policy(
+    [indicator_table, watchlist_table, asset_details_table], user
+)
 
 pulumi.Output.all(
     refresh_token_lambda.arn,
@@ -106,3 +111,4 @@ pulumi.export("access_key_id", access_key.id)
 pulumi.export("secret_access_key", access_key.secret)
 pulumi.export("indicator_table_name", indicator_table.name)
 pulumi.export("watchlist_table_name", watchlist_table.name)
+pulumi.export("asset_details_table_name", asset_details_table.name)
