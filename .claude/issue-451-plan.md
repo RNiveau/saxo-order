@@ -57,7 +57,12 @@ The TradingView link generation currently uses a simple mapping of Saxo country 
    - `api/models/watchlist.py`: Added optional `tradingview_url` field to `WatchlistItem`
    - `api/services/watchlist_service.py`: Query DynamoDB for link in `_enrich_asset()`
 
-**Commit:** `82171c3` - feat: add backend API for custom TradingView links
+**Commits:**
+- `82171c3` - feat: add backend API for custom TradingView links
+- `2dd695d` - refactor: move AssetDetailResponse to separate module
+- `669d3c3` - refactor: separate asset_details and tradingview routers
+- `f04ef93` - refactor: consolidate DynamoDB client dependencies
+
 **PR:** https://github.com/RNiveau/saxo-order/pull/463
 
 ---
