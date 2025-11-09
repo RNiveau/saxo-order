@@ -37,7 +37,7 @@ google-auth-stubs = "^0.3.0"
 isort = "^7.0.0"
 types-beautifulsoup4 = "^4.12.0"
 types-boto3 = "^1.40.69"
-types-pyyaml = "^6.0.12.20250516"
+types-pyyaml = "^6.0.12.20250915"
 flake8 = "^7.3.0"
 httpx = "^0.28.1"
 
