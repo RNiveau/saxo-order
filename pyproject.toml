@@ -46,7 +46,7 @@ k-order = "saxo_order.commands.k_order:k_order"
 k-api = "run_api:main"
 
 [tool.poetry.group.dev.dependencies]
-types-cachetools = "^6.2.0.20250827"
+types-cachetools = "^6.2.0.20251022"
 
 [build-system]
 requires = ["poetry>=0.12"]
