@@ -74,6 +74,13 @@ class WatchlistService:
             )
         )
 
+        # Get TradingView URL if available
+        tradingview_url = None
+        try:
+            tradingview_url = self.dynamodb_client.get_tradingview_link(code)
+        except Exception as e:
+            logger.warning(f"Failed to get TradingView link for {code}: {e}")
+
         return WatchlistItem(
             id=item_id,
             asset_symbol=asset_symbol,
@@ -84,6 +91,7 @@ class WatchlistService:
             currency=currency,
             added_at=added_at,
             labels=labels,
+            tradingview_url=tradingview_url,
         )
 
     def get_watchlist(self) -> WatchlistResponse:

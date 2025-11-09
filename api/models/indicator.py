@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -33,4 +33,8 @@ class AssetIndicatorsResponse(BaseModel):
     )
     moving_averages: List[MovingAverageInfo] = Field(
         description="List of moving averages with their values and position"
+    )
+    tradingview_url: Optional[str] = Field(
+        default=None,
+        description="Custom TradingView URL for this asset",
     )

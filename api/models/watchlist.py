@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -40,6 +40,10 @@ class WatchlistItem(BaseModel):
     labels: List[str] = Field(
         default_factory=list,
         description="Labels for the asset (e.g., ['short-term'])",
+    )
+    tradingview_url: Optional[str] = Field(
+        default=None,
+        description="Custom TradingView URL for this asset",
     )
 
 

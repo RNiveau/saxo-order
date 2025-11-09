@@ -1,8 +1,11 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import get_candles_service, get_saxo_client
 from api.models.indicator import AssetIndicatorsResponse
 from api.services.indicator_service import IndicatorService
+from client.aws_client import AwsClient, DynamoDBClient
 from client.saxo_client import SaxoClient
 from model import UnitTime
 from services.candles_service import CandlesService
@@ -14,6 +17,13 @@ logger = Logger.get_logger("indicator_router")
 
 # Supported unit times for indicator calculations
 SUPPORTED_UNIT_TIMES = [UnitTime.D, UnitTime.W, UnitTime.M]
+
+
+def get_dynamodb_client_optional() -> Optional[DynamoDBClient]:
+    """Get DynamoDB client if AWS context is available, otherwise None."""
+    if AwsClient.is_aws_context():
+        return DynamoDBClient()
+    return None
 
 
 @router.get("/asset/{code}", response_model=AssetIndicatorsResponse)
@@ -29,6 +39,9 @@ async def get_asset_indicators(
     ),
     saxo_client: SaxoClient = Depends(get_saxo_client),
     candles_service: CandlesService = Depends(get_candles_service),
+    dynamodb_client: Optional[DynamoDBClient] = Depends(
+        get_dynamodb_client_optional
+    ),
 ):
     """
     Get indicator data for a specific asset.
@@ -59,7 +72,9 @@ async def get_asset_indicators(
                 f"Supported values: {[u.value for u in SUPPORTED_UNIT_TIMES]}",
             )
 
-        indicator_service = IndicatorService(saxo_client, candles_service)
+        indicator_service = IndicatorService(
+            saxo_client, candles_service, dynamodb_client
+        )
         return indicator_service.get_asset_indicators(
             code=code, country_code=country_code, unit_time=ut
         )

@@ -9,6 +9,7 @@ from api.routers import (
     indicator,
     report,
     search,
+    tradingview,
     watchlist,
     workflow,
 )
@@ -52,6 +53,7 @@ app.include_router(indexes.router)
 app.include_router(indicator.router)
 app.include_router(report.router)
 app.include_router(search.router)
+app.include_router(tradingview.router)
 app.include_router(watchlist.router)
 app.include_router(workflow.router)
 
