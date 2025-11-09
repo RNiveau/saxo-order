@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import (
+    asset_details,
     fund,
     indexes,
     indicator,
@@ -48,6 +49,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(asset_details.router)
 app.include_router(fund.router)
 app.include_router(indexes.router)
 app.include_router(indicator.router)
