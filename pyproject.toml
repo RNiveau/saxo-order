@@ -16,7 +16,7 @@ binance-connector = "^3.7.0"
 beautifulsoup4 = "^4.12.3"
 slack-sdk = "^3.37.0"
 numpy = "^2.1.1"
-boto3 = "^1.40.49"
+boto3 = "^1.40.69"
 pulumi = {version = "^3.148.0", extras = ["pulumi"]}
 pulumi-aws = {version = "^7.8.0", extras = ["pulumi"]}
 prettytable = "^3.12.0"
