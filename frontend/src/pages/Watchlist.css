@@ -97,3 +97,93 @@
   color: #e6edf3;
   font-family: monospace;
 }
+
+.watchlist-table {
+  overflow-x: auto;
+}
+
+.watchlist-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+
+.watchlist-table thead {
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+}
+
+.watchlist-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  color: #8b949e;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.watchlist-table tbody tr {
+  border-bottom: 1px solid #21262d;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.watchlist-table tbody tr:hover {
+  background: #161b22;
+}
+
+.watchlist-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.watchlist-table td {
+  padding: 1rem;
+}
+
+.watchlist-row .variation {
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.watchlist-row .variation.positive {
+  color: #3fb950;
+}
+
+.watchlist-row .variation.negative {
+  color: #f85149;
+}
+
+.loading-indicator {
+  font-size: 1rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error {
+  background: #da3633;
+  color: #ffffff;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  border: 1px solid #f85149;
+}
+
+.no-items {
+  background: #161b22;
+  color: #8b949e;
+  padding: 2rem;
+  border-radius: 6px;
+  text-align: center;
+  border: 1px solid #30363d;
+}

@@ -147,6 +147,7 @@ export interface AssetIndicatorsResponse {
   currency: string;
   unit_time: string;
   moving_averages: MovingAverageInfo[];
+  tradingview_url?: string;
 }
 
 export const indicatorService = {
@@ -177,6 +178,7 @@ export interface WatchlistItem {
   currency: string;
   added_at: string;
   labels: string[];
+  tradingview_url?: string;
 }
 
 export interface WatchlistResponse {
@@ -388,6 +390,25 @@ export interface ReportConfig {
 export const reportConfigService = {
   getConfig: async (): Promise<ReportConfig> => {
     const response = await api.get<ReportConfig>('/api/report/config');
+    return response.data;
+  },
+};
+
+export interface SetTradingViewLinkResponse {
+  message: string;
+  asset_id: string;
+  tradingview_url: string;
+}
+
+export const tradingViewService = {
+  setTradingViewLink: async (
+    assetId: string,
+    tradingviewUrl: string
+  ): Promise<SetTradingViewLinkResponse> => {
+    const response = await api.put<SetTradingViewLinkResponse>(
+      `/api/asset-details/${assetId}/tradingview`,
+      { tradingview_url: tradingviewUrl }
+    );
     return response.data;
   },
 };

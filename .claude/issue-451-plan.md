@@ -57,37 +57,45 @@ The TradingView link generation currently uses a simple mapping of Saxo country 
    - `api/models/watchlist.py`: Added optional `tradingview_url` field to `WatchlistItem`
    - `api/services/watchlist_service.py`: Query DynamoDB for link in `_enrich_asset()`
 
-**Commit:** `82171c3` - feat: add backend API for custom TradingView links
+**Commits:**
+- `82171c3` - feat: add backend API for custom TradingView links
+- `2dd695d` - refactor: move AssetDetailResponse to separate module
+- `669d3c3` - refactor: separate asset_details and tradingview routers
+- `f04ef93` - refactor: consolidate DynamoDB client dependencies
+
 **PR:** https://github.com/RNiveau/saxo-order/pull/463
 
 ---
 
-### Frontend Changes (TODO)
+### Frontend Changes ✅ COMPLETED
 
-9. **Update API client** (`frontend/src/services/api.ts`)
-   - Add `setTradingViewLink(assetId: string, url: string)` function
-   - Update `AssetIndicatorsResponse` interface to include optional `tradingview_url?: string`
-   - Update `WatchlistItem` interface to include optional `tradingview_url?: string`
+9. ✅ **Update API client** (`frontend/src/services/api.ts`)
+   - Added `tradingViewService.setTradingViewLink(assetId: string, url: string)` function
+   - Updated `AssetIndicatorsResponse` interface to include optional `tradingview_url?: string`
+   - Updated `WatchlistItem` interface to include optional `tradingview_url?: string`
+   - Added `SetTradingViewLinkResponse` interface
 
-10. **Update TradingView utility** (`frontend/src/utils/tradingview.ts`)
-    - Modify signature: `getTradingViewUrl(assetSymbol: string, customUrl?: string)`
-    - Return customUrl if provided, otherwise fall back to current mapping logic
+10. ✅ **Update TradingView utility** (`frontend/src/utils/tradingview.ts`)
+    - Modified signature: `getTradingViewUrl(assetSymbol: string, customUrl?: string)`
+    - Returns customUrl if provided, otherwise falls back to default mapping logic
 
-11. **Update IndicatorCard** (`frontend/src/components/IndicatorCard.tsx`)
-    - Use `getTradingViewUrl(indicators.asset_symbol, indicators.tradingview_url)`
-    - Add small edit button (✏️) next to TradingView link when not in edit mode
-    - Create modal component for editing TradingView URL:
-      - Input field for URL
-      - Save/Cancel buttons
-      - Handle API call to save the URL
-      - Show success/error messages
+11. ✅ **Update IndicatorCard** (`frontend/src/components/IndicatorCard.tsx`)
+    - Updated TradingView link to use `getTradingViewUrl(indicators.asset_symbol, indicators.tradingview_url)`
+    - Added edit button (✏️) next to TradingView link
+    - Created modal component for editing TradingView URL:
+      - Input field for URL with placeholder
+      - Save/Cancel buttons with loading states
+      - API call to save the URL using `tradingViewService`
+      - Error message display
+    - Added CSS styling in `IndicatorCard.css` for modal and edit button
 
-12. **Update AssetDetail page** (`frontend/src/pages/AssetDetail.tsx`)
-    - Pass tradingview_url from indicatorData to IndicatorCard
-    - (Already passed via indicators prop, just need to ensure it's in the data)
+12. ✅ **Update AssetDetail page** (`frontend/src/pages/AssetDetail.tsx`)
+    - Added `onTradingViewUrlUpdated` callback to IndicatorCard
+    - Updates local state when URL is changed
 
-13. **Update Watchlist** (`frontend/src/pages/Watchlist.tsx`)
-    - Use `getTradingViewUrl(item.asset_symbol, item.tradingview_url)` for sidebar links
+13. ✅ **Update Watchlist** (`frontend/src/pages/Watchlist.tsx`)
+    - Updated to use `getTradingViewUrl(item.asset_symbol, item.tradingview_url)` for TradingView links
+    - Fixed CSS styling in `Watchlist.css` for proper table layout
 
 ---
 
@@ -96,19 +104,25 @@ The TradingView link generation currently uses a simple mapping of Saxo country 
 1. ✅ **Infrastructure** (DynamoDB table, IAM policies, Pulumi deployment) - COMPLETED
 2. ✅ **Backend data layer** (AWS client methods) - COMPLETED
 3. ✅ **Backend API** (models, router, service updates) - COMPLETED
-4. **Frontend API client** updates - TODO
-5. **Frontend UI** (modal, link updates) - TODO
+4. ✅ **Frontend API client** updates - COMPLETED
+5. ✅ **Frontend UI** (modal, link updates) - COMPLETED
 
 ## Progress Summary
 
 **Completed:**
-- Infrastructure setup with DynamoDB table
-- Complete backend API implementation
-- All backend tests passing
-- PR created: https://github.com/RNiveau/saxo-order/pull/463
+- ✅ Infrastructure setup with DynamoDB table
+- ✅ Complete backend API implementation
+- ✅ All backend tests passing
+- ✅ Backend PR created: https://github.com/RNiveau/saxo-order/pull/463
+- ✅ Complete frontend implementation
+  - API client with TradingView service
+  - TradingView utility with custom URL support
+  - IndicatorCard with edit modal
+  - AssetDetail page integration
+  - Watchlist custom URL support
+  - All CSS styling completed
 
-**Remaining:**
-- Frontend implementation (separate PR after backend is merged)
+**Status:** Feature fully implemented and ready for testing
 
 ---
 
@@ -131,11 +145,13 @@ The TradingView link generation currently uses a simple mapping of Saxo country 
 - `api/services/watchlist_service.py` - ✅ Query and include link
 
 ### Frontend
-- `frontend/src/services/api.ts` - API client
-- `frontend/src/utils/tradingview.ts` - URL generation utility
-- `frontend/src/components/IndicatorCard.tsx` - Display and edit modal
-- `frontend/src/pages/AssetDetail.tsx` - Pass data to IndicatorCard
-- `frontend/src/pages/Watchlist.tsx` - Use custom URLs
+- `frontend/src/services/api.ts` - ✅ API client with TradingView service
+- `frontend/src/utils/tradingview.ts` - ✅ URL generation utility
+- `frontend/src/components/IndicatorCard.tsx` - ✅ Display and edit modal
+- `frontend/src/components/IndicatorCard.css` - ✅ Modal and edit button styling
+- `frontend/src/pages/AssetDetail.tsx` - ✅ Pass data to IndicatorCard with callback
+- `frontend/src/pages/Watchlist.tsx` - ✅ Use custom URLs
+- `frontend/src/pages/Watchlist.css` - ✅ Fixed table layout styling
 
 ---
 

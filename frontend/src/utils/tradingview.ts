@@ -1,4 +1,10 @@
-export function getTradingViewUrl(assetSymbol: string): string {
+export function getTradingViewUrl(assetSymbol: string, customUrl?: string): string {
+  // If custom URL is provided, use it
+  if (customUrl) {
+    return customUrl;
+  }
+
+  // Otherwise, generate default URL
   // Parse asset_symbol to get code and country_code
   const [code, countryCode = 'xpar'] = assetSymbol.split(':');
 

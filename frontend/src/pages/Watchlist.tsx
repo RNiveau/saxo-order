@@ -129,7 +129,7 @@ export function Watchlist() {
                       <div className="description-with-icon">
                         <span className="description-text">{item.description || item.asset_symbol}</span>
                         <a
-                          href={getTradingViewUrl(item.asset_symbol)}
+                          href={getTradingViewUrl(item.asset_symbol, item.tradingview_url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="tradingview-icon"
