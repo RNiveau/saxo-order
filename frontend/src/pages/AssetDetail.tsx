@@ -227,7 +227,12 @@ export function AssetDetail() {
       {indicatorLoading && <div className="loading">Loading indicators...</div>}
       {indicatorError && <div className="error">{indicatorError}</div>}
       {!indicatorLoading && !indicatorError && indicatorData && (
-        <IndicatorCard indicators={indicatorData} />
+        <IndicatorCard
+          indicators={indicatorData}
+          onTradingViewUrlUpdated={(url) => {
+            setIndicatorData({ ...indicatorData, tradingview_url: url });
+          }}
+        />
       )}
 
       {/* Workflows Section */}
