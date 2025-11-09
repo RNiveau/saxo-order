@@ -2,10 +2,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from api.dependencies import get_candles_service, get_saxo_client
+from api.dependencies import (
+    get_candles_service,
+    get_dynamodb_client_optional,
+    get_saxo_client,
+)
 from api.models.indicator import AssetIndicatorsResponse
 from api.services.indicator_service import IndicatorService
-from client.aws_client import AwsClient, DynamoDBClient
+from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
 from model import UnitTime
 from services.candles_service import CandlesService
@@ -17,13 +21,6 @@ logger = Logger.get_logger("indicator_router")
 
 # Supported unit times for indicator calculations
 SUPPORTED_UNIT_TIMES = [UnitTime.D, UnitTime.W, UnitTime.M]
-
-
-def get_dynamodb_client_optional() -> Optional[DynamoDBClient]:
-    """Get DynamoDB client if AWS context is available, otherwise None."""
-    if AwsClient.is_aws_context():
-        return DynamoDBClient()
-    return None
 
 
 @router.get("/asset/{code}", response_model=AssetIndicatorsResponse)

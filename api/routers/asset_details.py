@@ -1,25 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 
+from api.dependencies import get_dynamodb_client
 from api.models.asset_details import AssetDetailResponse
-from client.aws_client import AwsClient, DynamoDBClient
+from client.aws_client import DynamoDBClient
 from utils.logger import Logger
 
 router = APIRouter(prefix="/api/asset-details", tags=["asset-details"])
 logger = Logger.get_logger("asset_details_router")
-
-
-def get_dynamodb_client() -> DynamoDBClient:
-    """
-    Create DynamoDBClient instance.
-    Validates AWS context before allowing access.
-    """
-    if not AwsClient.is_aws_context():
-        raise HTTPException(
-            status_code=403,
-            detail="AWS context not available. "
-            "Set AWS_PROFILE environment variable.",
-        )
-    return DynamoDBClient()
 
 
 @router.get("/{asset_id}", response_model=AssetDetailResponse)

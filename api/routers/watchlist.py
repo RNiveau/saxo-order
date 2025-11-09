@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.dependencies import get_candles_service, get_saxo_client
+from api.dependencies import (
+    get_candles_service,
+    get_dynamodb_client,
+    get_saxo_client,
+)
 from api.models.watchlist import (
     AddToWatchlistRequest,
     AddToWatchlistResponse,
@@ -12,27 +16,13 @@ from api.models.watchlist import (
 )
 from api.services.indicator_service import IndicatorService
 from api.services.watchlist_service import WatchlistService
-from client.aws_client import AwsClient, DynamoDBClient
+from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
 from services.candles_service import CandlesService
 from utils.logger import Logger
 
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 logger = Logger.get_logger("watchlist_router")
-
-
-def get_dynamodb_client() -> DynamoDBClient:
-    """
-    Create DynamoDBClient instance.
-    Validates AWS context before allowing access.
-    """
-    if not AwsClient.is_aws_context():
-        raise HTTPException(
-            status_code=403,
-            detail="AWS context not available. "
-            "Set AWS_PROFILE environment variable.",
-        )
-    return DynamoDBClient()
 
 
 def get_watchlist_service(
