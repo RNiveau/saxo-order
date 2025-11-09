@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
+from api.models.asset_details import AssetDetailResponse
 from api.models.tradingview import (
-    AssetDetailResponse,
     SetTradingViewLinkRequest,
     SetTradingViewLinkResponse,
 )
