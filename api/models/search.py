@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -8,8 +8,14 @@ class SearchResultItem(BaseModel):
     description: str = Field(
         description="Name or description of the instrument"
     )
-    identifier: int = Field(description="Unique identifier in Saxo system")
-    asset_type: str = Field(description="Type of asset (Stock, ETF, etc.)")
+    identifier: Optional[int] = Field(
+        default=None,
+        description="Unique identifier in Saxo system (None for Binance)",
+    )
+    asset_type: str = Field(
+        description="Type of asset (Stock, ETF, Crypto, etc.)"
+    )
+    exchange: str = Field(description="Exchange name (saxo or binance)")
 
 
 class SearchResponse(BaseModel):

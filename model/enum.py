@@ -109,3 +109,8 @@ class AlertType(EnumWithGetValue):
     DOUBLE_TOP = "double_top"
     DOUBLE_INSIDE_BAR = "double_inside_bar"
     CONTAINING_CANDLE = "containing_candle"
+
+
+class Exchange(EnumWithGetValue):
+    SAXO = "saxo"
+    BINANCE = "binance"

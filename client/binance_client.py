@@ -2,10 +2,13 @@ import logging
 from datetime import datetime
 from typing import Dict, List
 
+import requests
 from binance.error import ClientError
 from binance.spot import Spot  # type: ignore
 
 from model import AssetType, Currency, Direction, ReportOrder, Taxes
+from model.asset import Asset
+from model.enum import Exchange
 from utils.logger import Logger
 
 
@@ -130,3 +133,51 @@ class BinanceClient:
         for coin in BinanceClient.ASSET_WITHLIST:
             orders += self.get_report(coin, date, usdeur_rate)
         return orders
+
+    def search(self, keyword: str) -> List[Asset]:
+        """
+        Search for trading pairs on Binance by keyword.
+
+        Args:
+            keyword: Search keyword to match against symbol, baseAsset,
+                     or quoteAsset
+
+        Returns:
+            List of Asset objects for matching trading pairs
+        """
+        try:
+            response = requests.get(
+                "https://api.binance.com/api/v3/exchangeInfo", timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Failed to fetch Binance exchange info: {e}")
+            return []
+
+        keyword_lower = keyword.lower()
+        results = []
+
+        for symbol_data in data.get("symbols", []):
+            if symbol_data.get("status") != "TRADING":
+                continue
+
+            symbol = symbol_data.get("symbol", "")
+            base_asset = symbol_data.get("baseAsset", "")
+            quote_asset = symbol_data.get("quoteAsset", "")
+
+            if (
+                keyword_lower in symbol.lower()
+                or keyword_lower in base_asset.lower()
+                or keyword_lower in quote_asset.lower()
+            ):
+                asset = Asset(
+                    symbol=symbol,
+                    description=f"{base_asset}/{quote_asset}",
+                    asset_type=AssetType.CRYPTO,
+                    exchange=Exchange.BINANCE,
+                    identifier=None,
+                )
+                results.append(asset)
+
+        return results

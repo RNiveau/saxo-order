@@ -5,6 +5,7 @@ from typing import Optional, Union
 from fastapi import HTTPException
 
 from client.aws_client import AwsClient, DynamoDBClient
+from client.binance_client import BinanceClient
 from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from services.candles_service import CandlesService
@@ -89,3 +90,17 @@ def get_dynamodb_client_optional() -> Optional[DynamoDBClient]:
     if AwsClient.is_aws_context():
         return DynamoDBClient()
     return None
+
+
+@lru_cache()
+def get_binance_client() -> BinanceClient:
+    """
+    Get cached BinanceClient instance.
+    This is a dependency that can be injected into FastAPI endpoints.
+
+    For search functionality, authentication is not required as the
+    exchangeInfo endpoint is public. We use empty strings for key/secret
+    since the search method doesn't use authenticated endpoints.
+    """
+    logger.debug("Using BinanceClient for search")
+    return BinanceClient(key="", secret="")
