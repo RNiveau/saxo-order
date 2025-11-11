@@ -13,7 +13,7 @@ Created simple Asset dataclass:
 ```python
 from dataclasses import dataclass
 from typing import Optional
-from model.enum import AssetType
+from model.enum import AssetType, Exchange
 
 
 @dataclass
@@ -21,8 +21,18 @@ class Asset:
     symbol: str                      # e.g., "AAPL:xnas" or "BTCUSDT"
     description: str                 # Human-readable name
     asset_type: AssetType           # Using existing enum
-    exchange: str                    # 'saxo' or 'binance'
+    exchange: Exchange               # Exchange.SAXO or Exchange.BINANCE
     identifier: Optional[int] = None # Saxo UIC only
+```
+
+**File:** `model/enum.py` (updated)
+
+Added Exchange enum:
+
+```python
+class Exchange(EnumWithGetValue):
+    SAXO = "saxo"
+    BINANCE = "binance"
 ```
 
 ## Phase 2: Implement BinanceClient.search() ✅ COMPLETED
@@ -154,13 +164,14 @@ The existing `AssetType` enum in `model/enum.py` already includes `CRYPTO = "Cry
 ### Files Changed
 
 **Backend (All Completed):**
-1. `model/asset.py` - New Asset dataclass model
-2. `client/binance_client.py` - Added search() method with requests library
-3. `client/saxo_client.py` - Updated search() to return List[Asset]
-4. `api/services/search_service.py` - Updated to use both clients
-5. `api/models/search.py` - Updated SearchResultItem model
-6. `api/dependencies.py` - Added get_binance_client() dependency
-7. `api/routers/search.py` - Updated to inject both clients
+1. `model/asset.py` - New Asset dataclass model with Exchange enum
+2. `model/enum.py` - Added Exchange enum for type safety
+3. `client/binance_client.py` - Added search() method with requests library
+4. `client/saxo_client.py` - Updated search() to return List[Asset]
+5. `api/services/search_service.py` - Updated to use both clients
+6. `api/models/search.py` - Updated SearchResultItem model
+7. `api/dependencies.py` - Added get_binance_client() dependency
+8. `api/routers/search.py` - Updated to inject both clients
 
 **Frontend (Pending):**
 1. `frontend/src/services/api.ts` - TypeScript interface updates needed
