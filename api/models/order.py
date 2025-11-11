@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from model import Direction, OrderType
+from model import Direction, OrderType, Signal, Strategy
 
 
 class OrderRequest(BaseModel):
@@ -22,8 +22,8 @@ class OrderRequest(BaseModel):
     objective: Optional[float] = Field(
         None, description="Objective/target price", gt=0
     )
-    strategy: Optional[str] = Field(None, description="Trading strategy")
-    signal: Optional[str] = Field(None, description="Trading signal")
+    strategy: Optional[Strategy] = Field(None, description="Trading strategy")
+    signal: Optional[Signal] = Field(None, description="Trading signal")
     comment: Optional[str] = Field(None, description="Order comment")
     account_key: Optional[str] = Field(
         None, description="Specific account key to use"
@@ -50,8 +50,8 @@ class OcoOrderRequest(BaseModel):
     objective: Optional[float] = Field(
         None, description="Objective/target price", gt=0
     )
-    strategy: Optional[str] = Field(None, description="Trading strategy")
-    signal: Optional[str] = Field(None, description="Trading signal")
+    strategy: Optional[Strategy] = Field(None, description="Trading strategy")
+    signal: Optional[Signal] = Field(None, description="Trading signal")
     comment: Optional[str] = Field(None, description="Order comment")
     account_key: Optional[str] = Field(
         None, description="Specific account key to use"
@@ -74,8 +74,8 @@ class StopLimitOrderRequest(BaseModel):
     objective: Optional[float] = Field(
         None, description="Objective/target price", gt=0
     )
-    strategy: Optional[str] = Field(None, description="Trading strategy")
-    signal: Optional[str] = Field(None, description="Trading signal")
+    strategy: Optional[Strategy] = Field(None, description="Trading strategy")
+    signal: Optional[Signal] = Field(None, description="Trading signal")
     comment: Optional[str] = Field(None, description="Order comment")
     account_key: Optional[str] = Field(
         None, description="Specific account key to use"
