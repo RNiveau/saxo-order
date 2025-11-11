@@ -2,6 +2,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from model import Direction, OrderType
+
 
 class OrderRequest(BaseModel):
     """Request model for creating a single order."""
@@ -9,14 +11,8 @@ class OrderRequest(BaseModel):
     code: str = Field(..., description="Stock/asset code", min_length=1)
     price: float = Field(..., description="Order price", gt=0)
     quantity: float = Field(..., description="Number of units", gt=0)
-    order_type: str = Field(
-        ...,
-        description="Order type",
-        pattern="^(limit|stop|open_stop|market)$",
-    )
-    direction: str = Field(
-        ..., description="Order direction", pattern="^(buy|sell)$"
-    )
+    order_type: OrderType = Field(..., description="Order type")
+    direction: Direction = Field(..., description="Order direction")
     country_code: str = Field(
         "xpar", description="Market code (default: xpar)"
     )
@@ -40,13 +36,11 @@ class OcoOrderRequest(BaseModel):
     code: str = Field(..., description="Stock/asset code", min_length=1)
     quantity: float = Field(..., description="Number of units", gt=0)
     limit_price: float = Field(..., description="Limit order price", gt=0)
-    limit_direction: str = Field(
-        ..., description="Limit order direction", pattern="^(buy|sell)$"
+    limit_direction: Direction = Field(
+        ..., description="Limit order direction"
     )
     stop_price: float = Field(..., description="Stop order price", gt=0)
-    stop_direction: str = Field(
-        ..., description="Stop order direction", pattern="^(buy|sell)$"
-    )
+    stop_direction: Direction = Field(..., description="Stop order direction")
     country_code: str = Field(
         "xpar", description="Market code (default: xpar)"
     )

@@ -74,7 +74,7 @@ class TestOrderEndpoint:
                 "price": 100.0,
                 "quantity": 5,
                 "order_type": "limit",
-                "direction": "buy",
+                "direction": "Buy",
                 "stop": 95.0,
                 "objective": 115.0,
                 "comment": "Test order",
@@ -114,7 +114,7 @@ class TestOrderEndpoint:
                 "price": 5000.0,
                 "quantity": 100,
                 "order_type": "limit",
-                "direction": "buy",
+                "direction": "Buy",
                 "stop": 4900.0,
                 "objective": 5500.0,
             },
@@ -132,7 +132,7 @@ class TestOrderEndpoint:
                 "price": -100.0,
                 "quantity": 10,
                 "order_type": "limit",
-                "direction": "buy",
+                "direction": "Buy",
             },
         )
 
@@ -159,7 +159,7 @@ class TestOrderEndpoint:
                 "price": 100.0,
                 "quantity": 10,
                 "order_type": "invalid",
-                "direction": "buy",
+                "direction": "Buy",
             },
         )
 
@@ -206,9 +206,9 @@ class TestOcoOrderEndpoint:
                 "code": "TEST",
                 "quantity": 10,
                 "limit_price": 105.0,
-                "limit_direction": "sell",
+                "limit_direction": "Sell",
                 "stop_price": 95.0,
-                "stop_direction": "sell",
+                "stop_direction": "Sell",
                 "stop": 90.0,
                 "objective": 110.0,
             },
@@ -244,9 +244,9 @@ class TestOcoOrderEndpoint:
                 "code": "TEST",
                 "quantity": 10,
                 "limit_price": 105.0,
-                "limit_direction": "sell",
+                "limit_direction": "Sell",
                 "stop_price": 95.0,
-                "stop_direction": "sell",
+                "stop_direction": "Sell",
             },
         )
 
