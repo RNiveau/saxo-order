@@ -23,6 +23,7 @@ from model import (
     TriggerOrder,
     Underlying,
 )
+from model.asset import Asset
 from utils.configuration import Configuration
 from utils.exception import EmptyResponseException, SaxoException
 from utils.logger import Logger
@@ -113,11 +114,32 @@ class SaxoClient:
             raise SaxoException(f"Stock {code}:{market} doesn't exist")
         return data[0]
 
-    def search(self, keyword: str, asset_type: Optional[str] = None) -> List:
+    def search(
+        self, keyword: str, asset_type: Optional[str] = None
+    ) -> List[Asset]:
         data = self._find_asset(keyword, asset_type)
         if len(data) == 0:
             raise SaxoException(f"Nothing found for {keyword}")
-        return data
+
+        results = []
+        for item in data:
+            asset_type_str = item.get("AssetType", "")
+            try:
+                asset_type_enum = AssetType(asset_type_str)
+            except ValueError:
+                self.logger.warning(f"Unknown asset type: {asset_type_str}")
+                continue
+
+            asset = Asset(
+                symbol=item.get("Symbol", ""),
+                description=item.get("Description", ""),
+                asset_type=asset_type_enum,
+                exchange="saxo",
+                identifier=item.get("Identifier"),
+            )
+            results.append(asset)
+
+        return results
 
     def _find_asset(
         self, keyword: str, asset_type: Optional[str] = None
