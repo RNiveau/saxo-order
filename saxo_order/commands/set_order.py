@@ -2,7 +2,7 @@ import click
 from click.core import Context
 
 from client.saxo_client import SaxoClient
-from model import Direction
+from model import Currency, Direction, Order, OrderType
 from saxo_order.commands import catch_exception
 from saxo_order.commands.common import logs_order
 from saxo_order.commands.input_helper import (
@@ -81,8 +81,6 @@ def set_order(
         temp_order = order_service.client.get_asset(
             code=code, market=ctx.obj["country_code"]
         )
-        from model import Currency, Order, OrderType
-
         temp_order_obj = Order(
             code=code,
             name=temp_order["Description"],
@@ -100,8 +98,6 @@ def set_order(
         strategy = temp_order_obj.strategy
         signal = temp_order_obj.signal
         comment = temp_order_obj.comment
-
-    from model import OrderType
 
     result = order_service.create_order(
         code=code,
