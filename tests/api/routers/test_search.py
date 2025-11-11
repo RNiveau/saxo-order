@@ -7,6 +7,7 @@ from api.dependencies import get_binance_client, get_saxo_client
 from api.main import app
 from model import AssetType
 from model.asset import Asset
+from model.enum import Exchange
 from utils.exception import SaxoException
 
 client = TestClient(app)
@@ -47,14 +48,14 @@ class TestSearchEndpoint:
                 symbol="AAPL:xnas",
                 description="Apple Inc.",
                 asset_type=AssetType.STOCK,
-                exchange="saxo",
+                exchange=Exchange.SAXO,
                 identifier=211,
             ),
             Asset(
                 symbol="AAPL:xnys",
                 description="Apple Inc.",
                 asset_type=AssetType.STOCK,
-                exchange="saxo",
+                exchange=Exchange.SAXO,
                 identifier=212,
             ),
         ]
@@ -80,7 +81,7 @@ class TestSearchEndpoint:
                 symbol="SPY:arcx",
                 description="SPDR S&P 500 ETF Trust",
                 asset_type=AssetType.ETF,
-                exchange="saxo",
+                exchange=Exchange.SAXO,
                 identifier=1234,
             )
         ]
@@ -131,7 +132,7 @@ class TestSearchEndpoint:
                 symbol="BTCUSDT",
                 description="BTC/USDT",
                 asset_type=AssetType.CRYPTO,
-                exchange="binance",
+                exchange=Exchange.BINANCE,
                 identifier=None,
             )
         ]
@@ -165,21 +166,21 @@ class TestSearchEndpoint:
                 symbol="MSFT:xnas",
                 description="Microsoft Corporation",
                 asset_type=AssetType.STOCK,
-                exchange="saxo",
+                exchange=Exchange.SAXO,
                 identifier=100,
             ),
             Asset(
                 symbol="MSFT:xnys",
                 description="Microsoft Corp",
                 asset_type=AssetType.STOCK,
-                exchange="saxo",
+                exchange=Exchange.SAXO,
                 identifier=101,
             ),
             Asset(
                 symbol="MSF:xpar",
                 description="Microsoft ETF",
                 asset_type=AssetType.ETF,
-                exchange="saxo",
+                exchange=Exchange.SAXO,
                 identifier=102,
             ),
         ]
