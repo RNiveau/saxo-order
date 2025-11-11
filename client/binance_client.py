@@ -162,9 +162,6 @@ class BinanceClient:
             if symbol_data.get("status") != "TRADING":
                 continue
 
-            if "SPOT" not in symbol_data.get("permissions", []):
-                continue
-
             symbol = symbol_data.get("symbol", "")
             base_asset = symbol_data.get("baseAsset", "")
             quote_asset = symbol_data.get("quoteAsset", "")
