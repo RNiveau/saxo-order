@@ -31,14 +31,14 @@ class OrderService:
         code: str,
         price: float,
         quantity: float,
-        order_type: str,
-        direction: str,
+        order_type: OrderType,
+        direction: Direction,
         country_code: str = "xpar",
         conditional_order: Optional[ConditionalOrder] = None,
         stop: Optional[float] = None,
         objective: Optional[float] = None,
-        strategy: Optional[str] = None,
-        signal: Optional[str] = None,
+        strategy: Optional[Strategy] = None,
+        signal: Optional[Signal] = None,
         comment: Optional[str] = None,
         account_key: Optional[str] = None,
     ) -> dict:
@@ -49,14 +49,14 @@ class OrderService:
             code: Stock/asset code
             price: Order price
             quantity: Number of units
-            order_type: Order type (limit, stop, open_stop, market)
-            direction: Buy or sell
+            order_type: Order type enum
+            direction: Direction enum
             country_code: Market code (default: xpar)
             conditional_order: Optional conditional order
             stop: Optional stop price
             objective: Optional objective price
-            strategy: Optional strategy (string value)
-            signal: Optional signal (string value)
+            strategy: Optional strategy enum
+            signal: Optional signal enum
             comment: Optional comment
             account_key: Optional account key
 
@@ -68,8 +68,7 @@ class OrderService:
         """
         asset = self.client.get_asset(code=code, market=country_code)
 
-        order_type_enum = OrderType.get_value(order_type)
-        if order_type_enum == OrderType.MARKET:
+        if order_type == OrderType.MARKET:
             price = self.client.get_price(
                 asset["Identifier"], asset["AssetType"]
             )
@@ -80,13 +79,13 @@ class OrderService:
             price=price,
             quantity=quantity,
             asset_type=asset["AssetType"],
-            type=order_type_enum,
-            direction=Direction.get_value(direction),
+            type=order_type,
+            direction=direction,
             currency=Currency.get_value(asset["CurrencyCode"]),
             stop=stop,
             objective=objective,
-            strategy=Strategy.get_value(strategy) if strategy else None,
-            signal=Signal.get_value(signal) if signal else None,
+            strategy=strategy,
+            signal=signal,
             comment=comment,
         )
 
@@ -117,14 +116,14 @@ class OrderService:
         code: str,
         quantity: float,
         limit_price: float,
-        limit_direction: str,
+        limit_direction: Direction,
         stop_price: float,
-        stop_direction: str,
+        stop_direction: Direction,
         country_code: str = "xpar",
         stop: Optional[float] = None,
         objective: Optional[float] = None,
-        strategy: Optional[str] = None,
-        signal: Optional[str] = None,
+        strategy: Optional[Strategy] = None,
+        signal: Optional[Signal] = None,
         comment: Optional[str] = None,
         account_key: Optional[str] = None,
     ) -> dict:
@@ -135,14 +134,14 @@ class OrderService:
             code: Stock/asset code
             quantity: Number of units
             limit_price: Limit order price
-            limit_direction: Limit order direction (buy/sell)
+            limit_direction: Limit order direction enum
             stop_price: Stop order price
-            stop_direction: Stop order direction (buy/sell)
+            stop_direction: Stop order direction enum
             country_code: Market code (default: xpar)
             stop: Optional stop price for risk management
             objective: Optional objective price
-            strategy: Optional strategy
-            signal: Optional signal
+            strategy: Optional strategy enum
+            signal: Optional signal enum
             comment: Optional comment
             account_key: Optional account key
 
@@ -159,7 +158,7 @@ class OrderService:
             name=asset["Description"],
             price=limit_price,
             quantity=quantity,
-            direction=Direction.get_value(limit_direction),
+            direction=limit_direction,
             asset_type=asset["AssetType"],
             type=OrderType.OCO,
             currency=Currency.get_value(asset["CurrencyCode"]),
@@ -170,14 +169,14 @@ class OrderService:
             name=asset["Description"],
             price=stop_price,
             quantity=quantity,
-            direction=Direction.get_value(stop_direction),
+            direction=stop_direction,
             asset_type=asset["AssetType"],
             type=OrderType.OCO,
             currency=Currency.get_value(asset["CurrencyCode"]),
             stop=stop,
             objective=objective,
-            strategy=Strategy.get_value(strategy) if strategy else None,
-            signal=Signal.get_value(signal) if signal else None,
+            strategy=strategy,
+            signal=signal,
             comment=comment,
         )
 
@@ -213,8 +212,8 @@ class OrderService:
         country_code: str = "xpar",
         stop: Optional[float] = None,
         objective: Optional[float] = None,
-        strategy: Optional[str] = None,
-        signal: Optional[str] = None,
+        strategy: Optional[Strategy] = None,
+        signal: Optional[Signal] = None,
         comment: Optional[str] = None,
         account_key: Optional[str] = None,
     ) -> dict:
@@ -229,8 +228,8 @@ class OrderService:
             country_code: Market code (default: xpar)
             stop: Optional stop price for risk management
             objective: Optional objective price
-            strategy: Optional strategy
-            signal: Optional signal
+            strategy: Optional strategy enum
+            signal: Optional signal enum
             comment: Optional comment
             account_key: Optional account key
 
@@ -254,8 +253,8 @@ class OrderService:
             currency=Currency.get_value(asset["CurrencyCode"]),
             stop=stop,
             objective=objective,
-            strategy=Strategy.get_value(strategy) if strategy else None,
-            signal=Signal.get_value(signal) if signal else None,
+            strategy=strategy,
+            signal=signal,
             comment=comment,
         )
 

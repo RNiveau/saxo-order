@@ -97,18 +97,18 @@ def set_order(
         confirm_order(saxo_client, temp_order_obj)
         stop = temp_order_obj.stop
         objective = temp_order_obj.objective
-        strategy = (
-            temp_order_obj.strategy.value if temp_order_obj.strategy else None
-        )
-        signal = temp_order_obj.signal.value if temp_order_obj.signal else None
+        strategy = temp_order_obj.strategy
+        signal = temp_order_obj.signal
         comment = temp_order_obj.comment
+
+    from model import OrderType
 
     result = order_service.create_order(
         code=code,
         price=price,
         quantity=quantity,
-        order_type=order_type,
-        direction=direction,
+        order_type=OrderType.get_value(order_type),
+        direction=Direction.get_value(direction),
         country_code=ctx.obj["country_code"],
         conditional_order=conditional_order,
         stop=stop,

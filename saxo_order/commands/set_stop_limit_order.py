@@ -71,8 +71,8 @@ def set_stop_limit_order(
         country_code=ctx.obj["country_code"],
         stop=temp_order.stop,
         objective=temp_order.objective,
-        strategy=temp_order.strategy.value if temp_order.strategy else None,
-        signal=temp_order.signal.value if temp_order.signal else None,
+        strategy=temp_order.strategy,
+        signal=temp_order.signal,
         comment=temp_order.comment,
         account_key=account.key,
     )

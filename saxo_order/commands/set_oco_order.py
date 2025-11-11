@@ -92,23 +92,17 @@ def set_oco_order(
         confirm_order(client, temp_stop_order)
         stop = temp_stop_order.stop
         objective = temp_stop_order.objective
-        strategy = (
-            temp_stop_order.strategy.value
-            if temp_stop_order.strategy
-            else None
-        )
-        signal = (
-            temp_stop_order.signal.value if temp_stop_order.signal else None
-        )
+        strategy = temp_stop_order.strategy
+        signal = temp_stop_order.signal
         comment = temp_stop_order.comment
 
     result = order_service.create_oco_order(
         code=code,
         quantity=quantity,
         limit_price=limit_price,
-        limit_direction=limit_direction,
+        limit_direction=Direction.get_value(limit_direction),
         stop_price=stop_price,
-        stop_direction=stop_direction,
+        stop_direction=Direction.get_value(stop_direction),
         country_code=ctx.obj["country_code"],
         stop=stop,
         objective=objective,
