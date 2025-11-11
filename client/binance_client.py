@@ -8,6 +8,7 @@ from binance.spot import Spot  # type: ignore
 
 from model import AssetType, Currency, Direction, ReportOrder, Taxes
 from model.asset import Asset
+from model.enum import Exchange
 from utils.logger import Logger
 
 
@@ -177,7 +178,7 @@ class BinanceClient:
                     symbol=symbol,
                     description=f"{base_asset}/{quote_asset}",
                     asset_type=AssetType.CRYPTO,
-                    exchange="binance",
+                    exchange=Exchange.BINANCE,
                     identifier=None,
                 )
                 results.append(asset)

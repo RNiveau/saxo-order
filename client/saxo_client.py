@@ -24,6 +24,7 @@ from model import (
     Underlying,
 )
 from model.asset import Asset
+from model.enum import Exchange
 from utils.configuration import Configuration
 from utils.exception import EmptyResponseException, SaxoException
 from utils.logger import Logger
@@ -134,7 +135,7 @@ class SaxoClient:
                 symbol=item.get("Symbol", ""),
                 description=item.get("Description", ""),
                 asset_type=asset_type_enum,
-                exchange="saxo",
+                exchange=Exchange.SAXO,
                 identifier=item.get("Identifier"),
             )
             results.append(asset)

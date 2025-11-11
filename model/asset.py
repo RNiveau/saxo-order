@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from model.enum import AssetType
+from model.enum import AssetType, Exchange
 
 
 @dataclass
@@ -13,5 +13,5 @@ class Asset:
     symbol: str
     description: str
     asset_type: AssetType
-    exchange: str
+    exchange: Exchange
     identifier: Optional[int] = None
