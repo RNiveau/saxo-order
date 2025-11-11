@@ -8,7 +8,6 @@ from binance.spot import Spot  # type: ignore
 
 from model import AssetType, Currency, Direction, ReportOrder, Taxes
 from model.asset import Asset
-from model.enum import Exchange
 from utils.logger import Logger
 
 
@@ -162,6 +161,9 @@ class BinanceClient:
             if symbol_data.get("status") != "TRADING":
                 continue
 
+            if "SPOT" not in symbol_data.get("permissions", []):
+                continue
+
             symbol = symbol_data.get("symbol", "")
             base_asset = symbol_data.get("baseAsset", "")
             quote_asset = symbol_data.get("quoteAsset", "")
@@ -175,7 +177,7 @@ class BinanceClient:
                     symbol=symbol,
                     description=f"{base_asset}/{quote_asset}",
                     asset_type=AssetType.CRYPTO,
-                    exchange=Exchange.BINANCE,
+                    exchange="binance",
                     identifier=None,
                 )
                 results.append(asset)
