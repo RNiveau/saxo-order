@@ -21,6 +21,51 @@
   padding: 0.5rem 0;
 }
 
+.results-table {
+  overflow-x: auto;
+}
+
+.results-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+
+.results-table thead {
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+}
+
+.results-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  color: #8b949e;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.results-table tbody tr {
+  border-bottom: 1px solid #21262d;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.results-table tbody tr:hover {
+  background: #161b22;
+}
+
+.results-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.results-table td {
+  padding: 1rem;
+}
+
 .result-row .symbol {
   color: #58a6ff;
   font-weight: 600;
@@ -36,8 +81,24 @@
   font-size: 0.9rem;
 }
 
-.result-row .identifier {
-  color: #8b949e;
-  font-family: monospace;
-  font-size: 0.9rem;
+.exchange-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+}
+
+.exchange-badge.saxo {
+  background: rgba(136, 192, 208, 0.15);
+  color: #88c0d0;
+  border: 1px solid rgba(136, 192, 208, 0.3);
+}
+
+.exchange-badge.binance {
+  background: rgba(240, 185, 11, 0.15);
+  color: #f0b90b;
+  border: 1px solid rgba(240, 185, 11, 0.3);
 }

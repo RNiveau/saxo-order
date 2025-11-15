@@ -39,6 +39,7 @@ export function AssetDetail() {
     try {
       setLoading(true);
       setError(null);
+      // Handle both Saxo (CODE:MARKET) and Binance (SYMBOL) formats
       const parts = assetSymbol.split(':');
       const code = parts[0];
       const countryCode = parts.length > 1 ? parts[1] : '';
@@ -56,7 +57,7 @@ export function AssetDetail() {
     try {
       setIndicatorLoading(true);
       setIndicatorError(null);
-      // Parse symbol to extract code and country_code
+      // Handle both Saxo (CODE:MARKET) and Binance (SYMBOL) formats
       const parts = assetSymbol.split(':');
       const code = parts[0];
       const countryCode = parts.length > 1 ? parts[1] : '';
@@ -100,7 +101,7 @@ export function AssetDetail() {
       setWatchlistError(null);
       setWatchlistSuccess(null);
 
-      // Parse symbol to extract code and country_code
+      // Handle both Saxo (CODE:MARKET) and Binance (SYMBOL) formats
       const parts = symbol.split(':');
       const code = parts[0];
       const countryCode = parts.length > 1 ? parts[1] : '';
