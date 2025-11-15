@@ -10,6 +10,7 @@ export function Watchlist() {
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTag, setSelectedTag] = useState<string>('');
 
   useEffect(() => {
     loadWatchlist();
@@ -81,6 +82,16 @@ export function Watchlist() {
     return `${sign}${variation.toFixed(2)}%`;
   };
 
+  // Get all unique tags from items
+  const allTags = Array.from(
+    new Set(items.flatMap(item => item.labels || []))
+  ).sort();
+
+  // Filter items by selected tag
+  const filteredItems = selectedTag
+    ? items.filter(item => item.labels?.includes(selectedTag))
+    : items;
+
   return (
     <div className="watchlist-container">
       <div className="watchlist-header-container">
@@ -106,8 +117,29 @@ export function Watchlist() {
       {items.length > 0 && (
         <div className="watchlist-list">
           <div className="watchlist-header">
-            {items.length} asset{items.length !== 1 ? 's' : ''} in watchlist
+            {filteredItems.length} asset{filteredItems.length !== 1 ? 's' : ''}
+            {selectedTag ? ` with tag "${selectedTag}"` : ' in watchlist'}
           </div>
+
+          {allTags.length > 0 && (
+            <div className="tag-filter">
+              <button
+                className={`filter-tag ${!selectedTag ? 'active' : ''}`}
+                onClick={() => setSelectedTag('')}
+              >
+                All ({items.length})
+              </button>
+              {allTags.map(tag => (
+                <button
+                  key={tag}
+                  className={`filter-tag ${selectedTag === tag ? 'active' : ''}`}
+                  onClick={() => setSelectedTag(tag)}
+                >
+                  {tag} ({items.filter(item => item.labels?.includes(tag)).length})
+                </button>
+              ))}
+            </div>
+          )}
           <div className="watchlist-table">
             <table>
               <thead>
@@ -119,7 +151,7 @@ export function Watchlist() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <tr
                     key={item.id}
                     onClick={() => handleAssetClick(item.asset_symbol, item.description)}
@@ -127,7 +159,16 @@ export function Watchlist() {
                   >
                     <td className="description">
                       <div className="description-with-icon">
-                        <span className="description-text">{item.description || item.asset_symbol}</span>
+                        <div className="description-with-tags">
+                          <span className="description-text">{item.description || item.asset_symbol}</span>
+                          {item.labels && item.labels.length > 0 && (
+                            <div className="tags-container">
+                              {item.labels.map((label, idx) => (
+                                <span key={idx} className="tag">{label}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         <a
                           href={getTradingViewUrl(item.asset_symbol, item.tradingview_url)}
                           target="_blank"
