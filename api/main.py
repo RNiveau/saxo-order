@@ -8,6 +8,7 @@ from api.routers import (
     fund,
     indexes,
     indicator,
+    order,
     report,
     search,
     tradingview,
@@ -53,6 +54,7 @@ app.include_router(asset_details.router)
 app.include_router(fund.router)
 app.include_router(indexes.router)
 app.include_router(indicator.router)
+app.include_router(order.router)
 app.include_router(report.router)
 app.include_router(search.router)
 app.include_router(tradingview.router)
