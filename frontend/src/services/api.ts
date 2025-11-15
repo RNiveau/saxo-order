@@ -45,8 +45,9 @@ export const fundService = {
 export interface SearchResultItem {
   symbol: string;
   description: string;
-  identifier: number;
+  identifier: number | null;
   asset_type: string;
+  exchange: string;
 }
 
 export interface SearchResponse {

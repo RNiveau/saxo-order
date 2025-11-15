@@ -72,20 +72,24 @@ export function SearchResults() {
                   <th>Symbol</th>
                   <th>Description</th>
                   <th>Type</th>
-                  <th>Identifier</th>
+                  <th>Exchange</th>
                 </tr>
               </thead>
               <tbody>
-                {results.map((result) => (
+                {results.map((result, index) => (
                   <tr
-                    key={result.identifier}
+                    key={`${result.exchange}-${result.symbol}-${index}`}
                     onClick={() => handleAssetClick(result.symbol, result.description)}
                     className="result-row"
                   >
                     <td className="symbol">{result.symbol}</td>
                     <td className="description">{result.description}</td>
                     <td className="asset-type">{result.asset_type}</td>
-                    <td className="identifier">{result.identifier}</td>
+                    <td className="exchange">
+                      <span className={`exchange-badge ${result.exchange}`}>
+                        {result.exchange}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
