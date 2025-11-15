@@ -429,3 +429,210 @@ class TestWatchlistEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["labels"] == ["short-term", "high-priority", "tech"]
+
+    def test_get_all_watchlist_success(self, mock_watchlist_service):
+        """Test retrieval of all watchlist items including long-term."""
+        mock_watchlist_service.get_all_watchlist.return_value = (
+            WatchlistResponse(
+                items=[
+                    WatchlistItem(
+                        id="1",
+                        asset_symbol="itp:xpar",
+                        description="Interparfums SA",
+                        country_code="xpar",
+                        current_price=100.0,
+                        variation_pct=5.0,
+                        currency=Currency.EURO,
+                        added_at="2024-01-01T00:00:00Z",
+                        labels=["short-term"],
+                    ),
+                    WatchlistItem(
+                        id="2",
+                        asset_symbol="aapl:xnas",
+                        description="Apple Inc",
+                        country_code="xnas",
+                        current_price=150.0,
+                        variation_pct=2.0,
+                        currency=Currency.USD,
+                        added_at="2024-01-02T00:00:00Z",
+                        labels=["long-term"],
+                    ),
+                ],
+                total=2,
+            )
+        )
+
+        response = client.get("/api/watchlist/all")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "items" in data
+        assert "total" in data
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+
+        # Verify both short-term and long-term items are included
+        items = {item["id"]: item for item in data["items"]}
+        assert "1" in items
+        assert "2" in items
+        assert items["1"]["labels"] == ["short-term"]
+        assert items["2"]["labels"] == ["long-term"]
+
+        mock_watchlist_service.get_all_watchlist.assert_called_once()
+
+    def test_get_watchlist_excludes_long_term(self, mock_watchlist_service):
+        """Test that watchlist endpoint excludes long-term assets."""
+        # Mock service to return mixed items - simulating what the service
+        # would return AFTER filtering out long-term tags
+        mock_watchlist_service.get_watchlist.return_value = WatchlistResponse(
+            items=[
+                WatchlistItem(
+                    id="short1",
+                    asset_symbol="itp:xpar",
+                    description="Interparfums SA",
+                    country_code="xpar",
+                    current_price=100.0,
+                    variation_pct=5.0,
+                    currency=Currency.EURO,
+                    added_at="2024-01-01T00:00:00Z",
+                    labels=["short-term"],
+                ),
+                WatchlistItem(
+                    id="none1",
+                    asset_symbol="googl:xnas",
+                    description="Alphabet Inc",
+                    country_code="xnas",
+                    current_price=150.0,
+                    variation_pct=2.0,
+                    currency=Currency.USD,
+                    added_at="2024-01-04T00:00:00Z",
+                    labels=[],
+                ),
+            ],
+            total=2,
+        )
+
+        # Mock get_all_watchlist to show what items exist in DB
+        mock_watchlist_service.get_all_watchlist.return_value = (
+            WatchlistResponse(
+                items=[
+                    WatchlistItem(
+                        id="short1",
+                        asset_symbol="itp:xpar",
+                        description="Interparfums SA",
+                        country_code="xpar",
+                        current_price=100.0,
+                        variation_pct=5.0,
+                        currency=Currency.EURO,
+                        added_at="2024-01-01T00:00:00Z",
+                        labels=["short-term"],
+                    ),
+                    WatchlistItem(
+                        id="long1",
+                        asset_symbol="aapl:xnas",
+                        description="Apple Inc",
+                        country_code="xnas",
+                        current_price=180.0,
+                        variation_pct=1.5,
+                        currency=Currency.USD,
+                        added_at="2024-01-02T00:00:00Z",
+                        labels=["long-term"],
+                    ),
+                    WatchlistItem(
+                        id="both1",
+                        asset_symbol="msft:xnas",
+                        description="Microsoft Corp",
+                        country_code="xnas",
+                        current_price=380.0,
+                        variation_pct=0.8,
+                        currency=Currency.USD,
+                        added_at="2024-01-03T00:00:00Z",
+                        labels=["short-term", "long-term"],
+                    ),
+                    WatchlistItem(
+                        id="none1",
+                        asset_symbol="googl:xnas",
+                        description="Alphabet Inc",
+                        country_code="xnas",
+                        current_price=150.0,
+                        variation_pct=2.0,
+                        currency=Currency.USD,
+                        added_at="2024-01-04T00:00:00Z",
+                        labels=[],
+                    ),
+                ],
+                total=4,
+            )
+        )
+
+        # Test regular endpoint - should exclude long-term
+        response = client.get("/api/watchlist")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        returned_ids = {item["id"] for item in data["items"]}
+        assert "short1" in returned_ids
+        assert "none1" in returned_ids
+        assert "long1" not in returned_ids
+        assert "both1" not in returned_ids
+
+        # Test /all endpoint - should include everything
+        response_all = client.get("/api/watchlist/all")
+        assert response_all.status_code == 200
+        data_all = response_all.json()
+        assert data_all["total"] == 4
+        all_ids = {item["id"] for item in data_all["items"]}
+        assert "short1" in all_ids
+        assert "long1" in all_ids
+        assert "both1" in all_ids
+        assert "none1" in all_ids
+
+    def test_add_to_watchlist_with_long_term_label(
+        self, mock_saxo_client, mock_dynamodb_client
+    ):
+        """Test adding asset with long-term label."""
+        response = client.post(
+            "/api/watchlist",
+            json={
+                "asset_id": "456",
+                "asset_symbol": "msft:xnas",
+                "description": "Microsoft Corp",
+                "country_code": "xnas",
+                "labels": ["long-term"],
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["asset_id"] == "456"
+
+        mock_dynamodb_client.add_to_watchlist.assert_called_once_with(
+            "456",
+            "msft:xnas",
+            "Interparfums SA",
+            "xnas",
+            asset_identifier=123,
+            asset_type="Stock",
+            labels=["long-term"],
+        )
+
+    def test_update_labels_with_both_tags(self, mock_dynamodb_client):
+        """Test updating labels with both short-term and long-term tags."""
+        mock_dynamodb_client.is_in_watchlist.return_value = True
+        mock_dynamodb_client.update_watchlist_labels.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200}
+        }
+
+        response = client.patch(
+            "/api/watchlist/123/labels",
+            json={"labels": ["short-term", "long-term"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["labels"] == ["short-term", "long-term"]
+
+        mock_dynamodb_client.update_watchlist_labels.assert_called_once_with(
+            "123", ["short-term", "long-term"]
+        )

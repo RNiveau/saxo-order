@@ -92,6 +92,40 @@
   cursor: not-allowed;
 }
 
+.long-term-btn {
+  background: #7c3aed;
+  color: #ffffff;
+  border: 1px solid #a78bfa;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.long-term-btn:hover:not(:disabled) {
+  background: #8b5cf6;
+  border-color: #c4b5fd;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.long-term-btn.active {
+  background: #059669;
+  border-color: #10b981;
+}
+
+.long-term-btn.active:hover:not(:disabled) {
+  background: #10b981;
+  border-color: #34d399;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.long-term-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .workflows-section {
   margin-top: 1.5rem;
 }

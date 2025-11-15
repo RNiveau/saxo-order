@@ -25,6 +25,7 @@ export function AssetDetail() {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [checkingWatchlist, setCheckingWatchlist] = useState(false);
   const [isShortTerm, setIsShortTerm] = useState(false);
+  const [isLongTerm, setIsLongTerm] = useState(false);
   const [updatingLabel, setUpdatingLabel] = useState(false);
 
   useEffect(() => {
@@ -80,10 +81,11 @@ export function AssetDetail() {
 
       // If in watchlist, get the full watchlist to check labels
       if (response.in_watchlist) {
-        const watchlistData = await watchlistService.getWatchlist();
+        const watchlistData = await watchlistService.getAllWatchlist();
         const item = watchlistData.items.find(item => item.id === code);
         if (item) {
           setIsShortTerm(item.labels.includes('short-term'));
+          setIsLongTerm(item.labels.includes('long-term'));
         }
       }
     } catch (err) {
@@ -113,6 +115,7 @@ export function AssetDetail() {
         setWatchlistSuccess(`Removed ${assetName} from watchlist`);
         setIsInWatchlist(false);
         setIsShortTerm(false);
+        setIsLongTerm(false);
       } else {
         // Add to watchlist
         const description = 'placeholder';
@@ -148,13 +151,49 @@ export function AssetDetail() {
       const [code] = symbol.split(':');
       const assetName = indicatorData?.description || symbol;
 
-      // Toggle the short-term label
-      const newLabels = isShortTerm ? [] : ['short-term'];
+      // Build labels array keeping long-term if it exists, toggling short-term
+      const newLabels: string[] = [];
+      if (isLongTerm) newLabels.push('long-term');
+      if (!isShortTerm) newLabels.push('short-term');
+
       await watchlistService.updateLabels(code, newLabels);
 
       setIsShortTerm(!isShortTerm);
       const action = isShortTerm ? 'Removed from' : 'Added to';
       setWatchlistSuccess(`${action} short-term positions: ${assetName}`);
+
+      setTimeout(() => setWatchlistSuccess(null), 3000);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || 'Failed to update label';
+      setWatchlistError(errorMessage);
+      console.error('Label toggle error:', err);
+      setTimeout(() => setWatchlistError(null), 5000);
+    } finally {
+      setUpdatingLabel(false);
+    }
+  };
+
+  const handleToggleLongTerm = async () => {
+    if (!symbol) return;
+
+    try {
+      setUpdatingLabel(true);
+      setWatchlistError(null);
+      setWatchlistSuccess(null);
+
+      const [code] = symbol.split(':');
+      const assetName = indicatorData?.description || symbol;
+
+      // Build labels array keeping short-term if it exists, toggling long-term
+      const newLabels: string[] = [];
+      if (isShortTerm) newLabels.push('short-term');
+      if (!isLongTerm) newLabels.push('long-term');
+
+      await watchlistService.updateLabels(code, newLabels);
+
+      setIsLongTerm(!isLongTerm);
+      const action = isLongTerm ? 'Removed from' : 'Added to';
+      setWatchlistSuccess(`${action} long-term positions: ${assetName}`);
 
       setTimeout(() => setWatchlistSuccess(null), 3000);
     } catch (err: any) {
@@ -204,19 +243,34 @@ export function AssetDetail() {
               : '+ Add to Watchlist'}
           </button>
           {isInWatchlist && (
-            <button
-              onClick={handleToggleShortTerm}
-              disabled={updatingLabel || checkingWatchlist}
-              className={`short-term-btn ${isShortTerm ? 'active' : ''}`}
-            >
-              {updatingLabel
-                ? isShortTerm
-                  ? 'Removing...'
-                  : 'Adding...'
-                : isShortTerm
-                ? '⭐ Close Short Term Position'
-                : '⭐ Short Term Position'}
-            </button>
+            <>
+              <button
+                onClick={handleToggleShortTerm}
+                disabled={updatingLabel || checkingWatchlist}
+                className={`short-term-btn ${isShortTerm ? 'active' : ''}`}
+              >
+                {updatingLabel
+                  ? isShortTerm
+                    ? 'Removing...'
+                    : 'Adding...'
+                  : isShortTerm
+                  ? '⭐ Close Short Term Position'
+                  : '⭐ Short Term Position'}
+              </button>
+              <button
+                onClick={handleToggleLongTerm}
+                disabled={updatingLabel || checkingWatchlist}
+                className={`long-term-btn ${isLongTerm ? 'active' : ''}`}
+              >
+                {updatingLabel
+                  ? isLongTerm
+                    ? 'Removing...'
+                    : 'Adding...'
+                  : isLongTerm
+                  ? '📊 Long Term Position'
+                  : '📊 Long Term Position'}
+              </button>
+            </>
           )}
         </div>
       </div>

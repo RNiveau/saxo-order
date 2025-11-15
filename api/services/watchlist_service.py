@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from api.models.watchlist import WatchlistItem, WatchlistResponse
+from api.models.watchlist import WatchlistItem, WatchlistResponse, WatchlistTag
 from api.services.indicator_service import IndicatorService
 from client.aws_client import DynamoDBClient
 from model import Currency, UnitTime
@@ -94,18 +94,18 @@ class WatchlistService:
             tradingview_url=tradingview_url,
         )
 
-    def get_watchlist(self) -> WatchlistResponse:
+    def _enrich_and_sort_watchlist(
+        self, watchlist_items: List[dict]
+    ) -> WatchlistResponse:
         """
-        Get all watchlist items with current prices and variations.
-        Items are sorted with short-term labeled items first (alphabetically),
-        then other items (alphabetically).
+        Enrich watchlist items with prices and sort them.
+
+        Args:
+            watchlist_items: Raw watchlist items from DynamoDB
 
         Returns:
-            WatchlistResponse with enriched and sorted watchlist data
+            WatchlistResponse with enriched and sorted data
         """
-        # Get watchlist from DynamoDB
-        watchlist_items = self.dynamodb_client.get_watchlist()
-
         # Enrich with current prices and variations
         enriched_items: List[WatchlistItem] = []
         for item in watchlist_items:
@@ -147,15 +147,50 @@ class WatchlistService:
         # Sort items: short-term positions first (alphabetically),
         # then other items (alphabetically)
         def sort_key(item: WatchlistItem) -> tuple:
-            has_short_term = "short-term" in item.labels
+            has_short_term = WatchlistTag.SHORT_TERM.value in item.labels
             description = item.description.lower() if item.description else ""
-            # Items with short-term label get priority (0), others get (1)
-            # Then sort alphabetically by description
             return (0 if has_short_term else 1, description)
 
         sorted_items = sorted(enriched_items, key=sort_key)
 
         return WatchlistResponse(items=sorted_items, total=len(sorted_items))
+
+    def get_watchlist(self) -> WatchlistResponse:
+        """
+        Get watchlist items for sidebar display with current prices.
+        Excludes items with 'long-term' tag.
+        Items are sorted with short-term labeled items first,
+        then other items (alphabetically).
+
+        Returns:
+            WatchlistResponse with enriched and sorted watchlist data
+            (excluding long-term)
+        """
+        # Get watchlist from DynamoDB
+        watchlist_items = self.dynamodb_client.get_watchlist()
+
+        # Filter out long-term assets
+        watchlist_items = [
+            item
+            for item in watchlist_items
+            if WatchlistTag.LONG_TERM.value not in item.get("labels", [])
+        ]
+
+        return self._enrich_and_sort_watchlist(watchlist_items)
+
+    def get_all_watchlist(self) -> WatchlistResponse:
+        """
+        Get ALL watchlist items including long-term assets.
+        Items are sorted with short-term labeled items first,
+        then other items (alphabetically).
+
+        Returns:
+            WatchlistResponse with all enriched and sorted watchlist data
+        """
+        # Get watchlist from DynamoDB
+        watchlist_items = self.dynamodb_client.get_watchlist()
+
+        return self._enrich_and_sort_watchlist(watchlist_items)
 
     def get_indexes(self) -> WatchlistResponse:
         """

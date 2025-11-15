@@ -69,15 +69,32 @@ async def get_watchlist(
     watchlist_service: WatchlistService = Depends(get_watchlist_service),
 ):
     """
-    Get all watchlist items with current prices and variations.
+    Get watchlist items for sidebar display (excludes long-term tagged assets).
 
     Returns:
-        WatchlistResponse with all watchlist items
+        WatchlistResponse with watchlist items excluding long-term
     """
     try:
         return watchlist_service.get_watchlist()
     except Exception as e:
         logger.error(f"Unexpected error getting watchlist: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/all", response_model=WatchlistResponse)
+async def get_all_watchlist(
+    watchlist_service: WatchlistService = Depends(get_watchlist_service),
+):
+    """
+    Get ALL watchlist items including long-term tagged assets.
+
+    Returns:
+        WatchlistResponse with all watchlist items
+    """
+    try:
+        return watchlist_service.get_all_watchlist()
+    except Exception as e:
+        logger.error(f"Unexpected error getting all watchlist: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

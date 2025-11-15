@@ -58,7 +58,7 @@ export function Watchlist() {
     try {
       setLoading(true);
       setError(null);
-      const data = await watchlistService.getWatchlist();
+      const data = await watchlistService.getAllWatchlist();
       setItems(data.items);
     } catch (err) {
       setError('Failed to load watchlist');
