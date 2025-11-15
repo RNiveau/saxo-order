@@ -1,8 +1,14 @@
+from enum import Enum
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 from model import Currency
+
+
+class WatchlistTag(str, Enum):
+    SHORT_TERM = "short-term"
+    LONG_TERM = "long-term"
 
 
 class AddToWatchlistRequest(BaseModel):

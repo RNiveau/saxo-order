@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from api.models.watchlist import WatchlistItem, WatchlistResponse
+from api.models.watchlist import WatchlistItem, WatchlistResponse, WatchlistTag
 from api.services.indicator_service import IndicatorService
 from client.aws_client import DynamoDBClient
 from model import Currency, UnitTime
@@ -96,12 +96,82 @@ class WatchlistService:
 
     def get_watchlist(self) -> WatchlistResponse:
         """
-        Get all watchlist items with current prices and variations.
-        Items are sorted with short-term labeled items first (alphabetically),
+        Get watchlist items for sidebar display with current prices.
+        Excludes items with 'long-term' tag.
+        Items are sorted with short-term labeled items first,
         then other items (alphabetically).
 
         Returns:
             WatchlistResponse with enriched and sorted watchlist data
+            (excluding long-term)
+        """
+        # Get watchlist from DynamoDB
+        watchlist_items = self.dynamodb_client.get_watchlist()
+
+        # Filter out long-term assets
+        watchlist_items = [
+            item
+            for item in watchlist_items
+            if WatchlistTag.LONG_TERM.value not in item.get("labels", [])
+        ]
+
+        # Enrich with current prices and variations
+        enriched_items: List[WatchlistItem] = []
+        for item in watchlist_items:
+            try:
+                enriched_item = self._enrich_asset(
+                    asset_symbol=item["asset_symbol"],
+                    country_code=item.get("country_code", "xpar"),
+                    item_id=item["id"],
+                    description=item.get("description", ""),
+                    added_at=item.get("added_at", ""),
+                    labels=item.get("labels", []),
+                    asset_identifier=item.get("asset_identifier"),
+                    asset_type=item.get("asset_type"),
+                )
+                enriched_items.append(enriched_item)
+            except SaxoException as e:
+                logger.warning(
+                    f"Failed to get price for {item['asset_symbol']}: {e}"
+                )
+                enriched_items.append(
+                    WatchlistItem(
+                        id=item["id"],
+                        asset_symbol=item.get("asset_symbol", ""),
+                        description=item.get("description", ""),
+                        country_code=item.get("country_code", "xpar"),
+                        current_price=0.0,
+                        variation_pct=0.0,
+                        currency=Currency.EURO,
+                        added_at=item.get("added_at", ""),
+                        labels=item.get("labels", []),
+                    )
+                )
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error processing "
+                    f"{item.get('asset_symbol', 'unknown')}: {e}"
+                )
+
+        # Sort items: short-term positions first (alphabetically),
+        # then other items (alphabetically)
+        def sort_key(item: WatchlistItem) -> tuple:
+            has_short_term = WatchlistTag.SHORT_TERM.value in item.labels
+            description = item.description.lower() if item.description else ""
+            return (0 if has_short_term else 1, description)
+
+        sorted_items = sorted(enriched_items, key=sort_key)
+
+        return WatchlistResponse(items=sorted_items, total=len(sorted_items))
+
+    def get_all_watchlist(self) -> WatchlistResponse:
+        """
+        Get ALL watchlist items including long-term assets.
+        Items are sorted with short-term labeled items first (alphabetically),
+        then other items (alphabetically).
+
+        Returns:
+            WatchlistResponse with all enriched and sorted watchlist data
         """
         # Get watchlist from DynamoDB
         watchlist_items = self.dynamodb_client.get_watchlist()
@@ -147,10 +217,8 @@ class WatchlistService:
         # Sort items: short-term positions first (alphabetically),
         # then other items (alphabetically)
         def sort_key(item: WatchlistItem) -> tuple:
-            has_short_term = "short-term" in item.labels
+            has_short_term = WatchlistTag.SHORT_TERM.value in item.labels
             description = item.description.lower() if item.description else ""
-            # Items with short-term label get priority (0), others get (1)
-            # Then sort alphabetically by description
             return (0 if has_short_term else 1, description)
 
         sorted_items = sorted(enriched_items, key=sort_key)

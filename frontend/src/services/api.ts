@@ -226,6 +226,11 @@ export const watchlistService = {
     return response.data;
   },
 
+  getAllWatchlist: async (): Promise<WatchlistResponse> => {
+    const response = await api.get<WatchlistResponse>('/api/watchlist/all');
+    return response.data;
+  },
+
   addToWatchlist: async (
     request: AddToWatchlistRequest
   ): Promise<AddToWatchlistResponse> => {
