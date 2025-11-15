@@ -58,6 +58,7 @@ The codebase follows a layered architecture:
 ## Important guidelines
 
 - ALWAYS suggest a plan before implementing something
+- ALWAYS use the existing enums in place of a hardcoded string
 - NEVER implement a plan without a human validation
 - The Candle list has always the newest candle with the index 0, and the oldest with the last index
 - Outside the SaxoService, the candle object must be used everywhere.
