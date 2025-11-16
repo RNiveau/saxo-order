@@ -11,6 +11,7 @@ export const api = axios.create({
 
 export interface AccountInfo {
   account_id: string;
+  account_key: string;
   account_name: string;
   total_fund: number;
   available_fund: number;
@@ -414,6 +415,80 @@ export const tradingViewService = {
     const response = await api.put<SetTradingViewLinkResponse>(
       `/api/asset-details/${assetId}/tradingview`,
       { tradingview_url: tradingviewUrl }
+    );
+    return response.data;
+  },
+};
+
+export interface OrderRequest {
+  code: string;
+  price: number;
+  quantity: number;
+  order_type: string;
+  direction: string;
+  country_code?: string;
+  stop?: number;
+  objective?: number;
+  strategy?: string;
+  signal?: string;
+  comment?: string;
+  account_key?: string;
+}
+
+export interface OcoOrderRequest {
+  code: string;
+  quantity: number;
+  limit_price: number;
+  limit_direction: string;
+  stop_price: number;
+  stop_direction: string;
+  country_code?: string;
+  stop?: number;
+  objective?: number;
+  strategy?: string;
+  signal?: string;
+  comment?: string;
+  account_key?: string;
+}
+
+export interface StopLimitOrderRequest {
+  code: string;
+  quantity: number;
+  limit_price: number;
+  stop_price: number;
+  country_code?: string;
+  stop?: number;
+  objective?: number;
+  strategy?: string;
+  signal?: string;
+  comment?: string;
+  account_key?: string;
+}
+
+export interface OrderResponse {
+  success: boolean;
+  message: string;
+  order_id?: string;
+  details?: Record<string, unknown>;
+}
+
+export const orderService = {
+  createOrder: async (request: OrderRequest): Promise<OrderResponse> => {
+    const response = await api.post<OrderResponse>('/api/orders', request);
+    return response.data;
+  },
+
+  createOcoOrder: async (request: OcoOrderRequest): Promise<OrderResponse> => {
+    const response = await api.post<OrderResponse>('/api/orders/oco', request);
+    return response.data;
+  },
+
+  createStopLimitOrder: async (
+    request: StopLimitOrderRequest
+  ): Promise<OrderResponse> => {
+    const response = await api.post<OrderResponse>(
+      '/api/orders/stop-limit',
+      request
     );
     return response.data;
   },

@@ -5,6 +5,9 @@ from pydantic import BaseModel, Field
 
 class AccountInfo(BaseModel):
     account_id: str = Field(description="Saxo account ID")
+    account_key: str = Field(
+        description="Saxo account key (use for order creation)"
+    )
     account_name: str = Field(description="Display name of the account")
     total_fund: float = Field(description="Total cash balance")
     available_fund: float = Field(description="Available cash for trading")

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from slack_sdk import WebClient
 
 from api.dependencies import get_configuration, get_saxo_client
 from api.models.order import (
@@ -7,7 +8,10 @@ from api.models.order import (
     OrderResponse,
     StopLimitOrderRequest,
 )
+from client.gsheet_client import GSheetClient
 from client.saxo_client import SaxoClient
+from model import Direction
+from saxo_order.service import calculate_currency
 from saxo_order.services.order_service import OrderService
 from utils.configuration import Configuration
 from utils.exception import SaxoException
@@ -15,6 +19,29 @@ from utils.logger import Logger
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 logger = Logger.get_logger("order_router")
+
+
+def _log_order_to_gsheet(configuration: Configuration, order, account):
+    """Log order to Google Sheets and Slack (mirrors CLI behavior)."""
+    try:
+        gsheet_client = GSheetClient(
+            key_path=configuration.gsheet_creds_path,
+            spreadsheet_id=configuration.spreadsheet_id,
+        )
+        new_order = calculate_currency(order, configuration.currencies_rate)
+        result = gsheet_client.create_order(account, new_order, order)
+        updated_range = result["updates"]["updatedRange"]
+        logger.info(f"Order logged to Google Sheets: {updated_range}")
+
+        slack_client = WebClient(token=configuration.slack_token)
+        slack_client.chat_postMessage(
+            channel="#execution-logs",
+            text=f"New order created: {new_order.name} "
+            f"({new_order.code}) - {new_order.direction} "
+            f"{new_order.quantity} at {new_order.price:.4f}$",
+        )
+    except Exception as e:
+        logger.error(f"Failed to log order to Google Sheets/Slack: {e}")
 
 
 @router.post("", response_model=OrderResponse)
@@ -45,6 +72,15 @@ async def create_order(
             comment=request.comment,
             account_key=request.account_key,
         )
+
+        # Log BUY orders to Google Sheets (same as CLI behavior)
+        if request.direction == Direction.BUY and "order" in result:
+            account_key = (
+                request.account_key
+                or client.get_accounts()["Data"][0]["AccountKey"]
+            )
+            account = client.get_account(account_key)
+            _log_order_to_gsheet(configuration, result["order"], account)
 
         return OrderResponse(
             success=True,
@@ -97,6 +133,15 @@ async def create_oco_order(
             account_key=request.account_key,
         )
 
+        # Log stop_order to Google Sheets if it's a BUY (same as CLI behavior)
+        if request.stop_direction == Direction.BUY and "stop_order" in result:
+            account_key = (
+                request.account_key
+                or client.get_accounts()["Data"][0]["AccountKey"]
+            )
+            account = client.get_account(account_key)
+            _log_order_to_gsheet(configuration, result["stop_order"], account)
+
         return OrderResponse(
             success=True,
             message=f"OCO order for {request.code} placed successfully",
@@ -146,6 +191,15 @@ async def create_stop_limit_order(
             comment=request.comment,
             account_key=request.account_key,
         )
+
+        # Log order to Google Sheets (stop-limit orders are always BUY)
+        if "order" in result:
+            account_key = (
+                request.account_key
+                or client.get_accounts()["Data"][0]["AccountKey"]
+            )
+            account = client.get_account(account_key)
+            _log_order_to_gsheet(configuration, result["order"], account)
 
         return OrderResponse(
             success=True,
