@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from slack_sdk import WebClient
 
-from api.dependencies import get_configuration, get_saxo_client
+from api.dependencies import (
+    get_configuration,
+    get_gsheet_client,
+    get_saxo_client,
+)
 from api.models.order import (
     OcoOrderRequest,
     OrderRequest,
@@ -21,13 +25,14 @@ router = APIRouter(prefix="/api/orders", tags=["orders"])
 logger = Logger.get_logger("order_router")
 
 
-def _log_order_to_gsheet(configuration: Configuration, order, account):
+def _log_order_to_gsheet(
+    gsheet_client: GSheetClient,
+    configuration: Configuration,
+    order,
+    account,
+):
     """Log order to Google Sheets and Slack (mirrors CLI behavior)."""
     try:
-        gsheet_client = GSheetClient(
-            key_path=configuration.gsheet_creds_path,
-            spreadsheet_id=configuration.spreadsheet_id,
-        )
         new_order = calculate_currency(order, configuration.currencies_rate)
         result = gsheet_client.create_order(account, new_order, order)
         updated_range = result["updates"]["updatedRange"]
@@ -49,6 +54,7 @@ async def create_order(
     request: OrderRequest,
     client: SaxoClient = Depends(get_saxo_client),
     configuration: Configuration = Depends(get_configuration),
+    gsheet_client: GSheetClient = Depends(get_gsheet_client),
 ):
     """
     Create and place a single order.
@@ -80,7 +86,9 @@ async def create_order(
                 or client.get_accounts()["Data"][0]["AccountKey"]
             )
             account = client.get_account(account_key)
-            _log_order_to_gsheet(configuration, result["order"], account)
+            _log_order_to_gsheet(
+                gsheet_client, configuration, result["order"], account
+            )
 
         return OrderResponse(
             success=True,
@@ -108,6 +116,7 @@ async def create_oco_order(
     request: OcoOrderRequest,
     client: SaxoClient = Depends(get_saxo_client),
     configuration: Configuration = Depends(get_configuration),
+    gsheet_client: GSheetClient = Depends(get_gsheet_client),
 ):
     """
     Create and place an OCO (One-Cancels-Other) order.
@@ -140,7 +149,9 @@ async def create_oco_order(
                 or client.get_accounts()["Data"][0]["AccountKey"]
             )
             account = client.get_account(account_key)
-            _log_order_to_gsheet(configuration, result["stop_order"], account)
+            _log_order_to_gsheet(
+                gsheet_client, configuration, result["stop_order"], account
+            )
 
         return OrderResponse(
             success=True,
@@ -169,6 +180,7 @@ async def create_stop_limit_order(
     request: StopLimitOrderRequest,
     client: SaxoClient = Depends(get_saxo_client),
     configuration: Configuration = Depends(get_configuration),
+    gsheet_client: GSheetClient = Depends(get_gsheet_client),
 ):
     """
     Create and place a stop-limit order.
@@ -199,7 +211,9 @@ async def create_stop_limit_order(
                 or client.get_accounts()["Data"][0]["AccountKey"]
             )
             account = client.get_account(account_key)
-            _log_order_to_gsheet(configuration, result["order"], account)
+            _log_order_to_gsheet(
+                gsheet_client, configuration, result["order"], account
+            )
 
         return OrderResponse(
             success=True,

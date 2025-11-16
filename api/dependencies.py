@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from client.aws_client import AwsClient, DynamoDBClient
 from client.binance_client import BinanceClient
+from client.gsheet_client import GSheetClient
 from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from services.candles_service import CandlesService
@@ -104,3 +105,20 @@ def get_binance_client() -> BinanceClient:
     """
     logger.debug("Using BinanceClient for search")
     return BinanceClient(key="", secret="")
+
+
+@lru_cache()
+def get_gsheet_client() -> GSheetClient:
+    """
+    Get cached GSheetClient instance.
+    This is a dependency that can be injected into FastAPI endpoints.
+
+    The client is cached as a singleton to reuse the Google Sheets
+    connection across requests.
+    """
+    config = get_configuration()
+    logger.debug("Using GSheetClient for order logging")
+    return GSheetClient(
+        key_path=config.gsheet_creds_path,
+        spreadsheet_id=config.spreadsheet_id,
+    )
