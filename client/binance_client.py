@@ -9,6 +9,7 @@ from binance.spot import Spot  # type: ignore
 from model import AssetType, Currency, Direction, ReportOrder, Taxes
 from model.asset import Asset
 from model.enum import Exchange
+from model.workflow import Candle, UnitTime
 from utils.logger import Logger
 
 
@@ -181,3 +182,126 @@ class BinanceClient:
                 results.append(asset)
 
         return results
+
+    def _unit_time_to_binance_interval(self, unit_time: UnitTime) -> str:
+        """
+        Convert UnitTime enum to Binance interval string.
+
+        Args:
+            unit_time: UnitTime enum value
+
+        Returns:
+            Binance interval string (e.g., "1d", "1h", "15m")
+        """
+        interval_map = {
+            UnitTime.M15: "15m",
+            UnitTime.H1: "1h",
+            UnitTime.H4: "4h",
+            UnitTime.D: "1d",
+            UnitTime.W: "1w",
+            UnitTime.M: "1M",
+        }
+        return interval_map[unit_time]
+
+    def _get_klines(
+        self, symbol: str, interval: str, limit: int
+    ) -> List[List]:
+        """
+        Fetch klines (candlestick data) from Binance.
+
+        Uses Binance API endpoint: GET /api/v3/klines
+
+        Args:
+            symbol: Binance symbol (e.g., "BTCUSDT")
+            interval: Binance interval string (e.g., "1d", "1h", "15m")
+            limit: Number of klines to fetch (max 1000)
+
+        Returns:
+            List of klines in Binance format (nested arrays)
+
+        Raises:
+            ClientError: If the API request fails
+        """
+        try:
+            klines = self.client.klines(
+                symbol=symbol, interval=interval, limit=limit
+            )
+            return klines
+        except ClientError as e:
+            self.logger.error(f"Failed to fetch klines for {symbol}: {e}")
+            raise
+
+    def _map_kline_to_candle(self, kline: List, unit_time: UnitTime) -> Candle:
+        """
+        Convert Binance kline array to Candle object.
+
+        Binance kline format:
+        [
+            0: Kline open time (milliseconds),
+            1: Open price,
+            2: High price,
+            3: Low price,
+            4: Close price,
+            5: Volume,
+            6: Kline close time,
+            ...
+        ]
+
+        Args:
+            kline: Binance kline array
+            unit_time: Time unit for the candle
+
+        Returns:
+            Candle object with rounded prices and proper datetime
+        """
+        return Candle(
+            open=round(float(kline[1]), 4),
+            higher=round(float(kline[2]), 4),
+            lower=round(float(kline[3]), 4),
+            close=round(float(kline[4]), 4),
+            ut=unit_time,
+            date=datetime.fromtimestamp(int(kline[0]) / 1000),
+        )
+
+    def get_candles(
+        self, symbol: str, unit_time: UnitTime, limit: int = 200
+    ) -> List[Candle]:
+        """
+        Get historical candles for a Binance symbol.
+
+        Args:
+            symbol: Binance symbol (e.g., "BTCUSDT")
+            unit_time: Time unit (D, W, M, H1, H4, M15)
+            limit: Number of candles (max 1000, default 200)
+
+        Returns:
+            List of Candle objects, sorted newest first (index 0 = latest)
+        """
+        interval = self._unit_time_to_binance_interval(unit_time)
+        klines = self._get_klines(symbol, interval, limit)
+
+        candles = [
+            self._map_kline_to_candle(kline, unit_time) for kline in klines
+        ]
+
+        # Reverse to get newest first (index 0 = latest)
+        candles.reverse()
+
+        return candles
+
+    def get_latest_candle(self, symbol: str) -> Candle:
+        """
+        Get the most recent 1-minute candle for current price.
+
+        Args:
+            symbol: Binance symbol (e.g., "BTCUSDT")
+
+        Returns:
+            Latest 1-minute Candle
+        """
+        klines = self._get_klines(symbol, "1m", 1)
+
+        if not klines:
+            raise ValueError(f"No kline data returned for {symbol}")
+
+        return self._map_kline_to_candle(klines[0], UnitTime.M15)

@@ -5,6 +5,7 @@ import pytest
 
 from client.binance_client import BinanceClient
 from model import Direction, ReportOrder, Taxes
+from model.workflow import Candle, UnitTime
 
 
 class MockBinanceClient(BinanceClient):
@@ -125,3 +126,30 @@ class TestBinanceClient:
         assert order.taxes is not None
         assert expected.taxes is not None
         assert order.taxes.cost == expected.taxes.cost
+
+    def test_map_kline_to_candle(self):
+        client = MockBinanceClient()
+        kline = [
+            1609459200000,
+            "29000.12345678",
+            "29500.98765432",
+            "28900.11111111",
+            "29300.55555555",
+            "1234.56789",
+            1609545599999,
+            "35678901.23456789",
+            5000,
+            "617.28394",
+            "17839450.61728395",
+            "0",
+        ]
+
+        candle = client._map_kline_to_candle(kline, UnitTime.D)
+
+        assert isinstance(candle, Candle)
+        assert candle.open == 29000.1235
+        assert candle.higher == 29500.9877
+        assert candle.lower == 28900.1111
+        assert candle.close == 29300.5556
+        assert candle.ut == UnitTime.D
+        assert candle.date == datetime.fromtimestamp(1609459200000 / 1000)

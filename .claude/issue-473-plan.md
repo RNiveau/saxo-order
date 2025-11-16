@@ -1,0 +1,349 @@
+# Implementation Plan for Issue #473: Binance Asset View
+
+## Overview
+
+Implement Binance asset detail view following the existing Saxo pattern, ensuring all Binance API calls stay within `BinanceClient` and always return `Candle` objects.
+
+## Context
+
+Nothing exists in the application to get candle data for Binance assets. This plan builds everything needed to support Binance asset views with indicators (moving averages, price data, etc.) following the architectural patterns established for Saxo assets.
+
+**Key Constraints:**
+- No Binance API calls outside `BinanceClient`
+- Every method must return `Candle` or `List[Candle]`, never raw Binance objects
+- Provide methods to fit indicator needs in the asset detail page (MA7, MA20, MA50, MA200)
+- Candles are always sorted newest first (index 0 = latest candle)
+
+## Phase 1: Extend BinanceClient with Candle Methods ✅ COMPLETED
+
+**File:** `client/binance_client.py`
+
+### 1.1 Add Interval Mapping Helper
+Create method to convert `UnitTime` enum to Binance interval strings:
+- `UnitTime.D` → `"1d"`
+- `UnitTime.W` → `"1w"`
+- `UnitTime.M` → `"1M"`
+- `UnitTime.H1` → `"1h"`
+- `UnitTime.H4` → `"4h"`
+- `UnitTime.M15` → `"15m"`
+
+```python
+def _unit_time_to_binance_interval(self, unit_time: UnitTime) -> str:
+    """Convert UnitTime enum to Binance interval string."""
+```
+
+### 1.2 Implement Raw Kline Fetching
+Add private method to fetch raw kline data from Binance API:
+
+```python
+def _get_klines(self, symbol: str, interval: str, limit: int) -> List[List]:
+    """
+    Fetch klines (candlestick data) from Binance.
+
+    Uses Binance API endpoint: GET /api/v3/klines
+
+    Returns: List of klines in Binance format (nested arrays)
+    """
+```
+
+Binance kline response format (each kline is an array):
+```
+[
+  1499040000000,      # 0: Kline open time (milliseconds)
+  "0.01634000",       # 1: Open price
+  "0.80000000",       # 2: High price
+  "0.01575800",       # 3: Low price
+  "0.01577100",       # 4: Close price
+  "148976.11427815",  # 5: Volume
+  1499644799999,      # 6: Kline close time
+  "2434.19055334",    # 7: Quote asset volume
+  308,                # 8: Number of trades
+  "1756.87402397",    # 9: Taker buy base asset volume
+  "28.46694368",      # 10: Taker buy quote asset volume
+  "0"                 # 11: Unused field
+]
+```
+
+### 1.3 Add Mapping from Binance to Candle
+Create private method to convert Binance kline array to `Candle` object:
+
+```python
+def _map_kline_to_candle(self, kline: List, unit_time: UnitTime) -> Candle:
+    """
+    Convert Binance kline array to Candle object.
+
+    Args:
+        kline: Binance kline array [timestamp, open, high, low, close, ...]
+        unit_time: Time unit for the candle
+
+    Returns: Candle object with rounded prices and proper datetime
+    """
+```
+
+Mapping details:
+- `open` ← kline[1] (convert to float, round to 4 decimals)
+- `higher` ← kline[2] (convert to float, round to 4 decimals)
+- `lower` ← kline[3] (convert to float, round to 4 decimals)
+- `close` ← kline[4] (convert to float, round to 4 decimals)
+- `date` ← kline[0] (convert milliseconds to datetime)
+- `ut` ← unit_time parameter
+
+### 1.4 Implement Public Candle Methods
+
+**Get multiple candles:**
+```python
+def get_candles(self, symbol: str, unit_time: UnitTime, limit: int) -> List[Candle]:
+    """
+    Get historical candles for a Binance symbol.
+
+    Args:
+        symbol: Binance symbol (e.g., "BTCUSDT")
+        unit_time: Time unit (D, W, M, H1, H4, M15)
+        limit: Number of candles (max 1000)
+
+    Returns: List of Candle objects, sorted newest first (index 0 = latest)
+    """
+```
+
+**Get latest candle (for current price):**
+```python
+def get_latest_candle(self, symbol: str) -> Candle:
+    """
+    Get the most recent 1-minute candle for current price.
+
+    Args:
+        symbol: Binance symbol (e.g., "BTCUSDT")
+
+    Returns: Latest 1-minute Candle
+    """
+```
+
+### Error Handling
+- Log API errors with appropriate context
+- Raise meaningful exceptions for invalid symbols
+- Handle rate limiting gracefully
+- Validate symbol format before API calls
+
+## Phase 2: Update Indicator Service ⏳ PENDING
+
+**File:** `api/services/indicator_service.py`
+
+### 2.1 Add Binance Support to get_asset_indicators()
+
+1. **Inject BinanceClient dependency** in constructor
+2. **Detect exchange type** from symbol format:
+   - If symbol contains ':' → Saxo (format: "CODE:MARKET")
+   - Else → Binance (format: "BTCUSDT")
+3. **Route to appropriate client:**
+   - Saxo: Use existing SaxoClient flow
+   - Binance: Use new BinanceClient flow
+4. **Fetch data for Binance assets:**
+   - Get 210 daily candles (safety margin for MA200 calculation)
+   - Get latest 1m candle for current price
+   - Calculate variation from previous period's close
+5. **Reuse existing indicator calculations:**
+   - All MA calculations already work with `Candle` objects
+   - No changes needed to `mobile_average()` function
+
+### 2.2 Handle Binance-Specific Differences
+
+- **No market/country_code parameters needed** (Binance uses single symbol)
+- **24/7 trading** (no market hours logic)
+- **Symbol format validation** (no colon character)
+- **Currency handling** (most pairs are USDT quoted)
+
+### 2.3 Create Helper Methods (if needed)
+
+```python
+def _is_binance_symbol(self, symbol: str) -> bool:
+    """Check if symbol is Binance format (no colon)."""
+
+def _get_binance_asset_indicators(self, symbol: str, unit_time: UnitTime) -> AssetIndicatorsResponse:
+    """Get indicators for Binance asset."""
+```
+
+## Phase 3: Update API Router ⏳ PENDING
+
+**File:** `api/routers/indicator.py`
+
+### 3.1 Inject BinanceClient Dependency
+
+Update endpoint to include BinanceClient:
+```python
+@router.get("/asset/{code}")
+async def get_asset_indicators(
+    code: str,
+    country_code: Optional[str] = None,  # Make optional for Binance
+    unit_time: UnitTime = Query(UnitTime.D),
+    saxo_client: SaxoClient = Depends(get_saxo_client),
+    binance_client: BinanceClient = Depends(get_binance_client),
+    indicator_service: IndicatorService = Depends(),
+) -> AssetIndicatorsResponse:
+```
+
+### 3.2 Update Endpoint Logic
+
+1. **Detect symbol type** (Binance vs Saxo)
+2. **Validate parameters:**
+   - If Binance: `country_code` is optional/ignored
+   - If Saxo: `country_code` is required
+3. **Pass correct client to service**
+4. **Maintain backward compatibility** with existing Saxo calls
+
+### 3.3 Update API Documentation
+
+Update OpenAPI docs to reflect:
+- `country_code` is optional (required for Saxo, not used for Binance)
+- Symbol format examples: "AAPL:xnas" (Saxo) vs "BTCUSDT" (Binance)
+
+## Phase 4: Add Tests ⏳ PENDING
+
+### 4.1 Test BinanceClient Candle Methods
+
+**File:** `tests/client/test_binance_client.py` (new or update existing)
+
+Test cases:
+1. **test_unit_time_to_binance_interval()**
+   - Verify all UnitTime enums map correctly
+2. **test_get_klines_success()**
+   - Mock successful Binance API response
+   - Verify correct endpoint/parameters called
+3. **test_map_kline_to_candle()**
+   - Test with realistic kline data
+   - Verify price rounding (4 decimals)
+   - Verify timestamp conversion
+4. **test_get_candles_newest_first()**
+   - Mock multiple klines
+   - Verify candles sorted newest first
+5. **test_get_latest_candle()**
+   - Verify uses 1m interval, limit=1
+   - Returns proper Candle object
+6. **test_get_candles_error_handling()**
+   - Test invalid symbol
+   - Test API errors
+   - Test rate limiting
+
+### 4.2 Test Indicator Service with Binance
+
+**File:** `tests/api/services/test_indicator_service.py` (update existing)
+
+Test cases:
+1. **test_get_binance_asset_indicators()**
+   - Mock BinanceClient.get_candles()
+   - Mock BinanceClient.get_latest_candle()
+   - Verify MA calculations
+   - Verify variation calculation
+2. **test_symbol_detection()**
+   - Test Binance symbols (no colon)
+   - Test Saxo symbols (with colon)
+3. **test_binance_ma_calculation()**
+   - Provide 210 candles
+   - Verify MA7, MA20, MA50, MA200 calculated correctly
+
+### 4.3 Test API Router
+
+**File:** `tests/api/routers/test_indicator.py` (update existing)
+
+Test cases:
+1. **test_get_asset_indicators_binance_symbol()**
+   - Call endpoint with "BTCUSDT"
+   - Verify BinanceClient methods called
+   - Verify response format
+2. **test_get_asset_indicators_country_code_optional()**
+   - Test Binance symbol without country_code
+   - Test Saxo symbol with country_code
+
+## Technical Notes
+
+### Binance API Limits
+- **Max candles per request:** 1000 (vs 1200 for Saxo)
+- **Rate limits:** Weight-based system
+- **No authentication needed** for klines endpoint (public data)
+
+### Symbol Format Differences
+
+| Aspect | Saxo | Binance |
+|--------|------|---------|
+| Symbol format | "CODE:MARKET" (e.g., "AAPL:xnas") | "BASEQUOTE" (e.g., "BTCUSDT") |
+| Identifier | UIC integer (required) | None |
+| Interval format | Horizon in minutes (1440) | String intervals ("1d", "1h") |
+| Max candles | 1200 per request | 1000 per request |
+| Market hours | Varies by exchange | 24/7 for crypto |
+| Authentication | OAuth with token refresh | API key/secret (not needed for klines) |
+
+### Candle Model (Existing - No Changes)
+
+```python
+@dataclass
+class Candle:
+    lower: float        # Low price
+    higher: float       # High price
+    open: float         # Open price
+    close: float        # Close price
+    ut: UnitTime        # Time unit (D, W, M, H1, H4, M15)
+    date: Optional[datetime.datetime] = None
+```
+
+**Critical:** Candles are **always** sorted newest first (index 0 = latest)
+
+### UnitTime Enum (Existing - No Changes)
+
+```python
+class UnitTime(EnumWithGetValue):
+    D = "daily"
+    M15 = "15m"
+    H1 = "h1"
+    H4 = "h4"
+    W = "weekly"
+    M = "monthly"
+```
+
+### Indicator Requirements (Asset Detail Page)
+
+The asset detail page requires:
+- **Current price** (from latest 1m candle)
+- **Variation percentage** (current price vs previous period close)
+- **Moving averages:** MA7, MA20, MA50, MA200
+  - Requires minimum 200 candles
+  - Fetch 210 for safety margin
+- **TradingView URL** (optional, may not apply to Binance)
+- **Currency and metadata**
+
+## Files to Modify
+
+### Phase 1 (BinanceClient)
+- `client/binance_client.py` - Add all candle methods
+
+### Phase 2 (Indicator Service)
+- `api/services/indicator_service.py` - Add exchange routing
+
+### Phase 3 (API Router)
+- `api/routers/indicator.py` - Inject BinanceClient, detect symbol
+- `api/dependencies.py` - Ensure get_binance_client() exists (may already exist from issue #472)
+
+### Phase 4 (Tests)
+- `tests/client/test_binance_client.py` - New or update existing
+- `tests/api/services/test_indicator_service.py` - Update existing
+- `tests/api/routers/test_indicator.py` - Update existing
+
+## Dependencies
+
+- Binance API documentation: https://developers.binance.com/docs/binance-spot-api-docs/rest-api/general-api-information
+- Existing `binance.spot.Spot` client (already imported in BinanceClient)
+- Existing `Candle` model from `model/workflow.py` (no changes needed)
+- Existing indicator functions from `services/indicator_service.py` (reuse as-is)
+
+## Design Principles (from Issue Context)
+
+✅ **No Binance API calls outside BinanceClient** - All API interactions encapsulated
+✅ **Always return Candle objects** - Never expose raw Binance data structures
+✅ **Methods fit indicator needs** - Support MA7, MA20, MA50, MA200 calculations
+✅ **Candles newest first** - Maintain consistent ordering (index 0 = latest)
+✅ **Exchange-agnostic indicators** - Reuse existing calculation functions
+
+## Implementation Status
+
+- ⏳ Phase 1: Extend BinanceClient with Candle Methods (IN PROGRESS)
+- ⏳ Phase 2: Update Indicator Service (PENDING)
+- ⏳ Phase 3: Update API Router (PENDING)
+- ⏳ Phase 4: Add Tests (PENDING)

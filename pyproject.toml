@@ -56,8 +56,8 @@ build-backend = "poetry.masonry.api"
 profile = "black"
 line_length = 79
 
-[tool.pytest]
-mock_use_standalone_module = true
+[tool.pytest.ini_options]
+mock_use_standalone_module = "true"
 
 [tool.black]
 line-length = 79
