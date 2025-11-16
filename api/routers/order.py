@@ -14,7 +14,6 @@ from api.models.order import (
 )
 from client.gsheet_client import GSheetClient
 from client.saxo_client import SaxoClient
-from model import Direction
 from saxo_order.service import calculate_currency
 from saxo_order.services.order_service import OrderService
 from utils.configuration import Configuration
@@ -79,8 +78,8 @@ async def create_order(
             account_key=request.account_key,
         )
 
-        # Log BUY orders to Google Sheets (same as CLI behavior)
-        if request.direction == Direction.BUY and "order" in result:
+        # Log orders to Google Sheets
+        if "order" in result:
             account_key = (
                 request.account_key
                 or client.get_accounts()["Data"][0]["AccountKey"]
@@ -142,8 +141,8 @@ async def create_oco_order(
             account_key=request.account_key,
         )
 
-        # Log stop_order to Google Sheets if it's a BUY (same as CLI behavior)
-        if request.stop_direction == Direction.BUY and "stop_order" in result:
+        # Log stop_order to Google Sheets
+        if "stop_order" in result:
             account_key = (
                 request.account_key
                 or client.get_accounts()["Data"][0]["AccountKey"]
@@ -204,7 +203,7 @@ async def create_stop_limit_order(
             account_key=request.account_key,
         )
 
-        # Log order to Google Sheets (stop-limit orders are always BUY)
+        # Log order to Google Sheets
         if "order" in result:
             account_key = (
                 request.account_key
