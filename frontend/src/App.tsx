@@ -8,6 +8,7 @@ import { SearchResults } from './pages/SearchResults';
 import { AssetDetail } from './pages/AssetDetail';
 import { Watchlist } from './pages/Watchlist';
 import { Report } from './pages/Report';
+import { Orders } from './pages/Orders';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/available-funds" element={<AvailableFunds />} />
+              <Route path="/orders" element={<Orders />} />
               <Route path="/watchlist" element={<Watchlist />} />
               <Route path="/report" element={<Report />} />
               <Route path="/search" element={<SearchResults />} />

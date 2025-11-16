@@ -36,6 +36,7 @@ async def get_accounts(client: SaxoClient = Depends(get_saxo_client)):
                 account_list.append(
                     AccountInfo(
                         account_id=acc["AccountId"],
+                        account_key=account_key,
                         account_name=account_name,
                         total_fund=account.fund,
                         available_fund=account.available_fund,

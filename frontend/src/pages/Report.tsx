@@ -224,7 +224,7 @@ export function Report() {
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.map((order, index) => {
+              {filteredOrders.map((order) => {
                 const originalIndex = orders.indexOf(order);
                 return (
                 <tr key={originalIndex} className={savedOrderIndices.has(originalIndex) ? 'saved-order' : ''}>
