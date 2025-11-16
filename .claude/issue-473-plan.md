@@ -131,12 +131,13 @@ def get_latest_candle(self, symbol: str) -> Candle:
 ### 2.1 Add Binance Support to get_asset_indicators()
 
 1. **Inject BinanceClient dependency** in constructor
-2. **Detect exchange type** from symbol format:
-   - If symbol contains ':' → Saxo (format: "CODE:MARKET")
-   - Else → Binance (format: "BTCUSDT")
+2. **Accept exchange parameter** to explicitly specify the exchange:
+   - Exchange parameter passed from API router (Exchange.SAXO or Exchange.BINANCE)
+   - **Note:** Cannot rely on symbol format (some Saxo assets don't have ':')
+   - Frontend must specify exchange when calling the API
 3. **Route to appropriate client:**
-   - Saxo: Use existing SaxoClient flow
-   - Binance: Use new BinanceClient flow
+   - If exchange == Exchange.SAXO: Use existing SaxoClient flow
+   - If exchange == Exchange.BINANCE: Use new BinanceClient flow
 4. **Fetch data for Binance assets:**
    - Get 210 daily candles (safety margin for MA200 calculation)
    - Get latest 1m candle for current price
@@ -155,25 +156,26 @@ def get_latest_candle(self, symbol: str) -> Candle:
 ### 2.3 Create Helper Methods (if needed)
 
 ```python
-def _is_binance_symbol(self, symbol: str) -> bool:
-    """Check if symbol is Binance format (no colon)."""
-
 def _get_binance_asset_indicators(self, symbol: str, unit_time: UnitTime) -> AssetIndicatorsResponse:
     """Get indicators for Binance asset."""
+
+def _get_saxo_asset_indicators(self, code: str, country_code: str, unit_time: UnitTime) -> AssetIndicatorsResponse:
+    """Get indicators for Saxo asset (refactored from main method)."""
 ```
 
 ## Phase 3: Update API Router ⏳ PENDING
 
 **File:** `api/routers/indicator.py`
 
-### 3.1 Inject BinanceClient Dependency
+### 3.1 Update Endpoint to Accept Exchange Parameter
 
-Update endpoint to include BinanceClient:
+Update endpoint to include exchange parameter and BinanceClient:
 ```python
 @router.get("/asset/{code}")
 async def get_asset_indicators(
     code: str,
-    country_code: Optional[str] = None,  # Make optional for Binance
+    exchange: Exchange = Query(Exchange.SAXO),  # Default to SAXO for backward compatibility
+    country_code: Optional[str] = None,  # Required for Saxo, ignored for Binance
     unit_time: UnitTime = Query(UnitTime.D),
     saxo_client: SaxoClient = Depends(get_saxo_client),
     binance_client: BinanceClient = Depends(get_binance_client),
@@ -183,35 +185,42 @@ async def get_asset_indicators(
 
 ### 3.2 Update Endpoint Logic
 
-1. **Detect symbol type** (Binance vs Saxo)
-2. **Validate parameters:**
-   - If Binance: `country_code` is optional/ignored
-   - If Saxo: `country_code` is required
-3. **Pass correct client to service**
-4. **Maintain backward compatibility** with existing Saxo calls
+1. **Validate parameters based on exchange:**
+   - If exchange == Exchange.SAXO: `country_code` is required
+   - If exchange == Exchange.BINANCE: `country_code` is ignored
+2. **Pass exchange parameter to service** along with appropriate client
+3. **Maintain backward compatibility:**
+   - Default exchange to SAXO if not specified
+   - Existing Saxo calls continue to work without changes
 
 ### 3.3 Update API Documentation
 
 Update OpenAPI docs to reflect:
-- `country_code` is optional (required for Saxo, not used for Binance)
-- Symbol format examples: "AAPL:xnas" (Saxo) vs "BTCUSDT" (Binance)
+- New `exchange` query parameter (Exchange.SAXO or Exchange.BINANCE)
+- `country_code` is optional (required for Saxo, ignored for Binance)
+- Symbol format examples: "AAPL:xnas" or "AAPL" (Saxo) vs "BTCUSDT" (Binance)
+- Note: Cannot detect exchange from symbol format alone
 
 ## Phase 4: Add Tests ⏳ PENDING
 
 ### 4.1 Test BinanceClient Candle Methods
 
-**File:** `tests/client/test_binance_client.py` (new or update existing)
+**File:** `tests/client/test_binance_client.py`
 
 Test cases:
-1. **test_unit_time_to_binance_interval()**
+1. ✅ **test_map_kline_to_candle()** - COMPLETED
+   - Tests with realistic BTC kline data
+   - Verifies price rounding (4 decimals)
+   - Validates timestamp conversion
+   - Checks UnitTime assignment
+   - Location: `tests/client/test_binance_client.py:130-155`
+
+Additional tests needed:
+2. **test_unit_time_to_binance_interval()**
    - Verify all UnitTime enums map correctly
-2. **test_get_klines_success()**
+3. **test_get_klines_success()**
    - Mock successful Binance API response
    - Verify correct endpoint/parameters called
-3. **test_map_kline_to_candle()**
-   - Test with realistic kline data
-   - Verify price rounding (4 decimals)
-   - Verify timestamp conversion
 4. **test_get_candles_newest_first()**
    - Mock multiple klines
    - Verify candles sorted newest first
