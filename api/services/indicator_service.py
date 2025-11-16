@@ -209,8 +209,10 @@ class IndicatorService:
         Returns:
             AssetIndicatorsResponse with all indicator data
         """
-        symbol = f"{code}:{country_code}" if country_code else code
-        asset = self.saxo_client.get_asset(code, country_code)
+        # Use default country_code if not provided
+        cc = country_code or "xpar"
+        symbol = f"{code}:{cc}" if cc else code
+        asset = self.saxo_client.get_asset(code, cc)
 
         horizon = self.HORIZON_MAP[unit_time]
 
@@ -236,7 +238,7 @@ class IndicatorService:
             )
 
         current_price, variation_pct = self.get_price_and_variation(
-            code, country_code, unit_time
+            code, cc, unit_time
         )
 
         moving_averages: List[MovingAverageInfo] = []
