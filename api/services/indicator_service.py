@@ -188,8 +188,6 @@ class IndicatorService:
         if exchange == Exchange.BINANCE:
             return self._get_binance_asset_indicators(code, unit_time)
         else:
-            if not country_code:
-                raise SaxoException("country_code is required for Saxo assets")
             return self._get_saxo_asset_indicators(
                 code, country_code, unit_time
             )
@@ -197,7 +195,7 @@ class IndicatorService:
     def _get_saxo_asset_indicators(
         self,
         code: str,
-        country_code: str,
+        country_code: Optional[str],
         unit_time: UnitTime,
     ) -> AssetIndicatorsResponse:
         """
@@ -205,14 +203,16 @@ class IndicatorService:
 
         Args:
             code: Asset code (e.g., "itp", "DAX.I")
-            country_code: Country code (e.g., "xpar")
+            country_code: Optional country code (e.g., "xpar")
             unit_time: Unit time for calculations
 
         Returns:
             AssetIndicatorsResponse with all indicator data
         """
-        symbol = f"{code}:{country_code}" if country_code else code
-        asset = self.saxo_client.get_asset(code, country_code)
+        # Use default country_code if not provided
+        cc = country_code or "xpar"
+        symbol = f"{code}:{cc}" if cc else code
+        asset = self.saxo_client.get_asset(code, cc)
 
         horizon = self.HORIZON_MAP[unit_time]
 
@@ -238,7 +238,7 @@ class IndicatorService:
             )
 
         current_price, variation_pct = self.get_price_and_variation(
-            code, country_code, unit_time
+            code, cc, unit_time
         )
 
         moving_averages: List[MovingAverageInfo] = []
