@@ -46,7 +46,8 @@ def apply_rules(
     ratio = validate_ratio(order)
     if ratio[0] is False:
         return f"Ratio earn / lost must be greater than 1.5 ({ratio[1]})"
-    if validate_fund(account, order, open_orders) is False:
+    is_cfd = order.asset_type in [AssetType.CFDINDEX, AssetType.CFDFUTURE]
+    if not is_cfd and validate_fund(account, order, open_orders) is False:
         return "Not enough money for this order"
     if validate_max_order(order, total_amount) is False:
         return (

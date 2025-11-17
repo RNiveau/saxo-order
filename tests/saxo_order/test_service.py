@@ -3,7 +3,7 @@ from typing import List
 import pytest
 
 import saxo_order.service as service
-from model import Account, Currency, Order, Underlying
+from model import Account, AssetType, Currency, Order, Underlying
 
 
 class TestValiderOrder:
@@ -249,3 +249,70 @@ class TestValiderOrder:
         assert new_order.underlying.price == 50
         assert new_order.underlying.stop == 25
         assert new_order.underlying.objective == 75
+
+    def test_apply_rules_cfd_skips_fund_validation(self):
+        account = Account("key", "name", 100, 0)
+        cfd_order = Order(
+            code="cfd_test",
+            price=50,
+            quantity=10,
+            stop=45,
+            objective=60,
+            asset_type=AssetType.CFDINDEX,
+        )
+        result = service.apply_rules(account, cfd_order, 10000, [])
+        assert result is None
+
+    def test_apply_rules_cfd_future_skips_fund_validation(self):
+        account = Account("key", "name", 100, 0)
+        cfd_order = Order(
+            code="cfd_test",
+            price=50,
+            quantity=10,
+            stop=45,
+            objective=60,
+            asset_type=AssetType.CFDFUTURE,
+        )
+        result = service.apply_rules(account, cfd_order, 10000, [])
+        assert result is None
+
+    def test_apply_rules_stock_fails_fund_validation(self):
+        account = Account("key", "name", 100, 0)
+        stock_order = Order(
+            code="stock_test",
+            price=50,
+            quantity=10,
+            stop=45,
+            objective=60,
+            asset_type=AssetType.STOCK,
+        )
+        result = service.apply_rules(account, stock_order, 10000, [])
+        assert result == "Not enough money for this order"
+
+    def test_apply_rules_cfd_fails_ratio_validation(self):
+        account = Account("key", "name", 100, 0)
+        cfd_order = Order(
+            code="cfd_test",
+            price=50,
+            quantity=10,
+            stop=48,
+            objective=51,
+            asset_type=AssetType.CFDINDEX,
+        )
+        result = service.apply_rules(account, cfd_order, 10000, [])
+        assert result is not None
+        assert "Ratio" in result
+
+    def test_apply_rules_cfd_fails_max_order_validation(self):
+        account = Account("key", "name", 10000, 0)
+        cfd_order = Order(
+            code="cfd_test",
+            price=500,
+            quantity=50,
+            stop=450,
+            objective=600,
+            asset_type=AssetType.CFDINDEX,
+        )
+        result = service.apply_rules(account, cfd_order, 10000, [])
+        assert result is not None
+        assert "10%" in result
