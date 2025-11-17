@@ -5,7 +5,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
-from api.routers.indicator import get_candles_service, get_saxo_client
+from api.routers.indicator import (
+    get_binance_client,
+    get_candles_service,
+    get_saxo_client,
+)
 from model import Candle
 from utils.exception import SaxoException
 
@@ -29,6 +33,19 @@ def mock_saxo_client():
     app.dependency_overrides[get_saxo_client] = override_get_saxo_client
     yield mock_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def mock_binance_client():
+    """Mock BinanceClient - autouse so all tests have it."""
+    mock_client = MagicMock()
+
+    def override_get_binance_client():
+        return mock_client
+
+    app.dependency_overrides[get_binance_client] = override_get_binance_client
+    yield mock_client
+    # Don't delete - mock_saxo_client clears all overrides
 
 
 @pytest.fixture

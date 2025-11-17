@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import (
+    get_binance_client,
     get_candles_service,
     get_dynamodb_client_optional,
     get_saxo_client,
@@ -10,8 +11,10 @@ from api.dependencies import (
 from api.models.indicator import AssetIndicatorsResponse
 from api.services.indicator_service import IndicatorService
 from client.aws_client import DynamoDBClient
+from client.binance_client import BinanceClient
 from client.saxo_client import SaxoClient
 from model import UnitTime
+from model.enum import Exchange
 from services.candles_service import CandlesService
 from utils.exception import SaxoException
 from utils.logger import Logger
@@ -26,15 +29,20 @@ SUPPORTED_UNIT_TIMES = [UnitTime.D, UnitTime.W, UnitTime.M]
 @router.get("/asset/{code}", response_model=AssetIndicatorsResponse)
 async def get_asset_indicators(
     code: str,
-    country_code: str = Query(
+    exchange: str = Query(
+        Exchange.SAXO.value,
+        description="Exchange (saxo or binance)",
+    ),
+    country_code: Optional[str] = Query(
         "xpar",
-        description="Country code of the asset (e.g., 'xpar')",
+        description="Country code (e.g., 'xpar') - required for Saxo",
     ),
     unit_time: str = Query(
         UnitTime.D.value,
         description="Unit time for indicators (daily, weekly, monthly)",
     ),
     saxo_client: SaxoClient = Depends(get_saxo_client),
+    binance_client: BinanceClient = Depends(get_binance_client),
     candles_service: CandlesService = Depends(get_candles_service),
     dynamodb_client: Optional[DynamoDBClient] = Depends(
         get_dynamodb_client_optional
@@ -60,6 +68,9 @@ async def get_asset_indicators(
         AssetIndicatorsResponse with all indicator data
     """
     try:
+        # Validate and convert exchange
+        ex = Exchange.get_value(exchange)
+
         # Validate and convert unit_time
         ut = UnitTime.get_value(unit_time)
         if ut not in SUPPORTED_UNIT_TIMES:
@@ -70,20 +81,21 @@ async def get_asset_indicators(
             )
 
         indicator_service = IndicatorService(
-            saxo_client, candles_service, dynamodb_client
+            saxo_client, binance_client, candles_service, dynamodb_client
         )
         return indicator_service.get_asset_indicators(
-            code=code, country_code=country_code, unit_time=ut
+            code=code, exchange=ex, country_code=country_code, unit_time=ut
         )
 
     except SaxoException as e:
         logger.error(
-            f"Saxo error getting indicators for {code} ({unit_time}): {e}"
+            f"Error getting indicators for {code} "
+            f"({exchange}, {unit_time}): {e}"
         )
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(
             f"Unexpected error getting indicators for "
-            f"{code} ({unit_time}): {e}"
+            f"{code} ({exchange}, {unit_time}): {e}"
         )
         raise HTTPException(status_code=500, detail="Internal server error")

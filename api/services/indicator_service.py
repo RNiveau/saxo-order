@@ -3,9 +3,11 @@ from typing import List, Optional
 
 from api.models.indicator import AssetIndicatorsResponse, MovingAverageInfo
 from client.aws_client import DynamoDBClient
+from client.binance_client import BinanceClient
 from client.client_helper import map_data_to_candles
 from client.saxo_client import SaxoClient
 from model import Candle, Currency, UnitTime
+from model.enum import Exchange
 from services.candles_service import CandlesService
 from services.indicator_service import mobile_average
 from utils.exception import SaxoException
@@ -29,10 +31,12 @@ class IndicatorService:
     def __init__(
         self,
         saxo_client: SaxoClient,
+        binance_client: BinanceClient,
         candles_service: CandlesService,
         dynamodb_client: Optional[DynamoDBClient] = None,
     ):
         self.saxo_client = saxo_client
+        self.binance_client = binance_client
         self.candles_service = candles_service
         self.dynamodb_client = dynamodb_client
 
@@ -68,7 +72,7 @@ class IndicatorService:
     def get_price_and_variation(
         self,
         code: str,
-        country_code: str = "xpar",
+        country_code: Optional[str] = "xpar",
         unit_time: UnitTime = UnitTime.D,
         asset_identifier: Optional[int] = None,
         asset_type: Optional[str] = None,
@@ -158,7 +162,8 @@ class IndicatorService:
     def get_asset_indicators(
         self,
         code: str,
-        country_code: str = "xpar",
+        exchange: Exchange = Exchange.SAXO,
+        country_code: Optional[str] = "xpar",
         unit_time: UnitTime = UnitTime.D,
     ) -> AssetIndicatorsResponse:
         """
@@ -166,8 +171,11 @@ class IndicatorService:
         and variation.
 
         Args:
-            code: Asset code (e.g., "itp", "DAX.I")
-            country_code: Country code (e.g., "xpar")
+            code: Asset code/symbol
+                (e.g., "itp" for Saxo, "BTCUSDT" for Binance)
+            exchange: Exchange (SAXO or BINANCE)
+            country_code: Country code for Saxo (e.g., "xpar"),
+                ignored for Binance
             unit_time: Unit time for calculations
                 (D=daily, W=weekly, M=monthly)
 
@@ -177,19 +185,40 @@ class IndicatorService:
         Raises:
             SaxoException: If asset not found or insufficient data
         """
-        # Get asset info
+        if exchange == Exchange.BINANCE:
+            return self._get_binance_asset_indicators(code, unit_time)
+        else:
+            return self._get_saxo_asset_indicators(
+                code, country_code, unit_time
+            )
+
+    def _get_saxo_asset_indicators(
+        self,
+        code: str,
+        country_code: Optional[str],
+        unit_time: UnitTime,
+    ) -> AssetIndicatorsResponse:
+        """
+        Get indicator data for a Saxo asset.
+
+        Args:
+            code: Asset code (e.g., "itp", "DAX.I")
+            country_code: Optional country code (e.g., "xpar")
+            unit_time: Unit time for calculations
+
+        Returns:
+            AssetIndicatorsResponse with all indicator data
+        """
         symbol = f"{code}:{country_code}" if country_code else code
         asset = self.saxo_client.get_asset(code, country_code)
 
-        # Get horizon based on unit_time
         horizon = self.HORIZON_MAP[unit_time]
 
-        # Fetch candles (need at least 200 for MA200)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
             horizon=horizon,
-            count=210,  # Get extra candles for safety
+            count=210,
         )
 
         if len(data) < 200:
@@ -198,7 +227,6 @@ class IndicatorService:
                 f"only {len(data)} candles available, need at least 200"
             )
 
-        # Convert to Candle objects (newest first based on CLAUDE.md)
         candles: List[Candle] = map_data_to_candles(data, None)
 
         if len(candles) < 200:
@@ -207,12 +235,10 @@ class IndicatorService:
                 f"({unit_time.value}): {len(candles)}"
             )
 
-        # Get current price and variation
         current_price, variation_pct = self.get_price_and_variation(
             code, country_code, unit_time
         )
 
-        # Calculate moving averages
         moving_averages: List[MovingAverageInfo] = []
         for period in self.MA_PERIODS:
             try:
@@ -232,7 +258,6 @@ class IndicatorService:
                     f"Could not calculate MA{period} for {symbol} "
                     f"({unit_time.value}): {e}"
                 )
-                # Continue with other MAs even if one fails
 
         if not moving_averages:
             raise SaxoException(
@@ -240,7 +265,6 @@ class IndicatorService:
                 f"({unit_time.value})"
             )
 
-        # Get TradingView URL if DynamoDB client is available
         tradingview_url = None
         if self.dynamodb_client:
             try:
@@ -261,4 +285,81 @@ class IndicatorService:
             unit_time=unit_time.value,
             moving_averages=moving_averages,
             tradingview_url=tradingview_url,
+        )
+
+    def _get_binance_asset_indicators(
+        self,
+        symbol: str,
+        unit_time: UnitTime,
+    ) -> AssetIndicatorsResponse:
+        """
+        Get indicator data for a Binance asset.
+
+        Args:
+            symbol: Binance symbol (e.g., "BTCUSDT")
+            unit_time: Unit time for calculations
+
+        Returns:
+            AssetIndicatorsResponse with all indicator data
+        """
+        candles = self.binance_client.get_candles(symbol, unit_time, limit=210)
+
+        if len(candles) < 200:
+            raise SaxoException(
+                f"Insufficient data for {symbol} ({unit_time.value}): "
+                f"only {len(candles)} candles available, need at least 200"
+            )
+
+        latest_candle = self.binance_client.get_latest_candle(symbol)
+        current_price = latest_candle.close
+
+        previous_close = (
+            candles[1].close
+            if latest_candle.date
+            and candles[0].date
+            and self._is_same_period(
+                latest_candle.date, candles[0].date, unit_time
+            )
+            else candles[0].close
+        )
+
+        variation_pct = round(
+            ((current_price - previous_close) / previous_close) * 100, 2
+        )
+
+        moving_averages: List[MovingAverageInfo] = []
+        for period in self.MA_PERIODS:
+            try:
+                ma_value = mobile_average(candles, period)
+                is_above = current_price > ma_value
+
+                moving_averages.append(
+                    MovingAverageInfo(
+                        period=period,
+                        value=round(ma_value, 4),
+                        is_above=is_above,
+                        unit_time=unit_time.value,
+                    )
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Could not calculate MA{period} for {symbol} "
+                    f"({unit_time.value}): {e}"
+                )
+
+        if not moving_averages:
+            raise SaxoException(
+                f"Could not calculate any moving averages for {symbol} "
+                f"({unit_time.value})"
+            )
+
+        return AssetIndicatorsResponse(
+            asset_symbol=symbol,
+            description=symbol,
+            current_price=round(current_price, 4),
+            variation_pct=variation_pct,
+            currency=Currency.USD,
+            unit_time=unit_time.value,
+            moving_averages=moving_averages,
+            tradingview_url=None,
         )
