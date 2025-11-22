@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Dict
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -153,3 +154,65 @@ class TestBinanceClient:
         assert candle.close == 29300.5556
         assert candle.ut == UnitTime.D
         assert candle.date == datetime.fromtimestamp(1609459200000 / 1000)
+
+    def test_get_candles_newest_first(self):
+        """Test that candles are returned sorted newest first."""
+        mock_api = MagicMock()
+        mock_klines = [
+            [
+                1609459200000,
+                "100.00",
+                "101.00",
+                "99.00",
+                "100.50",
+                "1000",
+                1609545599999,
+                "100500",
+                100,
+                "500",
+                "50250",
+                "0",
+            ],
+            [
+                1609545600000,
+                "100.50",
+                "102.00",
+                "100.00",
+                "101.50",
+                "2000",
+                1609631999999,
+                "203000",
+                200,
+                "1000",
+                "101500",
+                "0",
+            ],
+            [
+                1609632000000,
+                "101.50",
+                "103.00",
+                "101.00",
+                "102.50",
+                "3000",
+                1609718399999,
+                "307500",
+                300,
+                "1500",
+                "153750",
+                "0",
+            ],
+        ]
+        mock_api.klines.return_value = mock_klines
+
+        client = MockBinanceClient()
+        client.client = mock_api
+        client.logger = MagicMock()
+
+        candles = client.get_candles("BTCUSDT", UnitTime.D, limit=3)
+
+        assert len(candles) == 3
+        assert candles[0].close == 102.5
+        assert candles[1].close == 101.5
+        assert candles[2].close == 100.5
+        assert candles[0].date > candles[1].date
+        assert candles[1].date > candles[2].date

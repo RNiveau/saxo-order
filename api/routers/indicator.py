@@ -54,18 +54,35 @@ async def get_asset_indicators(
     Returns moving averages (7, 20, 50, 200 periods), current price,
     and percentage variation from previous period's close.
 
+    Supports both Saxo Bank and Binance exchanges. The exchange parameter
+    determines which data source to use.
+
     The unit_time parameter determines the period length:
     - daily: Moving averages calculated on daily candles
     - weekly: Moving averages calculated on weekly candles
     - monthly: Moving averages calculated on monthly candles
 
     Args:
-        code: Asset code (e.g., 'itp', 'DAX.I')
-        country_code: Country code (default: 'xpar')
+        code: Asset code/symbol
+            - Saxo: Asset code (e.g., 'itp', 'DAX.I', 'btc')
+            - Binance: Trading pair symbol (e.g., 'BTCUSDT', 'ETHUSDT')
+        exchange: Exchange name (default: 'saxo')
+            - 'saxo': Saxo Bank exchange
+            - 'binance': Binance cryptocurrency exchange
+        country_code: Country/market code for Saxo assets (default: 'xpar')
+            - Required for most Saxo assets (e.g., 'xpar' for Euronext Paris)
+            - Optional for some assets (e.g., indices like 'DAX.I')
+            - Ignored for Binance assets
         unit_time: Unit time for calculations (default: 'daily')
+            - Supported values: 'daily', 'weekly', 'monthly'
 
     Returns:
         AssetIndicatorsResponse with all indicator data
+
+    Examples:
+        - Saxo stock: /api/indicator/asset/itp?exchange=saxo&country_code=xpar
+        - Saxo index: /api/indicator/asset/DAX.I?exchange=saxo
+        - Binance crypto: /api/indicator/asset/BTCUSDT?exchange=binance
     """
     try:
         # Validate and convert exchange

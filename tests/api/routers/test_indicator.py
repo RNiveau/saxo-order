@@ -10,7 +10,7 @@ from api.routers.indicator import (
     get_candles_service,
     get_saxo_client,
 )
-from model import Candle
+from model import Candle, UnitTime
 from utils.exception import SaxoException
 
 client = TestClient(app)
@@ -389,3 +389,148 @@ class TestIndicatorEndpoint:
         # Check all MAs have monthly unit_time
         for ma in data["moving_averages"]:
             assert ma["unit_time"] == "monthly"
+
+    def test_get_asset_indicators_binance_symbol(
+        self, mock_binance_client, mock_candles_service
+    ):
+        """Test indicator retrieval for Binance cryptocurrency."""
+        mock_candles = []
+        for i in range(210):
+            mock_candles.append(
+                Candle(
+                    open=50000.0 + i,
+                    close=50000.0 + i,
+                    lower=49900.0 + i,
+                    higher=50100.0 + i,
+                    ut=UnitTime.D,
+                    date=datetime.datetime(2024, 1, 1, 0, 0, 0)
+                    + datetime.timedelta(days=210 - i),
+                )
+            )
+
+        mock_binance_client.get_candles.return_value = mock_candles
+        mock_binance_client.get_latest_candle.return_value = Candle(
+            open=52000.0,
+            close=52100.0,
+            lower=51900.0,
+            higher=52200.0,
+            ut=UnitTime.M15,
+            date=datetime.datetime.now(datetime.UTC),
+        )
+
+        response = client.get(
+            "/api/indicator/asset/BTCUSDT?exchange=binance&unit_time=daily"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["asset_symbol"] == "BTCUSDT"
+        assert data["description"] == "BTCUSDT"
+        assert data["current_price"] == 52100.0
+        assert data["currency"] == "USD"
+        assert data["unit_time"] == "daily"
+
+        assert len(data["moving_averages"]) == 4
+        ma_periods = [ma["period"] for ma in data["moving_averages"]]
+        assert sorted(ma_periods) == [7, 20, 50, 200]
+
+        mock_binance_client.get_candles.assert_called_once_with(
+            "BTCUSDT", UnitTime.D, limit=210
+        )
+        mock_binance_client.get_latest_candle.assert_called_once_with(
+            "BTCUSDT"
+        )
+
+    def test_get_asset_indicators_binance_variation(
+        self, mock_binance_client, mock_candles_service
+    ):
+        """Test variation calculation for Binance assets."""
+        mock_candles = []
+        for i in range(210):
+            mock_candles.append(
+                Candle(
+                    open=100.0,
+                    close=100.0,
+                    lower=99.0,
+                    higher=101.0,
+                    ut=UnitTime.D,
+                    date=datetime.datetime(2024, 1, 1, 0, 0, 0)
+                    + datetime.timedelta(days=210 - i),
+                )
+            )
+
+        mock_binance_client.get_candles.return_value = mock_candles
+        mock_binance_client.get_latest_candle.return_value = Candle(
+            open=105.0,
+            close=110.0,
+            lower=104.0,
+            higher=111.0,
+            ut=UnitTime.M15,
+            date=datetime.datetime.now(datetime.UTC),
+        )
+
+        response = client.get("/api/indicator/asset/ETHUSDT?exchange=binance")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["current_price"] == 110.0
+        assert data["variation_pct"] == 10.0
+
+    def test_get_asset_indicators_exchange_parameter(
+        self, mock_saxo_client, mock_candles_service, mock_historical_data
+    ):
+        """Test that exchange parameter correctly routes to appropriate client."""
+        mock_saxo_client.get_historical_data.return_value = (
+            mock_historical_data
+        )
+
+        response_saxo = client.get(
+            "/api/indicator/asset/itp?exchange=saxo&country_code=xpar"
+        )
+
+        assert response_saxo.status_code == 200
+        assert response_saxo.json()["asset_symbol"] == "itp:xpar"
+
+        mock_saxo_client.get_asset.call_count >= 1
+
+    def test_get_asset_indicators_country_code_optional_for_binance(
+        self, mock_binance_client, mock_candles_service
+    ):
+        """Test that country_code is ignored for Binance assets."""
+        mock_candles = []
+        for i in range(210):
+            mock_candles.append(
+                Candle(
+                    open=100.0,
+                    close=100.0,
+                    lower=99.0,
+                    higher=101.0,
+                    ut=UnitTime.D,
+                    date=datetime.datetime(2024, 1, 1, 0, 0, 0)
+                    + datetime.timedelta(days=i),
+                )
+            )
+
+        mock_binance_client.get_candles.return_value = mock_candles
+        mock_binance_client.get_latest_candle.return_value = Candle(
+            open=100.0,
+            close=100.0,
+            lower=99.0,
+            higher=101.0,
+            ut=UnitTime.M15,
+            date=datetime.datetime.now(datetime.UTC),
+        )
+
+        response = client.get(
+            "/api/indicator/asset/BTCUSDT?exchange=binance"
+            "&country_code=ignored"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["asset_symbol"] == "BTCUSDT"
+
+        mock_binance_client.get_candles.assert_called_once()
+        mock_binance_client.get_latest_candle.assert_called_once()
