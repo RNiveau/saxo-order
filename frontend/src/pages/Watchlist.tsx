@@ -69,8 +69,8 @@ export function Watchlist() {
     }
   };
 
-  const handleAssetClick = (symbol: string, description: string) => {
-    navigate(`/asset/${encodeURIComponent(symbol)}`, { state: { description } });
+  const handleAssetClick = (symbol: string, description: string, exchange: string) => {
+    navigate(`/asset/${encodeURIComponent(symbol)}?exchange=${exchange}`, { state: { description } });
   };
 
   const formatPrice = (price: number) => {
@@ -154,7 +154,7 @@ export function Watchlist() {
                 {filteredItems.map((item) => (
                   <tr
                     key={item.id}
-                    onClick={() => handleAssetClick(item.asset_symbol, item.description)}
+                    onClick={() => handleAssetClick(item.asset_symbol, item.description, item.exchange)}
                     className="watchlist-row"
                   >
                     <td className="description">

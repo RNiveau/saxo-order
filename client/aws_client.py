@@ -114,6 +114,7 @@ class DynamoDBClient(AwsClient):
         asset_identifier: Optional[int] = None,
         asset_type: Optional[str] = None,
         labels: Optional[list[str]] = None,
+        exchange: str = "saxo",
     ) -> Dict[str, Any]:
         """Add an asset to the watchlist with cached metadata and labels."""
         item: Dict[str, Any] = {
@@ -125,6 +126,7 @@ class DynamoDBClient(AwsClient):
                 datetime.timezone.utc
             ).isoformat(),
             "labels": labels if labels is not None else [],
+            "exchange": exchange,
         }
 
         # Add cached asset metadata if provided

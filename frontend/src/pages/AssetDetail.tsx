@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import {
   workflowService,
   indicatorService,
@@ -13,6 +13,8 @@ import './AssetDetail.css';
 
 export function AssetDetail() {
   const { symbol } = useParams<{ symbol: string }>();
+  const [searchParams] = useSearchParams();
+  const exchange = searchParams.get('exchange') || 'saxo';
   const [workflowData, setWorkflowData] = useState<AssetWorkflowsResponse | null>(null);
   const [indicatorData, setIndicatorData] = useState<AssetIndicatorsResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,7 +64,8 @@ export function AssetDetail() {
       const parts = assetSymbol.split(':');
       const code = parts[0];
       const countryCode = parts.length > 1 ? parts[1] : '';
-      const data = await indicatorService.getAssetIndicators(code, countryCode);
+
+      const data = await indicatorService.getAssetIndicators(code, countryCode, 'daily', exchange);
       setIndicatorData(data);
     } catch (err) {
       setIndicatorError('Failed to fetch indicators for this asset');
@@ -124,6 +127,7 @@ export function AssetDetail() {
           asset_symbol: symbol,
           description: description,
           country_code: countryCode,
+          exchange: exchange,
         });
         setWatchlistSuccess(`Added ${assetName} to watchlist`);
         setIsInWatchlist(true);

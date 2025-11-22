@@ -10,7 +10,7 @@ export function IndexCard({ item }: IndexCardProps) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/asset/${encodeURIComponent(item.asset_symbol)}`, {
+    navigate(`/asset/${encodeURIComponent(item.asset_symbol)}?exchange=${item.exchange}`, {
       state: { description: item.description }
     });
   };

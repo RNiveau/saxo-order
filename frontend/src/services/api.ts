@@ -156,11 +156,13 @@ export const indicatorService = {
   getAssetIndicators: async (
     code: string,
     countryCode: string = 'xpar',
-    unitTime: string = 'daily'
+    unitTime: string = 'daily',
+    exchange: string = 'saxo'
   ): Promise<AssetIndicatorsResponse> => {
     const params: Record<string, string> = {
       country_code: countryCode,
       unit_time: unitTime,
+      exchange: exchange,
     };
     const response = await api.get<AssetIndicatorsResponse>(
       `/api/indicator/asset/${code}`,
@@ -181,6 +183,7 @@ export interface WatchlistItem {
   added_at: string;
   labels: string[];
   tradingview_url?: string;
+  exchange: string;
 }
 
 export interface WatchlistResponse {
@@ -194,6 +197,7 @@ export interface AddToWatchlistRequest {
   description: string;
   country_code: string;
   labels?: string[];
+  exchange?: string;
 }
 
 export interface AddToWatchlistResponse {

@@ -159,6 +159,17 @@
   margin-bottom: 0.15rem;
 }
 
+.stale-indicator {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.watchlist-item:hover .stale-indicator {
+  opacity: 0.9;
+}
+
 .watchlist-item-symbol {
   color: #8b949e;
   font-size: 0.75rem;
