@@ -14,6 +14,7 @@ from api.models.watchlist import (
     UpdateLabelsRequest,
     UpdateLabelsResponse,
     WatchlistResponse,
+    WatchlistTag,
 )
 from api.services.indicator_service import IndicatorService
 from api.services.watchlist_service import WatchlistService
@@ -126,6 +127,14 @@ async def add_to_watchlist(
         asset_identifier = asset["Identifier"]
         asset_type = asset["AssetType"]
 
+        # Auto-add crypto tag for Binance assets
+        labels = request.labels.copy() if request.labels else []
+        if (
+            request.exchange == "binance"
+            and WatchlistTag.CRYPTO.value not in labels
+        ):
+            labels.append(WatchlistTag.CRYPTO.value)
+
         dynamodb_client.add_to_watchlist(
             request.asset_id,
             request.asset_symbol,
@@ -133,7 +142,7 @@ async def add_to_watchlist(
             request.country_code,
             asset_identifier=asset_identifier,
             asset_type=asset_type,
-            labels=request.labels,
+            labels=labels,
             exchange=request.exchange,
         )
 

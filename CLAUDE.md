@@ -64,7 +64,7 @@ The codebase follows a layered architecture:
 - Outside the SaxoService, the candle object must be used everywhere.
 - The saxo api doesn't return the current day (horizon 1440) or current hour (horizon 60). You have to rebuild it with a smaller horizon
 - DO NOT add unnecessary inline comments explaining obvious code (e.g., "// Use unique account ID", "// Send enum key directly"). Keep code clean and self-documenting 
-
+- A saxo asset CAN be without country_code, DO NOT assume an asset without country code is a binance one
 
 ## Testing Guidelines
 
@@ -73,6 +73,7 @@ When writing tests:
 - Use pytest fixtures for common test data
 - Mock external API calls using `unittest.mock`
 - Test data files go in `tests/services/files/`
+- DON'T test mock, we don't need that
 
 ## Deployment
 

@@ -163,24 +163,35 @@ class WatchlistService:
         """
         Get watchlist items for sidebar display with current prices.
         Excludes items with 'long-term' tag.
+        Excludes crypto assets UNLESS they also have 'short-term' tag.
         Items are sorted with short-term labeled items first,
         then other items (alphabetically).
 
         Returns:
             WatchlistResponse with enriched and sorted watchlist data
-            (excluding long-term)
+            (excluding long-term and crypto without short-term)
         """
         # Get watchlist from DynamoDB
         watchlist_items = self.dynamodb_client.get_watchlist()
 
-        # Filter out long-term assets
-        watchlist_items = [
-            item
-            for item in watchlist_items
-            if WatchlistTag.LONG_TERM.value not in item.get("labels", [])
-        ]
+        # Filter out long-term assets and crypto assets without short-term tag
+        filtered_items = []
+        for item in watchlist_items:
+            labels = item.get("labels", [])
 
-        return self._enrich_and_sort_watchlist(watchlist_items)
+            # Exclude long-term assets
+            if WatchlistTag.LONG_TERM.value in labels:
+                continue
+
+            # Exclude crypto assets WITHOUT short-term tag
+            has_crypto = WatchlistTag.CRYPTO.value in labels
+            has_short_term = WatchlistTag.SHORT_TERM.value in labels
+            if has_crypto and not has_short_term:
+                continue
+
+            filtered_items.append(item)
+
+        return self._enrich_and_sort_watchlist(filtered_items)
 
     def get_all_watchlist(self) -> WatchlistResponse:
         """

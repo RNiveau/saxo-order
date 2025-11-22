@@ -189,3 +189,91 @@ class TestWatchlistServiceFiltering:
         # Assert: Item is filtered out
         assert result.total == 0
         assert len(result.items) == 0
+
+    def test_get_watchlist_excludes_crypto_without_short_term(
+        self, watchlist_service, mock_dynamodb_client
+    ):
+        """Test crypto assets without short-term tag excluded from sidebar."""
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "crypto1",
+                "asset_symbol": "BTCUSDT",
+                "description": "BTC/USDT",
+                "country_code": "",
+                "added_at": "2024-01-01T00:00:00Z",
+                "labels": ["crypto"],
+                "asset_identifier": None,
+                "asset_type": None,
+                "exchange": "binance",
+            },
+            {
+                "id": "crypto_short",
+                "asset_symbol": "ETHUSDT",
+                "description": "ETH/USDT",
+                "country_code": "",
+                "added_at": "2024-01-02T00:00:00Z",
+                "labels": ["crypto", "short-term"],
+                "asset_identifier": None,
+                "asset_type": None,
+                "exchange": "binance",
+            },
+            {
+                "id": "saxo1",
+                "asset_symbol": "itp:xpar",
+                "description": "Interparfums",
+                "country_code": "xpar",
+                "added_at": "2024-01-03T00:00:00Z",
+                "labels": [],
+                "asset_identifier": 123,
+                "asset_type": "Stock",
+                "exchange": "saxo",
+            },
+        ]
+
+        mock_dynamodb_client.get_tradingview_link.return_value = None
+
+        result = watchlist_service.get_watchlist()
+
+        assert result.total == 2
+        returned_ids = {item.id for item in result.items}
+        assert "crypto_short" in returned_ids
+        assert "saxo1" in returned_ids
+        assert "crypto1" not in returned_ids
+
+    def test_get_all_watchlist_includes_crypto_assets(
+        self, watchlist_service, mock_dynamodb_client
+    ):
+        """Test that get_all_watchlist includes all crypto assets."""
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "crypto1",
+                "asset_symbol": "BTCUSDT",
+                "description": "BTC/USDT",
+                "country_code": "",
+                "added_at": "2024-01-01T00:00:00Z",
+                "labels": ["crypto"],
+                "asset_identifier": None,
+                "asset_type": None,
+                "exchange": "binance",
+            },
+            {
+                "id": "crypto_short",
+                "asset_symbol": "ETHUSDT",
+                "description": "ETH/USDT",
+                "country_code": "",
+                "added_at": "2024-01-02T00:00:00Z",
+                "labels": ["crypto", "short-term"],
+                "asset_identifier": None,
+                "asset_type": None,
+                "exchange": "binance",
+            },
+        ]
+
+        mock_dynamodb_client.get_tradingview_link.return_value = None
+
+        result = watchlist_service.get_all_watchlist()
+
+        assert result.total == 2
+        returned_ids = {item.id for item in result.items}
+        assert "crypto1" in returned_ids
+        assert "crypto_short" in returned_ids
