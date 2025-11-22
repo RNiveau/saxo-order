@@ -8,6 +8,7 @@ from utils.helper import (
     build_daily_candle_from_hours,
     build_daily_candles_from_h1,
     build_h4_candles_from_h1,
+    build_weekly_candles_from_daily,
 )
 
 
@@ -1198,3 +1199,300 @@ class TestHelper:
             )
             == expected
         )
+
+    @pytest.mark.parametrize(
+        "candles, expected",
+        [
+            ([], []),
+            (
+                [
+                    Candle(
+                        lower=100.0,
+                        higher=110.0,
+                        open=105.0,
+                        close=108.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 5, 15, 0),
+                    ),
+                    Candle(
+                        lower=102.0,
+                        higher=112.0,
+                        open=104.0,
+                        close=106.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 4, 15, 0),
+                    ),
+                    Candle(
+                        lower=98.0,
+                        higher=108.0,
+                        open=100.0,
+                        close=105.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 3, 15, 0),
+                    ),
+                    Candle(
+                        lower=95.0,
+                        higher=105.0,
+                        open=98.0,
+                        close=102.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 2, 15, 0),
+                    ),
+                    Candle(
+                        lower=90.0,
+                        higher=100.0,
+                        open=92.0,
+                        close=99.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 1, 15, 0),
+                    ),
+                ],
+                [
+                    Candle(
+                        lower=90.0,
+                        higher=112.0,
+                        open=92.0,
+                        close=108.0,
+                        ut=UnitTime.W,
+                        date=datetime.datetime(2024, 1, 1, 15, 0),
+                    )
+                ],
+            ),
+            (
+                [
+                    Candle(
+                        lower=115.0,
+                        higher=125.0,
+                        open=120.0,
+                        close=122.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 12, 15, 0),
+                    ),
+                    Candle(
+                        lower=110.0,
+                        higher=120.0,
+                        open=112.0,
+                        close=118.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 11, 15, 0),
+                    ),
+                    Candle(
+                        lower=108.0,
+                        higher=118.0,
+                        open=110.0,
+                        close=115.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 10, 15, 0),
+                    ),
+                    Candle(
+                        lower=105.0,
+                        higher=115.0,
+                        open=108.0,
+                        close=112.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 9, 15, 0),
+                    ),
+                    Candle(
+                        lower=100.0,
+                        higher=110.0,
+                        open=105.0,
+                        close=108.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 8, 15, 0),
+                    ),
+                    Candle(
+                        lower=100.0,
+                        higher=110.0,
+                        open=105.0,
+                        close=108.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 5, 15, 0),
+                    ),
+                    Candle(
+                        lower=102.0,
+                        higher=112.0,
+                        open=104.0,
+                        close=106.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 4, 15, 0),
+                    ),
+                    Candle(
+                        lower=98.0,
+                        higher=108.0,
+                        open=100.0,
+                        close=105.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 3, 15, 0),
+                    ),
+                    Candle(
+                        lower=95.0,
+                        higher=105.0,
+                        open=98.0,
+                        close=102.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 2, 15, 0),
+                    ),
+                    Candle(
+                        lower=90.0,
+                        higher=100.0,
+                        open=92.0,
+                        close=99.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 1, 15, 0),
+                    ),
+                ],
+                [
+                    Candle(
+                        lower=100.0,
+                        higher=125.0,
+                        open=105.0,
+                        close=122.0,
+                        ut=UnitTime.W,
+                        date=datetime.datetime(2024, 1, 8, 15, 0),
+                    ),
+                    Candle(
+                        lower=90.0,
+                        higher=112.0,
+                        open=92.0,
+                        close=108.0,
+                        ut=UnitTime.W,
+                        date=datetime.datetime(2024, 1, 1, 15, 0),
+                    ),
+                ],
+            ),
+            (
+                [
+                    Candle(
+                        lower=95.0,
+                        higher=105.0,
+                        open=98.0,
+                        close=102.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 2, 15, 0),
+                    ),
+                    Candle(
+                        lower=90.0,
+                        higher=100.0,
+                        open=92.0,
+                        close=99.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 1, 1, 15, 0),
+                    ),
+                ],
+                [
+                    Candle(
+                        lower=90.0,
+                        higher=105.0,
+                        open=92.0,
+                        close=102.0,
+                        ut=UnitTime.W,
+                        date=datetime.datetime(2024, 1, 1, 15, 0),
+                    )
+                ],
+            ),
+            (
+                [
+                    Candle(
+                        lower=40.53,
+                        higher=41.12,
+                        open=40.99,
+                        close=40.64,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 5, 28, 15, 0),
+                    ),
+                    Candle(
+                        lower=40.60,
+                        higher=40.93,
+                        open=40.75,
+                        close=40.84,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 5, 27, 15, 0),
+                    ),
+                    Candle(
+                        lower=40.39,
+                        higher=40.82,
+                        open=40.65,
+                        close=40.65,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 5, 24, 15, 0),
+                    ),
+                    Candle(
+                        lower=40.45,
+                        higher=40.78,
+                        open=40.60,
+                        close=40.70,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 5, 23, 15, 0),
+                    ),
+                    Candle(
+                        lower=40.30,
+                        higher=40.65,
+                        open=40.50,
+                        close=40.58,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 5, 22, 15, 0),
+                    ),
+                    Candle(
+                        lower=40.25,
+                        higher=40.55,
+                        open=40.40,
+                        close=40.52,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 5, 21, 15, 0),
+                    ),
+                    Candle(
+                        lower=40.20,
+                        higher=40.50,
+                        open=40.35,
+                        close=40.45,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 5, 20, 15, 0),
+                    ),
+                ],
+                [
+                    Candle(
+                        lower=40.53,
+                        higher=41.12,
+                        open=40.75,
+                        close=40.64,
+                        ut=UnitTime.W,
+                        date=datetime.datetime(2024, 5, 27, 15, 0),
+                    ),
+                    Candle(
+                        lower=40.20,
+                        higher=40.82,
+                        open=40.35,
+                        close=40.65,
+                        ut=UnitTime.W,
+                        date=datetime.datetime(2024, 5, 20, 15, 0),
+                    ),
+                ],
+            ),
+        ],
+    )
+    def test_build_weekly_candles_from_daily(
+        self, candles: List[Candle], expected: List[Candle]
+    ):
+        result = build_weekly_candles_from_daily(candles)
+        assert len(result) == len(expected)
+        for i, (result_candle, expected_candle) in enumerate(
+            zip(result, expected)
+        ):
+            assert (
+                result_candle.lower == expected_candle.lower
+            ), f"Candle {i}: lower mismatch"
+            assert (
+                result_candle.higher == expected_candle.higher
+            ), f"Candle {i}: higher mismatch"
+            assert (
+                result_candle.open == expected_candle.open
+            ), f"Candle {i}: open mismatch"
+            assert (
+                result_candle.close == expected_candle.close
+            ), f"Candle {i}: close mismatch"
+            assert (
+                result_candle.ut == expected_candle.ut
+            ), f"Candle {i}: ut mismatch"
+            assert (
+                result_candle.date == expected_candle.date
+            ), f"Candle {i}: date mismatch"

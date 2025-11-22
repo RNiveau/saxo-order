@@ -159,6 +159,59 @@ def build_daily_candles_from_h1(
     return candles_daily
 
 
+def build_weekly_candles_from_daily(candles: List[Candle]) -> List[Candle]:
+    """
+    Build weekly candles from daily candles.
+
+    Args:
+        candles: List of daily candles (newest first, index 0)
+
+    Returns:
+        List of weekly candles (newest first)
+    """
+    if not candles:
+        return []
+
+    weekly_candles: List[Candle] = []
+    weeks_dict: dict[tuple[int, int], List[Candle]] = {}
+
+    for candle in candles:
+        if candle.date is None:
+            continue
+
+        iso_year, iso_week, iso_day = candle.date.isocalendar()
+        week_key = (iso_year, iso_week)
+
+        if week_key not in weeks_dict:
+            weeks_dict[week_key] = []
+        weeks_dict[week_key].append(candle)
+
+    for week_key in sorted(weeks_dict.keys(), reverse=True):
+        week_candles = weeks_dict[week_key]
+        week_candles.sort(
+            key=lambda c: (
+                c.date if c.date is not None else datetime.datetime.min
+            ),
+            reverse=True,
+        )
+
+        monday_candle = week_candles[-1]
+        friday_candle = week_candles[0]
+
+        weekly_candle = Candle(
+            lower=min(c.lower for c in week_candles),
+            higher=max(c.higher for c in week_candles),
+            open=monday_candle.open,
+            close=friday_candle.close,
+            ut=UnitTime.W,
+            date=monday_candle.date,
+        )
+
+        weekly_candles.append(weekly_candle)
+
+    return weekly_candles
+
+
 def _internal_build_candle(
     candles: List[Candle], start_index: int, nbr_candles: int, ut: UnitTime
 ) -> Candle:
