@@ -22,6 +22,10 @@ class AddToWatchlistRequest(BaseModel):
         default_factory=list,
         description="Labels for the asset (e.g., ['short-term'])",
     )
+    exchange: str = Field(
+        default="saxo",
+        description="Exchange (saxo or binance)",
+    )
 
 
 class AddToWatchlistResponse(BaseModel):
@@ -50,6 +54,10 @@ class WatchlistItem(BaseModel):
     tradingview_url: Optional[str] = Field(
         default=None,
         description="Custom TradingView URL for this asset",
+    )
+    exchange: str = Field(
+        default="saxo",
+        description="Exchange (saxo or binance)",
     )
 
 

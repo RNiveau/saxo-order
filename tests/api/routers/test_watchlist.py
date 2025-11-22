@@ -188,6 +188,7 @@ class TestWatchlistEndpoint:
             asset_identifier=123,
             asset_type="Stock",
             labels=[],
+            exchange="saxo",
         )
 
     def test_add_to_watchlist_with_default_country_code(
@@ -220,6 +221,7 @@ class TestWatchlistEndpoint:
             asset_identifier=123,
             asset_type="Stock",
             labels=[],
+            exchange="saxo",
         )
 
     def test_add_to_watchlist_missing_required_fields(self):
@@ -356,6 +358,7 @@ class TestWatchlistEndpoint:
             asset_identifier=123,
             asset_type="Stock",
             labels=["short-term"],
+            exchange="saxo",
         )
 
     def test_update_labels_success(self, mock_dynamodb_client):
@@ -615,6 +618,7 @@ class TestWatchlistEndpoint:
             asset_identifier=123,
             asset_type="Stock",
             labels=["long-term"],
+            exchange="saxo",
         )
 
     def test_update_labels_with_both_tags(self, mock_dynamodb_client):

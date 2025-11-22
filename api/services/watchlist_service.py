@@ -31,6 +31,7 @@ class WatchlistService:
         labels: Optional[List[str]] = None,
         asset_identifier: Optional[int] = None,
         asset_type: Optional[str] = None,
+        exchange: str = "saxo",
     ) -> WatchlistItem:
         """
         Enrich an asset with current price, variation, and currency.
@@ -92,6 +93,7 @@ class WatchlistService:
             added_at=added_at,
             labels=labels,
             tradingview_url=tradingview_url,
+            exchange=exchange,
         )
 
     def _enrich_and_sort_watchlist(
@@ -119,6 +121,7 @@ class WatchlistService:
                     labels=item.get("labels", []),
                     asset_identifier=item.get("asset_identifier"),
                     asset_type=item.get("asset_type"),
+                    exchange=item.get("exchange", "saxo"),
                 )
                 enriched_items.append(enriched_item)
             except SaxoException as e:
@@ -136,6 +139,7 @@ class WatchlistService:
                         currency=Currency.EURO,
                         added_at=item.get("added_at", ""),
                         labels=item.get("labels", []),
+                        exchange=item.get("exchange", "saxo"),
                     )
                 )
             except Exception as e:
