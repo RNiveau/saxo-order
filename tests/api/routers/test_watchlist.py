@@ -640,13 +640,17 @@ class TestWatchlistEndpoint:
         data = response.json()
         assert data["asset_id"] == "BTCUSDT"
 
+        # Binance assets should NOT call Saxo client
+        mock_saxo_client.get_asset.assert_not_called()
+
+        # Should use provided description and set asset_type to Crypto
         mock_dynamodb_client.add_to_watchlist.assert_called_once_with(
             "BTCUSDT",
             "BTCUSDT",
-            "Interparfums SA",
+            "BTC/USDT",
             "",
-            asset_identifier=123,
-            asset_type="Stock",
+            asset_identifier=None,
+            asset_type="Crypto",
             labels=["crypto"],
             exchange="binance",
         )
@@ -669,13 +673,17 @@ class TestWatchlistEndpoint:
 
         assert response.status_code == 200
 
+        # Binance assets should NOT call Saxo client
+        mock_saxo_client.get_asset.assert_not_called()
+
+        # Should use provided description and preserve existing labels
         mock_dynamodb_client.add_to_watchlist.assert_called_once_with(
             "ETHUSDT",
             "ETHUSDT",
-            "Interparfums SA",
+            "ETH/USDT",
             "",
-            asset_identifier=123,
-            asset_type="Stock",
+            asset_identifier=None,
+            asset_type="Crypto",
             labels=["short-term", "crypto"],
             exchange="binance",
         )

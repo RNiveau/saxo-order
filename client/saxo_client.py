@@ -108,11 +108,11 @@ class SaxoClient:
         if len(data) > 1:
             codes = map(lambda x: x["Symbol"], data)
             raise SaxoException(
-                f"Stock {code}:{market} has more than one entry,"
+                f"Stock {symbol} has more than one entry,"
                 f" check it: {list(codes)}"
             )
         if len(data) == 0:
-            raise SaxoException(f"Stock {code}:{market} doesn't exist")
+            raise SaxoException(f"Stock {symbol} doesn't exist")
         return data[0]
 
     def search(
