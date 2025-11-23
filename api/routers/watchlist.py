@@ -144,14 +144,6 @@ async def add_to_watchlist(
         ):
             labels.append(WatchlistTag.CRYPTO.value)
 
-        # Auto-add crypto tag for Binance assets
-        labels = request.labels.copy() if request.labels else []
-        if (
-            request.exchange == "binance"
-            and WatchlistTag.CRYPTO.value not in labels
-        ):
-            labels.append(WatchlistTag.CRYPTO.value)
-
         dynamodb_client.add_to_watchlist(
             request.asset_id,
             request.asset_symbol,
