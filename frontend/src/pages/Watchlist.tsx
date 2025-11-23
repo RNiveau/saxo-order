@@ -164,7 +164,7 @@ export function Watchlist() {
                           {item.labels && item.labels.length > 0 && (
                             <div className="tags-container">
                               {item.labels.map((label, idx) => (
-                                <span key={idx} className="tag">{label}</span>
+                                <span key={idx} className={`tag ${label === 'crypto' ? 'crypto' : ''}`}>{label}</span>
                               ))}
                             </div>
                           )}

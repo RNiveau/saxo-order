@@ -9,6 +9,7 @@ from model import Currency
 class WatchlistTag(str, Enum):
     SHORT_TERM = "short-term"
     LONG_TERM = "long-term"
+    CRYPTO = "crypto"
 
 
 class AddToWatchlistRequest(BaseModel):
