@@ -4,6 +4,7 @@ from api.models.watchlist import WatchlistItem, WatchlistResponse, WatchlistTag
 from api.services.indicator_service import IndicatorService
 from client.aws_client import DynamoDBClient
 from model import Currency, UnitTime
+from model.enum import Exchange
 from utils.exception import SaxoException
 from utils.logger import Logger
 
@@ -62,8 +63,6 @@ class WatchlistService:
         # Handle Binance assets differently
         if exchange == "binance":
             # For Binance, get price from indicator service
-            from model.enum import Exchange
-
             indicators = self.indicator_service.get_asset_indicators(
                 code=code,
                 exchange=Exchange.BINANCE,
