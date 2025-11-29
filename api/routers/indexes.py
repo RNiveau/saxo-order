@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.dependencies import get_candles_service, get_saxo_client
+from api.dependencies import (
+    get_binance_client,
+    get_candles_service,
+    get_saxo_client,
+)
 from api.models.watchlist import WatchlistResponse
 from api.services.indicator_service import IndicatorService
 from api.services.watchlist_service import WatchlistService
+from client.binance_client import BinanceClient
 from client.saxo_client import SaxoClient
 from services.candles_service import CandlesService
 from utils.logger import Logger
@@ -14,13 +19,16 @@ logger = Logger.get_logger("indexes_router")
 
 def get_watchlist_service(
     saxo_client: SaxoClient = Depends(get_saxo_client),
+    binance_client: BinanceClient = Depends(get_binance_client),
     candles_service: CandlesService = Depends(get_candles_service),
 ) -> WatchlistService:
     """
     Create WatchlistService instance for indexes.
     Note: Indexes don't use DynamoDB, so we pass None.
     """
-    indicator_service = IndicatorService(saxo_client, candles_service)
+    indicator_service = IndicatorService(
+        saxo_client, binance_client, candles_service
+    )
     return WatchlistService(None, indicator_service)  # type: ignore[arg-type]
 
 

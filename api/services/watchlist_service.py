@@ -4,6 +4,7 @@ from api.models.watchlist import WatchlistItem, WatchlistResponse, WatchlistTag
 from api.services.indicator_service import IndicatorService
 from client.aws_client import DynamoDBClient
 from model import Currency, UnitTime
+from model.enum import Exchange
 from utils.exception import SaxoException
 from utils.logger import Logger
 
@@ -31,6 +32,7 @@ class WatchlistService:
         labels: Optional[List[str]] = None,
         asset_identifier: Optional[int] = None,
         asset_type: Optional[str] = None,
+        exchange: str = "saxo",
     ) -> WatchlistItem:
         """
         Enrich an asset with current price, variation, and currency.
@@ -44,6 +46,7 @@ class WatchlistService:
             labels: Labels for the asset
             asset_identifier: Optional cached Saxo UIC
             asset_type: Optional cached asset type
+            exchange: Exchange (saxo or binance)
 
         Returns:
             WatchlistItem with enriched data
@@ -57,22 +60,41 @@ class WatchlistService:
         else:
             code = asset_symbol
 
-        # Get asset info to retrieve currency
-        asset_info = self.indicator_service.saxo_client.get_asset(
-            code, country_code
-        )
-        currency = Currency.get_value(asset_info.get("CurrencyCode", "EUR"))
-
-        # Get current price and variation using IndicatorService
-        current_price, variation_pct = (
-            self.indicator_service.get_price_and_variation(
+        # Handle Binance assets differently
+        if exchange == "binance":
+            # For Binance, get price from indicator service
+            indicators = self.indicator_service.get_asset_indicators(
                 code=code,
-                country_code=country_code,
+                exchange=Exchange.BINANCE,
+                country_code="",
                 unit_time=UnitTime.D,
-                asset_identifier=asset_identifier,
-                asset_type=asset_type,
             )
-        )
+            current_price = indicators.current_price
+            variation_pct = indicators.variation_pct
+            currency = Currency.USD
+            final_description = description
+        else:
+            # For Saxo assets, get asset info to retrieve currency
+            asset_info = self.indicator_service.saxo_client.get_asset(
+                code, country_code
+            )
+            currency = Currency.get_value(
+                asset_info.get("CurrencyCode", "EUR")
+            )
+
+            # Get current price and variation using IndicatorService
+            current_price, variation_pct = (
+                self.indicator_service.get_price_and_variation(
+                    code=code,
+                    country_code=country_code,
+                    unit_time=UnitTime.D,
+                    asset_identifier=asset_identifier,
+                    asset_type=asset_type,
+                )
+            )
+            final_description = description or asset_info.get(
+                "Description", ""
+            )
 
         # Get TradingView URL if available
         tradingview_url = None
@@ -84,7 +106,7 @@ class WatchlistService:
         return WatchlistItem(
             id=item_id,
             asset_symbol=asset_symbol,
-            description=description or asset_info.get("Description", ""),
+            description=final_description,
             country_code=country_code,
             current_price=round(current_price, 4),
             variation_pct=variation_pct,
@@ -92,6 +114,7 @@ class WatchlistService:
             added_at=added_at,
             labels=labels,
             tradingview_url=tradingview_url,
+            exchange=exchange,
         )
 
     def _enrich_and_sort_watchlist(
@@ -119,6 +142,7 @@ class WatchlistService:
                     labels=item.get("labels", []),
                     asset_identifier=item.get("asset_identifier"),
                     asset_type=item.get("asset_type"),
+                    exchange=item.get("exchange", "saxo"),
                 )
                 enriched_items.append(enriched_item)
             except SaxoException as e:
@@ -136,6 +160,7 @@ class WatchlistService:
                         currency=Currency.EURO,
                         added_at=item.get("added_at", ""),
                         labels=item.get("labels", []),
+                        exchange=item.get("exchange", "saxo"),
                     )
                 )
             except Exception as e:
@@ -159,24 +184,35 @@ class WatchlistService:
         """
         Get watchlist items for sidebar display with current prices.
         Excludes items with 'long-term' tag.
+        Excludes crypto assets UNLESS they also have 'short-term' tag.
         Items are sorted with short-term labeled items first,
         then other items (alphabetically).
 
         Returns:
             WatchlistResponse with enriched and sorted watchlist data
-            (excluding long-term)
+            (excluding long-term and crypto without short-term)
         """
         # Get watchlist from DynamoDB
         watchlist_items = self.dynamodb_client.get_watchlist()
 
-        # Filter out long-term assets
-        watchlist_items = [
-            item
-            for item in watchlist_items
-            if WatchlistTag.LONG_TERM.value not in item.get("labels", [])
-        ]
+        # Filter out long-term assets and crypto assets without short-term tag
+        filtered_items = []
+        for item in watchlist_items:
+            labels = item.get("labels", [])
 
-        return self._enrich_and_sort_watchlist(watchlist_items)
+            # Exclude long-term assets
+            if WatchlistTag.LONG_TERM.value in labels:
+                continue
+
+            # Exclude crypto assets WITHOUT short-term tag
+            has_crypto = WatchlistTag.CRYPTO.value in labels
+            has_short_term = WatchlistTag.SHORT_TERM.value in labels
+            if has_crypto and not has_short_term:
+                continue
+
+            filtered_items.append(item)
+
+        return self._enrich_and_sort_watchlist(filtered_items)
 
     def get_all_watchlist(self) -> WatchlistResponse:
         """

@@ -188,6 +188,7 @@ class TestWatchlistEndpoint:
             asset_identifier=123,
             asset_type="Stock",
             labels=[],
+            exchange="saxo",
         )
 
     def test_add_to_watchlist_with_default_country_code(
@@ -220,6 +221,7 @@ class TestWatchlistEndpoint:
             asset_identifier=123,
             asset_type="Stock",
             labels=[],
+            exchange="saxo",
         )
 
     def test_add_to_watchlist_missing_required_fields(self):
@@ -356,6 +358,7 @@ class TestWatchlistEndpoint:
             asset_identifier=123,
             asset_type="Stock",
             labels=["short-term"],
+            exchange="saxo",
         )
 
     def test_update_labels_success(self, mock_dynamodb_client):
@@ -615,6 +618,74 @@ class TestWatchlistEndpoint:
             asset_identifier=123,
             asset_type="Stock",
             labels=["long-term"],
+            exchange="saxo",
+        )
+
+    def test_add_binance_asset_auto_adds_crypto_tag(
+        self, mock_saxo_client, mock_dynamodb_client
+    ):
+        """Test that adding a Binance asset automatically adds crypto tag."""
+        response = client.post(
+            "/api/watchlist",
+            json={
+                "asset_id": "BTCUSDT",
+                "asset_symbol": "BTCUSDT",
+                "description": "BTC/USDT",
+                "country_code": "",
+                "exchange": "binance",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["asset_id"] == "BTCUSDT"
+
+        # Binance assets should NOT call Saxo client
+        mock_saxo_client.get_asset.assert_not_called()
+
+        # Should use provided description and set asset_type to Crypto
+        mock_dynamodb_client.add_to_watchlist.assert_called_once_with(
+            "BTCUSDT",
+            "BTCUSDT",
+            "BTC/USDT",
+            "",
+            asset_identifier=None,
+            asset_type="Crypto",
+            labels=["crypto"],
+            exchange="binance",
+        )
+
+    def test_add_binance_asset_preserves_existing_labels(
+        self, mock_saxo_client, mock_dynamodb_client
+    ):
+        """Test that crypto tag is added while preserving other labels."""
+        response = client.post(
+            "/api/watchlist",
+            json={
+                "asset_id": "ETHUSDT",
+                "asset_symbol": "ETHUSDT",
+                "description": "ETH/USDT",
+                "country_code": "",
+                "exchange": "binance",
+                "labels": ["short-term"],
+            },
+        )
+
+        assert response.status_code == 200
+
+        # Binance assets should NOT call Saxo client
+        mock_saxo_client.get_asset.assert_not_called()
+
+        # Should use provided description and preserve existing labels
+        mock_dynamodb_client.add_to_watchlist.assert_called_once_with(
+            "ETHUSDT",
+            "ETHUSDT",
+            "ETH/USDT",
+            "",
+            asset_identifier=None,
+            asset_type="Crypto",
+            labels=["short-term", "crypto"],
+            exchange="binance",
         )
 
     def test_update_labels_with_both_tags(self, mock_dynamodb_client):

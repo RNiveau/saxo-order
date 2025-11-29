@@ -9,28 +9,24 @@ export function Sidebar() {
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastLoadTime, setLastLoadTime] = useState<number>(Date.now());
+
+  // Data is considered stale after 1 minute
+  const isStale = Date.now() - lastLoadTime > 60000;
 
   useEffect(() => {
     loadWatchlist();
 
     let intervalId: NodeJS.Timeout | null = null;
-    let lastLoadTime = Date.now();
 
     // Function to start/stop auto-refresh based on visibility
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        // Reload only if more than 1 minute has passed since last load
-        const timeSinceLastLoad = Date.now() - lastLoadTime;
-        if (isMarketOpen() && timeSinceLastLoad >= 60000) {
-          loadWatchlist();
-          lastLoadTime = Date.now();
-        }
-        // Start auto-refresh when tab becomes visible
+        // Start auto-refresh when tab becomes visible (no immediate reload)
         if (!intervalId) {
           intervalId = setInterval(() => {
             if (isMarketOpen() && !document.hidden) {
               loadWatchlist();
-              lastLoadTime = Date.now();
             }
           }, 60000); // 1 minute
         }
@@ -63,6 +59,7 @@ export function Sidebar() {
       setError(null);
       const data = await watchlistService.getWatchlist();
       setWatchlistItems(data.items);
+      setLastLoadTime(Date.now());
     } catch (err) {
       setError('Failed to load watchlist');
       console.error('Watchlist error:', err);
@@ -71,8 +68,8 @@ export function Sidebar() {
     }
   };
 
-  const handleWatchlistItemClick = (symbol: string, description: string) => {
-    navigate(`/asset/${encodeURIComponent(symbol)}`, { state: { description } });
+  const handleWatchlistItemClick = (symbol: string, description: string, exchange: string) => {
+    navigate(`/asset/${encodeURIComponent(symbol)}?exchange=${exchange}`, { state: { description } });
   };
 
   const formatVariation = (variation: number) => {
@@ -168,10 +165,11 @@ export function Sidebar() {
                   {showDivider && <div className="watchlist-divider" />}
                   <div
                     className="watchlist-item"
-                    onClick={() => handleWatchlistItemClick(item.asset_symbol, item.description)}
+                    onClick={() => handleWatchlistItemClick(item.asset_symbol, item.description, item.exchange)}
                   >
                     <div className="watchlist-item-name">
                       {item.description || item.asset_symbol}
+                      {isStale && <span className="stale-indicator" title="Data is stale (>10 minutes)">⏰</span>}
                     </div>
                     <div className="watchlist-item-symbol">
                       {item.asset_symbol}

@@ -9,6 +9,7 @@ from model import Currency
 class WatchlistTag(str, Enum):
     SHORT_TERM = "short-term"
     LONG_TERM = "long-term"
+    CRYPTO = "crypto"
 
 
 class AddToWatchlistRequest(BaseModel):
@@ -21,6 +22,10 @@ class AddToWatchlistRequest(BaseModel):
     labels: List[str] = Field(
         default_factory=list,
         description="Labels for the asset (e.g., ['short-term'])",
+    )
+    exchange: str = Field(
+        default="saxo",
+        description="Exchange (saxo or binance)",
     )
 
 
@@ -50,6 +55,10 @@ class WatchlistItem(BaseModel):
     tradingview_url: Optional[str] = Field(
         default=None,
         description="Custom TradingView URL for this asset",
+    )
+    exchange: str = Field(
+        default="saxo",
+        description="Exchange (saxo or binance)",
     )
 
 

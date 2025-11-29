@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import (
+    get_binance_client,
     get_candles_service,
     get_dynamodb_client,
     get_saxo_client,
@@ -13,11 +14,14 @@ from api.models.watchlist import (
     UpdateLabelsRequest,
     UpdateLabelsResponse,
     WatchlistResponse,
+    WatchlistTag,
 )
 from api.services.indicator_service import IndicatorService
 from api.services.watchlist_service import WatchlistService
 from client.aws_client import DynamoDBClient
+from client.binance_client import BinanceClient
 from client.saxo_client import SaxoClient
+from model import AssetType
 from services.candles_service import CandlesService
 from utils.logger import Logger
 
@@ -27,6 +31,7 @@ logger = Logger.get_logger("watchlist_router")
 
 def get_watchlist_service(
     saxo_client: SaxoClient = Depends(get_saxo_client),
+    binance_client: BinanceClient = Depends(get_binance_client),
     candles_service: CandlesService = Depends(get_candles_service),
     dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
 ) -> WatchlistService:
@@ -34,7 +39,9 @@ def get_watchlist_service(
     Create WatchlistService instance.
     This is a dependency that can be injected into FastAPI endpoints.
     """
-    indicator_service = IndicatorService(saxo_client, candles_service)
+    indicator_service = IndicatorService(
+        saxo_client, binance_client, candles_service
+    )
     return WatchlistService(dynamodb_client, indicator_service)
 
 
@@ -114,12 +121,36 @@ async def add_to_watchlist(
         AddToWatchlistResponse with success message
     """
     try:
-        # Fetch asset from Saxo API to get the real description
-        # and cache metadata
-        asset = saxo_client.get_asset(request.asset_id, request.country_code)
-        description = asset["Description"]
-        asset_identifier = asset["Identifier"]
-        asset_type = asset["AssetType"]
+        # For Saxo assets, fetch from API to get real description and metadata
+        # For Binance assets, use provided description
+        if request.exchange == "saxo":
+            asset = saxo_client.get_asset(
+                request.asset_id, request.country_code
+            )
+            description = asset["Description"]
+            asset_identifier = asset["Identifier"]
+            asset_type = asset["AssetType"]
+        else:
+            # Binance assets - use provided description and set crypto type
+            description = request.description
+            asset_identifier = None
+            asset_type = AssetType.CRYPTO.value
+
+        # Auto-add crypto tag for Binance assets
+        labels = request.labels.copy() if request.labels else []
+        if (
+            request.exchange == "binance"
+            and WatchlistTag.CRYPTO.value not in labels
+        ):
+            labels.append(WatchlistTag.CRYPTO.value)
+
+        # Auto-add crypto tag for Binance assets
+        labels = request.labels.copy() if request.labels else []
+        if (
+            request.exchange == "binance"
+            and WatchlistTag.CRYPTO.value not in labels
+        ):
+            labels.append(WatchlistTag.CRYPTO.value)
 
         dynamodb_client.add_to_watchlist(
             request.asset_id,
@@ -128,7 +159,8 @@ async def add_to_watchlist(
             request.country_code,
             asset_identifier=asset_identifier,
             asset_type=asset_type,
-            labels=request.labels,
+            labels=labels,
+            exchange=request.exchange,
         )
 
         return AddToWatchlistResponse(
