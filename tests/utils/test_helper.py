@@ -1468,6 +1468,37 @@ class TestHelper:
                     ),
                 ],
             ),
+            (
+                # week with only tuesday and wednesday
+                [
+                    Candle(
+                        lower=40.25,
+                        higher=40.55,
+                        open=40.40,
+                        close=40.52,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 5, 22, 15, 0),
+                    ),
+                    Candle(
+                        lower=40.20,
+                        higher=40.50,
+                        open=40.35,
+                        close=40.45,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 5, 21, 15, 0),
+                    ),
+                ],
+                [
+                    Candle(
+                        lower=40.20,
+                        higher=40.55,
+                        open=40.35,
+                        close=40.52,
+                        ut=UnitTime.W,
+                        date=datetime.datetime(2024, 5, 21, 15, 0),
+                    )
+                ],
+            ),
         ],
     )
     def test_build_weekly_candles_from_daily(
