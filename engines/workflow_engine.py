@@ -30,8 +30,9 @@ from model import (
 )
 from model.enum import AssetType
 from services.candles_service import CandlesService
+from client.client_helper import map_data_to_candles
 from utils.exception import SaxoException
-from utils.helper import build_weekly_candles_from_daily, get_date_utc0
+from utils.helper import build_current_weekly_candle_from_daily, get_date_utc0
 from utils.logger import Logger
 
 
@@ -166,25 +167,46 @@ class WorkflowEngine:
                     )
                     return []
 
-            nbr_days = nbr_weeks * 5 * 3
             self.logger.debug(
                 f"get candles for {indicator.name} {indicator.ut}, "
-                f"we need {nbr_weeks} weekly candles "
-                f"({nbr_days} daily candles)"
+                f"we need {nbr_weeks} weekly candles"
             )
 
-            daily_candles = self.candles_service.build_hour_candles(
-                code=workflow.index,
-                cfd_code=workflow.cfd,
-                ut=UnitTime.D,
-                open_hour_utc0=market.open_hour,
-                close_hour_utc0=market.close_hour,
-                nbr_hours=nbr_days * 8,
-                open_minutes=market.open_minutes,
+            asset = self.saxo_client.get_asset(workflow.index)
+            weekly_data = self.saxo_client.get_historical_data(
+                saxo_uic=asset["Identifier"],
+                asset_type=asset["AssetType"],
+                horizon=10080,
+                count=nbr_weeks,
                 date=get_date_utc0(),
             )
+            weekly_candles = map_data_to_candles(weekly_data, ut=UnitTime.W)
 
-            return build_weekly_candles_from_daily(daily_candles)
+            today = get_date_utc0()
+            if (
+                len(weekly_candles) > 0
+                and weekly_candles[0].date is not None
+                and today.isocalendar()[:2]
+                != weekly_candles[0].date.isocalendar()[:2]
+                and today.weekday() < 5
+            ):
+                daily_candles = self.candles_service.build_hour_candles(
+                    code=workflow.index,
+                    cfd_code=workflow.cfd,
+                    ut=UnitTime.D,
+                    open_hour_utc0=market.open_hour,
+                    close_hour_utc0=market.close_hour,
+                    nbr_hours=5 * 8,
+                    open_minutes=market.open_minutes,
+                    date=get_date_utc0(),
+                )
+                current_weekly = build_current_weekly_candle_from_daily(
+                    daily_candles
+                )
+                if current_weekly is not None:
+                    weekly_candles.insert(0, current_weekly)
+
+            return weekly_candles
 
         multiplicator = 1
         if indicator.ut == UnitTime.H4:
