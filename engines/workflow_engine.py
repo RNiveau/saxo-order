@@ -31,7 +31,7 @@ from model import (
 from model.enum import AssetType
 from services.candles_service import CandlesService
 from utils.exception import SaxoException
-from utils.helper import get_date_utc0
+from utils.helper import build_weekly_candles_from_daily, get_date_utc0
 from utils.logger import Logger
 
 
@@ -149,6 +149,43 @@ class WorkflowEngine:
         self, workflow: Workflow, indicator: Indicator
     ) -> List[Candle]:
         market = EUMarket() if workflow.is_us is False else USMarket()
+
+        if indicator.ut == UnitTime.W:
+            match indicator.name:
+                case IndicatorType.MA50:
+                    nbr_weeks = 55
+                case IndicatorType.COMBO:
+                    nbr_weeks = 750
+                case IndicatorType.BBH | IndicatorType.BBB:
+                    nbr_weeks = 21
+                case IndicatorType.POL | IndicatorType.ZONE:
+                    nbr_weeks = 1
+                case _:
+                    self.logger.error(
+                        f"indicator {indicator.name} isn't managed"
+                    )
+                    return []
+
+            nbr_days = nbr_weeks * 5 * 3
+            self.logger.debug(
+                f"get candles for {indicator.name} {indicator.ut}, "
+                f"we need {nbr_weeks} weekly candles "
+                f"({nbr_days} daily candles)"
+            )
+
+            daily_candles = self.candles_service.build_hour_candles(
+                code=workflow.index,
+                cfd_code=workflow.cfd,
+                ut=UnitTime.D,
+                open_hour_utc0=market.open_hour,
+                close_hour_utc0=market.close_hour,
+                nbr_hours=nbr_days * 8,
+                open_minutes=market.open_minutes,
+                date=get_date_utc0(),
+            )
+
+            return build_weekly_candles_from_daily(daily_candles)
+
         multiplicator = 1
         if indicator.ut == UnitTime.H4:
             multiplicator = 4
