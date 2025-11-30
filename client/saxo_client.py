@@ -44,7 +44,7 @@ class SaxoClient:
         self.session = requests.Session()
         self.configuration = configuration
         # Cache for historical data with 30 min TTL
-        # (only for horizon=60 and horizon=1440)
+        # (only for horizon=30, horizon=60, horizon=1440, and horizon=10080)
         self.historical_data_cache: TTLCache = TTLCache(maxsize=256, ttl=1800)
         self.session.headers.update(
             {"Authorization": f"Bearer {configuration.access_token}"}
@@ -441,8 +441,8 @@ class SaxoClient:
         Get historical data for a specific asset
         First date is the newest and the list is sorted in a decremental way
 
-        Caches data for horizon=60 (hourly) and horizon=1440 (daily)
-        with 30min TTL
+        Caches data for horizon=30 (30min), horizon=60 (hourly),
+        horizon=1440 (daily), and horizon=10080 (weekly) with 30min TTL
         """
         # Convert to string if int provided (for compatibility)
         saxo_uic = str(saxo_uic)
@@ -450,8 +450,8 @@ class SaxoClient:
         # Store original date for cache key
         original_date = date
 
-        # Check cache only for hourly (60) and daily (1440) horizons
-        if horizon in [60, 1440]:
+        # Check cache for 30min (30), hourly (60), daily (1440), weekly (10080)
+        if horizon in [30, 60, 1440, 10080]:
             cache_key = self._get_historical_data_cache_key(
                 saxo_uic, asset_type, horizon, count, original_date
             )
@@ -505,7 +505,7 @@ class SaxoClient:
                 break
 
         # Store in cache if applicable
-        if horizon in [60, 1440]:
+        if horizon in [30, 60, 1440, 10080]:
             cache_key = self._get_historical_data_cache_key(
                 saxo_uic, asset_type, horizon, count, original_date
             )
