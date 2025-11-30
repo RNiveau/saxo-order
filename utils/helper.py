@@ -48,6 +48,57 @@ def build_daily_candle_from_hours(
     return daily_candle
 
 
+def build_current_weekly_candle_from_daily(
+    candles: List[Candle],
+) -> Optional[Candle]:
+    """
+    Build the current week's candle from daily candles.
+
+    Args:
+        candles: List of daily candles (newest first, index 0)
+
+    Returns:
+        Weekly candle for the current incomplete week, or None if not enough
+        data
+    """
+    if not candles:
+        return None
+
+    today = datetime.datetime.now(datetime.UTC)
+    current_iso_year, current_iso_week, _ = today.isocalendar()
+
+    current_week_candles: List[Candle] = []
+    for candle in candles:
+        if candle.date is None:
+            continue
+        candle_iso_year, candle_iso_week, _ = candle.date.isocalendar()
+        if candle_iso_year == current_iso_year and \
+           candle_iso_week == current_iso_week:
+            current_week_candles.append(candle)
+
+    if not current_week_candles:
+        return None
+
+    current_week_candles.sort(
+        key=lambda c: c.date if c.date is not None else datetime.datetime.min,
+        reverse=True,
+    )
+
+    monday_candle = current_week_candles[-1]
+    latest_candle = current_week_candles[0]
+
+    weekly_candle = Candle(
+        open=monday_candle.open,
+        close=latest_candle.close,
+        lower=min(c.lower for c in current_week_candles),
+        higher=max(c.higher for c in current_week_candles),
+        ut=UnitTime.W,
+        date=monday_candle.date,
+    )
+
+    return weekly_candle
+
+
 def get_date_utc0() -> datetime.datetime:
     return datetime.datetime.now(tz=datetime.UTC)
 

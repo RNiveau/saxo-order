@@ -149,6 +149,38 @@ class WorkflowEngine:
         self, workflow: Workflow, indicator: Indicator
     ) -> List[Candle]:
         market = EUMarket() if workflow.is_us is False else USMarket()
+
+        if indicator.ut == UnitTime.W:
+            match indicator.name:
+                case IndicatorType.MA50:
+                    nbr_weeks = 55
+                case IndicatorType.COMBO:
+                    nbr_weeks = 750
+                case IndicatorType.BBH | IndicatorType.BBB:
+                    nbr_weeks = 21
+                case IndicatorType.POL | IndicatorType.ZONE:
+                    nbr_weeks = 1
+                case _:
+                    self.logger.error(
+                        f"indicator {indicator.name} isn't managed"
+                    )
+                    return []
+
+            self.logger.debug(
+                f"get candles for {indicator.name} {indicator.ut}, "
+                f"we need {nbr_weeks} weekly candles"
+            )
+
+            return self.candles_service.build_weekly_candles(
+                code=workflow.index,
+                cfd_code=workflow.cfd,
+                nbr_weeks=nbr_weeks,
+                open_hour_utc0=market.open_hour,
+                close_hour_utc0=market.close_hour,
+                open_minutes=market.open_minutes,
+                date=get_date_utc0(),
+            )
+
         multiplicator = 1
         if indicator.ut == UnitTime.H4:
             multiplicator = 4

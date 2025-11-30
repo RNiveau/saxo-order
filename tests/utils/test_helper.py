@@ -5,6 +5,7 @@ import pytest
 
 from model import Candle, UnitTime
 from utils.helper import (
+    build_current_weekly_candle_from_daily,
     build_daily_candle_from_hours,
     build_daily_candles_from_h1,
     build_h4_candles_from_h1,
@@ -1527,3 +1528,57 @@ class TestHelper:
             assert (
                 result_candle.date == expected_candle.date
             ), f"Candle {i}: date mismatch"
+
+    def test_build_current_weekly_candle_from_daily(self):
+        """Test building current week's candle from daily candles"""
+        today = datetime.datetime.now(datetime.UTC)
+        current_iso_year, current_iso_week, current_iso_day = \
+            today.isocalendar()
+
+        days_since_monday = current_iso_day - 1
+        monday = today - datetime.timedelta(days=days_since_monday)
+
+        num_days = min(days_since_monday + 1, 5)
+        daily_candles = [
+            Candle(
+                open=100 + i,
+                close=105 + i,
+                lower=95 + i,
+                higher=110 + i,
+                ut=UnitTime.D,
+                date=monday + datetime.timedelta(days=i),
+            )
+            for i in range(num_days)
+        ]
+        daily_candles.reverse()
+
+        result = build_current_weekly_candle_from_daily(daily_candles)
+
+        assert result is not None
+        assert result.ut == UnitTime.W
+        assert result.open == 100
+        assert result.close == 105 + (num_days - 1)
+        assert result.lower == 95
+        assert result.higher == 110 + (num_days - 1)
+
+    def test_build_current_weekly_candle_empty_list(self):
+        """Test with empty candle list"""
+        result = build_current_weekly_candle_from_daily([])
+        assert result is None
+
+    def test_build_current_weekly_candle_no_current_week(self):
+        """Test when no candles from current week"""
+        last_week = datetime.datetime.now(datetime.UTC) - \
+            datetime.timedelta(days=7)
+        daily_candles = [
+            Candle(
+                open=100,
+                close=105,
+                lower=95,
+                higher=110,
+                ut=UnitTime.D,
+                date=last_week,
+            )
+        ]
+        result = build_current_weekly_candle_from_daily(daily_candles)
+        assert result is None
