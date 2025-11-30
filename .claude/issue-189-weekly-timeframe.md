@@ -1,56 +1,59 @@
 # Implementation Plan for Issue #189: Manage Weekly Timeframe in Candles
 
 ## Overview
-Add weekly timeframe support to the candles service by implementing candle building logic from daily candles. Weekly candles will be built directly from daily candles, NOT through the hour-based building process.
+Add weekly timeframe support to the candles service by fetching weekly candles directly from Saxo API (horizon 10080) and only building the current incomplete week from daily candles when needed.
 
 ## Current State Analysis
 - ✅ `UnitTime.W` enum already exists
 - ✅ Binance client fully supports weekly (`"1w"` interval)
 - ✅ Saxo API horizon 10080 defined and working in IndicatorService
 - ✅ API already exposes weekly timeframe
-- ❌ No `build_weekly_candles_from_daily()` helper function
-- ❌ WorkflowEngine doesn't handle weekly timeframe
+- ✅ `build_weekly_candles_from_daily()` helper function (for full rebuilding)
+- ✅ `build_current_weekly_candle_from_daily()` helper function (for current week only)
+- ✅ `CandlesService.build_weekly_candles()` method
+- ✅ WorkflowEngine handles weekly timeframe
 
 ## Implementation Steps
 
-### 1. Add Weekly Candle Building Helper Function
+### ✅ 1. Add Weekly Candle Building Helper Functions
 **File**: `utils/helper.py`
 
-Add `build_weekly_candles_from_daily()` function that:
-- Takes a list of daily candles (newest first, index 0)
-- Groups them by ISO week using `date.isocalendar()[:2]`
-- Aggregates each week's candles into a single weekly candle
-- **Open**: from Monday's daily candle
-- **Close**: from Friday's daily candle
-- **Lower**: minimum of all daily lows in that week
-- **Higher**: maximum of all daily highs in that week
-- Returns list of weekly candles (newest first)
-- Handles incomplete current week gracefully
+**Completed:**
+- ✅ `build_weekly_candles_from_daily()` - Rebuilds all weekly candles from daily data
+- ✅ `build_current_weekly_candle_from_daily()` - Builds only current incomplete week
 
-**Pattern to follow**: Similar to `build_h4_candles_from_h1()` and `build_daily_candles_from_h1()`
+**Implementation details:**
+- Groups candles by ISO week using `date.isocalendar()[:2]`
+- Monday's open, latest day's close for current week
+- Min/max for OHLC aggregation
+- Returns weekly candles with proper UnitTime.W
 
-### 2. Update WorkflowEngine
+### ✅ 2. Add CandlesService Method
+**File**: `services/candles_service.py`
+
+**Completed:**
+- ✅ `build_weekly_candles()` method added
+- Fetches weekly candles from Saxo API (horizon 10080)
+- Only builds current incomplete week from daily candles if needed
+- Follows the same pattern as daily candle handling
+
+### ✅ 3. Update WorkflowEngine
 **File**: `engines/workflow_engine.py`
 
-Modify `_get_candles_from_indicator_ut()` method (lines 148-182):
-- Add `UnitTime.W` to the conditional handling
-- For weekly: fetch daily candles directly, then build weekly from daily
-- Calculate appropriate multiplicator (likely 5× daily for 5 trading days per week)
-- Do NOT call `build_hour_candles()` for weekly - use a separate path
+**Completed:**
+- ✅ Added `UnitTime.W` handling in `_get_candles_from_indicator_ut()`
+- Calls `candles_service.build_weekly_candles()` for all weekly indicators
+- Clean, non-duplicated code
 
-### 3. Add Comprehensive Tests
-**Files**:
-- `tests/utils/test_helper.py` - Test weekly building logic
-- `tests/services/test_candles_service.py` - Test service integration (if needed)
+### ✅ 4. Add Comprehensive Tests
+**File**: `tests/utils/test_helper.py`
 
-Test cases:
-- Complete weeks (Monday-Friday)
-- Incomplete current week
-- Week boundaries and ISO week numbering
-- Edge cases (holidays, market closures)
-- Aggregation correctness (Monday open, Friday close, min/max OHLC)
+**Completed:**
+- ✅ 6 test cases for `build_weekly_candles_from_daily()`
+- ✅ 3 test cases for `build_current_weekly_candle_from_daily()`
+- All tests passing (34/34 total)
 
-### 4. Update SaxoClient Caching (Optional Enhancement)
+### 5. Update SaxoClient Caching (Optional Enhancement - PENDING)
 **File**: `client/saxo_client.py`
 
 Consider adding weekly horizon (10080) to the cache:
@@ -60,34 +63,54 @@ Consider adding weekly horizon (10080) to the cache:
 
 ## Technical Details
 
+**Approach**: Fetch weekly candles directly from Saxo API, only build current week manually
+
 **Week Boundaries**: Use ISO week definition (Monday-Sunday) via `date.isocalendar()[:2]`
 
 **Candle Aggregation Logic**:
 ```
-For each ISO week:
+For current incomplete week only:
 - Open: Monday's daily candle open value
-- Close: Friday's daily candle close value
+- Close: Latest available day's close value
 - Lower: minimum of all daily lows in that week
 - Higher: maximum of all daily highs in that week
 - Date: Monday of that week
 - UnitTime: UnitTime.W
 ```
 
-**Current Week Handling**: The current incomplete week should be included as a weekly candle with whatever data is available (Monday's open, last available day's close).
+**Performance**:
+- Before optimization: Fetched 825 daily candles + rebuilt all 55 weekly candles
+- After optimization: Fetch 55 weekly candles from API + build 1 current week if needed
+- Follows the same pattern as daily candle handling
 
-**Note**: Building weekly from daily is separate from the hour-based building process in `CandlesService.build_hour_candles()`.
+## Files Modified
+1. ✅ `utils/helper.py` - Added 2 functions (~110 lines)
+2. ✅ `services/candles_service.py` - New `build_weekly_candles()` method (~70 lines)
+3. ✅ `engines/workflow_engine.py` - Weekly handling simplified (~30 lines)
+4. ✅ `tests/utils/test_helper.py` - 9 new test cases (~60 lines)
+5. ⏳ `client/saxo_client.py` - Optional caching (pending)
 
-## Files to Modify
-1. `utils/helper.py` - New function (~60 lines)
-2. `engines/workflow_engine.py` - Add weekly handling (~10 lines)
-3. `tests/utils/test_helper.py` - New test cases (~100 lines)
-4. `client/saxo_client.py` - Optional caching update (~3 lines)
+## Next Steps
 
-## Implementation Order
-1. Write helper function `build_weekly_candles_from_daily()` with comprehensive tests
-2. Update WorkflowEngine to handle weekly timeframe (separate path from hourly)
-3. Add integration tests
-4. Optional: Add caching for weekly horizon
+### Step 5: Optional Weekly Caching Enhancement
+**Status**: PENDING
+**Effort**: Low (~10 minutes)
+**File**: `client/saxo_client.py`
 
-## Estimated Complexity
-**Medium** - Following established patterns, but requires careful handling of week boundaries and Monday open/Friday close logic.
+Add horizon 10080 to the caching logic to improve performance:
+- Weekly data changes less frequently than hourly/daily
+- Good candidate for 30-minute TTL caching
+- Would reduce API calls for workflows and indicators
+
+### Alternative: Manual Testing
+Before merging, consider testing with a real workflow:
+1. Add a test workflow to `workflows.yml` with `ut: w`
+2. Run: `poetry run k-order workflow run --force-from-disk y --select-workflow y`
+3. Verify weekly candles are fetched and processed correctly
+
+## Status
+**Overall**: ~95% Complete
+- Core functionality: ✅ Done
+- Tests: ✅ Done
+- Optional caching: ⏳ Pending
+- Manual testing: ⏳ Recommended before merge
