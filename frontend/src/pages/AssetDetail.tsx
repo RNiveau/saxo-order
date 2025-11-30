@@ -17,10 +17,13 @@ export function AssetDetail() {
   const exchange = searchParams.get('exchange') || 'saxo';
   const [workflowData, setWorkflowData] = useState<AssetWorkflowsResponse | null>(null);
   const [indicatorData, setIndicatorData] = useState<AssetIndicatorsResponse | null>(null);
+  const [weeklyIndicatorData, setWeeklyIndicatorData] = useState<AssetIndicatorsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [indicatorLoading, setIndicatorLoading] = useState(false);
+  const [weeklyIndicatorLoading, setWeeklyIndicatorLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [indicatorError, setIndicatorError] = useState<string | null>(null);
+  const [weeklyIndicatorError, setWeeklyIndicatorError] = useState<string | null>(null);
   const [addingToWatchlist, setAddingToWatchlist] = useState(false);
   const [watchlistSuccess, setWatchlistSuccess] = useState<string | null>(null);
   const [watchlistError, setWatchlistError] = useState<string | null>(null);
@@ -34,6 +37,7 @@ export function AssetDetail() {
     if (symbol) {
       fetchWorkflows(symbol);
       fetchIndicators(symbol);
+      fetchWeeklyIndicators(symbol);
       checkWatchlistStatus(symbol);
     }
   }, [symbol]);
@@ -72,6 +76,25 @@ export function AssetDetail() {
       console.error('Indicator fetch error:', err);
     } finally {
       setIndicatorLoading(false);
+    }
+  };
+
+  const fetchWeeklyIndicators = async (assetSymbol: string) => {
+    try {
+      setWeeklyIndicatorLoading(true);
+      setWeeklyIndicatorError(null);
+      // Handle both Saxo (CODE:MARKET) and Binance (SYMBOL) formats
+      const parts = assetSymbol.split(':');
+      const code = parts[0];
+      const countryCode = parts.length > 1 ? parts[1] : '';
+
+      const data = await indicatorService.getAssetIndicators(code, countryCode, 'weekly', exchange);
+      setWeeklyIndicatorData(data);
+    } catch (err) {
+      setWeeklyIndicatorError('Failed to fetch weekly indicators for this asset');
+      console.error('Weekly indicator fetch error:', err);
+    } finally {
+      setWeeklyIndicatorLoading(false);
     }
   };
 
@@ -283,16 +306,32 @@ export function AssetDetail() {
       {watchlistError && <div className="error">{watchlistError}</div>}
 
       {/* Indicators Section */}
-      {indicatorLoading && <div className="loading">Loading indicators...</div>}
-      {indicatorError && <div className="error">{indicatorError}</div>}
-      {!indicatorLoading && !indicatorError && indicatorData && (
-        <IndicatorCard
-          indicators={indicatorData}
-          onTradingViewUrlUpdated={(url) => {
-            setIndicatorData({ ...indicatorData, tradingview_url: url });
-          }}
-        />
-      )}
+      <div className="indicators-container">
+        <div className="indicator-column">
+          {indicatorLoading && <div className="loading">Loading daily indicators...</div>}
+          {indicatorError && <div className="error">{indicatorError}</div>}
+          {!indicatorLoading && !indicatorError && indicatorData && (
+            <IndicatorCard
+              indicators={indicatorData}
+              onTradingViewUrlUpdated={(url) => {
+                setIndicatorData({ ...indicatorData, tradingview_url: url });
+              }}
+            />
+          )}
+        </div>
+        <div className="indicator-column">
+          {weeklyIndicatorLoading && <div className="loading">Loading weekly indicators...</div>}
+          {weeklyIndicatorError && <div className="error">{weeklyIndicatorError}</div>}
+          {!weeklyIndicatorLoading && !weeklyIndicatorError && weeklyIndicatorData && (
+            <IndicatorCard
+              indicators={weeklyIndicatorData}
+              onTradingViewUrlUpdated={(url) => {
+                setWeeklyIndicatorData({ ...weeklyIndicatorData, tradingview_url: url });
+              }}
+            />
+          )}
+        </div>
+      </div>
 
       {/* Workflows Section */}
       {loading && <div className="loading">Loading workflows...</div>}

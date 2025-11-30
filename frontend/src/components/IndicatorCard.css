@@ -32,11 +32,22 @@
 .unit-time-badge {
   background: #e3f2fd;
   color: #1976d2;
-  padding: 4px 12px;
+  padding: 6px 14px;
   border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.unit-time-badge.weekly {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.unit-time-badge.monthly {
+  background: #fff3e0;
+  color: #e65100;
 }
 
 .tradingview-link {

@@ -76,7 +76,7 @@ export function IndicatorCard({ indicators, onTradingViewUrlUpdated }: Indicator
       <div className="indicator-header">
         <h3>Market Indicators</h3>
         <div className="indicator-header-actions">
-          <span className="unit-time-badge">{indicators.unit_time}</span>
+          <span className={`unit-time-badge ${indicators.unit_time}`}>{indicators.unit_time}</span>
           <a
             href={getTradingViewUrl(indicators.asset_symbol, indicators.tradingview_url)}
             target="_blank"
