@@ -8,6 +8,7 @@ from client.saxo_client import SaxoClient
 from model import Candle, UnitTime
 from utils.exception import SaxoException
 from utils.helper import (
+    build_current_weekly_candle_from_daily,
     build_daily_candles_from_h1,
     build_h4_candles_from_h1,
     get_date_utc0,
@@ -310,3 +311,71 @@ class CandlesService:
         elif ut == UnitTime.D:
             return build_daily_candles_from_h1(candles, open_hour_utc0)
         return candles
+
+    def build_weekly_candles(
+        self,
+        code: str,
+        cfd_code: str,
+        nbr_weeks: int,
+        open_hour_utc0: int,
+        close_hour_utc0: int,
+        open_minutes: int,
+        date: datetime.datetime,
+    ) -> List[Candle]:
+        """
+        Build weekly candles for a given asset.
+
+        Fetches weekly candles from Saxo API (horizon 10080) and builds
+        the current incomplete week from daily candles if needed.
+
+        Args:
+            code: Asset code (e.g., 'DAX.I')
+            cfd_code: CFD code for fallback if needed
+            nbr_weeks: Number of weekly candles needed
+            open_hour_utc0: Market open hour in UTC
+            close_hour_utc0: Market close hour in UTC
+            open_minutes: Market open minutes (0 or 30)
+            date: Reference date
+
+        Returns:
+            List of weekly candles (newest first)
+        """
+        self.logger.info(
+            f"Build weekly candles for {code}, nbr_weeks: {nbr_weeks}"
+        )
+
+        asset = self.saxo_client.get_asset(code)
+        weekly_data = self.saxo_client.get_historical_data(
+            saxo_uic=asset["Identifier"],
+            asset_type=asset["AssetType"],
+            horizon=10080,
+            count=nbr_weeks,
+            date=date,
+        )
+        weekly_candles = map_data_to_candles(weekly_data, ut=UnitTime.W)
+
+        today = get_date_utc0()
+        if (
+            len(weekly_candles) > 0
+            and weekly_candles[0].date is not None
+            and today.isocalendar()[:2]
+            != weekly_candles[0].date.isocalendar()[:2]
+            and today.weekday() < 5
+        ):
+            daily_candles = self.build_hour_candles(
+                code=code,
+                cfd_code=cfd_code,
+                ut=UnitTime.D,
+                open_hour_utc0=open_hour_utc0,
+                close_hour_utc0=close_hour_utc0,
+                nbr_hours=5 * 8,
+                open_minutes=open_minutes,
+                date=date,
+            )
+            current_weekly = build_current_weekly_candle_from_daily(
+                daily_candles
+            )
+            if current_weekly is not None:
+                weekly_candles.insert(0, current_weekly)
+
+        return weekly_candles
