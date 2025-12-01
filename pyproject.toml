@@ -6,7 +6,7 @@ authors = ["Kiva"]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-click = "^8.3.0"
+click = "^8.3.1"
 requests = "^2.32.5"
 pyyaml = "^6.0"
 types-requests = "^2.32.4.20250913"
