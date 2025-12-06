@@ -96,15 +96,14 @@ def get_dynamodb_client_optional() -> Optional[DynamoDBClient]:
 @lru_cache()
 def get_binance_client() -> BinanceClient:
     """
-    Get cached BinanceClient instance.
+    Get cached BinanceClient instance with authentication.
     This is a dependency that can be injected into FastAPI endpoints.
-
-    For search functionality, authentication is not required as the
-    exchangeInfo endpoint is public. We use empty strings for key/secret
-    since the search method doesn't use authenticated endpoints.
     """
-    logger.debug("Using BinanceClient for search")
-    return BinanceClient(key="", secret="")
+    config = get_configuration()
+    logger.debug("Using authenticated BinanceClient")
+    return BinanceClient(
+        key=config.binance_keys[0], secret=config.binance_keys[1]
+    )
 
 
 @lru_cache()
