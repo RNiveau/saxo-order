@@ -61,9 +61,12 @@ class BinanceReportService:
             f"Cache MISS for get_orders_report({account_id}, {from_date}) "
             f"- fetching from Binance API"
         )
+        # Convert date format from YYYY-MM-DD to YYYY/MM/DD for BinanceClient
+        date_formatted = from_date.replace("-", "/")
+
         # Get orders from Binance
         orders = self.client.get_report_all(
-            from_date, self.currencies_rate["usdeur"]
+            date_formatted, self.currencies_rate["usdeur"]
         )
 
         return orders
