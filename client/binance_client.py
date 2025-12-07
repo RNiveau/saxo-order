@@ -26,21 +26,14 @@ class BinanceClient:
         "RUNE",
         "INJ",
         "LINK",
-        "MANA",
-        "ORN",
-        "ERN",
         "FTM",
         "LTC",
         "AR",
         "SNX",
         "ETC",
         "STX",
-        "STORJ",
         "THETA",
-        "OMG",
-        "DGB",
         "AAVE",
-        "SUPER",
     ]
 
     def __init__(self, key: str, secret: str) -> None:

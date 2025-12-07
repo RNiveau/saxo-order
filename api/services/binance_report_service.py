@@ -38,7 +38,7 @@ class BinanceReportService:
         """
         return Account(
             key="binance",
-            name="Binance",
+            name="Coinbase",
             fund=0,
             client_key="binance",
         )
