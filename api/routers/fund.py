@@ -19,12 +19,23 @@ logger = Logger.get_logger("fund_router")
 
 @router.get("/accounts", response_model=AccountsListResponse)
 async def get_accounts(client: SaxoClient = Depends(get_saxo_client)):
-    """Get list of all available accounts."""
+    """Get list of all available accounts including Binance."""
     try:
+        # Add Binance pseudo-account first
+        account_list = [
+            AccountInfo(
+                account_id="binance_main",
+                account_key="binance",
+                account_name="Binance",
+                total_fund=0,
+                available_fund=0,
+            )
+        ]
+
+        # Add Saxo accounts
         fund_service = FundService(client)
         accounts = fund_service.get_accounts()
 
-        account_list = []
         for acc in accounts:
             account_key = acc["AccountKey"]
             try:

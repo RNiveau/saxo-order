@@ -4,9 +4,9 @@ from typing import Dict
 import click
 from click.core import Context
 
+from api.services.binance_report_service import BinanceReportService
 from client.binance_client import BinanceClient
-from client.gsheet_client import GSheetClient
-from model import Account, Currency, ReportOrder, StackingReport
+from model import Currency, StackingReport
 from saxo_order.commands import catch_exception
 from saxo_order.commands.input_helper import update_order
 from saxo_order.service import calculate_currency
@@ -36,17 +36,14 @@ logger = Logger.get_logger("binance")
 @catch_exception(handle=SaxoException)
 def get_report(ctx: Context, from_date: str, update_gsheet: bool):
     configuration = Configuration(ctx.obj["config"])
-    gsheet_client = GSheetClient(
-        key_path=configuration.gsheet_creds_path,
-        spreadsheet_id=configuration.spreadsheet_id,
-    )
     client = BinanceClient(
         configuration.binance_keys[0], configuration.binance_keys[1]
     )
-    orders = client.get_report_all(
-        from_date, configuration.currencies_rate["usdeur"]
-    )
-    account = Account("", "Coinbase")
+
+    # Use BinanceReportService instead of direct client calls
+    report_service = BinanceReportService(client, configuration)
+    orders = report_service.get_orders_report("binance_main", from_date)
+
     if len(orders) == 0:
         print("No order to report")
         exit(0)
@@ -64,12 +61,14 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                 update_order(
                     order=order, conditional_order=None, validate_input=False
                 )
-                report_order = calculate_currency(
-                    order, configuration.currencies_rate
-                )
-                assert isinstance(report_order, ReportOrder)
-                gsheet_client.create_order(
-                    account=account, order=report_order, original_order=order
+                report_service.create_gsheet_order(
+                    account_id="binance_main",
+                    order=order,
+                    stop=order.stop,
+                    objective=order.objective,
+                    strategy=order.strategy,
+                    signal=order.signal,
+                    comment=order.comment,
                 )
             else:
                 line_to_update = click.prompt(
@@ -95,14 +94,18 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                         type=bool,
                         default=False,
                     )
-                report_order = calculate_currency(
-                    order, configuration.currencies_rate
-                )
-                assert isinstance(report_order, ReportOrder)
-                gsheet_client.update_order(
-                    order=report_order,
-                    original_order=order,
-                    line_to_update=line_to_update,
+                report_service.update_gsheet_order(
+                    account_id="binance_main",
+                    order=order,
+                    line_number=line_to_update,
+                    close=not order.open_position,
+                    stopped=order.stopped,
+                    be_stopped=order.be_stopped,
+                    stop=order.stop,
+                    objective=order.objective,
+                    strategy=order.strategy,
+                    signal=order.signal,
+                    comment=order.comment,
                 )
             show_report(orders, configuration.currencies_rate)
 
