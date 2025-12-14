@@ -226,6 +226,24 @@ async def update_watchlist_labels(
                 status_code=404, detail="Asset not found in watchlist"
             )
 
+        # Enforce 6-asset limit for homepage tag
+        if WatchlistTag.HOMEPAGE.value in request.labels:
+            all_items = dynamodb_client.get_watchlist()
+            homepage_count = sum(
+                1
+                for item in all_items
+                if item.get("id") != asset_id
+                and WatchlistTag.HOMEPAGE.value in item.get("labels", [])
+            )
+            if homepage_count >= 6:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Cannot add homepage tag: "
+                        "maximum of 6 assets allowed"
+                    ),
+                )
+
         dynamodb_client.update_watchlist_labels(asset_id, request.labels)
 
         return UpdateLabelsResponse(

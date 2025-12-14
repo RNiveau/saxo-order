@@ -707,3 +707,144 @@ class TestWatchlistEndpoint:
         mock_dynamodb_client.update_watchlist_labels.assert_called_once_with(
             "123", ["short-term", "long-term"]
         )
+
+    def test_update_labels_homepage_limit_enforced(self, mock_dynamodb_client):
+        """Test that 6-asset limit is enforced for homepage tag."""
+        mock_dynamodb_client.is_in_watchlist.return_value = True
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "asset1",
+                "asset_symbol": "asset1:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset2",
+                "asset_symbol": "asset2:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset3",
+                "asset_symbol": "asset3:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset4",
+                "asset_symbol": "asset4:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset5",
+                "asset_symbol": "asset5:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset6",
+                "asset_symbol": "asset6:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset7",
+                "asset_symbol": "asset7:xpar",
+                "labels": ["short-term"],
+            },
+        ]
+
+        response = client.patch(
+            "/api/watchlist/asset7/labels",
+            json={"labels": ["homepage", "short-term"]},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "maximum of 6 assets allowed" in data["detail"].lower()
+        mock_dynamodb_client.update_watchlist_labels.assert_not_called()
+
+    def test_update_labels_homepage_limit_allows_existing(
+        self, mock_dynamodb_client
+    ):
+        """Test that existing homepage assets can update their labels."""
+        mock_dynamodb_client.is_in_watchlist.return_value = True
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "asset1",
+                "asset_symbol": "asset1:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset2",
+                "asset_symbol": "asset2:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset3",
+                "asset_symbol": "asset3:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset4",
+                "asset_symbol": "asset4:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset5",
+                "asset_symbol": "asset5:xpar",
+                "labels": ["homepage"],
+            },
+            {
+                "id": "asset6",
+                "asset_symbol": "asset6:xpar",
+                "labels": ["homepage", "short-term"],
+            },
+        ]
+
+        response = client.patch(
+            "/api/watchlist/asset6/labels",
+            json={"labels": ["homepage", "long-term"]},
+        )
+
+        assert response.status_code == 200
+        mock_dynamodb_client.update_watchlist_labels.assert_called_once_with(
+            "asset6", ["homepage", "long-term"]
+        )
+
+    def test_update_labels_homepage_removal_works(self, mock_dynamodb_client):
+        """Test that removing homepage tag works."""
+        mock_dynamodb_client.is_in_watchlist.return_value = True
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "asset1",
+                "asset_symbol": "asset1:xpar",
+                "labels": ["homepage"],
+            }
+        ]
+
+        response = client.patch(
+            "/api/watchlist/asset1/labels",
+            json={"labels": ["short-term"]},
+        )
+
+        assert response.status_code == 200
+        mock_dynamodb_client.update_watchlist_labels.assert_called_once_with(
+            "asset1", ["short-term"]
+        )
+
+    def test_update_labels_homepage_with_other_tags(
+        self, mock_dynamodb_client
+    ):
+        """Test that homepage tag can coexist with other tags."""
+        mock_dynamodb_client.is_in_watchlist.return_value = True
+        mock_dynamodb_client.get_watchlist.return_value = []
+
+        response = client.patch(
+            "/api/watchlist/asset1/labels",
+            json={"labels": ["homepage", "short-term", "crypto"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "homepage" in data["labels"]
+        assert "short-term" in data["labels"]
+        assert "crypto" in data["labels"]
+        mock_dynamodb_client.update_watchlist_labels.assert_called_once_with(
+            "asset1", ["homepage", "short-term", "crypto"]
+        )
