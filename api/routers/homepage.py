@@ -76,6 +76,16 @@ async def get_homepage(
                     None,
                 )
 
+                tradingview_url = None
+                try:
+                    tradingview_url = dynamodb_client.get_tradingview_link(
+                        code
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to get TradingView link for {code}: {e}"
+                    )
+
                 if ma50:
                     enriched_items.append(
                         HomepageItemResponse(
@@ -85,7 +95,7 @@ async def get_homepage(
                             current_price=indicators.current_price,
                             variation_pct=indicators.variation_pct,
                             currency=indicators.currency,
-                            tradingview_url=item.get("tradingview_url"),
+                            tradingview_url=tradingview_url,
                             exchange=exchange,
                             ma50_value=ma50.value,
                             is_above_ma50=ma50.is_above,
