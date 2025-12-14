@@ -32,6 +32,7 @@ export function AssetDetail() {
   const [checkingWatchlist, setCheckingWatchlist] = useState(false);
   const [isShortTerm, setIsShortTerm] = useState(false);
   const [isLongTerm, setIsLongTerm] = useState(false);
+  const [isHomepage, setIsHomepage] = useState(false);
   const [updatingLabel, setUpdatingLabel] = useState(false);
 
   useEffect(() => {
@@ -113,6 +114,7 @@ export function AssetDetail() {
         if (item) {
           setIsShortTerm(item.labels.includes('short-term'));
           setIsLongTerm(item.labels.includes('long-term'));
+          setIsHomepage(item.labels.includes('homepage'));
         }
       }
     } catch (err) {
@@ -143,6 +145,7 @@ export function AssetDetail() {
         setIsInWatchlist(false);
         setIsShortTerm(false);
         setIsLongTerm(false);
+        setIsHomepage(false);
       } else {
         // Add to watchlist
         const description = 'placeholder';
@@ -222,6 +225,40 @@ export function AssetDetail() {
       setIsLongTerm(!isLongTerm);
       const action = isLongTerm ? 'Removed from' : 'Added to';
       setWatchlistSuccess(`${action} long-term positions: ${assetName}`);
+
+      setTimeout(() => setWatchlistSuccess(null), 3000);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || 'Failed to update label';
+      setWatchlistError(errorMessage);
+      console.error('Label toggle error:', err);
+      setTimeout(() => setWatchlistError(null), 5000);
+    } finally {
+      setUpdatingLabel(false);
+    }
+  };
+
+  const handleToggleHomepage = async () => {
+    if (!symbol) return;
+
+    try {
+      setUpdatingLabel(true);
+      setWatchlistError(null);
+      setWatchlistSuccess(null);
+
+      const [code] = symbol.split(':');
+      const assetName = indicatorData?.description || symbol;
+
+      // Build labels array keeping existing labels, toggling homepage
+      const newLabels: string[] = [];
+      if (isShortTerm) newLabels.push('short-term');
+      if (isLongTerm) newLabels.push('long-term');
+      if (!isHomepage) newLabels.push('homepage');
+
+      await watchlistService.updateLabels(code, newLabels);
+
+      setIsHomepage(!isHomepage);
+      const action = isHomepage ? 'Removed from' : 'Pinned to';
+      setWatchlistSuccess(`${action} homepage: ${assetName}`);
 
       setTimeout(() => setWatchlistSuccess(null), 3000);
     } catch (err: any) {
@@ -316,6 +353,19 @@ export function AssetDetail() {
                   : isLongTerm
                   ? '📊 Long Term Position'
                   : '📊 Long Term Position'}
+              </button>
+              <button
+                onClick={handleToggleHomepage}
+                disabled={updatingLabel || checkingWatchlist}
+                className={`homepage-btn ${isHomepage ? 'active' : ''}`}
+              >
+                {updatingLabel
+                  ? isHomepage
+                    ? 'Removing...'
+                    : 'Adding...'
+                  : isHomepage
+                  ? '🏠 Remove from Homepage'
+                  : '🏠 Pin to Homepage'}
               </button>
             </>
           )}
