@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   workflowService,
   indicatorService,
@@ -14,6 +14,7 @@ import './AssetDetail.css';
 export function AssetDetail() {
   const { symbol } = useParams<{ symbol: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const exchange = searchParams.get('exchange') || 'saxo';
   const [workflowData, setWorkflowData] = useState<AssetWorkflowsResponse | null>(null);
   const [indicatorData, setIndicatorData] = useState<AssetIndicatorsResponse | null>(null);
@@ -233,6 +234,25 @@ export function AssetDetail() {
     }
   };
 
+  const handleCreateOrder = () => {
+    if (!symbol || !indicatorData) return;
+
+    const parts = symbol.split(':');
+    const code = parts[0];
+    const countryCode = parts.length > 1 ? parts[1].toLowerCase() : '';
+    const currentPrice = indicatorData.current_price || 0;
+
+    const queryParams = new URLSearchParams({
+      code: code,
+      country_code: countryCode,
+      price: currentPrice.toString(),
+      exchange: exchange,
+      prefill: 'true'
+    });
+
+    navigate(`/orders?${queryParams.toString()}`);
+  };
+
   const renderWorkflowStatus = (workflow: WorkflowInfo) => {
     if (!workflow.enabled) {
       return <span className="status-badge disabled">✗ Disabled</span>;
@@ -299,6 +319,14 @@ export function AssetDetail() {
               </button>
             </>
           )}
+          <button
+            onClick={handleCreateOrder}
+            disabled={indicatorLoading || !indicatorData}
+            className="create-order-btn"
+            title="Create an order for this asset"
+          >
+            Create Order
+          </button>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   orderService,
   fundService,
@@ -14,6 +15,7 @@ import './Orders.css';
 type OrderType = 'regular' | 'oco' | 'stop-limit';
 
 export function Orders() {
+  const [searchParams] = useSearchParams();
   const [orderType, setOrderType] = useState<OrderType>('regular');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -42,6 +44,43 @@ export function Orders() {
     loadAccounts();
     loadConfig();
   }, []);
+
+  useEffect(() => {
+    const shouldPrefill = searchParams.get('prefill') === 'true';
+    if (!shouldPrefill || loadingAccounts) return;
+
+    const code = searchParams.get('code') || '';
+    const countryCode = searchParams.get('country_code') || 'xpar';
+    const priceStr = searchParams.get('price') || '0';
+    const price = parseFloat(priceStr);
+    const exchange = searchParams.get('exchange') || 'saxo';
+
+    if (code && !isNaN(price)) {
+      const targetAccount = accounts.find(acc => {
+        const accountName = acc.account_name.toLowerCase();
+        return accountName.includes(exchange.toLowerCase());
+      });
+
+      setRegularForm(prev => ({
+        ...prev,
+        code: code,
+        country_code: countryCode,
+        price: price,
+        account_key: targetAccount?.account_key || prev.account_key
+      }));
+
+      setOrderType('regular');
+
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('prefill');
+      newSearchParams.delete('code');
+      newSearchParams.delete('country_code');
+      newSearchParams.delete('price');
+      newSearchParams.delete('exchange');
+
+      window.history.replaceState({}, '', `/orders${newSearchParams.toString() ? '?' + newSearchParams.toString() : ''}`);
+    }
+  }, [searchParams, loadingAccounts, accounts]);
 
   const loadAccounts = async () => {
     try {

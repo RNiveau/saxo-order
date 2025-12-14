@@ -143,6 +143,32 @@
   cursor: not-allowed;
 }
 
+.create-order-btn {
+  background: #1f6feb;
+  color: #ffffff;
+  border: 1px solid #58a6ff;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.create-order-btn:hover:not(:disabled) {
+  background: #388bfd;
+  border-color: #79c0ff;
+  box-shadow: 0 2px 8px rgba(88, 166, 255, 0.3);
+}
+
+.create-order-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #30363d;
+  border-color: #484f58;
+}
+
 .workflows-section {
   margin-top: 1.5rem;
 }
