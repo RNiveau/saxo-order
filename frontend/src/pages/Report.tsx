@@ -10,10 +10,18 @@ import {
 } from '../services/api';
 import './Report.css';
 
+const getTodayDate = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export function Report() {
   const [accounts, setAccounts] = useState<AccountInfo[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<string>('');
-  const [fromDate, setFromDate] = useState<string>('');
+  const [fromDate, setFromDate] = useState<string>(getTodayDate());
   const [orders, setOrders] = useState<ReportOrder[]>([]);
   const [summary, setSummary] = useState<ReportSummary | null>(null);
   const [loading, setLoading] = useState(false);
