@@ -1,7 +1,4 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 
 from api.dependencies import (
     get_binance_client,
@@ -9,12 +6,15 @@ from api.dependencies import (
     get_dynamodb_client,
     get_saxo_client,
 )
-from api.models.watchlist import WatchlistTag
+from api.models.watchlist import (
+    HomepageItemResponse,
+    HomepageResponse,
+    WatchlistTag,
+)
 from api.services.indicator_service import IndicatorService
 from client.aws_client import DynamoDBClient
 from client.binance_client import BinanceClient
 from client.saxo_client import SaxoClient
-from model import Currency
 from model.enum import Exchange
 from model.workflow import UnitTime
 from services.candles_service import CandlesService
@@ -22,38 +22,6 @@ from utils.logger import Logger
 
 router = APIRouter(prefix="/api/homepage", tags=["homepage"])
 logger = Logger.get_logger("homepage_router")
-
-
-class HomepageItemResponse(BaseModel):
-    id: str = Field(description="Unique identifier for the watchlist item")
-    asset_symbol: str = Field(description="Asset symbol (e.g., 'itp:xpar')")
-    description: str = Field(description="Asset description/name")
-    current_price: float = Field(description="Current price of the asset")
-    variation_pct: float = Field(
-        description="Percentage variation from previous period"
-    )
-    currency: Currency = Field(
-        description="Currency code (e.g., 'EUR', 'USD')"
-    )
-    tradingview_url: Optional[str] = Field(
-        default=None,
-        description="Custom TradingView URL for this asset",
-    )
-    exchange: str = Field(
-        default="saxo",
-        description="Exchange (saxo or binance)",
-    )
-    ma50_value: float = Field(description="50-day moving average value")
-    is_above_ma50: bool = Field(
-        description="Whether current price is above MA50"
-    )
-
-
-class HomepageResponse(BaseModel):
-    items: List[HomepageItemResponse] = Field(
-        description="List of homepage items"
-    )
-    total: int = Field(description="Total number of items on homepage")
 
 
 def get_indicator_service(
