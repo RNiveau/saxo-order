@@ -143,6 +143,40 @@
   cursor: not-allowed;
 }
 
+.homepage-btn {
+  background: #0969da;
+  color: #ffffff;
+  border: 1px solid #1f6feb;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.homepage-btn:hover:not(:disabled) {
+  background: #1f6feb;
+  border-color: #58a6ff;
+  box-shadow: 0 2px 8px rgba(31, 111, 235, 0.3);
+}
+
+.homepage-btn.active {
+  background: #d29922;
+  border-color: #e3b341;
+}
+
+.homepage-btn.active:hover:not(:disabled) {
+  background: #e3b341;
+  border-color: #f0c66f;
+  box-shadow: 0 2px 8px rgba(210, 153, 34, 0.3);
+}
+
+.homepage-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .workflows-section {
   margin-top: 1.5rem;
 }

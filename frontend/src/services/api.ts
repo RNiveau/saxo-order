@@ -497,3 +497,28 @@ export const orderService = {
     return response.data;
   },
 };
+
+export interface HomepageItem {
+  id: string;
+  asset_symbol: string;
+  description: string;
+  current_price: number;
+  variation_pct: number;
+  currency: string;
+  tradingview_url?: string;
+  exchange: string;
+  ma50_value: number;
+  is_above_ma50: boolean;
+}
+
+export interface HomepageResponse {
+  items: HomepageItem[];
+  total: number;
+}
+
+export const homepageService = {
+  getHomepageAssets: async (): Promise<HomepageResponse> => {
+    const response = await api.get<HomepageResponse>('/api/homepage');
+    return response.data;
+  },
+};
