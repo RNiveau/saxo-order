@@ -10,6 +10,7 @@ class WatchlistTag(str, Enum):
     SHORT_TERM = "short-term"
     LONG_TERM = "long-term"
     CRYPTO = "crypto"
+    HOMEPAGE = "homepage"
 
 
 class AddToWatchlistRequest(BaseModel):
