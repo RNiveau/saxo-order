@@ -6,11 +6,8 @@ from api.dependencies import (
     get_dynamodb_client,
     get_saxo_client,
 )
-from api.models.watchlist import (
-    HomepageItemResponse,
-    HomepageResponse,
-    WatchlistTag,
-)
+from api.models.homepage import HomepageItemResponse, HomepageResponse
+from api.models.watchlist import WatchlistTag
 from api.services.indicator_service import IndicatorService
 from client.aws_client import DynamoDBClient
 from client.binance_client import BinanceClient

@@ -4,8 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
+from api.models.homepage import HomepageItemResponse, HomepageResponse
 from api.models.indicator import AssetIndicatorsResponse, MovingAverageInfo
-from api.models.watchlist import HomepageItemResponse, HomepageResponse
 from api.routers.homepage import get_indicator_service
 from api.routers.watchlist import get_dynamodb_client
 from model import Currency
