@@ -48,8 +48,9 @@ class TestDynamoDBClient:
     @patch("client.aws_client.boto3")
     def test_store_alerts(self, mock_boto3):
         mock_table = MagicMock()
-        mock_table.put_item.return_value = {
-            "ResponseMetadata": {"HTTPStatusCode": 200}
+        mock_table.update_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Attributes": {},
         }
         mock_dynamodb = MagicMock()
         mock_dynamodb.Table.return_value = mock_table
@@ -68,18 +69,30 @@ class TestDynamoDBClient:
 
         client.store_alerts("AAPL", "xpar", alerts)
 
-        mock_table.put_item.assert_called_once()
-        call_args = mock_table.put_item.call_args[1]
-        assert call_args["Item"]["asset_code"] == "AAPL"
-        assert call_args["Item"]["country_code"] == "xpar"
-        assert len(call_args["Item"]["alerts"]) == 1
-        assert call_args["Item"]["alerts"][0]["alert_type"] == "combo"
+        mock_table.update_item.assert_called_once()
+        call_args = mock_table.update_item.call_args[1]
+        assert call_args["Key"]["asset_code"] == "AAPL"
+        assert call_args["Key"]["country_code"] == "xpar"
+        assert ":new_alerts" in call_args["ExpressionAttributeValues"]
+        assert len(call_args["ExpressionAttributeValues"][":new_alerts"]) == 1
+        assert (
+            call_args["ExpressionAttributeValues"][":new_alerts"][0][
+                "alert_type"
+            ]
+            == "combo"
+        )
+        assert ":ttl" in call_args["ExpressionAttributeValues"]
+        assert isinstance(
+            call_args["ExpressionAttributeValues"][":ttl"], int
+        )
+        assert "list_append" in call_args["UpdateExpression"]
 
     @patch("client.aws_client.boto3")
     def test_store_alerts_without_country_code(self, mock_boto3):
         mock_table = MagicMock()
-        mock_table.put_item.return_value = {
-            "ResponseMetadata": {"HTTPStatusCode": 200}
+        mock_table.update_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Attributes": {},
         }
         mock_dynamodb = MagicMock()
         mock_dynamodb.Table.return_value = mock_table
@@ -98,10 +111,14 @@ class TestDynamoDBClient:
 
         client.store_alerts("BTC", None, alerts)
 
-        mock_table.put_item.assert_called_once()
-        call_args = mock_table.put_item.call_args[1]
-        assert call_args["Item"]["asset_code"] == "BTC"
-        assert call_args["Item"]["country_code"] == ""
+        mock_table.update_item.assert_called_once()
+        call_args = mock_table.update_item.call_args[1]
+        assert call_args["Key"]["asset_code"] == "BTC"
+        assert call_args["Key"]["country_code"] == ""
+        assert ":ttl" in call_args["ExpressionAttributeValues"]
+        assert isinstance(
+            call_args["ExpressionAttributeValues"][":ttl"], int
+        )
 
     @patch("client.aws_client.boto3")
     def test_get_alerts(self, mock_boto3):

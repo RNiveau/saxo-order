@@ -52,4 +52,8 @@ def alerts_table() -> aws.dynamodb.Table:
         billing_mode="PAY_PER_REQUEST",
         stream_enabled=True,
         stream_view_type="NEW_AND_OLD_IMAGES",
+        ttl=aws.dynamodb.TableTtlArgs(
+            enabled=True,
+            attribute_name="ttl",
+        ),
     )

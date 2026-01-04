@@ -69,8 +69,6 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
     slack_client = WebClient(token=configuration.slack_token)
     dynamodb_client = DynamoDBClient()
 
-    dynamodb_client.clear_alerts()
-
     slack_messages: Dict[str, List[str]] = {
         "double_top": [],
         "container_candle": [],

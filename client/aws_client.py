@@ -247,7 +247,7 @@ class DynamoDBClient(AwsClient):
         country_code: Optional[str],
         alerts: list,
     ) -> Dict[str, Any]:
-        """Store all alerts for a given asset."""
+        """Append new alerts for a given asset with 7-day TTL."""
         country_code_value = country_code if country_code else ""
 
         alerts_data = [
@@ -264,19 +264,34 @@ class DynamoDBClient(AwsClient):
             for alert in alerts
         ]
 
-        response = self.dynamodb.Table("alerts").put_item(
-            Item={
+        now = datetime.datetime.now(datetime.timezone.utc)
+        ttl_timestamp = int((now + datetime.timedelta(days=7)).timestamp())
+
+        update_expression = (
+            "SET alerts = list_append(if_not_exists(alerts, :empty_list), "
+            ":new_alerts), last_updated = :last_updated, #ttl = :ttl"
+        )
+
+        response = self.dynamodb.Table("alerts").update_item(
+            Key={
                 "asset_code": asset_code,
                 "country_code": country_code_value,
-                "alerts": alerts_data,
-                "last_updated": datetime.datetime.now(
-                    datetime.timezone.utc
-                ).isoformat(),
-            }
+            },
+            UpdateExpression=update_expression,
+            ExpressionAttributeNames={
+                "#ttl": "ttl",
+            },
+            ExpressionAttributeValues={
+                ":empty_list": [],
+                ":new_alerts": alerts_data,
+                ":last_updated": now.isoformat(),
+                ":ttl": ttl_timestamp,
+            },
+            ReturnValues="UPDATED_NEW",
         )
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
-            self.logger.error(f"DynamoDB put_item error: {response}")
+            self.logger.error(f"DynamoDB update_item error: {response}")
 
         return response
 
