@@ -211,3 +211,92 @@ class DynamoDBClient(AwsClient):
         if detail:
             return detail.get("tradingview_url")
         return None
+
+    def store_alerts(
+        self,
+        asset_code: str,
+        country_code: Optional[str],
+        alerts: list,
+    ) -> Dict[str, Any]:
+        """Append new alerts for a given asset with 7-day TTL."""
+        country_code_value = country_code if country_code else ""
+
+        alerts_data = [
+            {
+                "id": alert.id,
+                "alert_type": alert.alert_type.value,
+                "asset_code": alert.asset_code,
+                "country_code": (
+                    alert.country_code if alert.country_code else ""
+                ),
+                "date": alert.date.isoformat(),
+                "data": alert.data,
+            }
+            for alert in alerts
+        ]
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        ttl_timestamp = int((now + datetime.timedelta(days=7)).timestamp())
+
+        update_expression = (
+            "SET alerts = list_append(if_not_exists(alerts, :empty_list), "
+            ":new_alerts), last_updated = :last_updated, #ttl = :ttl"
+        )
+
+        response = self.dynamodb.Table("alerts").update_item(
+            Key={
+                "asset_code": asset_code,
+                "country_code": country_code_value,
+            },
+            UpdateExpression=update_expression,
+            ExpressionAttributeNames={
+                "#ttl": "ttl",
+            },
+            ExpressionAttributeValues={
+                ":empty_list": [],
+                ":new_alerts": alerts_data,
+                ":last_updated": now.isoformat(),
+                ":ttl": ttl_timestamp,
+            },
+            ReturnValues="UPDATED_NEW",
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB update_item error: {response}")
+
+        return response
+
+    def get_alerts(self, asset_code: str, country_code: Optional[str]) -> list:
+        """Get alerts for a specific asset."""
+        country_code_value = country_code if country_code else ""
+
+        response = self.dynamodb.Table("alerts").get_item(
+            Key={"asset_code": asset_code, "country_code": country_code_value}
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB get_item error: {response}")
+            return []
+
+        if "Item" not in response:
+            return []
+
+        return response["Item"].get("alerts", [])
+
+    def get_all_alerts(self) -> list[Dict[str, Any]]:
+        """Get all alerts from the alerts table."""
+        response = self.dynamodb.Table("alerts").scan()
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB scan error: {response}")
+            return []
+
+        items = response.get("Items", [])
+
+        while "LastEvaluatedKey" in response:
+            response = self.dynamodb.Table("alerts").scan(
+                ExclusiveStartKey=response["LastEvaluatedKey"]
+            )
+            items.extend(response.get("Items", []))
+
+        return items

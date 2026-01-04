@@ -10,7 +10,7 @@ from slack_sdk import WebClient
 from client import client_helper
 from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
-from model import AlertType, AssetType, Candle, UnitTime
+from model import Alert, AlertType, AssetType, Candle, UnitTime
 from saxo_order.commands import catch_exception
 from services import congestion_indicator, indicator_service
 from utils.configuration import Configuration
@@ -67,6 +67,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
     slack_client = WebClient(token=configuration.slack_token)
+    dynamodb_client = DynamoDBClient()
+
     slack_messages: Dict[str, List[str]] = {
         "double_top": [],
         "container_candle": [],
@@ -77,6 +79,7 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
     has_message = False
     for asset in assets:
         logger.debug(f"scan {asset['name']}")
+        asset_alerts: List[Alert] = []
         try:
             if "saxo_uic" in asset:
                 candles = _build_candles(saxo_client, asset)
@@ -87,26 +90,41 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                     congestion_indicator is not None
                     and len(congestion_indicator[0]) > 0
                 ):
-                    id = DynamoDBClient().get_indicator(congestion_indicator)
-                    if id is None:
-                        date = datetime.datetime.now().strftime("%Y-%m-%d")
-                        touch_points = [
-                            f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "  # noqa: E501
-                            + f"{c.higher} {c.lower}"
-                            for c in congestion_indicator[0]
-                        ]
-                        slack_messages["congestion"].append(
-                            f"{asset['name']}: Congestion detected on {date}\n"
-                            + "Touch points:\n"
-                            + "\n".join(touch_points)
+                    date = datetime.datetime.now().strftime("%Y-%m-%d")
+                    touch_points = [
+                        f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "  # noqa: E501
+                        + f"{c.higher} {c.lower}"
+                        for c in congestion_indicator[0]
+                    ]
+                    slack_messages["congestion"].append(
+                        f"{asset['name']}: Congestion detected on {date}\n"
+                        + "Touch points:\n"
+                        + "\n".join(touch_points)
+                    )
+                    has_message = True
+                    asset_alerts.append(
+                        Alert(
+                            alert_type=AlertType.CONGESTION20,
+                            date=datetime.datetime.now(),
+                            data={
+                                "touch_points": touch_points,
+                                "candles": [
+                                    {
+                                        "date": (
+                                            c.date.isoformat()
+                                            if c.date
+                                            else None
+                                        ),
+                                        "higher": c.higher,
+                                        "lower": c.lower,
+                                    }
+                                    for c in congestion_indicator[0]
+                                ],
+                            },
+                            asset_code=asset["code"],
+                            country_code=asset.get("country_code"),
                         )
-                        has_message = True
-                        DynamoDBClient().store_indicator(
-                            asset["code"],
-                            datetime.datetime.now(),
-                            AlertType.CONGESTION20,
-                            congestion_indicator,
-                        )
+                    )
                 congestion_indicator = _run_congestion_indicator(
                     asset, candles, 100, 3
                 )
@@ -114,26 +132,41 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                     congestion_indicator is not None
                     and len(congestion_indicator[0]) > 0
                 ):
-                    id = DynamoDBClient().get_indicator(congestion_indicator)
-                    if id is None:
-                        date = datetime.datetime.now().strftime("%Y-%m-%d")
-                        touch_points = [
-                            f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "  # noqa: E501
-                            + f"{c.higher} {c.lower}"
-                            for c in congestion_indicator[0]
-                        ]
-                        slack_messages["congestion"].append(
-                            f"{asset['name']}: Congestion detected on {date}\n"
-                            + "Touch points:\n"
-                            + "\n".join(touch_points)
+                    date = datetime.datetime.now().strftime("%Y-%m-%d")
+                    touch_points = [
+                        f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "  # noqa: E501
+                        + f"{c.higher} {c.lower}"
+                        for c in congestion_indicator[0]
+                    ]
+                    slack_messages["congestion"].append(
+                        f"{asset['name']}: Congestion detected on {date}\n"
+                        + "Touch points:\n"
+                        + "\n".join(touch_points)
+                    )
+                    has_message = True
+                    asset_alerts.append(
+                        Alert(
+                            alert_type=AlertType.CONGESTION100,
+                            date=datetime.datetime.now(),
+                            data={
+                                "touch_points": touch_points,
+                                "candles": [
+                                    {
+                                        "date": (
+                                            c.date.isoformat()
+                                            if c.date
+                                            else None
+                                        ),
+                                        "higher": c.higher,
+                                        "lower": c.lower,
+                                    }
+                                    for c in congestion_indicator[0]
+                                ],
+                            },
+                            asset_code=asset["code"],
+                            country_code=asset.get("country_code"),
                         )
-                        has_message = True
-                        DynamoDBClient().store_indicator(
-                            asset["code"],
-                            datetime.datetime.now(),
-                            AlertType.CONGESTION100,
-                            congestion_indicator,
-                        )
+                    )
                 if (
                     len(assets) == 1
                     and (
@@ -150,6 +183,24 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                         f"{asset['name']}: {date} at {candle.close}"
                     )
                     has_message = True
+                    asset_alerts.append(
+                        Alert(
+                            alert_type=AlertType.DOUBLE_TOP,
+                            date=(
+                                candle.date
+                                if candle.date
+                                else datetime.datetime.now()
+                            ),
+                            data={
+                                "close": candle.close,
+                                "open": candle.open,
+                                "higher": candle.higher,
+                                "lower": candle.lower,
+                            },
+                            asset_code=asset["code"],
+                            country_code=asset.get("country_code"),
+                        )
+                    )
                 if (
                     candle := _run_containing_candle(asset, candles)
                 ) is not None:
@@ -162,6 +213,24 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                         f"{asset['name']}: {date} at {candle.close}"
                     )
                     has_message = True
+                    asset_alerts.append(
+                        Alert(
+                            alert_type=AlertType.CONTAINING_CANDLE,
+                            date=(
+                                candle.date
+                                if candle.date
+                                else datetime.datetime.now()
+                            ),
+                            data={
+                                "close": candle.close,
+                                "open": candle.open,
+                                "higher": candle.higher,
+                                "lower": candle.lower,
+                            },
+                            asset_code=asset["code"],
+                            country_code=asset.get("country_code"),
+                        )
+                    )
                 if (
                     candle := _run_double_inside_bar(asset, candles)
                 ) is not None:
@@ -174,6 +243,24 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                         f"{asset['name']}: {date} at {candle.close}"
                     )
                     has_message = True
+                    asset_alerts.append(
+                        Alert(
+                            alert_type=AlertType.DOUBLE_INSIDE_BAR,
+                            date=(
+                                candle.date
+                                if candle.date
+                                else datetime.datetime.now()
+                            ),
+                            data={
+                                "close": candle.close,
+                                "open": candle.open,
+                                "higher": candle.higher,
+                                "lower": candle.lower,
+                            },
+                            asset_code=asset["code"],
+                            country_code=asset.get("country_code"),
+                        )
+                    )
                 if (combo := indicator_service.combo(candles)) is not None:
                     date = datetime.datetime.now().strftime("%Y-%m-%d")
                     slack_messages["combo"].append(
@@ -182,6 +269,27 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                         f"(has been triggered ? {combo.has_been_triggered})"
                     )
                     has_message = True
+                    asset_alerts.append(
+                        Alert(
+                            alert_type=AlertType.COMBO,
+                            date=datetime.datetime.now(),
+                            data={
+                                "price": combo.price,
+                                "direction": combo.direction.value,
+                                "strength": combo.strength.value,
+                                "has_been_triggered": combo.has_been_triggered,
+                                "details": combo.details,
+                            },
+                            asset_code=asset["code"],
+                            country_code=asset.get("country_code"),
+                        )
+                    )
+                if len(asset_alerts) > 0:
+                    dynamodb_client.store_alerts(
+                        asset["code"],
+                        asset.get("country_code"),
+                        asset_alerts,
+                    )
         except SaxoException as e:
             logger.error(f"{asset['name']} can't be scanned {e}")
     if has_message is False and len(assets) > 1:

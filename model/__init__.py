@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from model.enum import (  # noqa: F401
     AlertType,
@@ -30,6 +30,23 @@ from model.workflow import (  # noqa: F401
     WorkflowSignal,
 )
 from model.zone_bourse import ZoneBourseScore, ZoneBourseScrap  # noqa: F401
+
+
+@dataclass
+class Alert:
+    alert_type: AlertType
+    date: datetime.datetime
+    data: Dict[str, Any]
+    asset_code: str
+    country_code: Optional[str] = None
+
+    @property
+    def id(self) -> str:
+        """Composite ID from asset code and country code"""
+        if self.country_code:
+            return f"{self.asset_code}_{self.country_code}"
+        else:
+            return self.asset_code
 
 
 @dataclass
