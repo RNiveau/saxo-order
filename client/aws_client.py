@@ -212,35 +212,6 @@ class DynamoDBClient(AwsClient):
             return detail.get("tradingview_url")
         return None
 
-    def clear_alerts(self) -> None:
-        """Clear all items from the alerts table."""
-        table = self.dynamodb.Table("alerts")
-        scan_response = table.scan()
-
-        with table.batch_writer() as batch:
-            for item in scan_response.get("Items", []):
-                batch.delete_item(
-                    Key={
-                        "asset_code": item["asset_code"],
-                        "country_code": item["country_code"],
-                    }
-                )
-
-        while "LastEvaluatedKey" in scan_response:
-            scan_response = table.scan(
-                ExclusiveStartKey=scan_response["LastEvaluatedKey"]
-            )
-            with table.batch_writer() as batch:
-                for item in scan_response.get("Items", []):
-                    batch.delete_item(
-                        Key={
-                            "asset_code": item["asset_code"],
-                            "country_code": item["country_code"],
-                        }
-                    )
-
-        self.logger.info("Alerts table cleared")
-
     def store_alerts(
         self,
         asset_code: str,

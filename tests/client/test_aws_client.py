@@ -7,45 +7,6 @@ from model import Alert, AlertType
 
 class TestDynamoDBClient:
     @patch("client.aws_client.boto3")
-    def test_clear_alerts_empty_table(self, mock_boto3):
-        mock_table = MagicMock()
-        mock_table.scan.return_value = {
-            "Items": [],
-            "ResponseMetadata": {"HTTPStatusCode": 200},
-        }
-        mock_dynamodb = MagicMock()
-        mock_dynamodb.Table.return_value = mock_table
-        mock_boto3.resource.return_value = mock_dynamodb
-
-        client = DynamoDBClient()
-        client.clear_alerts()
-
-        mock_table.scan.assert_called_once()
-
-    @patch("client.aws_client.boto3")
-    def test_clear_alerts_with_items(self, mock_boto3):
-        mock_table = MagicMock()
-        mock_table.scan.return_value = {
-            "Items": [
-                {"asset_code": "AAPL", "country_code": "xpar"},
-                {"asset_code": "GOOGL", "country_code": "xnas"},
-            ],
-            "ResponseMetadata": {"HTTPStatusCode": 200},
-        }
-        mock_batch_writer = MagicMock()
-        mock_table.batch_writer.return_value.__enter__.return_value = (
-            mock_batch_writer
-        )
-        mock_dynamodb = MagicMock()
-        mock_dynamodb.Table.return_value = mock_table
-        mock_boto3.resource.return_value = mock_dynamodb
-
-        client = DynamoDBClient()
-        client.clear_alerts()
-
-        assert mock_batch_writer.delete_item.call_count == 2
-
-    @patch("client.aws_client.boto3")
     def test_store_alerts(self, mock_boto3):
         mock_table = MagicMock()
         mock_table.update_item.return_value = {
@@ -82,9 +43,7 @@ class TestDynamoDBClient:
             == "combo"
         )
         assert ":ttl" in call_args["ExpressionAttributeValues"]
-        assert isinstance(
-            call_args["ExpressionAttributeValues"][":ttl"], int
-        )
+        assert isinstance(call_args["ExpressionAttributeValues"][":ttl"], int)
         assert "list_append" in call_args["UpdateExpression"]
 
     @patch("client.aws_client.boto3")
@@ -116,9 +75,7 @@ class TestDynamoDBClient:
         assert call_args["Key"]["asset_code"] == "BTC"
         assert call_args["Key"]["country_code"] == ""
         assert ":ttl" in call_args["ExpressionAttributeValues"]
-        assert isinstance(
-            call_args["ExpressionAttributeValues"][":ttl"], int
-        )
+        assert isinstance(call_args["ExpressionAttributeValues"][":ttl"], int)
 
     @patch("client.aws_client.boto3")
     def test_get_alerts(self, mock_boto3):
