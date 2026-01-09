@@ -78,6 +78,7 @@ Then manually review and adjust to match actual implementation.
 These features were implemented before spec kit adoption:
 
 - ✅ **511-homepage-feature**: Homepage dashboard with MA50 indicators (retroactively documented)
+- ✅ **471-binance-reporting**: Binance order reporting with Google Sheets integration (retroactively documented)
 
 ## Active Features
 
@@ -131,7 +132,7 @@ Based on recent commits, consider documenting these next:
 1. **515-alert-storage**: Store alerts in DynamoDB with TTL
 2. **513-create-order-button**: Add order creation from asset detail page
 3. **512-autofill-order-date**: Auto-populate current date in order forms
-4. **471-binance-reporting**: Binance order history integration
+4. **189-weekly-timeframe**: Weekly candle support for workflows and indicators
 
 ### Approach
 
