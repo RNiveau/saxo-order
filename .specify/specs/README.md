@@ -79,6 +79,7 @@ These features were implemented before spec kit adoption:
 
 - ✅ **511-homepage-feature**: Homepage dashboard with MA50 indicators (retroactively documented)
 - ✅ **471-binance-reporting**: Binance order reporting with Google Sheets integration (retroactively documented)
+- ✅ **409-order-creation-api**: REST API and web UI for order creation with service layer extraction (retroactively documented)
 
 ## Active Features
 
