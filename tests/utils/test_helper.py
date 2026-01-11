@@ -1532,8 +1532,9 @@ class TestHelper:
     def test_build_current_weekly_candle_from_daily(self):
         """Test building current week's candle from daily candles"""
         today = datetime.datetime.now(datetime.UTC)
-        current_iso_year, current_iso_week, current_iso_day = \
+        current_iso_year, current_iso_week, current_iso_day = (
             today.isocalendar()
+        )
 
         days_since_monday = current_iso_day - 1
         monday = today - datetime.timedelta(days=days_since_monday)
@@ -1568,8 +1569,9 @@ class TestHelper:
 
     def test_build_current_weekly_candle_no_current_week(self):
         """Test when no candles from current week"""
-        last_week = datetime.datetime.now(datetime.UTC) - \
-            datetime.timedelta(days=7)
+        last_week = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+            days=7
+        )
         daily_candles = [
             Candle(
                 open=100,
