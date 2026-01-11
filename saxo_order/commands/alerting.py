@@ -21,6 +21,28 @@ from utils.logger import Logger
 logger = Logger.get_logger("alerting")
 
 
+def _parse_asset_code(code: str) -> Tuple[str, Optional[str]]:
+    """
+    Parse asset code to extract asset_code and country_code.
+
+    Args:
+        code: Asset code which may contain country code
+              (e.g., "SAN:xpar" or "SAN")
+
+    Returns:
+        Tuple of (asset_code, country_code). country_code is None
+        if not present.
+
+    Examples:
+        "SAN:xpar" -> ("SAN", "xpar")
+        "SAN" -> ("SAN", None)
+    """
+    if ":" in code:
+        parts = code.split(":", 1)
+        return parts[0], parts[1]
+    return code, None
+
+
 @click.command()
 @click.pass_context
 @click.option(
@@ -80,6 +102,14 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
     for asset in assets:
         logger.debug(f"scan {asset['name']}")
         asset_alerts: List[Alert] = []
+
+        # Parse asset code to separate asset_code and country_code
+        parsed_asset_code, parsed_country_code = _parse_asset_code(
+            asset["code"]
+        )
+        # Prefer explicit country_code from asset dict, fallback to parsed
+        final_country_code = asset.get("country_code") or parsed_country_code
+
         try:
             if "saxo_uic" in asset:
                 candles = _build_candles(saxo_client, asset)
@@ -121,8 +151,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                     for c in congestion_indicator[0]
                                 ],
                             },
-                            asset_code=asset["code"],
-                            country_code=asset.get("country_code"),
+                            asset_code=parsed_asset_code,
+                            country_code=final_country_code,
                         )
                     )
                 congestion_indicator = _run_congestion_indicator(
@@ -163,8 +193,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                     for c in congestion_indicator[0]
                                 ],
                             },
-                            asset_code=asset["code"],
-                            country_code=asset.get("country_code"),
+                            asset_code=parsed_asset_code,
+                            country_code=final_country_code,
                         )
                     )
                 if (
@@ -197,8 +227,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                 "higher": candle.higher,
                                 "lower": candle.lower,
                             },
-                            asset_code=asset["code"],
-                            country_code=asset.get("country_code"),
+                            asset_code=parsed_asset_code,
+                            country_code=final_country_code,
                         )
                     )
                 if (
@@ -227,8 +257,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                 "higher": candle.higher,
                                 "lower": candle.lower,
                             },
-                            asset_code=asset["code"],
-                            country_code=asset.get("country_code"),
+                            asset_code=parsed_asset_code,
+                            country_code=final_country_code,
                         )
                     )
                 if (
@@ -257,8 +287,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                 "higher": candle.higher,
                                 "lower": candle.lower,
                             },
-                            asset_code=asset["code"],
-                            country_code=asset.get("country_code"),
+                            asset_code=parsed_asset_code,
+                            country_code=final_country_code,
                         )
                     )
                 if (combo := indicator_service.combo(candles)) is not None:
@@ -280,14 +310,14 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                 "has_been_triggered": combo.has_been_triggered,
                                 "details": combo.details,
                             },
-                            asset_code=asset["code"],
-                            country_code=asset.get("country_code"),
+                            asset_code=parsed_asset_code,
+                            country_code=final_country_code,
                         )
                     )
                 if len(asset_alerts) > 0:
                     dynamodb_client.store_alerts(
-                        asset["code"],
-                        asset.get("country_code"),
+                        parsed_asset_code,
+                        final_country_code,
                         asset_alerts,
                     )
         except SaxoException as e:
