@@ -73,6 +73,6 @@ class TestDynamoDBClient:
         mock_table.update_item.assert_called_once()
         call_args = mock_table.update_item.call_args[1]
         assert call_args["Key"]["asset_code"] == "BTC"
-        assert call_args["Key"]["country_code"] == ""
+        assert call_args["Key"]["country_code"] == "NONE"
         assert ":ttl" in call_args["ExpressionAttributeValues"]
         assert isinstance(call_args["ExpressionAttributeValues"][":ttl"], int)
