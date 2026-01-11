@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import (
+    alerting,
     asset_details,
     fund,
     homepage,
@@ -51,6 +52,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(alerting.router)
 app.include_router(asset_details.router)
 app.include_router(fund.router)
 app.include_router(homepage.router)

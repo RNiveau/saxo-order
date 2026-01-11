@@ -24,6 +24,8 @@ class TestDynamoDBClient:
                 date=datetime.datetime(2025, 12, 14, 10, 30, 0),
                 data={"price": 150.25},
                 asset_code="AAPL",
+                asset_description="Apple Inc.",
+                exchange="saxo",
                 country_code="xpar",
             )
         ]
@@ -64,6 +66,8 @@ class TestDynamoDBClient:
                 date=datetime.datetime(2025, 12, 14, 10, 30, 0),
                 data={"price": 150.25},
                 asset_code="BTC",
+                asset_description="Bitcoin",
+                exchange="binance",
                 country_code=None,
             )
         ]
@@ -73,6 +77,6 @@ class TestDynamoDBClient:
         mock_table.update_item.assert_called_once()
         call_args = mock_table.update_item.call_args[1]
         assert call_args["Key"]["asset_code"] == "BTC"
-        assert call_args["Key"]["country_code"] == ""
+        assert call_args["Key"]["country_code"] == "NONE"
         assert ":ttl" in call_args["ExpressionAttributeValues"]
         assert isinstance(call_args["ExpressionAttributeValues"][":ttl"], int)

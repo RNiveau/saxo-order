@@ -522,3 +522,36 @@ export const homepageService = {
     return response.data;
   },
 };
+
+export interface AlertItem {
+  id: string;
+  alert_type: string;
+  asset_code: string;
+  asset_description: string;
+  exchange: string;
+  country_code: string | null;
+  date: string;
+  data: Record<string, any>;
+  age_hours: number;
+}
+
+export interface AlertsResponse {
+  alerts: AlertItem[];
+  total_count: number;
+  available_filters: {
+    asset_codes: string[];
+    alert_types: string[];
+    country_codes: string[];
+  };
+}
+
+export const alertService = {
+  getAll: async (params?: {
+    asset_code?: string;
+    alert_type?: string;
+    country_code?: string;
+  }): Promise<AlertsResponse> => {
+    const response = await api.get<AlertsResponse>('/api/alerts', { params });
+    return response.data;
+  },
+};

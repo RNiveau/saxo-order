@@ -119,6 +119,15 @@ export function Sidebar() {
           </li>
           <li>
             <NavLink
+              to="/alerts"
+              className={({ isActive }) => isActive ? 'active' : ''}
+            >
+              <span className="icon">🔔</span>
+              <span className="label">Alerts</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
               to="/report"
               className={({ isActive }) => isActive ? 'active' : ''}
             >

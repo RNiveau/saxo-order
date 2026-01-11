@@ -2,10 +2,12 @@ import datetime
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
 import boto3
 
+from model import Alert, AlertType
 from utils.json_util import dumps_indicator, hash_indicator
 from utils.logger import Logger
 
@@ -60,6 +62,25 @@ class DynamoDBClient(AwsClient):
     def __init__(self) -> None:
         self.logger = Logger.get_logger("dynamodb_client", logging.INFO)
         self.dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
+
+    @staticmethod
+    def _convert_floats_to_decimal(obj: Any) -> Any:
+        """
+        Recursively convert float values to Decimal for DynamoDB compatibility.
+
+        Args:
+            obj: Object to convert (dict, list, or primitive type)
+
+        Returns:
+            Object with all floats converted to Decimal
+        """
+        if isinstance(obj, float):
+            return Decimal(str(obj))
+        elif isinstance(obj, dict):
+            return {k: DynamoDBClient._convert_floats_to_decimal(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [DynamoDBClient._convert_floats_to_decimal(item) for item in obj]
+        return obj
 
     def store_indicator(
         self,
@@ -219,18 +240,20 @@ class DynamoDBClient(AwsClient):
         alerts: list,
     ) -> Dict[str, Any]:
         """Append new alerts for a given asset with 7-day TTL."""
-        country_code_value = country_code if country_code else ""
+        country_code_value = country_code if country_code else "NONE"
 
         alerts_data = [
             {
                 "id": alert.id,
                 "alert_type": alert.alert_type.value,
                 "asset_code": alert.asset_code,
+                "asset_description": alert.asset_description,
+                "exchange": alert.exchange,
                 "country_code": (
-                    alert.country_code if alert.country_code else ""
+                    alert.country_code if alert.country_code else "NONE"
                 ),
                 "date": alert.date.isoformat(),
-                "data": alert.data,
+                "data": self._convert_floats_to_decimal(alert.data),
             }
             for alert in alerts
         ]
@@ -268,7 +291,7 @@ class DynamoDBClient(AwsClient):
 
     def get_alerts(self, asset_code: str, country_code: Optional[str]) -> list:
         """Get alerts for a specific asset."""
-        country_code_value = country_code if country_code else ""
+        country_code_value = country_code if country_code else "NONE"
 
         response = self.dynamodb.Table("alerts").get_item(
             Key={"asset_code": asset_code, "country_code": country_code_value}
@@ -283,8 +306,8 @@ class DynamoDBClient(AwsClient):
 
         return response["Item"].get("alerts", [])
 
-    def get_all_alerts(self) -> list[Dict[str, Any]]:
-        """Get all alerts from the alerts table."""
+    def get_all_alerts(self) -> List[Alert]:
+        """Get all alerts from the alerts table and convert to Alert objects."""
         response = self.dynamodb.Table("alerts").scan()
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
@@ -299,4 +322,25 @@ class DynamoDBClient(AwsClient):
             )
             items.extend(response.get("Items", []))
 
-        return items
+        all_alerts: List[Alert] = []
+        for item in items:
+            alerts_data = item.get("alerts", [])
+            for alert_dict in alerts_data:
+                country_code = alert_dict.get("country_code")
+                if country_code == "NONE":
+                    country_code = None
+
+                alert = Alert(
+                    alert_type=AlertType(alert_dict["alert_type"]),
+                    date=datetime.datetime.fromisoformat(alert_dict["date"]),
+                    data=alert_dict["data"],
+                    asset_code=alert_dict["asset_code"],
+                    asset_description=alert_dict.get(
+                        "asset_description", alert_dict["asset_code"]
+                    ),
+                    exchange=alert_dict.get("exchange", "saxo"),
+                    country_code=country_code,
+                )
+                all_alerts.append(alert)
+
+        return all_alerts
