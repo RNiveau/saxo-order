@@ -30,11 +30,16 @@ async def get_alerts(
     ),
     alert_type: Optional[str] = Query(
         None,
-        description="Filter alerts by alert type (e.g., 'combo', 'congestion20')",
+        description=(
+            "Filter alerts by alert type " "(e.g., 'combo', 'congestion20')"
+        ),
     ),
     country_code: Optional[str] = Query(
         None,
-        description="Filter alerts by country/exchange code (e.g., 'xpar', 'xnas', or empty for crypto)",
+        description=(
+            "Filter alerts by country/exchange code "
+            "(e.g., 'xpar', 'xnas', or empty for crypto)"
+        ),
     ),
     service: AlertingService = Depends(get_alerting_service),
 ) -> AlertsResponse:
@@ -42,7 +47,8 @@ async def get_alerts(
     Get all active alerts from the last 7 days.
 
     Alerts are automatically expired by DynamoDB TTL after 7 days.
-    Supports filtering by asset_code, alert_type, and country_code via query parameters.
+    Supports filtering by asset_code, alert_type, and country_code
+    via query parameters.
     Results are sorted by date descending (newest first).
 
     Args:
