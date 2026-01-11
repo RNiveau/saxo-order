@@ -1,41 +1,45 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: 1.0.0 → 1.1.0
-Action: Added frontend and API layer governance
+Version Change: 1.1.0 → 1.2.0
+Action: Expanded Domain Model Integrity principle - added explicit exchange field requirement
 
 Principles Modified:
-  1. Layered Architecture Discipline - Added API and Frontend layers
+  V. Domain Model Integrity - Expanded item 4 (Assets and Exchanges)
+     OLD: "Saxo assets CAN lack `country_code` - DO NOT assume missing country_code means Binance asset"
+     NEW: "Assets and Exchanges: Saxo assets CAN be without country_code. NEVER use country_code
+          presence/absence to determine if an asset is from Saxo or Binance. MUST use an explicit
+          'exchange' field to identify the source exchange."
 
-Sections Added:
-  - Frontend Development Standards (TypeScript, React, Vite)
-  - API Contract Standards (FastAPI + TypeScript interface alignment)
-  - Frontend Quality Gates
+Rationale for Change:
+  - Bug occurred twice in session: incorrectly inferring exchange from country_code
+  - Caused design errors requiring Alert model changes to add explicit exchange field
+  - Non-obvious rule that's easy to violate without explicit guidance
+  - Cross-cutting concern affecting data modeling, API design, and frontend navigation
 
-Previous Version (1.0.0):
-  - Initial constitution with 5 core principles
-  - Backend-focused architecture (CLI, Service, Client, Model layers)
+Previous Version (1.1.0):
+  - Full-stack architecture with frontend and API governance
+  - 5 core principles with backend + frontend standards
 
-New in 1.1.0:
-  - Full-stack architecture coverage
-  - Frontend: React + TypeScript + Vite standards
-  - API: FastAPI with TypeScript type alignment
-  - CORS and environment configuration standards
+New in 1.2.0:
+  - Strengthened Domain Model Integrity guidance
+  - Explicit requirement for exchange field in asset-related models
+  - Clarifies that country_code is NOT a reliable exchange indicator
 
 Templates Requiring Updates:
-  ✅ plan-template.md - Constitution Check section supports full-stack architecture
+  ✅ plan-template.md - Constitution Check section will pick up new rule automatically
   ✅ spec-template.md - Requirements section unchanged
-  ✅ tasks-template.md - Phase structure supports both backend and frontend tasks
-  ⚠️  CLAUDE.md - Should be updated to reference frontend development patterns
+  ✅ tasks-template.md - Task structure supports data model changes
+  ✅ CLAUDE.md - Already has guidance "A saxo asset CAN be without country_code"
 
 Follow-up TODOs:
   - None; all placeholders filled with concrete values
 
-Rationale for MINOR version (1.1.0):
-  - Material expansion of Layered Architecture principle
-  - New development standards added (frontend-specific)
-  - No backward-incompatible changes
-  - Existing principles remain valid
+Rationale for MINOR version (1.2.0):
+  - Material expansion of existing Domain Model Integrity principle
+  - New explicit requirement (exchange field) that affects data modeling
+  - No backward-incompatible changes (existing principles remain valid)
+  - Clarifies and strengthens existing guidance rather than replacing it
 -->
 
 # saxo-order Constitution
@@ -134,14 +138,16 @@ Domain models and data structures MUST reflect business reality:
 1. **Candle Ordering**: Candle lists always have index 0 = newest, last index = oldest
 2. **Saxo API Constraints**: Current day (horizon 1440) and current hour (horizon 60) not returned - rebuild from smaller horizons
 3. **Model Boundaries**: Outside SaxoService, use Candle objects everywhere - never raw Saxo responses
-4. **Optional Fields**: Saxo assets CAN lack `country_code` - DO NOT assume missing country_code means Binance asset
+4. **Assets and Exchanges**: A Saxo asset CAN be without `country_code`. NEVER use `country_code` presence or absence to determine if an asset is from Saxo or Binance. ALWAYS use an explicit `exchange` field to identify the source exchange. When designing data models that store or transmit asset information, include an `exchange` field (e.g., "saxo", "binance") rather than inferring the exchange from other attributes.
 
-**Rationale**: Consistent domain model conventions prevent subtle bugs from incorrect assumptions. Explicit handling of API limitations (missing current periods) ensures accurate data. Clear boundaries between external API responses and internal models enable API provider changes without cascading changes.
+**Rationale**: Consistent domain model conventions prevent subtle bugs from incorrect assumptions. Explicit handling of API limitations (missing current periods) ensures accurate data. Clear boundaries between external API responses and internal models enable API provider changes without cascading changes. The `country_code` field is unreliable for exchange identification because Saxo assets may lack it, leading to false assumptions that could cause navigation errors, incorrect API routing, or data corruption.
 
 **Enforcement**:
 - Unit tests validate Candle ordering conventions
 - Integration tests verify horizon reconstruction logic
 - Code reviews check for raw API response usage outside Client layer
+- Code reviews reject exchange inference from `country_code` - require explicit `exchange` field
+- Data models (Alert, Order, Asset representations) MUST include explicit `exchange` field
 
 ## Development Standards
 
@@ -281,4 +287,4 @@ Domain models and data structures MUST reflect business reality:
 - **CLAUDE.md** provides runtime development guidance and implementation patterns
 - When conflict arises, constitution takes precedence; update CLAUDE.md to align
 
-**Version**: 1.1.0 | **Ratified**: 2026-01-09 | **Last Amended**: 2026-01-09
+**Version**: 1.2.0 | **Ratified**: 2026-01-09 | **Last Amended**: 2026-01-11

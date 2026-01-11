@@ -38,6 +38,8 @@ class Alert:
     date: datetime.datetime
     data: Dict[str, Any]
     asset_code: str
+    asset_description: str
+    exchange: str = "saxo"
     country_code: Optional[str] = None
 
     @property

@@ -1,0 +1,124 @@
+.alert-card {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.alert-card:hover {
+  border-color: #555;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.alert-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.alert-type-badge {
+  background: #2a5298;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.age-label {
+  color: #888;
+  font-size: 12px;
+}
+
+.alert-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alert-card-asset {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.asset-name {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: #fff;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.asset-name:hover {
+  color: #2a5298;
+  text-decoration: underline;
+}
+
+.country-code {
+  background: #333;
+  color: #aaa;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.alert-card-timestamp {
+  color: #aaa;
+  font-size: 13px;
+}
+
+.alert-card-data {
+  margin-top: 8px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.data-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.data-header:hover {
+  background: #1c2128;
+}
+
+.data-header span:first-child {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c9d1d9;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.expand-icon {
+  color: #888;
+  font-size: 10px;
+}
+
+.data-content {
+  margin: 0;
+  padding: 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  color: #c9d1d9;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-x: auto;
+}

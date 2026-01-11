@@ -30,8 +30,8 @@ def _parse_asset_code(code: str) -> Tuple[str, Optional[str]]:
               (e.g., "SAN:xpar" or "SAN")
 
     Returns:
-        Tuple of (asset_code, country_code). country_code is None
-        if not present.
+        Tuple of (asset_code, country_code).
+        country_code is None if not present.
 
     Examples:
         "SAN:xpar" -> ("SAN", "xpar")
@@ -152,6 +152,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                 ],
                             },
                             asset_code=parsed_asset_code,
+                            asset_description=asset["name"],
+                            exchange="saxo",
                             country_code=final_country_code,
                         )
                     )
@@ -194,6 +196,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                 ],
                             },
                             asset_code=parsed_asset_code,
+                            asset_description=asset["name"],
+                            exchange="saxo",
                             country_code=final_country_code,
                         )
                     )
@@ -228,6 +232,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                 "lower": candle.lower,
                             },
                             asset_code=parsed_asset_code,
+                            asset_description=asset["name"],
+                            exchange="saxo",
                             country_code=final_country_code,
                         )
                     )
@@ -258,6 +264,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                 "lower": candle.lower,
                             },
                             asset_code=parsed_asset_code,
+                            asset_description=asset["name"],
+                            exchange="saxo",
                             country_code=final_country_code,
                         )
                     )
@@ -288,6 +296,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                 "lower": candle.lower,
                             },
                             asset_code=parsed_asset_code,
+                            asset_description=asset["name"],
+                            exchange="saxo",
                             country_code=final_country_code,
                         )
                     )
@@ -311,6 +321,8 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
                                 "details": combo.details,
                             },
                             asset_code=parsed_asset_code,
+                            asset_description=asset["name"],
+                            exchange="saxo",
                             country_code=final_country_code,
                         )
                     )
