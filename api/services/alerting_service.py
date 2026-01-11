@@ -102,7 +102,8 @@ class AlertingService:
             alerts: List of alerts to extract filter values from
 
         Returns:
-            Dictionary with available asset_codes, alert_types, and country_codes
+            Dictionary with available asset_codes, alert_types,
+            and country_codes
         """
         asset_codes = sorted(set(alert.asset_code for alert in alerts))
         alert_types = sorted(set(alert.alert_type.value for alert in alerts))

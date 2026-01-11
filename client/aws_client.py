@@ -77,9 +77,14 @@ class DynamoDBClient(AwsClient):
         if isinstance(obj, float):
             return Decimal(str(obj))
         elif isinstance(obj, dict):
-            return {k: DynamoDBClient._convert_floats_to_decimal(v) for k, v in obj.items()}
+            return {
+                k: DynamoDBClient._convert_floats_to_decimal(v)
+                for k, v in obj.items()
+            }
         elif isinstance(obj, list):
-            return [DynamoDBClient._convert_floats_to_decimal(item) for item in obj]
+            return [
+                DynamoDBClient._convert_floats_to_decimal(item) for item in obj
+            ]
         return obj
 
     def store_indicator(
@@ -307,7 +312,9 @@ class DynamoDBClient(AwsClient):
         return response["Item"].get("alerts", [])
 
     def get_all_alerts(self) -> List[Alert]:
-        """Get all alerts from the alerts table and convert to Alert objects."""
+        """
+        Get all alerts from alerts table and convert to Alert objects.
+        """
         response = self.dynamodb.Table("alerts").scan()
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
