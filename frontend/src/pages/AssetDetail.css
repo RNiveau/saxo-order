@@ -437,3 +437,122 @@
   color: #e6edf3;
   font-family: monospace;
 }
+
+/* Alerts Section */
+.alerts-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+
+.alerts-section h3 {
+  color: #e6edf3;
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+}
+
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.expand-alerts-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #e6edf3;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.expand-alerts-btn:hover {
+  background: #30363d;
+  border-color: #8b949e;
+}
+
+/* Alert Card Styles in AssetDetail context */
+.alerts-section .alert-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 1rem;
+  transition: all 0.2s;
+}
+
+.alerts-section .alert-card:hover {
+  border-color: #8b949e;
+  box-shadow: 0 0 0 1px #8b949e;
+}
+
+/* Alert Type Badge Colors */
+.alert-type-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Color coding by alert type */
+.alert-card[data-alert-type="combo"] .alert-type-badge {
+  background: rgba(56, 139, 253, 0.2);
+  color: #58a6ff;
+  border: 1px solid #58a6ff;
+}
+
+.alert-card[data-alert-type="congestion20"] .alert-type-badge,
+.alert-card[data-alert-type="congestion100"] .alert-type-badge {
+  background: rgba(242, 169, 0, 0.2);
+  color: #f2a900;
+  border: 1px solid #f2a900;
+}
+
+.alert-card[data-alert-type="double_top"] .alert-type-badge {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+  border: 1px solid #f85149;
+}
+
+.alert-card[data-alert-type="double_inside_bar"] .alert-type-badge {
+  background: rgba(163, 113, 247, 0.2);
+  color: #a371f7;
+  border: 1px solid #a371f7;
+}
+
+.alert-card[data-alert-type="containing_candle"] .alert-type-badge {
+  background: rgba(56, 211, 159, 0.2);
+  color: #3dd68c;
+  border: 1px solid #3dd68c;
+}
+
+/* Empty and Error States */
+.alerts-section .loading,
+.alerts-section .error,
+.alerts-section .empty-state {
+  color: #8b949e;
+  text-align: center;
+  padding: 2rem;
+  font-size: 0.9rem;
+}
+
+.alerts-section .error {
+  color: #f85149;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .alerts-section {
+    padding: 1rem;
+  }
+
+  .alerts-list {
+    gap: 0.75rem;
+  }
+}
