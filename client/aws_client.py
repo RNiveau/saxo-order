@@ -362,7 +362,7 @@ class DynamoDBClient(AwsClient):
 
     def get_all_alerts(self) -> List[Alert]:
         """
-        Get all alerts from alerts table and convert to Alert objects.
+        Get all alerts from the alerts table and convert to Alert objects.
         """
         response = self.dynamodb.Table("alerts").scan()
 
