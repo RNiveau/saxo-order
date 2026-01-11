@@ -244,8 +244,57 @@ class DynamoDBClient(AwsClient):
         country_code: Optional[str],
         alerts: list,
     ) -> Dict[str, Any]:
-        """Append new alerts for a given asset with 7-day TTL."""
+        """
+        Append new alerts for a given asset with 7-day TTL.
+
+        Deduplicates alerts before storing - alerts with the same
+        asset_code, alert_type, and date (same day) are considered
+        duplicates.
+        """
         country_code_value = country_code if country_code else "NONE"
+
+        # Get existing alerts to check for duplicates
+        existing_alerts = self.get_alerts(asset_code, country_code)
+
+        # Create a set of existing alert signatures for fast lookup
+        # Signature: (alert_type, date_day)
+        existing_signatures = set()
+        for existing in existing_alerts:
+            try:
+                alert_date = datetime.datetime.fromisoformat(existing["date"])
+                signature = (
+                    existing["alert_type"],
+                    alert_date.date().isoformat(),
+                )
+                existing_signatures.add(signature)
+            except (KeyError, ValueError):
+                # Skip malformed alerts
+                continue
+
+        # Filter out duplicate alerts
+        unique_alerts = []
+        for alert in alerts:
+            signature = (
+                alert.alert_type.value,
+                alert.date.date().isoformat(),
+            )
+            if signature not in existing_signatures:
+                unique_alerts.append(alert)
+                existing_signatures.add(signature)
+
+        # If no unique alerts, return early
+        if not unique_alerts:
+            self.logger.info(
+                f"No unique alerts to store for {asset_code} "
+                f"(all {len(alerts)} alerts are duplicates)"
+            )
+            return {"ResponseMetadata": {"HTTPStatusCode": 200}}
+
+        self.logger.info(
+            f"Storing {len(unique_alerts)} unique alerts "
+            f"(filtered {len(alerts) - len(unique_alerts)} duplicates) "
+            f"for {asset_code}"
+        )
 
         alerts_data = [
             {
@@ -260,7 +309,7 @@ class DynamoDBClient(AwsClient):
                 "date": alert.date.isoformat(),
                 "data": self._convert_floats_to_decimal(alert.data),
             }
-            for alert in alerts
+            for alert in unique_alerts
         ]
 
         now = datetime.datetime.now(datetime.timezone.utc)

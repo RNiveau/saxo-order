@@ -9,6 +9,10 @@ class TestDynamoDBClient:
     @patch("client.aws_client.boto3")
     def test_store_alerts(self, mock_boto3):
         mock_table = MagicMock()
+        # Mock get_item for get_alerts (no existing alerts)
+        mock_table.get_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+        }
         mock_table.update_item.return_value = {
             "ResponseMetadata": {"HTTPStatusCode": 200},
             "Attributes": {},
@@ -51,6 +55,10 @@ class TestDynamoDBClient:
     @patch("client.aws_client.boto3")
     def test_store_alerts_without_country_code(self, mock_boto3):
         mock_table = MagicMock()
+        # Mock get_item for get_alerts (no existing alerts)
+        mock_table.get_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+        }
         mock_table.update_item.return_value = {
             "ResponseMetadata": {"HTTPStatusCode": 200},
             "Attributes": {},
@@ -80,3 +88,103 @@ class TestDynamoDBClient:
         assert call_args["Key"]["country_code"] == "NONE"
         assert ":ttl" in call_args["ExpressionAttributeValues"]
         assert isinstance(call_args["ExpressionAttributeValues"][":ttl"], int)
+
+    @patch("client.aws_client.boto3")
+    def test_store_alerts_deduplication(self, mock_boto3):
+        """Test that duplicate alerts are filtered out."""
+        mock_table = MagicMock()
+        # Mock existing alerts
+        mock_table.get_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Item": {
+                "alerts": [
+                    {
+                        "alert_type": "combo",
+                        "date": "2025-12-14T10:30:00",
+                        "asset_code": "AAPL",
+                    }
+                ]
+            },
+        }
+        mock_table.update_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Attributes": {},
+        }
+        mock_dynamodb = MagicMock()
+        mock_dynamodb.Table.return_value = mock_table
+        mock_boto3.resource.return_value = mock_dynamodb
+
+        client = DynamoDBClient()
+        alerts = [
+            # This alert is a duplicate (same type, same day)
+            Alert(
+                alert_type=AlertType.COMBO,
+                date=datetime.datetime(2025, 12, 14, 15, 30, 0),
+                data={"price": 150.25},
+                asset_code="AAPL",
+                asset_description="Apple Inc.",
+                exchange="saxo",
+                country_code="xpar",
+            ),
+            # This alert is unique (different type)
+            Alert(
+                alert_type=AlertType.CONGESTION20,
+                date=datetime.datetime(2025, 12, 14, 15, 30, 0),
+                data={"price": 150.25},
+                asset_code="AAPL",
+                asset_description="Apple Inc.",
+                exchange="saxo",
+                country_code="xpar",
+            ),
+        ]
+
+        client.store_alerts("AAPL", "xpar", alerts)
+
+        # Should only store 1 alert (the unique one)
+        mock_table.update_item.assert_called_once()
+        call_args = mock_table.update_item.call_args[1]
+        stored_alerts = call_args["ExpressionAttributeValues"][":new_alerts"]
+        assert len(stored_alerts) == 1
+        assert stored_alerts[0]["alert_type"] == "congestion20"
+
+    @patch("client.aws_client.boto3")
+    def test_store_alerts_all_duplicates(self, mock_boto3):
+        """Test that when all alerts are duplicates, no update is made."""
+        mock_table = MagicMock()
+        # Mock existing alerts
+        mock_table.get_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Item": {
+                "alerts": [
+                    {
+                        "alert_type": "combo",
+                        "date": "2025-12-14T10:30:00",
+                        "asset_code": "AAPL",
+                    }
+                ]
+            },
+        }
+        mock_dynamodb = MagicMock()
+        mock_dynamodb.Table.return_value = mock_table
+        mock_boto3.resource.return_value = mock_dynamodb
+
+        client = DynamoDBClient()
+        alerts = [
+            # This alert is a duplicate
+            Alert(
+                alert_type=AlertType.COMBO,
+                date=datetime.datetime(2025, 12, 14, 15, 30, 0),
+                data={"price": 150.25},
+                asset_code="AAPL",
+                asset_description="Apple Inc.",
+                exchange="saxo",
+                country_code="xpar",
+            ),
+        ]
+
+        result = client.store_alerts("AAPL", "xpar", alerts)
+
+        # Should not call update_item
+        mock_table.update_item.assert_not_called()
+        # Should return success response
+        assert result["ResponseMetadata"]["HTTPStatusCode"] == 200
