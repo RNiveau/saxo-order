@@ -4,11 +4,14 @@ import {
   workflowService,
   indicatorService,
   watchlistService,
+  alertService,
   type WorkflowInfo,
   type AssetWorkflowsResponse,
   type AssetIndicatorsResponse,
+  type AlertItem,
 } from '../services/api';
 import { IndicatorCard } from '../components/IndicatorCard';
+import { AlertCard } from '../components/AlertCard';
 import './AssetDetail.css';
 
 export function AssetDetail() {
@@ -35,12 +38,19 @@ export function AssetDetail() {
   const [isHomepage, setIsHomepage] = useState(false);
   const [updatingLabel, setUpdatingLabel] = useState(false);
 
+  // Alerts state
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [alertsData, setAlertsData] = useState<AlertItem[]>([]);
+  const [alertsExpanded, setAlertsExpanded] = useState(false);
+
   useEffect(() => {
     if (symbol) {
       fetchWorkflows(symbol);
       fetchIndicators(symbol);
       fetchWeeklyIndicators(symbol);
       checkWatchlistStatus(symbol);
+      fetchAlerts(symbol);
     }
   }, [symbol]);
 
@@ -121,6 +131,31 @@ export function AssetDetail() {
       console.error('Check watchlist error:', err);
     } finally {
       setCheckingWatchlist(false);
+    }
+  };
+
+  const fetchAlerts = async (assetSymbol: string) => {
+    try {
+      setAlertsLoading(true);
+      setAlertsError(null);
+
+      // Parse symbol to extract code and country_code
+      const parts = assetSymbol.split(':');
+      const code = parts[0];
+      const countryCode = parts.length > 1 ? parts[1] : '';
+
+      // Fetch alerts filtered by asset_code and country_code
+      const data = await alertService.getAll({
+        asset_code: code,
+        country_code: countryCode,
+      });
+
+      setAlertsData(data.alerts);
+    } catch (err) {
+      setAlertsError('Unable to load alerts. Please try refreshing the page.');
+      console.error('Alerts fetch error:', err);
+    } finally {
+      setAlertsLoading(false);
     }
   };
 
@@ -409,6 +444,38 @@ export function AssetDetail() {
             />
           )}
         </div>
+      </div>
+
+      {/* Alerts Section */}
+      <div className="alerts-section">
+        <h3>Alerts</h3>
+
+        {alertsLoading && <div className="loading">Loading alerts...</div>}
+
+        {alertsError && <div className="error">{alertsError}</div>}
+
+        {!alertsLoading && !alertsError && alertsData.length === 0 && (
+          <div className="empty-state">No active alerts for this asset</div>
+        )}
+
+        {!alertsLoading && !alertsError && alertsData.length > 0 && (
+          <>
+            <div className="alerts-list">
+              {(alertsExpanded ? alertsData : alertsData.slice(0, 3)).map((alert) => (
+                <AlertCard key={alert.id} alert={alert} />
+              ))}
+            </div>
+
+            {alertsData.length > 3 && (
+              <button
+                className="expand-alerts-btn"
+                onClick={() => setAlertsExpanded(!alertsExpanded)}
+              >
+                {alertsExpanded ? 'Show Less' : `Show All (${alertsData.length} alerts)`}
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {/* Workflows Section */}
