@@ -44,3 +44,47 @@ class AlertsResponse(BaseModel):
     available_filters: Dict[str, List[str]] = Field(
         description="Available filter values based on current data"
     )
+
+
+class RunAlertsRequest(BaseModel):
+    asset_code: str = Field(
+        description="Asset identifier code (e.g., 'ITP', 'SAN', 'BTCUSDT')",
+        min_length=1,
+        max_length=20,
+    )
+    country_code: Optional[str] = Field(
+        default=None,
+        description=(
+            "Country/market code (e.g., 'xpar', 'xnys'). "
+            "Null for crypto assets."
+        ),
+        min_length=2,
+        max_length=10,
+    )
+    exchange: str = Field(
+        description="Exchange identifier ('saxo' or 'binance')",
+        pattern="^(saxo|binance)$",
+    )
+
+
+class RunAlertsResponse(BaseModel):
+    status: str = Field(
+        description="Execution outcome status",
+        pattern="^(success|no_alerts|error)$",
+    )
+    alerts_detected: int = Field(
+        description="Count of newly detected alerts (0 or more)", ge=0
+    )
+    alerts: List[AlertItemResponse] = Field(
+        description="Array of newly detected alerts (empty if none found)"
+    )
+    execution_time_ms: int = Field(
+        description="Detection execution duration in milliseconds", ge=0
+    )
+    message: str = Field(description="Human-readable status message")
+    next_allowed_at: datetime = Field(
+        description=(
+            "ISO 8601 timestamp when next execution is allowed "
+            "(5 minutes from now)"
+        )
+    )

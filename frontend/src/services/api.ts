@@ -545,6 +545,15 @@ export interface AlertsResponse {
   };
 }
 
+export interface RunAlertsResponse {
+  status: 'success' | 'no_alerts' | 'error';
+  alerts_detected: number;
+  alerts: AlertItem[];
+  execution_time_ms: number;
+  message: string;
+  next_allowed_at: string;
+}
+
 export const alertService = {
   getAll: async (params?: {
     asset_code?: string;
@@ -552,6 +561,19 @@ export const alertService = {
     country_code?: string;
   }): Promise<AlertsResponse> => {
     const response = await api.get<AlertsResponse>('/api/alerts', { params });
+    return response.data;
+  },
+
+  run: async (params: {
+    asset_code: string;
+    country_code: string | null;
+    exchange: string;
+  }): Promise<RunAlertsResponse> => {
+    const response = await api.post<RunAlertsResponse>(
+      '/api/alerts/run',
+      params,
+      { timeout: 60000 }
+    );
     return response.data;
   },
 };

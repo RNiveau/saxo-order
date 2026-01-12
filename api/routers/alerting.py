@@ -1,11 +1,17 @@
-from typing import Optional
+from typing import Optional, Union
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from api.dependencies import get_dynamodb_client
-from api.models.alerting import AlertsResponse
+from api.dependencies import get_dynamodb_client, get_saxo_client
+from api.models.alerting import (
+    AlertsResponse,
+    RunAlertsRequest,
+    RunAlertsResponse,
+)
 from api.services.alerting_service import AlertingService
 from client.aws_client import DynamoDBClient
+from client.mock_saxo_client import MockSaxoClient
+from client.saxo_client import SaxoClient
 from utils.logger import Logger
 
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
@@ -65,3 +71,78 @@ async def get_alerts(
         f"alert_type={alert_type}, country_code={country_code}"
     )
     return service.get_all_alerts(asset_code, alert_type, country_code)
+
+
+@router.post("/run", response_model=RunAlertsResponse)
+async def run_alerts(
+    request: RunAlertsRequest,
+    service: AlertingService = Depends(get_alerting_service),
+    saxo_client: Union[SaxoClient, MockSaxoClient] = Depends(get_saxo_client),
+) -> RunAlertsResponse:
+    """
+    Run on-demand alert detection for a specific asset.
+
+    Executes all detection algorithms (combo, congestion, candle patterns)
+    on the specified asset and stores results in DynamoDB.
+
+    **Cooldown**: 5-minute cooldown per asset. Requests within cooldown
+    return a response with status="error" and the next_allowed_at timestamp.
+
+    **Deduplication**: Only one alert per type per day is stored. Running
+    detection twice on the same day won't create duplicate alerts.
+
+    Args:
+        request: RunAlertsRequest with asset_code, country_code, exchange
+        service: AlertingService dependency
+        saxo_client: SaxoClient or MockSaxoClient dependency
+
+    Returns:
+        RunAlertsResponse with execution results, alerts, and cooldown info
+
+    Raises:
+        HTTPException 500: If detection fails due to internal error
+    """
+    logger.info(
+        f"Running on-demand alert detection for {request.asset_code} "
+        f"(country_code={request.country_code}, exchange={request.exchange})"
+    )
+
+    try:
+        response = service.run_on_demand_detection(request, saxo_client)
+
+        # Return appropriate status code based on result
+        if response.status == "error" and "recently run" in response.message:
+            # Cooldown active - return 200 with error status
+            # (client handles cooldown display based on response.status)
+            logger.info(
+                f"Cooldown active for {request.asset_code}: "
+                f"{response.message}"
+            )
+        elif response.status == "success":
+            logger.info(
+                f"Detected {response.alerts_detected} alerts for "
+                f"{request.asset_code} in {response.execution_time_ms}ms"
+            )
+        elif response.status == "no_alerts":
+            logger.info(
+                f"No alerts detected for {request.asset_code} "
+                f"in {response.execution_time_ms}ms"
+            )
+        else:
+            logger.warning(
+                f"Alert detection returned error for {request.asset_code}: "
+                f"{response.message}"
+            )
+
+        return response
+
+    except Exception as e:
+        logger.error(
+            f"Unexpected error during on-demand detection for "
+            f"{request.asset_code}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Alert detection failed: {str(e)}",
+        )

@@ -47,8 +47,8 @@ This is a **full-stack feature**:
 
 ### Extract Reusable Detection Logic
 
-- [ ] T001 Extract detection orchestration function from `saxo_order/commands/alerting.py` - create `run_detection_for_asset(asset_code, country_code, exchange, candles_service, indicator_service, congestion_service, dynamodb_client)` function that runs all 6 detection algorithms and stores results
-- [ ] T002 Refactor `run_alerting()` in `saxo_order/commands/alerting.py` to call extracted `run_detection_for_asset()` function (reduce duplication, maintain existing CLI behavior)
+- [X] T001 Extract detection orchestration function from `saxo_order/commands/alerting.py` - create `run_detection_for_asset(asset_code, country_code, exchange, candles_service, indicator_service, congestion_service, dynamodb_client)` function that runs all 6 detection algorithms and stores results
+- [X] T002 Refactor `run_alerting()` in `saxo_order/commands/alerting.py` to call extracted `run_detection_for_asset()` function (reduce duplication, maintain existing CLI behavior)
 
 **Checkpoint**: ✅ Foundation ready - detection logic is reusable from both CLI and API
 
@@ -70,54 +70,54 @@ This is a **full-stack feature**:
 
 ### Backend: API Models
 
-- [ ] T003 [P] [US1] Add `RunAlertsRequest` Pydantic model in `api/models/alerting.py` with fields: asset_code (str), country_code (Optional[str]), exchange (str)
-- [ ] T004 [P] [US1] Add `RunAlertsResponse` Pydantic model in `api/models/alerting.py` with fields: status (str), alerts_detected (int), alerts (List[AlertItemResponse]), execution_time_ms (int), message (str), next_allowed_at (datetime)
+- [X] T003 [P] [US1] Add `RunAlertsRequest` Pydantic model in `api/models/alerting.py` with fields: asset_code (str), country_code (Optional[str]), exchange (str)
+- [X] T004 [P] [US1] Add `RunAlertsResponse` Pydantic model in `api/models/alerting.py` with fields: status (str), alerts_detected (int), alerts (List[AlertItemResponse]), execution_time_ms (int), message (str), next_allowed_at (datetime)
 
 ### Backend: Service Layer (Cooldown + Detection)
 
-- [ ] T005 [US1] Add `_get_last_run_at()` method in `api/services/alerting_service.py` - query DynamoDB alerts table for `last_run_at` field (returns Optional[datetime])
-- [ ] T006 [US1] Add `_is_cooldown_active()` method in `api/services/alerting_service.py` - check if last_run_at is within 5 minutes of now (returns bool + next_allowed_at datetime)
-- [ ] T007 [US1] Add `_update_last_run_at()` method in `api/services/alerting_service.py` - update DynamoDB alerts table with current timestamp in `last_run_at` field
-- [ ] T008 [US1] Add `run_on_demand_detection()` method in `api/services/alerting_service.py` - orchestrate cooldown check, call extracted `run_detection_for_asset()`, update last_run_at, return RunAlertsResponse
+- [X] T005 [US1] Add `_get_last_run_at()` method in `api/services/alerting_service.py` - query DynamoDB alerts table for `last_run_at` field (returns Optional[datetime])
+- [X] T006 [US1] Add `_is_cooldown_active()` method in `api/services/alerting_service.py` - check if last_run_at is within 5 minutes of now (returns bool + next_allowed_at datetime)
+- [X] T007 [US1] Add `_update_last_run_at()` method in `api/services/alerting_service.py` - update DynamoDB alerts table with current timestamp in `last_run_at` field
+- [X] T008 [US1] Add `run_on_demand_detection()` method in `api/services/alerting_service.py` - orchestrate cooldown check, call extracted `run_detection_for_asset()`, update last_run_at, return RunAlertsResponse
 
 ### Backend: API Endpoint
 
-- [ ] T009 [US1] Add `POST /api/alerts/run` endpoint in `api/routers/alerting.py` - accept RunAlertsRequest, call `alerting_service.run_on_demand_detection()`, return RunAlertsResponse (200 success, 429 cooldown, 500 error)
+- [X] T009 [US1] Add `POST /api/alerts/run` endpoint in `api/routers/alerting.py` - accept RunAlertsRequest, call `alerting_service.run_on_demand_detection()`, return RunAlertsResponse (200 success, 429 cooldown, 500 error)
 
 ### Backend: DynamoDB Schema Extension
 
-- [ ] T010 [P] [US1] Update DynamoDB `store_alerts()` in `client/aws_client.py` to preserve `last_run_at` field when storing alerts (don't overwrite existing value unless explicitly provided)
+- [X] T010 [P] [US1] Update DynamoDB `store_alerts()` in `client/aws_client.py` to preserve `last_run_at` field when storing alerts (don't overwrite existing value unless explicitly provided)
 
 ### Frontend: API Service Extension
 
-- [ ] T011 [P] [US1] Add `RunAlertsResponse` TypeScript interface in `frontend/src/services/api.ts` with fields matching backend model
-- [ ] T012 [US1] Add `run()` method to `alertService` in `frontend/src/services/api.ts` - POST to `/api/alerts/run` with asset_code, country_code, exchange, 60-second timeout
+- [X] T011 [P] [US1] Add `RunAlertsResponse` TypeScript interface in `frontend/src/services/api.ts` with fields matching backend model
+- [X] T012 [US1] Add `run()` method to `alertService` in `frontend/src/services/api.ts` - POST to `/api/alerts/run` with asset_code, country_code, exchange, 60-second timeout
 
 ### Frontend: Component State
 
-- [ ] T013 [US1] Add on-demand alerts state variables in `frontend/src/pages/AssetDetail.tsx` - useState for runAlertsLoading (boolean), runAlertsError (string|null), runAlertsSuccess (string|null), nextAllowedAt (Date|null), newAlertIds (Set<string>)
+- [X] T013 [US1] Add on-demand alerts state variables in `frontend/src/pages/AssetDetail.tsx` - useState for runAlertsLoading (boolean), runAlertsError (string|null), runAlertsSuccess (string|null), nextAllowedAt (Date|null), newAlertIds (Set<string>)
 
 ### Frontend: Execution Logic
 
-- [ ] T014 [US1] Create `handleRunAlerts()` function in `frontend/src/pages/AssetDetail.tsx` - parse symbol to extract asset_code/country_code/exchange, call alertService.run(), handle response (update state, refresh alerts, track new IDs for badges)
-- [ ] T015 [US1] Add cooldown timer logic in `frontend/src/pages/AssetDetail.tsx` - useEffect with setInterval to update countdown display every second, clear when nextAllowedAt expires
-- [ ] T016 [US1] Add auto-clear success/error messages in `frontend/src/pages/AssetDetail.tsx` - setTimeout to clear runAlertsSuccess and runAlertsError after 3 seconds
+- [X] T014 [US1] Create `handleRunAlerts()` function in `frontend/src/pages/AssetDetail.tsx` - parse symbol to extract asset_code/country_code/exchange, call alertService.run(), handle response (update state, refresh alerts, track new IDs for badges)
+- [X] T015 [US1] Add cooldown timer logic in `frontend/src/pages/AssetDetail.tsx` - useEffect with setInterval to update countdown display every second, clear when nextAllowedAt expires
+- [X] T016 [US1] Add auto-clear success/error messages in `frontend/src/pages/AssetDetail.tsx` - setTimeout to clear runAlertsSuccess and runAlertsError after 3 seconds
 
 ### Frontend: UI Implementation
 
-- [ ] T017 [US1] Add "Run Alerts" button JSX in `frontend/src/pages/AssetDetail.tsx` in alerts section - button with onClick={handleRunAlerts}, disabled during loading or cooldown, text changes to "Running..." with spinner when loading
-- [ ] T018 [US1] Add cooldown timer display in `frontend/src/pages/AssetDetail.tsx` - show "Next run in MM:SS" when nextAllowedAt is set, hide when cooldown expires
-- [ ] T019 [US1] Add success/error message display in `frontend/src/pages/AssetDetail.tsx` - render runAlertsSuccess or runAlertsError above button, auto-fade after 3 seconds
-- [ ] T020 [US1] Add "NEW" badge rendering in alerts map in `frontend/src/pages/AssetDetail.tsx` - check if alert.id is in newAlertIds Set, display badge with 60-second auto-removal (setTimeout)
-- [ ] T021 [US1] Add auto-refresh alerts section after successful execution in `frontend/src/pages/AssetDetail.tsx` - call existing fetchAlerts(symbol) in handleRunAlerts success path
+- [X] T017 [US1] Add "Run Alerts" button JSX in `frontend/src/pages/AssetDetail.tsx` in alerts section - button with onClick={handleRunAlerts}, disabled during loading or cooldown, text changes to "Running..." with spinner when loading
+- [X] T018 [US1] Add cooldown timer display in `frontend/src/pages/AssetDetail.tsx` - show "Next run in MM:SS" when nextAllowedAt is set, hide when cooldown expires
+- [X] T019 [US1] Add success/error message display in `frontend/src/pages/AssetDetail.tsx` - render runAlertsSuccess or runAlertsError above button, auto-fade after 3 seconds
+- [X] T020 [US1] Add "NEW" badge rendering in alerts map in `frontend/src/pages/AssetDetail.tsx` - check if alert.id is in newAlertIds Set, display badge with 60-second auto-removal (setTimeout)
+- [X] T021 [US1] Add auto-refresh alerts section after successful execution in `frontend/src/pages/AssetDetail.tsx` - call existing fetchAlerts(symbol) in handleRunAlerts success path
 
 ### Frontend: Styling
 
-- [ ] T022 [P] [US1] Add `.run-alerts-btn` styles in `frontend/src/pages/AssetDetail.css` - button styling matching existing page buttons (add-to-watchlist-btn pattern)
-- [ ] T023 [P] [US1] Add `.run-alerts-btn:disabled` styles in `frontend/src/pages/AssetDetail.css` - opacity, cursor not-allowed
-- [ ] T024 [P] [US1] Add `.alert-status-message` styles in `frontend/src/pages/AssetDetail.css` - success (green) and error (red) message styling with fade animation
-- [ ] T025 [P] [US1] Add `.cooldown-timer` styles in `frontend/src/pages/AssetDetail.css` - countdown display styling
-- [ ] T026 [P] [US1] Add `.alert-badge-new` styles in `frontend/src/pages/AssetDetail.css` - "NEW" badge styling (bright color, small size, positioned on alert card)
+- [X] T022 [P] [US1] Add `.run-alerts-btn` styles in `frontend/src/pages/AssetDetail.css` - button styling matching existing page buttons (add-to-watchlist-btn pattern)
+- [X] T023 [P] [US1] Add `.run-alerts-btn:disabled` styles in `frontend/src/pages/AssetDetail.css` - opacity, cursor not-allowed
+- [X] T024 [P] [US1] Add `.alert-status-message` styles in `frontend/src/pages/AssetDetail.css` - success (green) and error (red) message styling with fade animation
+- [X] T025 [P] [US1] Add `.cooldown-timer` styles in `frontend/src/pages/AssetDetail.css` - countdown display styling
+- [X] T026 [P] [US1] Add `.alert-badge-new` styles in `frontend/src/pages/AssetDetail.css` - "NEW" badge styling (bright color, small size, positioned on alert card)
 
 **Story 1 Complete**: ✅ User can manually trigger alert detection and see results immediately with cooldown enforcement
 
