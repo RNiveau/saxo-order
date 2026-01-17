@@ -87,6 +87,22 @@ class DynamoDBClient(AwsClient):
             ]
         return obj
 
+    @staticmethod
+    def _normalize_country_code(country_code: Optional[str]) -> str:
+        """
+        Normalize country code for DynamoDB storage.
+
+        DynamoDB does not support null values in primary keys,
+        so we use "NONE" as a sentinel value for crypto assets.
+
+        Args:
+            country_code: Country code string or None
+
+        Returns:
+            Country code string or "NONE" if None
+        """
+        return country_code if country_code else "NONE"
+
     def store_indicator(
         self,
         code: str,
@@ -251,7 +267,7 @@ class DynamoDBClient(AwsClient):
         asset_code, alert_type, and date (same day) are considered
         duplicates.
         """
-        country_code_value = country_code if country_code else "NONE"
+        country_code_value = self._normalize_country_code(country_code)
 
         # Get existing alerts to check for duplicates
         existing_alerts = self.get_alerts(asset_code, country_code)
@@ -345,7 +361,7 @@ class DynamoDBClient(AwsClient):
 
     def get_alerts(self, asset_code: str, country_code: Optional[str]) -> list:
         """Get alerts for a specific asset."""
-        country_code_value = country_code if country_code else "NONE"
+        country_code_value = self._normalize_country_code(country_code)
 
         response = self.dynamodb.Table("alerts").get_item(
             Key={"asset_code": asset_code, "country_code": country_code_value}

@@ -138,7 +138,9 @@ class AlertingService:
         Returns:
             Last execution timestamp or None if never executed
         """
-        country_code_value = country_code if country_code else "NONE"
+        country_code_value = self.dynamodb_client._normalize_country_code(
+            country_code
+        )
 
         response = self.dynamodb_client.dynamodb.Table("alerts").get_item(
             Key={"asset_code": asset_code, "country_code": country_code_value}
@@ -201,7 +203,9 @@ class AlertingService:
             asset_code: Asset identifier
             country_code: Country code (or None for crypto)
         """
-        country_code_value = country_code if country_code else "NONE"
+        country_code_value = self.dynamodb_client._normalize_country_code(
+            country_code
+        )
         now = datetime.now()
 
         response = self.dynamodb_client.dynamodb.Table("alerts").update_item(
