@@ -108,21 +108,21 @@ This is a **web application** with backend and frontend:
 
 ### Backend Implementation
 
-- [ ] T017 [US2] Implement AlertingService._calculate_filters() in `api/services/alerting_service.py` - extract unique asset_codes, alert_types, country_codes from alerts
-- [ ] T018 [US2] Update AlertingService.get_all_alerts() in `api/services/alerting_service.py` - add asset_code, alert_type, country_code filter parameters
-- [ ] T019 [US2] Update GET /api/alerts handler in `api/routers/alerting.py` - add Query parameters for asset_code, alert_type, country_code
+- [X] T017 [US2] Implement AlertingService._calculate_filters() in `api/services/alerting_service.py` - extract unique asset_codes, alert_types, country_codes from alerts
+- [X] T018 [US2] Update AlertingService.get_all_alerts() in `api/services/alerting_service.py` - add asset_code, alert_type, country_code filter parameters
+- [X] T019 [US2] Update GET /api/alerts handler in `api/routers/alerting.py` - add Query parameters for asset_code, alert_type, country_code
 
 ### Frontend Implementation
 
-- [ ] T020 [P] [US2] Add filter state in `frontend/src/pages/Alerts.tsx` - useState for selected filters (asset_code, alert_type, country_code)
-- [ ] T021 [US2] Add filter UI in `frontend/src/pages/Alerts.tsx` - dropdown selects for asset and alert type
-- [ ] T022 [US2] Update API call in `frontend/src/pages/Alerts.tsx` - pass filter parameters to alertService.getAll()
-- [ ] T023 [US2] Add "Clear Filters" button in `frontend/src/pages/Alerts.tsx` - reset filters to show all alerts
+- [X] T020 [P] [US2] Add filter state in `frontend/src/pages/Alerts.tsx` - useState for selected filters (asset_code, alert_type) - client-side filtering implemented
+- [X] T021 [US2] Add filter UI in `frontend/src/pages/Alerts.tsx` - dropdown selects for asset and alert type with user-friendly labels
+- [X] T022 [US2] Update filtering in `frontend/src/pages/Alerts.tsx` - client-side filter using Array.filter() on alerts array
+- [X] T023 [US2] Add "Clear Filters" button in `frontend/src/pages/Alerts.tsx` - reset filters to show all alerts
 
 ### Integration & Polish
 
-- [ ] T024 [US2] Display filter counts in `frontend/src/pages/Alerts.tsx` - show number of available options for each filter
-- [ ] T025 [US2] Add filter UI styling - create CSS for filter controls and layout
+- [X] T024 [US2] Display filter counts in `frontend/src/pages/Alerts.tsx` - show number of available options for each filter
+- [X] T025 [US2] Add filter UI styling - create CSS for filter controls and layout
 
 **Story 2 Complete**: ✅ User can filter alerts by asset and type
 
