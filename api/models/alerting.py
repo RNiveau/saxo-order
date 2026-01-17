@@ -32,7 +32,6 @@ class AlertItemResponse(BaseModel):
     age_hours: int = Field(
         description="Hours since alert was generated (calculated field)",
         ge=0,
-        le=168,
     )
 
 
