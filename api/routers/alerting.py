@@ -109,29 +109,28 @@ async def run_alerts(
     try:
         response = service.run_on_demand_detection(request, saxo_client)
 
-        # Return appropriate status code based on result
-        if response.status == "error" and "recently run" in response.message:
-            # Cooldown active - return 200 with error status
-            # (client handles cooldown display based on response.status)
-            logger.info(
-                f"Cooldown active for {request.asset_code}: "
-                f"{response.message}"
-            )
-        elif response.status == "success":
-            logger.info(
-                f"Detected {response.alerts_detected} alerts for "
-                f"{request.asset_code} in {response.execution_time_ms}ms"
-            )
-        elif response.status == "no_alerts":
-            logger.info(
-                f"No alerts detected for {request.asset_code} "
-                f"in {response.execution_time_ms}ms"
-            )
-        else:
-            logger.warning(
-                f"Alert detection returned error for {request.asset_code}: "
-                f"{response.message}"
-            )
+        # Log based on response status
+        match response.status:
+            case "success":
+                logger.info(
+                    f"Detected {response.alerts_detected} alerts for "
+                    f"{request.asset_code} in {response.execution_time_ms}ms"
+                )
+            case "no_alerts":
+                logger.info(
+                    f"No alerts detected for {request.asset_code} "
+                    f"in {response.execution_time_ms}ms"
+                )
+            case "error" if "recently run" in response.message:
+                logger.info(
+                    f"Cooldown active for {request.asset_code}: "
+                    f"{response.message}"
+                )
+            case "error":
+                logger.warning(
+                    f"Alert detection returned error for "
+                    f"{request.asset_code}: {response.message}"
+                )
 
         return response
 
