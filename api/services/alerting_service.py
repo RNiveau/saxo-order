@@ -125,21 +125,6 @@ class AlertingService:
             "country_codes": country_codes,
         }
 
-    def _get_last_run_at(
-        self, asset_code: str, country_code: Optional[str]
-    ) -> Optional[datetime]:
-        """
-        Get the last execution timestamp for an asset from DynamoDB.
-
-        Args:
-            asset_code: Asset identifier
-            country_code: Country code (or None for crypto)
-
-        Returns:
-            Last execution timestamp or None if never executed
-        """
-        return self.dynamodb_client.get_last_run_at(asset_code, country_code)
-
     def _is_cooldown_active(
         self, asset_code: str, country_code: Optional[str]
     ) -> tuple[bool, Optional[datetime]]:
@@ -155,7 +140,9 @@ class AlertingService:
             - is_active: True if within 5-minute cooldown
             - next_allowed_at: When next execution is allowed (or None)
         """
-        last_run_at = self._get_last_run_at(asset_code, country_code)
+        last_run_at = self.dynamodb_client.get_last_run_at(
+            asset_code, country_code
+        )
 
         if last_run_at is None:
             return False, None
@@ -166,18 +153,6 @@ class AlertingService:
 
         is_active = now < next_allowed_at
         return is_active, next_allowed_at if is_active else None
-
-    def _update_last_run_at(
-        self, asset_code: str, country_code: Optional[str]
-    ) -> None:
-        """
-        Update the last execution timestamp for an asset in DynamoDB.
-
-        Args:
-            asset_code: Asset identifier
-            country_code: Country code (or None for crypto)
-        """
-        self.dynamodb_client.update_last_run_at(asset_code, country_code)
 
     def run_on_demand_detection(
         self,
@@ -270,7 +245,9 @@ class AlertingService:
             )
 
         # Update last_run_at timestamp
-        self._update_last_run_at(request.asset_code, request.country_code)
+        self.dynamodb_client.update_last_run_at(
+            request.asset_code, request.country_code
+        )
 
         # Calculate next allowed execution time
         next_allowed_at = datetime.now() + timedelta(minutes=5)
