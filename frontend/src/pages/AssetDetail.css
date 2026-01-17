@@ -611,7 +611,11 @@
   border-radius: 6px;
   margin-bottom: 1rem;
   font-size: 0.9rem;
-  animation: fadeIn 0.3s ease-in;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: fadeIn 0.3s ease-in, fadeOut 0.5s ease-out 2.5s forwards;
 }
 
 .alert-status-message.success {
@@ -620,10 +624,58 @@
   border: 1px solid #3fb950;
 }
 
+.alert-status-message.success::before {
+  content: "✓";
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #3fb950;
+  color: #0d1117;
+  border-radius: 50%;
+}
+
 .alert-status-message.error {
   background: rgba(248, 81, 73, 0.15);
   color: #f85149;
   border: 1px solid #f85149;
+}
+
+.alert-status-message.error::before {
+  content: "✕";
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #f85149;
+  color: #0d1117;
+  border-radius: 50%;
+}
+
+.alert-status-message.info {
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+  border: 1px solid #58a6ff;
+}
+
+.alert-status-message.info::before {
+  content: "ℹ";
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #58a6ff;
+  color: #0d1117;
+  border-radius: 50%;
 }
 
 @keyframes fadeIn {
@@ -634,6 +686,15 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 

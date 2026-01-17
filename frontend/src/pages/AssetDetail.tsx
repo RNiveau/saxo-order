@@ -50,6 +50,7 @@ export function AssetDetail() {
   const [runAlertsSuccess, setRunAlertsSuccess] = useState<string | null>(null);
   const [nextAllowedAt, setNextAllowedAt] = useState<Date | null>(null);
   const [newAlertIds, setNewAlertIds] = useState<Set<string>>(new Set());
+  const [extendedLoadingMessage, setExtendedLoadingMessage] = useState(false);
 
   useEffect(() => {
     if (symbol) {
@@ -191,7 +192,17 @@ export function AssetDetail() {
       if (response.status === 'error') {
         setRunAlertsError(response.message);
       } else {
-        setRunAlertsSuccess(response.message);
+        // Generate success message based on alert count
+        const alertCount = response.alerts_detected;
+        let successMessage: string;
+        if (alertCount === 0) {
+          successMessage = 'No new alerts detected';
+        } else if (alertCount === 1) {
+          successMessage = 'Detected 1 new alert';
+        } else {
+          successMessage = `Detected ${alertCount} new alerts`;
+        }
+        setRunAlertsSuccess(successMessage);
 
         // Track new alert IDs for badges
         if (response.alerts.length > 0) {
@@ -207,11 +218,49 @@ export function AssetDetail() {
         // Refresh alerts section
         await fetchAlerts(symbol);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Run alerts error:', err);
-      setRunAlertsError(
-        'Network error. Unable to complete alert execution.'
-      );
+
+      // Specific error message mapping
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        setRunAlertsError(
+          'Alert detection timed out. Please try again.'
+        );
+      } else if (err.response) {
+        // HTTP error responses
+        const status = err.response.status;
+        switch (status) {
+          case 429:
+            setRunAlertsError(
+              'Too many requests. Please wait before trying again.'
+            );
+            break;
+          case 500:
+            setRunAlertsError(
+              'Service temporarily unavailable. Please try again later.'
+            );
+            break;
+          case 504:
+            setRunAlertsError(
+              'Request timed out. The server took too long to respond.'
+            );
+            break;
+          default:
+            setRunAlertsError(
+              err.response.data?.detail || 'An error occurred during alert detection.'
+            );
+        }
+      } else if (err.request) {
+        // Network error (request made but no response)
+        setRunAlertsError(
+          'Connection failed. Please check your network and try again.'
+        );
+      } else {
+        // Other errors
+        setRunAlertsError(
+          'An unexpected error occurred. Please try again.'
+        );
+      }
     } finally {
       setRunAlertsLoading(false);
     }
@@ -250,6 +299,20 @@ export function AssetDetail() {
       return () => clearTimeout(timeout);
     }
   }, [runAlertsError]);
+
+  // Extended loading message after 30 seconds
+  useEffect(() => {
+    if (!runAlertsLoading) {
+      setExtendedLoadingMessage(false);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setExtendedLoadingMessage(true);
+    }, 30000);
+
+    return () => clearTimeout(timeout);
+  }, [runAlertsLoading]);
 
   const formatCooldownTime = (targetTime: Date): string => {
     const now = new Date();
@@ -581,6 +644,13 @@ export function AssetDetail() {
         )}
         {runAlertsError && (
           <div className="alert-status-message error">{runAlertsError}</div>
+        )}
+
+        {/* Extended Loading Message */}
+        {runAlertsLoading && extendedLoadingMessage && (
+          <div className="alert-status-message info">
+            Alert detection is taking longer than usual...
+          </div>
         )}
 
         {alertsLoading && <div className="loading">Loading alerts...</div>}
