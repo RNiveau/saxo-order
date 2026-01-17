@@ -1389,14 +1389,14 @@ semver = ">=3.0,<4.0"
 
 [[package]]
 name = "pulumi-aws"
-version = "7.11.1"
+version = "7.12.0"
 description = "A Pulumi package for creating and managing Amazon Web Services (AWS) cloud resources."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "pulumi_aws-7.11.1-py3-none-any.whl", hash = "sha256:c8463ed7b5a0584285b86ad7dff7a48b36fe0aa0c37e3c9f3f30380cf6820ee9"},
-    {file = "pulumi_aws-7.11.1.tar.gz", hash = "sha256:74f05f31495f89d22ac40f7a0bb07fb063d950ad6097ed30fec02bb369d1d876"},
+    {file = "pulumi_aws-7.12.0-py3-none-any.whl", hash = "sha256:e5c0a56d5f3fd583bcdaa6b044a1d69d4bdbf70649a6e9137939551644875254"},
+    {file = "pulumi_aws-7.12.0.tar.gz", hash = "sha256:57e2b76714eae3308c2ad472b64de81b2f650422375331247b01800a765aa4bf"},
 ]
 
 [package.dependencies]
@@ -2932,4 +2932,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "fb466c79c6fc612234c1269c26f1935febf0b1c425858f2e4664baf62741c494"
+content-hash = "e36b962ddc0a8f0784ac5434ae1e3a4975cdc858920061b521f28ce6a1525a6d"
