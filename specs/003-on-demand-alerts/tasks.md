@@ -138,24 +138,24 @@ This is a **full-stack feature**:
 
 ### Loading State Enhancements
 
-- [ ] T027 [US2] Add loading spinner component in `frontend/src/pages/AssetDetail.tsx` - render spinning icon when runAlertsLoading is true (reuse existing spinner pattern from indicators section)
-- [ ] T028 [US2] Add extended loading message in `frontend/src/pages/AssetDetail.tsx` - after 30 seconds of loading, change message to "Alert detection is taking longer than usual..."
+- [X] T027 [US2] Add loading spinner component in `frontend/src/pages/AssetDetail.tsx` - render spinning icon when runAlertsLoading is true (reuse existing spinner pattern from indicators section)
+- [X] T028 [US2] Add extended loading message in `frontend/src/pages/AssetDetail.tsx` - after 30 seconds of loading, change message to "Alert detection is taking longer than usual..."
 
 ### Error Handling Enhancements
 
-- [ ] T029 [US2] Add specific error message mapping in `handleRunAlerts()` in `frontend/src/pages/AssetDetail.tsx` - map HTTP status codes to user-friendly messages (429 → cooldown, 500 → service unavailable, 504 → timeout, network error → connection failed)
-- [ ] T030 [US2] Add timeout handling in `frontend/src/pages/AssetDetail.tsx` - catch Axios timeout error (60s), set runAlertsError to "Alert detection timed out. Please try again."
+- [X] T029 [US2] Add specific error message mapping in `handleRunAlerts()` in `frontend/src/pages/AssetDetail.tsx` - map HTTP status codes to user-friendly messages (429 → cooldown, 500 → service unavailable, 504 → timeout, network error → connection failed)
+- [X] T030 [US2] Add timeout handling in `frontend/src/pages/AssetDetail.tsx` - catch Axios timeout error (60s), set runAlertsError to "Alert detection timed out. Please try again."
 
 ### Success Message Enhancements
 
-- [ ] T031 [US2] Add success message text generation in `handleRunAlerts()` in `frontend/src/pages/AssetDetail.tsx` - format message based on alerts_detected count ("Detected 2 new alerts" vs "No new alerts detected")
+- [X] T031 [US2] Add success message text generation in `handleRunAlerts()` in `frontend/src/pages/AssetDetail.tsx` - format message based on alerts_detected count ("Detected 2 new alerts" vs "No new alerts detected")
 
 ### Styling Enhancements
 
-- [ ] T032 [P] [US2] Add loading spinner animation styles in `frontend/src/pages/AssetDetail.css` - keyframe rotation animation for spinner icon
-- [ ] T033 [P] [US2] Add `.alert-status-message.success` specific styles in `frontend/src/pages/AssetDetail.css` - green background, checkmark icon
-- [ ] T034 [P] [US2] Add `.alert-status-message.error` specific styles in `frontend/src/pages/AssetDetail.css` - red background, error icon
-- [ ] T035 [P] [US2] Add fade-out animation for status messages in `frontend/src/pages/AssetDetail.css` - CSS transition for opacity 0 → 1 → 0 over 3 seconds
+- [X] T032 [P] [US2] Add loading spinner animation styles in `frontend/src/pages/AssetDetail.css` - keyframe rotation animation for spinner icon
+- [X] T033 [P] [US2] Add `.alert-status-message.success` specific styles in `frontend/src/pages/AssetDetail.css` - green background, checkmark icon
+- [X] T034 [P] [US2] Add `.alert-status-message.error` specific styles in `frontend/src/pages/AssetDetail.css` - red background, error icon
+- [X] T035 [P] [US2] Add fade-out animation for status messages in `frontend/src/pages/AssetDetail.css` - CSS transition for opacity 0 → 1 → 0 over 3 seconds
 
 **Story 2 Complete**: ✅ User receives clear feedback at every stage of execution (loading, success, error)
 
