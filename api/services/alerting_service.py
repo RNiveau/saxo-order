@@ -138,33 +138,7 @@ class AlertingService:
         Returns:
             Last execution timestamp or None if never executed
         """
-        country_code_value = self.dynamodb_client._normalize_country_code(
-            country_code
-        )
-
-        response = self.dynamodb_client.dynamodb.Table("alerts").get_item(
-            Key={"asset_code": asset_code, "country_code": country_code_value}
-        )
-
-        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
-            logger.error(f"DynamoDB get_item error: {response}")
-            return None
-
-        if "Item" not in response:
-            return None
-
-        last_run_at_str = response["Item"].get("last_run_at")
-        if not last_run_at_str:
-            return None
-
-        try:
-            return datetime.fromisoformat(last_run_at_str)
-        except (ValueError, TypeError):
-            logger.warning(
-                f"Invalid last_run_at format for {asset_code}: "
-                f"{last_run_at_str}"
-            )
-            return None
+        return self.dynamodb_client.get_last_run_at(asset_code, country_code)
 
     def _is_cooldown_active(
         self, asset_code: str, country_code: Optional[str]
@@ -203,20 +177,7 @@ class AlertingService:
             asset_code: Asset identifier
             country_code: Country code (or None for crypto)
         """
-        country_code_value = self.dynamodb_client._normalize_country_code(
-            country_code
-        )
-        now = datetime.now()
-
-        response = self.dynamodb_client.dynamodb.Table("alerts").update_item(
-            Key={"asset_code": asset_code, "country_code": country_code_value},
-            UpdateExpression="SET last_run_at = :last_run_at",
-            ExpressionAttributeValues={":last_run_at": now.isoformat()},
-            ReturnValues="UPDATED_NEW",
-        )
-
-        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
-            logger.error(f"DynamoDB update_item error: {response}")
+        self.dynamodb_client.update_last_run_at(asset_code, country_code)
 
     def run_on_demand_detection(
         self,

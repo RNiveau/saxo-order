@@ -416,3 +416,65 @@ class DynamoDBClient(AwsClient):
                 all_alerts.append(alert)
 
         return all_alerts
+
+    def get_last_run_at(
+        self, asset_code: str, country_code: Optional[str]
+    ) -> Optional[datetime.datetime]:
+        """
+        Get the last execution timestamp for on-demand alerts.
+
+        Args:
+            asset_code: Asset identifier
+            country_code: Country code (or None for crypto)
+
+        Returns:
+            Last execution datetime or None if never executed
+        """
+        country_code_value = self._normalize_country_code(country_code)
+
+        response = self.dynamodb.Table("alerts").get_item(
+            Key={"asset_code": asset_code, "country_code": country_code_value}
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB get_item error: {response}")
+            return None
+
+        if "Item" not in response:
+            return None
+
+        last_run_at_str = response["Item"].get("last_run_at")
+        if not last_run_at_str:
+            return None
+
+        try:
+            return datetime.datetime.fromisoformat(last_run_at_str)
+        except (ValueError, TypeError):
+            self.logger.warning(
+                f"Invalid last_run_at format for {asset_code}: "
+                f"{last_run_at_str}"
+            )
+            return None
+
+    def update_last_run_at(
+        self, asset_code: str, country_code: Optional[str]
+    ) -> None:
+        """
+        Update the last execution timestamp for on-demand alerts.
+
+        Args:
+            asset_code: Asset identifier
+            country_code: Country code (or None for crypto)
+        """
+        country_code_value = self._normalize_country_code(country_code)
+        now = datetime.datetime.now()
+
+        response = self.dynamodb.Table("alerts").update_item(
+            Key={"asset_code": asset_code, "country_code": country_code_value},
+            UpdateExpression="SET last_run_at = :last_run_at",
+            ExpressionAttributeValues={":last_run_at": now.isoformat()},
+            ReturnValues="UPDATED_NEW",
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB update_item error: {response}")

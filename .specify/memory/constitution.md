@@ -1,45 +1,44 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: 1.1.0 → 1.2.0
-Action: Expanded Domain Model Integrity principle - added explicit exchange field requirement
+Version Change: 1.2.0 → 1.2.1
+Action: Clarified Layered Architecture Discipline - added client encapsulation rule
 
 Principles Modified:
-  V. Domain Model Integrity - Expanded item 4 (Assets and Exchanges)
-     OLD: "Saxo assets CAN lack `country_code` - DO NOT assume missing country_code means Binance asset"
-     NEW: "Assets and Exchanges: Saxo assets CAN be without country_code. NEVER use country_code
-          presence/absence to determine if an asset is from Saxo or Binance. MUST use an explicit
-          'exchange' field to identify the source exchange."
+  I. Layered Architecture Discipline - Enforcement section
+     ADDED: "Backend: NEVER access client internals from service layer - use client methods,
+             never client.dynamodb.Table() or similar"
+     ADDED: "Backend: Clients MUST expose methods for all operations - encapsulate implementation details"
 
 Rationale for Change:
-  - Bug occurred twice in session: incorrectly inferring exchange from country_code
-  - Caused design errors requiring Alert model changes to add explicit exchange field
-  - Non-obvious rule that's easy to violate without explicit guidance
-  - Cross-cutting concern affecting data modeling, API design, and frontend navigation
+  - Violation found in alerting_service.py accessing dynamodb_client.dynamodb.Table() directly
+  - Breaks encapsulation and couples service layer to client implementation details
+  - Makes testing harder (must mock internal client structure, not just methods)
+  - Prevents client refactoring without cascading service layer changes
+  - Common anti-pattern that needs explicit prohibition
 
-Previous Version (1.1.0):
-  - Full-stack architecture with frontend and API governance
-  - 5 core principles with backend + frontend standards
+Previous Version (1.2.0):
+  - Expanded Domain Model Integrity with explicit exchange field requirement
+  - 5 core principles with full-stack governance
 
-New in 1.2.0:
-  - Strengthened Domain Model Integrity guidance
-  - Explicit requirement for exchange field in asset-related models
-  - Clarifies that country_code is NOT a reliable exchange indicator
+New in 1.2.1:
+  - Clarified encapsulation requirement for client-service interaction
+  - Explicit prohibition of accessing client internals (e.g., .dynamodb.Table())
+  - Requirement that clients expose proper methods for all operations
 
 Templates Requiring Updates:
   ✅ plan-template.md - Constitution Check section will pick up new rule automatically
-  ✅ spec-template.md - Requirements section unchanged
-  ✅ tasks-template.md - Task structure supports data model changes
-  ✅ CLAUDE.md - Already has guidance "A saxo asset CAN be without country_code"
+  ✅ spec-template.md - No changes needed
+  ✅ tasks-template.md - No changes needed
 
 Follow-up TODOs:
-  - None; all placeholders filled with concrete values
+  - Refactor alerting_service.py to use DynamoDBClient methods instead of direct access
+  - Add get_last_run_at() and update_last_run_at() methods to DynamoDBClient
 
-Rationale for MINOR version (1.2.0):
-  - Material expansion of existing Domain Model Integrity principle
-  - New explicit requirement (exchange field) that affects data modeling
-  - No backward-incompatible changes (existing principles remain valid)
-  - Clarifies and strengthens existing guidance rather than replacing it
+Rationale for PATCH version (1.2.1):
+  - Clarification of existing Layered Architecture Discipline principle
+  - No new principles added, no existing requirements removed
+  - Makes implicit encapsulation rule explicit and enforceable
 -->
 
 # saxo-order Constitution
@@ -69,6 +68,8 @@ The codebase MUST maintain strict separation between architectural layers:
 - Backend: Service classes receive clients as constructor parameters (dependency injection)
 - Backend: Client methods return domain models, never raw API responses
 - Backend: Models use enums for status/type fields, never hardcoded strings
+- Backend: **NEVER access client internals from service layer** - use client methods, never `client.dynamodb.Table()` or similar
+- Backend: Clients MUST expose methods for all operations - encapsulate implementation details
 - Frontend: All API calls MUST go through services in `frontend/src/services/`
 - Frontend: Components receive data via props, emit events via callbacks - NO direct API calls
 - API: TypeScript interfaces in frontend MUST match Pydantic models in backend (use exact field names)
@@ -287,4 +288,4 @@ Domain models and data structures MUST reflect business reality:
 - **CLAUDE.md** provides runtime development guidance and implementation patterns
 - When conflict arises, constitution takes precedence; update CLAUDE.md to align
 
-**Version**: 1.2.0 | **Ratified**: 2026-01-09 | **Last Amended**: 2026-01-11
+**Version**: 1.2.1 | **Ratified**: 2026-01-09 | **Last Amended**: 2026-01-17
