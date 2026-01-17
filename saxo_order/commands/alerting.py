@@ -77,6 +77,212 @@ def alerting(ctx: Context, code: str, country_code: str) -> None:
         run_alerting(config)
 
 
+def run_detection_for_asset(
+    asset_code: str,
+    country_code: Optional[str],
+    exchange: str,
+    asset_description: str,
+    saxo_uic: Optional[str],
+    saxo_client: SaxoClient,
+    dynamodb_client: DynamoDBClient,
+) -> List[Alert]:
+    """
+    Run all detection algorithms for a single asset and store results.
+
+    Args:
+        asset_code: Asset identifier (e.g., "SAN", "ITP")
+        country_code: Country code (e.g., "xpar") or None
+        exchange: Exchange identifier ("saxo" or "binance")
+        asset_description: Human-readable asset name
+        saxo_uic: Saxo UIC for the asset (None for non-Saxo assets)
+        saxo_client: Saxo API client
+        dynamodb_client: DynamoDB client for storage
+
+    Returns:
+        List of detected Alert objects
+    """
+    asset_alerts: List[Alert] = []
+
+    if saxo_uic is None:
+        logger.warning(f"No saxo_uic for {asset_code}, skipping detection")
+        return asset_alerts
+
+    try:
+        # Build candles for detection
+        asset_dict = {
+            "name": asset_description,
+            "code": asset_code,
+            "saxo_uic": saxo_uic,
+        }
+        candles = _build_candles(saxo_client, asset_dict)
+
+        # Run CONGESTION20 detection
+        congestion_result = _run_congestion_indicator(
+            asset_dict, candles, 20, 2
+        )
+        if congestion_result is not None and len(congestion_result[0]) > 0:
+            touch_points = [
+                f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "
+                + f"{c.higher} {c.lower}"
+                for c in congestion_result[0]
+            ]
+            asset_alerts.append(
+                Alert(
+                    alert_type=AlertType.CONGESTION20,
+                    date=datetime.datetime.now(),
+                    data={
+                        "touch_points": touch_points,
+                        "candles": [
+                            {
+                                "date": (
+                                    c.date.isoformat() if c.date else None
+                                ),
+                                "higher": c.higher,
+                                "lower": c.lower,
+                            }
+                            for c in congestion_result[0]
+                        ],
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
+
+        # Run CONGESTION100 detection
+        congestion_result = _run_congestion_indicator(
+            asset_dict, candles, 100, 3
+        )
+        if congestion_result is not None and len(congestion_result[0]) > 0:
+            touch_points = [
+                f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "
+                + f"{c.higher} {c.lower}"
+                for c in congestion_result[0]
+            ]
+            asset_alerts.append(
+                Alert(
+                    alert_type=AlertType.CONGESTION100,
+                    date=datetime.datetime.now(),
+                    data={
+                        "touch_points": touch_points,
+                        "candles": [
+                            {
+                                "date": (
+                                    c.date.isoformat() if c.date else None
+                                ),
+                                "higher": c.higher,
+                                "lower": c.lower,
+                            }
+                            for c in congestion_result[0]
+                        ],
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
+
+        # Run DOUBLE_TOP detection
+        if (
+            candle := _run_double_top(saxo_client, asset_dict, candles)
+        ) is not None:
+            asset_alerts.append(
+                Alert(
+                    alert_type=AlertType.DOUBLE_TOP,
+                    date=(
+                        candle.date if candle.date else datetime.datetime.now()
+                    ),
+                    data={
+                        "close": candle.close,
+                        "open": candle.open,
+                        "higher": candle.higher,
+                        "lower": candle.lower,
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
+
+        # Run CONTAINING_CANDLE detection
+        if (candle := _run_containing_candle(asset_dict, candles)) is not None:
+            asset_alerts.append(
+                Alert(
+                    alert_type=AlertType.CONTAINING_CANDLE,
+                    date=(
+                        candle.date if candle.date else datetime.datetime.now()
+                    ),
+                    data={
+                        "close": candle.close,
+                        "open": candle.open,
+                        "higher": candle.higher,
+                        "lower": candle.lower,
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
+
+        # Run DOUBLE_INSIDE_BAR detection
+        if (candle := _run_double_inside_bar(asset_dict, candles)) is not None:
+            asset_alerts.append(
+                Alert(
+                    alert_type=AlertType.DOUBLE_INSIDE_BAR,
+                    date=(
+                        candle.date if candle.date else datetime.datetime.now()
+                    ),
+                    data={
+                        "close": candle.close,
+                        "open": candle.open,
+                        "higher": candle.higher,
+                        "lower": candle.lower,
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
+
+        # Run COMBO detection
+        if (combo := indicator_service.combo(candles)) is not None:
+            asset_alerts.append(
+                Alert(
+                    alert_type=AlertType.COMBO,
+                    date=datetime.datetime.now(),
+                    data={
+                        "price": combo.price,
+                        "direction": combo.direction.value,
+                        "strength": combo.strength.value,
+                        "has_been_triggered": combo.has_been_triggered,
+                        "details": combo.details,
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
+
+        # Store alerts in DynamoDB if any were detected
+        if len(asset_alerts) > 0:
+            dynamodb_client.store_alerts(
+                asset_code,
+                country_code,
+                asset_alerts,
+            )
+
+    except SaxoException as e:
+        logger.error(f"{asset_description} can't be scanned: {e}")
+
+    return asset_alerts
+
+
 def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
 
     if assets is None:
@@ -101,7 +307,6 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
     has_message = False
     for asset in assets:
         logger.debug(f"scan {asset['name']}")
-        asset_alerts: List[Alert] = []
 
         # Parse asset code to separate asset_code and country_code
         parsed_asset_code, parsed_country_code = _parse_asset_code(
@@ -110,230 +315,62 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
         # Prefer explicit country_code from asset dict, fallback to parsed
         final_country_code = asset.get("country_code") or parsed_country_code
 
-        try:
-            if "saxo_uic" in asset:
-                candles = _build_candles(saxo_client, asset)
-                congestion_indicator = _run_congestion_indicator(
-                    asset, candles, 20, 2
+        # Call extracted detection function
+        asset_alerts = run_detection_for_asset(
+            asset_code=parsed_asset_code,
+            country_code=final_country_code,
+            exchange="saxo",
+            asset_description=asset["name"],
+            saxo_uic=asset.get("saxo_uic"),
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        # Build Slack messages from detected alerts
+        for alert in asset_alerts:
+            has_message = True
+            if alert.alert_type == AlertType.CONGESTION20:
+                date = datetime.datetime.now().strftime("%Y-%m-%d")
+                touch_points = alert.data.get("touch_points", [])
+                slack_messages["congestion"].append(
+                    f"{asset['name']}: Congestion detected on {date}\n"
+                    + "Touch points:\n"
+                    + "\n".join(touch_points)
                 )
-                if (
-                    congestion_indicator is not None
-                    and len(congestion_indicator[0]) > 0
-                ):
-                    date = datetime.datetime.now().strftime("%Y-%m-%d")
-                    touch_points = [
-                        f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "  # noqa: E501
-                        + f"{c.higher} {c.lower}"
-                        for c in congestion_indicator[0]
-                    ]
-                    slack_messages["congestion"].append(
-                        f"{asset['name']}: Congestion detected on {date}\n"
-                        + "Touch points:\n"
-                        + "\n".join(touch_points)
-                    )
-                    has_message = True
-                    asset_alerts.append(
-                        Alert(
-                            alert_type=AlertType.CONGESTION20,
-                            date=datetime.datetime.now(),
-                            data={
-                                "touch_points": touch_points,
-                                "candles": [
-                                    {
-                                        "date": (
-                                            c.date.isoformat()
-                                            if c.date
-                                            else None
-                                        ),
-                                        "higher": c.higher,
-                                        "lower": c.lower,
-                                    }
-                                    for c in congestion_indicator[0]
-                                ],
-                            },
-                            asset_code=parsed_asset_code,
-                            asset_description=asset["name"],
-                            exchange="saxo",
-                            country_code=final_country_code,
-                        )
-                    )
-                congestion_indicator = _run_congestion_indicator(
-                    asset, candles, 100, 3
+            elif alert.alert_type == AlertType.CONGESTION100:
+                date = datetime.datetime.now().strftime("%Y-%m-%d")
+                touch_points = alert.data.get("touch_points", [])
+                slack_messages["congestion"].append(
+                    f"{asset['name']}: Congestion detected on {date}\n"
+                    + "Touch points:\n"
+                    + "\n".join(touch_points)
                 )
-                if (
-                    congestion_indicator is not None
-                    and len(congestion_indicator[0]) > 0
-                ):
-                    date = datetime.datetime.now().strftime("%Y-%m-%d")
-                    touch_points = [
-                        f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "  # noqa: E501
-                        + f"{c.higher} {c.lower}"
-                        for c in congestion_indicator[0]
-                    ]
-                    slack_messages["congestion"].append(
-                        f"{asset['name']}: Congestion detected on {date}\n"
-                        + "Touch points:\n"
-                        + "\n".join(touch_points)
-                    )
-                    has_message = True
-                    asset_alerts.append(
-                        Alert(
-                            alert_type=AlertType.CONGESTION100,
-                            date=datetime.datetime.now(),
-                            data={
-                                "touch_points": touch_points,
-                                "candles": [
-                                    {
-                                        "date": (
-                                            c.date.isoformat()
-                                            if c.date
-                                            else None
-                                        ),
-                                        "higher": c.higher,
-                                        "lower": c.lower,
-                                    }
-                                    for c in congestion_indicator[0]
-                                ],
-                            },
-                            asset_code=parsed_asset_code,
-                            asset_description=asset["name"],
-                            exchange="saxo",
-                            country_code=final_country_code,
-                        )
-                    )
-                if (
-                    len(assets) == 1
-                    and (
-                        candle := _run_double_top(saxo_client, asset, candles)
-                    )
-                    is not None
-                ):
-                    date = (
-                        candle.date.strftime("%Y-%m-%d")
-                        if candle.date is not None
-                        else ""
-                    )
-                    slack_messages["double_top"].append(
-                        f"{asset['name']}: {date} at {candle.close}"
-                    )
-                    has_message = True
-                    asset_alerts.append(
-                        Alert(
-                            alert_type=AlertType.DOUBLE_TOP,
-                            date=(
-                                candle.date
-                                if candle.date
-                                else datetime.datetime.now()
-                            ),
-                            data={
-                                "close": candle.close,
-                                "open": candle.open,
-                                "higher": candle.higher,
-                                "lower": candle.lower,
-                            },
-                            asset_code=parsed_asset_code,
-                            asset_description=asset["name"],
-                            exchange="saxo",
-                            country_code=final_country_code,
-                        )
-                    )
-                if (
-                    candle := _run_containing_candle(asset, candles)
-                ) is not None:
-                    date = (
-                        candle.date.strftime("%Y-%m-%d")
-                        if candle.date is not None
-                        else ""
-                    )
-                    slack_messages["container_candle"].append(
-                        f"{asset['name']}: {date} at {candle.close}"
-                    )
-                    has_message = True
-                    asset_alerts.append(
-                        Alert(
-                            alert_type=AlertType.CONTAINING_CANDLE,
-                            date=(
-                                candle.date
-                                if candle.date
-                                else datetime.datetime.now()
-                            ),
-                            data={
-                                "close": candle.close,
-                                "open": candle.open,
-                                "higher": candle.higher,
-                                "lower": candle.lower,
-                            },
-                            asset_code=parsed_asset_code,
-                            asset_description=asset["name"],
-                            exchange="saxo",
-                            country_code=final_country_code,
-                        )
-                    )
-                if (
-                    candle := _run_double_inside_bar(asset, candles)
-                ) is not None:
-                    date = (
-                        candle.date.strftime("%Y-%m-%d")
-                        if candle.date is not None
-                        else ""
-                    )
-                    slack_messages["double_inside_bar"].append(
-                        f"{asset['name']}: {date} at {candle.close}"
-                    )
-                    has_message = True
-                    asset_alerts.append(
-                        Alert(
-                            alert_type=AlertType.DOUBLE_INSIDE_BAR,
-                            date=(
-                                candle.date
-                                if candle.date
-                                else datetime.datetime.now()
-                            ),
-                            data={
-                                "close": candle.close,
-                                "open": candle.open,
-                                "higher": candle.higher,
-                                "lower": candle.lower,
-                            },
-                            asset_code=parsed_asset_code,
-                            asset_description=asset["name"],
-                            exchange="saxo",
-                            country_code=final_country_code,
-                        )
-                    )
-                if (combo := indicator_service.combo(candles)) is not None:
-                    date = datetime.datetime.now().strftime("%Y-%m-%d")
-                    slack_messages["combo"].append(
-                        f"{asset['name']}: combo {combo.direction} "
-                        f"{combo.strength} {date} at {combo.price} "
-                        f"(has been triggered ? {combo.has_been_triggered})"
-                    )
-                    has_message = True
-                    asset_alerts.append(
-                        Alert(
-                            alert_type=AlertType.COMBO,
-                            date=datetime.datetime.now(),
-                            data={
-                                "price": combo.price,
-                                "direction": combo.direction.value,
-                                "strength": combo.strength.value,
-                                "has_been_triggered": combo.has_been_triggered,
-                                "details": combo.details,
-                            },
-                            asset_code=parsed_asset_code,
-                            asset_description=asset["name"],
-                            exchange="saxo",
-                            country_code=final_country_code,
-                        )
-                    )
-                if len(asset_alerts) > 0:
-                    dynamodb_client.store_alerts(
-                        parsed_asset_code,
-                        final_country_code,
-                        asset_alerts,
-                    )
-        except SaxoException as e:
-            logger.error(f"{asset['name']} can't be scanned {e}")
+            elif alert.alert_type == AlertType.DOUBLE_TOP:
+                date = alert.date.strftime("%Y-%m-%d") if alert.date else ""
+                slack_messages["double_top"].append(
+                    f"{asset['name']}: {date} at {alert.data.get('close')}"
+                )
+            elif alert.alert_type == AlertType.CONTAINING_CANDLE:
+                date = alert.date.strftime("%Y-%m-%d") if alert.date else ""
+                slack_messages["container_candle"].append(
+                    f"{asset['name']}: {date} at {alert.data.get('close')}"
+                )
+            elif alert.alert_type == AlertType.DOUBLE_INSIDE_BAR:
+                date = alert.date.strftime("%Y-%m-%d") if alert.date else ""
+                slack_messages["double_inside_bar"].append(
+                    f"{asset['name']}: {date} at {alert.data.get('close')}"
+                )
+            elif alert.alert_type == AlertType.COMBO:
+                date = datetime.datetime.now().strftime("%Y-%m-%d")
+                direction = alert.data.get("direction")
+                strength = alert.data.get("strength")
+                price = alert.data.get("price")
+                triggered = alert.data.get("has_been_triggered")
+                slack_messages["combo"].append(
+                    f"{asset['name']}: combo {direction} "
+                    f"{strength} {date} at {price} "
+                    f"(has been triggered ? {triggered})"
+                )
     if has_message is False and len(assets) > 1:
         slack_client.chat_postMessage(
             channel="#stock",

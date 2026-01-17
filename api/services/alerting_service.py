@@ -1,9 +1,17 @@
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
-from api.models.alerting import AlertItemResponse, AlertsResponse
+from api.models.alerting import (
+    AlertItemResponse,
+    AlertsResponse,
+    RunAlertsRequest,
+    RunAlertsResponse,
+)
 from client.aws_client import DynamoDBClient
+from client.saxo_client import SaxoClient
 from model import Alert
+from saxo_order.commands.alerting import run_detection_for_asset
 from utils.logger import Logger
 
 logger = Logger.get_logger("alerting_api_service")
@@ -116,3 +124,153 @@ class AlertingService:
             "alert_types": alert_types,
             "country_codes": country_codes,
         }
+
+    def _is_cooldown_active(
+        self, asset_code: str, country_code: Optional[str]
+    ) -> tuple[bool, Optional[datetime]]:
+        """
+        Check if cooldown period is active for an asset.
+
+        Args:
+            asset_code: Asset identifier
+            country_code: Country code (or None for crypto)
+
+        Returns:
+            Tuple of (is_active, next_allowed_at)
+            - is_active: True if within 5-minute cooldown
+            - next_allowed_at: When next execution is allowed (or None)
+        """
+        last_run_at = self.dynamodb_client.get_last_run_at(
+            asset_code, country_code
+        )
+
+        if last_run_at is None:
+            return False, None
+
+        now = datetime.now()
+        cooldown_duration = timedelta(minutes=5)
+        next_allowed_at = last_run_at + cooldown_duration
+
+        is_active = now < next_allowed_at
+        return is_active, next_allowed_at if is_active else None
+
+    def run_on_demand_detection(
+        self,
+        request: RunAlertsRequest,
+        saxo_client: SaxoClient,
+    ) -> RunAlertsResponse:
+        """
+        Execute on-demand alert detection with cooldown enforcement.
+
+        Args:
+            request: RunAlertsRequest with asset_code, country_code, exchange
+            saxo_client: SaxoClient for data fetching
+
+        Returns:
+            RunAlertsResponse with execution results and cooldown info
+        """
+        start_time = time.time()
+
+        # Check cooldown
+        is_cooldown, next_allowed_at = self._is_cooldown_active(
+            request.asset_code, request.country_code
+        )
+
+        if is_cooldown and next_allowed_at is not None:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            minutes_remaining = int(
+                (next_allowed_at - datetime.now()).total_seconds() / 60
+            )
+
+            return RunAlertsResponse(
+                status="error",
+                alerts_detected=0,
+                alerts=[],
+                execution_time_ms=execution_time_ms,
+                message=(
+                    f"Alerts recently run. "
+                    f"Please wait {minutes_remaining} minutes "
+                    "before running again."
+                ),
+                next_allowed_at=next_allowed_at,
+            )
+
+        # Get asset description from Saxo API
+        try:
+            asset_info = saxo_client.get_asset(
+                request.asset_code, request.country_code
+            )
+            asset_description = asset_info.get(
+                "Description", request.asset_code
+            )
+            saxo_uic = asset_info.get("Identifier")
+        except Exception as e:
+            logger.error(
+                f"Failed to fetch asset info for {request.asset_code}: {e}"
+            )
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            return RunAlertsResponse(
+                status="error",
+                alerts_detected=0,
+                alerts=[],
+                execution_time_ms=execution_time_ms,
+                message=f"Failed to fetch asset information: {str(e)}",
+                next_allowed_at=datetime.now() + timedelta(minutes=5),
+            )
+
+        # Run detection algorithms
+        try:
+            detected_alerts = run_detection_for_asset(
+                asset_code=request.asset_code,
+                country_code=request.country_code,
+                exchange=request.exchange,
+                asset_description=asset_description,
+                saxo_uic=saxo_uic,
+                saxo_client=saxo_client,
+                dynamodb_client=self.dynamodb_client,
+            )
+        except Exception as e:
+            logger.error(
+                f"Detection failed for {request.asset_code}: {e}",
+                exc_info=True,
+            )
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            return RunAlertsResponse(
+                status="error",
+                alerts_detected=0,
+                alerts=[],
+                execution_time_ms=execution_time_ms,
+                message=f"Alert detection failed: {str(e)}",
+                next_allowed_at=datetime.now() + timedelta(minutes=5),
+            )
+
+        # Update last_run_at timestamp
+        self.dynamodb_client.update_last_run_at(
+            request.asset_code, request.country_code
+        )
+
+        # Calculate next allowed execution time
+        next_allowed_at = datetime.now() + timedelta(minutes=5)
+
+        # Transform alerts to response format
+        alert_responses = [
+            self._to_response(alert) for alert in detected_alerts
+        ]
+
+        execution_time_ms = int((time.time() - start_time) * 1000)
+
+        if len(detected_alerts) > 0:
+            status = "success"
+            message = f"Detected {len(detected_alerts)} new alerts"
+        else:
+            status = "no_alerts"
+            message = "No new alerts detected"
+
+        return RunAlertsResponse(
+            status=status,
+            alerts_detected=len(detected_alerts),
+            alerts=alert_responses,
+            execution_time_ms=execution_time_ms,
+            message=message,
+            next_allowed_at=next_allowed_at,
+        )

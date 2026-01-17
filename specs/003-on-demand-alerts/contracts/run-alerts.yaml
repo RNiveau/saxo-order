@@ -1,0 +1,318 @@
+openapi: 3.0.3
+info:
+  title: On-Demand Alerts Execution API
+  description: API endpoint for manually triggering alert detection on a specific asset
+  version: 1.0.0
+  contact:
+    name: saxo-order API
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.saxo-order.com
+    description: Production server
+
+paths:
+  /api/alerts/run:
+    post:
+      summary: Run alert detection for a specific asset
+      description: |
+        Triggers on-demand alert detection for a single asset. Executes all detection
+        algorithms (combo, congestion, candle patterns) and stores results in DynamoDB.
+
+        **Cooldown**: 5-minute cooldown per asset. Requests within cooldown period
+        return 429 status with `next_allowed_at` timestamp.
+
+        **Timeout**: Detection must complete within 60 seconds or request times out.
+
+        **Deduplication**: Only one alert per type per day is stored. Running detection
+        twice on the same day won't create duplicate alerts.
+      operationId: runAlerts
+      tags:
+        - Alerts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunAlertsRequest'
+            examples:
+              saxo_asset:
+                summary: Saxo asset with country code
+                value:
+                  asset_code: "ITP"
+                  country_code: "xpar"
+                  exchange: "saxo"
+              binance_asset:
+                summary: Binance crypto asset (no country code)
+                value:
+                  asset_code: "BTCUSDT"
+                  country_code: null
+                  exchange: "binance"
+      responses:
+        '200':
+          description: Detection completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunAlertsResponse'
+              examples:
+                alerts_detected:
+                  summary: New alerts detected
+                  value:
+                    status: "success"
+                    alerts_detected: 2
+                    alerts:
+                      - id: "ITP_xpar"
+                        alert_type: "combo"
+                        asset_code: "ITP"
+                        asset_description: "Intertrust NV"
+                        exchange: "saxo"
+                        country_code: "xpar"
+                        date: "2026-01-12T14:30:00Z"
+                        data:
+                          direction: "buy"
+                          price: 12.45
+                          strength: 0.85
+                        age_hours: 0
+                      - id: "ITP_xpar"
+                        alert_type: "congestion20"
+                        asset_code: "ITP"
+                        asset_description: "Intertrust NV"
+                        exchange: "saxo"
+                        country_code: "xpar"
+                        date: "2026-01-12T14:30:00Z"
+                        data:
+                          touch_points: 3
+                          zone_high: 12.80
+                          zone_low: 12.40
+                        age_hours: 0
+                    execution_time_ms: 3452
+                    message: "Detected 2 new alerts"
+                    next_allowed_at: "2026-01-12T14:35:00Z"
+                no_alerts:
+                  summary: No new alerts found
+                  value:
+                    status: "no_alerts"
+                    alerts_detected: 0
+                    alerts: []
+                    execution_time_ms: 2890
+                    message: "No new alerts detected"
+                    next_allowed_at: "2026-01-12T14:35:00Z"
+        '400':
+          description: Invalid request (missing/invalid parameters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_asset_code:
+                  summary: Missing or invalid asset_code
+                  value:
+                    detail: "Invalid asset_code: must be 1-20 characters"
+                invalid_exchange:
+                  summary: Invalid exchange value
+                  value:
+                    detail: "Invalid exchange: must be 'saxo' or 'binance'"
+        '429':
+          description: Cooldown active - too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunAlertsResponse'
+              examples:
+                cooldown_active:
+                  summary: Cooldown period not expired
+                  value:
+                    status: "error"
+                    alerts_detected: 0
+                    alerts: []
+                    execution_time_ms: 5
+                    message: "Alerts recently run. Please wait 3 minutes before running again."
+                    next_allowed_at: "2026-01-12T14:33:00Z"
+        '500':
+          description: Internal server error (detection failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                detection_error:
+                  summary: Alert detection algorithm failure
+                  value:
+                    detail: "Alert detection failed: unable to fetch candle data"
+        '503':
+          description: Service unavailable (DynamoDB, Saxo API unreachable)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                dynamodb_unavailable:
+                  summary: DynamoDB connection failure
+                  value:
+                    detail: "Alert service is currently unavailable. Please try again later."
+        '504':
+          description: Gateway timeout (detection took >60 seconds)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                timeout:
+                  summary: Detection exceeded 60-second timeout
+                  value:
+                    detail: "Alert detection timed out. Please try again."
+
+components:
+  schemas:
+    RunAlertsRequest:
+      type: object
+      required:
+        - asset_code
+        - exchange
+      properties:
+        asset_code:
+          type: string
+          minLength: 1
+          maxLength: 20
+          description: Asset identifier code (e.g., "ITP", "SAN", "BTCUSDT")
+          example: "ITP"
+        country_code:
+          type: string
+          nullable: true
+          minLength: 2
+          maxLength: 10
+          description: Country/market code (e.g., "xpar", "xnys"). Null for crypto assets.
+          example: "xpar"
+        exchange:
+          type: string
+          enum:
+            - saxo
+            - binance
+          description: Exchange identifier
+          example: "saxo"
+
+    RunAlertsResponse:
+      type: object
+      required:
+        - status
+        - alerts_detected
+        - alerts
+        - execution_time_ms
+        - message
+        - next_allowed_at
+      properties:
+        status:
+          type: string
+          enum:
+            - success
+            - no_alerts
+            - error
+          description: Execution outcome status
+          example: "success"
+        alerts_detected:
+          type: integer
+          minimum: 0
+          description: Count of newly detected alerts (0 or more)
+          example: 2
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertItem'
+          description: Array of newly detected alerts (empty if none found)
+        execution_time_ms:
+          type: integer
+          minimum: 0
+          description: Detection execution duration in milliseconds
+          example: 3452
+        message:
+          type: string
+          description: Human-readable status message
+          example: "Detected 2 new alerts"
+        next_allowed_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when next execution is allowed (5 minutes from now)
+          example: "2026-01-12T14:35:00Z"
+
+    AlertItem:
+      type: object
+      required:
+        - id
+        - alert_type
+        - asset_code
+        - asset_description
+        - exchange
+        - date
+        - data
+        - age_hours
+      properties:
+        id:
+          type: string
+          description: Alert identifier (asset_code or asset_code_country_code)
+          example: "ITP_xpar"
+        alert_type:
+          type: string
+          enum:
+            - combo
+            - congestion20
+            - congestion100
+            - double_top
+            - double_inside_bar
+            - containing_candle
+          description: Type of alert detected
+          example: "combo"
+        asset_code:
+          type: string
+          description: Asset identifier
+          example: "ITP"
+        asset_description:
+          type: string
+          description: Human-readable asset name
+          example: "Intertrust NV"
+        exchange:
+          type: string
+          enum:
+            - saxo
+            - binance
+          description: Exchange where asset is traded
+          example: "saxo"
+        country_code:
+          type: string
+          nullable: true
+          description: Country/market code (null for crypto)
+          example: "xpar"
+        date:
+          type: string
+          format: date-time
+          description: Alert generation timestamp (ISO 8601)
+          example: "2026-01-12T14:30:00Z"
+        data:
+          type: object
+          additionalProperties: true
+          description: Alert-specific data (varies by alert_type)
+          example:
+            direction: "buy"
+            price: 12.45
+            strength: 0.85
+        age_hours:
+          type: integer
+          minimum: 0
+          maximum: 168
+          description: Alert age in hours (0-168, 7-day TTL)
+          example: 0
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message explaining what went wrong
+          example: "Invalid asset_code: must be 1-20 characters"
+
+tags:
+  - name: Alerts
+    description: Alert detection and retrieval operations

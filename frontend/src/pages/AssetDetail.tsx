@@ -44,6 +44,13 @@ export function AssetDetail() {
   const [alertsData, setAlertsData] = useState<AlertItem[]>([]);
   const [alertsExpanded, setAlertsExpanded] = useState(false);
 
+  // On-demand alerts state
+  const [runAlertsLoading, setRunAlertsLoading] = useState(false);
+  const [runAlertsError, setRunAlertsError] = useState<string | null>(null);
+  const [runAlertsSuccess, setRunAlertsSuccess] = useState<string | null>(null);
+  const [nextAllowedAt, setNextAllowedAt] = useState<Date | null>(null);
+  const [newAlertIds, setNewAlertIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     if (symbol) {
       fetchWorkflows(symbol);
@@ -157,6 +164,99 @@ export function AssetDetail() {
     } finally {
       setAlertsLoading(false);
     }
+  };
+
+  const handleRunAlerts = async () => {
+    if (!symbol) return;
+
+    try {
+      setRunAlertsLoading(true);
+      setRunAlertsError(null);
+      setRunAlertsSuccess(null);
+
+      // Parse symbol to extract asset_code, country_code, and exchange
+      const parts = symbol.split(':');
+      const asset_code = parts[0];
+      const country_code = parts.length > 1 ? parts[1] : null;
+
+      const response = await alertService.run({
+        asset_code,
+        country_code,
+        exchange,
+      });
+
+      // Update next_allowed_at timestamp
+      setNextAllowedAt(new Date(response.next_allowed_at));
+
+      if (response.status === 'error') {
+        setRunAlertsError(response.message);
+      } else {
+        setRunAlertsSuccess(response.message);
+
+        // Track new alert IDs for badges
+        if (response.alerts.length > 0) {
+          const newIds = new Set(response.alerts.map((a) => a.id));
+          setNewAlertIds(newIds);
+
+          // Auto-remove badges after 60 seconds
+          setTimeout(() => {
+            setNewAlertIds(new Set());
+          }, 60000);
+        }
+
+        // Refresh alerts section
+        await fetchAlerts(symbol);
+      }
+    } catch (err) {
+      console.error('Run alerts error:', err);
+      setRunAlertsError(
+        'Network error. Unable to complete alert execution.'
+      );
+    } finally {
+      setRunAlertsLoading(false);
+    }
+  };
+
+  // Cooldown timer logic
+  useEffect(() => {
+    if (!nextAllowedAt) return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      if (now >= nextAllowedAt) {
+        setNextAllowedAt(null);
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [nextAllowedAt]);
+
+  // Auto-clear success/error messages after 3 seconds
+  useEffect(() => {
+    if (runAlertsSuccess) {
+      const timeout = setTimeout(() => {
+        setRunAlertsSuccess(null);
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [runAlertsSuccess]);
+
+  useEffect(() => {
+    if (runAlertsError) {
+      const timeout = setTimeout(() => {
+        setRunAlertsError(null);
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [runAlertsError]);
+
+  const formatCooldownTime = (targetTime: Date): string => {
+    const now = new Date();
+    const diff = Math.max(0, targetTime.getTime() - now.getTime());
+    const minutes = Math.floor(diff / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const handleToggleWatchlist = async () => {
@@ -450,6 +550,39 @@ export function AssetDetail() {
       <div className="alerts-section">
         <h3>Alerts</h3>
 
+        {/* Run Alerts Button */}
+        <div className="run-alerts-controls">
+          <button
+            className="run-alerts-btn"
+            onClick={handleRunAlerts}
+            disabled={runAlertsLoading || nextAllowedAt !== null}
+          >
+            {runAlertsLoading ? (
+              <>
+                <span className="spinner"></span>
+                Running...
+              </>
+            ) : (
+              'Run Alerts'
+            )}
+          </button>
+
+          {/* Cooldown Timer */}
+          {nextAllowedAt && !runAlertsLoading && (
+            <div className="cooldown-timer">
+              Next run in {formatCooldownTime(nextAllowedAt)}
+            </div>
+          )}
+        </div>
+
+        {/* Success/Error Messages */}
+        {runAlertsSuccess && (
+          <div className="alert-status-message success">{runAlertsSuccess}</div>
+        )}
+        {runAlertsError && (
+          <div className="alert-status-message error">{runAlertsError}</div>
+        )}
+
         {alertsLoading && <div className="loading">Loading alerts...</div>}
 
         {alertsError && <div className="error">{alertsError}</div>}
@@ -462,7 +595,12 @@ export function AssetDetail() {
           <>
             <div className="alerts-list">
               {(alertsExpanded ? alertsData : alertsData.slice(0, 3)).map((alert) => (
-                <AlertCard key={alert.id} alert={alert} />
+                <div key={alert.id} className="alert-item-wrapper">
+                  <AlertCard alert={alert} />
+                  {newAlertIds.has(alert.id) && (
+                    <span className="new-badge">NEW</span>
+                  )}
+                </div>
               ))}
             </div>
 

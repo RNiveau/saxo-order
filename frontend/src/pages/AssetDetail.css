@@ -546,6 +546,126 @@
   color: #f85149;
 }
 
+/* On-Demand Alerts Controls */
+.run-alerts-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.run-alerts-btn {
+  background: #1f6feb;
+  color: #ffffff;
+  border: 1px solid #58a6ff;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.run-alerts-btn:hover:not(:disabled) {
+  background: #388bfd;
+  border-color: #79c0ff;
+  box-shadow: 0 2px 8px rgba(88, 166, 255, 0.3);
+}
+
+.run-alerts-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #30363d;
+  border-color: #484f58;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cooldown-timer {
+  color: #8b949e;
+  font-size: 0.9rem;
+  font-family: monospace;
+  padding: 0.25rem 0.75rem;
+  background: rgba(139, 148, 158, 0.1);
+  border-radius: 4px;
+}
+
+.alert-status-message {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.alert-status-message.success {
+  background: rgba(46, 160, 67, 0.15);
+  color: #3fb950;
+  border: 1px solid #3fb950;
+}
+
+.alert-status-message.error {
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
+  border: 1px solid #f85149;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alert-item-wrapper {
+  position: relative;
+}
+
+.new-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: #d29922;
+  color: #ffffff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .alerts-section {
