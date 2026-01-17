@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -10,7 +10,6 @@ from api.models.alerting import (
 )
 from api.services.alerting_service import AlertingService
 from client.aws_client import DynamoDBClient
-from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from utils.logger import Logger
 
@@ -77,7 +76,7 @@ async def get_alerts(
 async def run_alerts(
     request: RunAlertsRequest,
     service: AlertingService = Depends(get_alerting_service),
-    saxo_client: Union[SaxoClient, MockSaxoClient] = Depends(get_saxo_client),
+    saxo_client: SaxoClient = Depends(get_saxo_client),
 ) -> RunAlertsResponse:
     """
     Run on-demand alert detection for a specific asset.

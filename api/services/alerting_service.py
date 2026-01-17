@@ -1,6 +1,6 @@
 import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from api.models.alerting import (
     AlertItemResponse,
@@ -9,7 +9,6 @@ from api.models.alerting import (
     RunAlertsResponse,
 )
 from client.aws_client import DynamoDBClient
-from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from model import Alert
 from saxo_order.commands.alerting import run_detection_for_asset
@@ -218,14 +217,14 @@ class AlertingService:
     def run_on_demand_detection(
         self,
         request: RunAlertsRequest,
-        saxo_client: Union[SaxoClient, MockSaxoClient],
+        saxo_client: SaxoClient,
     ) -> RunAlertsResponse:
         """
         Execute on-demand alert detection with cooldown enforcement.
 
         Args:
             request: RunAlertsRequest with asset_code, country_code, exchange
-            saxo_client: SaxoClient or MockSaxoClient for data fetching
+            saxo_client: SaxoClient for data fetching
 
         Returns:
             RunAlertsResponse with execution results and cooldown info
@@ -287,7 +286,7 @@ class AlertingService:
                 exchange=request.exchange,
                 asset_description=asset_description,
                 saxo_uic=saxo_uic,
-                saxo_client=saxo_client,  # type: ignore[arg-type]
+                saxo_client=saxo_client,
                 dynamodb_client=self.dynamodb_client,
             )
         except Exception as e:
