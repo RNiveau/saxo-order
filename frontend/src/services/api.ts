@@ -237,6 +237,11 @@ export const watchlistService = {
     return response.data;
   },
 
+  getLongTermPositions: async (): Promise<WatchlistResponse> => {
+    const response = await api.get<WatchlistResponse>('/api/watchlist/long-term');
+    return response.data;
+  },
+
   addToWatchlist: async (
     request: AddToWatchlistRequest
   ): Promise<AddToWatchlistResponse> => {

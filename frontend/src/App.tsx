@@ -7,6 +7,7 @@ import { AvailableFunds } from './components/AvailableFunds';
 import { SearchResults } from './pages/SearchResults';
 import { AssetDetail } from './pages/AssetDetail';
 import { Watchlist } from './pages/Watchlist';
+import { LongTermPositions } from './pages/LongTermPositions';
 import { Report } from './pages/Report';
 import { Orders } from './pages/Orders';
 import { Alerts } from './pages/Alerts';
@@ -24,6 +25,7 @@ function App() {
               <Route path="/available-funds" element={<AvailableFunds />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/watchlist" element={<Watchlist />} />
+              <Route path="/long-term" element={<LongTermPositions />} />
               <Route path="/alerts" element={<Alerts />} />
               <Route path="/report" element={<Report />} />
               <Route path="/search" element={<SearchResults />} />

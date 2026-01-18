@@ -72,8 +72,10 @@ def build_current_weekly_candle_from_daily(
         if candle.date is None:
             continue
         candle_iso_year, candle_iso_week, _ = candle.date.isocalendar()
-        if candle_iso_year == current_iso_year and \
-           candle_iso_week == current_iso_week:
+        if (
+            candle_iso_year == current_iso_year
+            and candle_iso_week == current_iso_week
+        ):
             current_week_candles.append(candle)
 
     if not current_week_candles:

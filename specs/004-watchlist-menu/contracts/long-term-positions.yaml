@@ -1,0 +1,182 @@
+openapi: 3.0.3
+info:
+  title: Long-Term Positions API
+  description: API endpoint for retrieving watchlist items tagged as long-term positions
+  version: 1.0.0
+  contact:
+    name: saxo-order API
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.saxo-order.com
+    description: Production server (Lambda)
+
+paths:
+  /api/watchlist/long-term:
+    get:
+      summary: Get long-term positions
+      description: |
+        Retrieves all watchlist items with the "long-term" label, enriched with current
+        market prices and daily variation. Items are sorted alphabetically by description.
+
+        This endpoint reuses the existing watchlist infrastructure:
+        - Filters items from DynamoDB watchlist table
+        - Enriches with real-time prices from indicator service
+        - Handles both Saxo and Binance exchange assets
+      operationId: getLongTermPositions
+      tags:
+        - Watchlist
+      responses:
+        '200':
+          description: Successfully retrieved long-term positions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistResponse'
+              examples:
+                withItems:
+                  summary: Response with long-term positions
+                  value:
+                    items:
+                      - id: "itp_xpar"
+                        asset_symbol: "itp:xpar"
+                        description: "Inter Parfums"
+                        country_code: "xpar"
+                        current_price: 45.3200
+                        variation_pct: 1.25
+                        currency: "EUR"
+                        added_at: "2024-12-15T10:30:00Z"
+                        labels: ["long-term", "homepage"]
+                        tradingview_url: "https://www.tradingview.com/chart/?symbol=EURONEXT:ITP"
+                        exchange: "saxo"
+                      - id: "btc_binance"
+                        asset_symbol: "btcusdt"
+                        description: "Bitcoin"
+                        country_code: ""
+                        current_price: 43250.5000
+                        variation_pct: -2.45
+                        currency: "USD"
+                        added_at: "2025-01-10T14:22:00Z"
+                        labels: ["long-term", "crypto"]
+                        tradingview_url: null
+                        exchange: "binance"
+                    total: 2
+                empty:
+                  summary: Response with no long-term positions
+                  value:
+                    items: []
+                    total: 0
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Internal server error"
+
+components:
+  schemas:
+    WatchlistResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          description: List of watchlist items with long-term label
+          items:
+            $ref: '#/components/schemas/WatchlistItem'
+        total:
+          type: integer
+          description: Total count of items returned
+          example: 2
+
+    WatchlistItem:
+      type: object
+      required:
+        - id
+        - asset_symbol
+        - description
+        - country_code
+        - current_price
+        - variation_pct
+        - currency
+        - added_at
+        - labels
+        - exchange
+      properties:
+        id:
+          type: string
+          description: Unique identifier (asset_id, same as DynamoDB key)
+          example: "itp_xpar"
+        asset_symbol:
+          type: string
+          description: Trading symbol (format CODE:MARKET for Saxo, symbol for Binance)
+          example: "itp:xpar"
+        description:
+          type: string
+          description: Human-readable asset name
+          example: "Inter Parfums"
+        country_code:
+          type: string
+          description: Market code (e.g., xpar, xetr, xnas) or empty string for crypto
+          example: "xpar"
+        current_price:
+          type: number
+          format: float
+          description: Current market price (rounded to 4 decimals)
+          example: 45.32
+        variation_pct:
+          type: number
+          format: float
+          description: Daily percentage change (can be negative)
+          example: 1.25
+        currency:
+          type: string
+          description: Currency code
+          enum: [EUR, USD, JPY, GBP, CHF, CAD, AUD, NZD, SEK, NOK, DKK]
+          example: "EUR"
+        added_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of when asset was added to watchlist
+          example: "2024-12-15T10:30:00Z"
+        labels:
+          type: array
+          description: |
+            List of classification labels. For long-term positions, always includes "long-term".
+            May also include other labels like "crypto", "homepage", "short-term".
+          items:
+            type: string
+            enum: [long-term, short-term, crypto, homepage]
+          example: ["long-term", "homepage"]
+        tradingview_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Custom TradingView chart URL (null if not configured)
+          example: "https://www.tradingview.com/chart/?symbol=EURONEXT:ITP"
+        exchange:
+          type: string
+          description: Exchange identifier
+          enum: [saxo, binance]
+          example: "saxo"
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message describing what went wrong
+          example: "Internal server error"
+
+tags:
+  - name: Watchlist
+    description: |
+      Operations for managing and retrieving watchlist items with various
+      filtering options (sidebar view, all items, long-term positions)

@@ -277,3 +277,130 @@ class TestWatchlistServiceFiltering:
         returned_ids = {item.id for item in result.items}
         assert "crypto1" in returned_ids
         assert "crypto_short" in returned_ids
+
+    def test_get_long_term_positions_filters_correctly(
+        self, watchlist_service, mock_dynamodb_client
+    ):
+        """Test that get_long_term_positions returns only long-term
+        tagged assets."""
+        # Setup: DynamoDB returns items with various label combinations
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "long1",
+                "asset_symbol": "itp:xpar",
+                "description": "Long-term asset 1",
+                "country_code": "xpar",
+                "added_at": "2024-01-01T00:00:00Z",
+                "labels": ["long-term", "homepage"],
+                "asset_identifier": 123,
+                "asset_type": "Stock",
+                "exchange": "saxo",
+            },
+            {
+                "id": "short1",
+                "asset_symbol": "aapl:xnas",
+                "description": "Short-term asset",
+                "country_code": "xnas",
+                "added_at": "2024-01-02T00:00:00Z",
+                "labels": ["short-term"],
+                "asset_identifier": 456,
+                "asset_type": "Stock",
+                "exchange": "saxo",
+            },
+            {
+                "id": "long2",
+                "asset_symbol": "btcusdt",
+                "description": "Bitcoin",
+                "country_code": "",
+                "added_at": "2024-01-03T00:00:00Z",
+                "labels": ["long-term", "crypto"],
+                "asset_identifier": None,
+                "asset_type": None,
+                "exchange": "binance",
+            },
+            {
+                "id": "none1",
+                "asset_symbol": "googl:xnas",
+                "description": "No tags asset",
+                "country_code": "xnas",
+                "added_at": "2024-01-04T00:00:00Z",
+                "labels": [],
+                "asset_identifier": 789,
+                "asset_type": "Stock",
+                "exchange": "saxo",
+            },
+        ]
+
+        mock_dynamodb_client.get_tradingview_link.return_value = None
+
+        # Execute: Call get_long_term_positions
+        result = watchlist_service.get_long_term_positions()
+
+        # Assert: Only items with long-term tag are returned
+        assert result.total == 2
+        assert len(result.items) == 2
+
+        returned_ids = {item.id for item in result.items}
+        assert "long1" in returned_ids
+        assert "long2" in returned_ids
+        assert "short1" not in returned_ids
+        assert "none1" not in returned_ids
+
+    def test_get_long_term_positions_empty_when_no_items(
+        self, watchlist_service, mock_dynamodb_client
+    ):
+        """Test that get_long_term_positions returns empty when no
+        long-term items exist."""
+        # Setup: DynamoDB returns items without long-term tag
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "short1",
+                "asset_symbol": "itp:xpar",
+                "description": "Short-term only",
+                "country_code": "xpar",
+                "added_at": "2024-01-01T00:00:00Z",
+                "labels": ["short-term"],
+                "asset_identifier": 123,
+                "asset_type": "Stock",
+                "exchange": "saxo",
+            },
+        ]
+
+        mock_dynamodb_client.get_tradingview_link.return_value = None
+
+        # Execute
+        result = watchlist_service.get_long_term_positions()
+
+        # Assert: Empty result
+        assert result.total == 0
+        assert len(result.items) == 0
+
+    def test_get_long_term_positions_enriches_prices(
+        self, watchlist_service, mock_dynamodb_client, mock_indicator_service
+    ):
+        """Test that get_long_term_positions enriches items with prices."""
+        # Setup: DynamoDB returns long-term items
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "long1",
+                "asset_symbol": "itp:xpar",
+                "description": "Test Asset",
+                "country_code": "xpar",
+                "added_at": "2024-01-01T00:00:00Z",
+                "labels": ["long-term"],
+                "asset_identifier": 123,
+                "asset_type": "Stock",
+                "exchange": "saxo",
+            },
+        ]
+
+        mock_dynamodb_client.get_tradingview_link.return_value = None
+
+        # Execute
+        result = watchlist_service.get_long_term_positions()
+
+        # Assert: Item is enriched with price data
+        assert result.total == 1
+        assert len(result.items) == 1
+        assert result.items[0].current_price == 100.0
+        assert result.items[0].variation_pct == 5.0

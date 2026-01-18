@@ -105,6 +105,23 @@ async def get_all_watchlist(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/long-term", response_model=WatchlistResponse)
+async def get_long_term_positions(
+    watchlist_service: WatchlistService = Depends(get_watchlist_service),
+):
+    """
+    Get long-term tagged positions for the dedicated menu.
+
+    Returns:
+        WatchlistResponse with long-term positions enriched with current prices
+    """
+    try:
+        return watchlist_service.get_long_term_positions()
+    except Exception as e:
+        logger.error(f"Unexpected error getting long-term positions: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.post("", response_model=AddToWatchlistResponse)
 async def add_to_watchlist(
     request: AddToWatchlistRequest,

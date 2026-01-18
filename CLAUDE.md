@@ -108,3 +108,10 @@ Examples:
 - `feat: add portfolio analysis command`
 - `fix: correct order calculation in Saxo client`
 - `chore: update dependencies`
+
+## Active Technologies
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend) (004-watchlist-menu)
+- AWS DynamoDB (existing "watchlist" table) (004-watchlist-menu)
+
+## Recent Changes
+- 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)
