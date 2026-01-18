@@ -28,6 +28,9 @@ export function Alerts() {
   const [selectedAssetCode, setSelectedAssetCode] = useState<string>('');
   const [selectedAlertType, setSelectedAlertType] = useState<string>('');
 
+  // Sort state - default to MA50 slope (descending)
+  const [sortBy, setSortBy] = useState<'ma50_slope' | 'date'>('ma50_slope');
+
   // Available filter options from API
   const [availableFilters, setAvailableFilters] = useState<{
     asset_codes: string[];
@@ -68,15 +71,28 @@ export function Alerts() {
   const hasActiveFilters = selectedAssetCode || selectedAlertType;
 
   // Client-side filtering
-  const filteredAlerts = alerts.filter((alert) => {
-    if (selectedAssetCode && alert.asset_code !== selectedAssetCode) {
-      return false;
-    }
-    if (selectedAlertType && alert.alert_type !== selectedAlertType) {
-      return false;
-    }
-    return true;
-  });
+  const filteredAlerts = alerts
+    .filter((alert) => {
+      if (selectedAssetCode && alert.asset_code !== selectedAssetCode) {
+        return false;
+      }
+      if (selectedAlertType && alert.alert_type !== selectedAlertType) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'ma50_slope') {
+        // Sort by MA50 slope descending (highest slope first)
+        // Treat missing/null values as 0
+        const aSlope = a.data?.ma50_slope ?? 0;
+        const bSlope = b.data?.ma50_slope ?? 0;
+        return bSlope - aSlope; // Descending order
+      } else {
+        // Sort by date descending (newest first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      }
+    });
 
   // Deduplicate filter options for rendering
   const uniqueAssetCodes = Array.from(new Set(availableFilters.asset_codes));
@@ -96,8 +112,21 @@ export function Alerts() {
         </button>
       </div>
 
-      {/* Filter Controls */}
+      {/* Filter and Sort Controls */}
       <div className="filter-controls">
+        <div className="filter-group">
+          <label htmlFor="sort-by">Sort By</label>
+          <select
+            id="sort-by"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'ma50_slope' | 'date')}
+            className="filter-select"
+          >
+            <option value="ma50_slope">MA50 Slope (Trend Strength)</option>
+            <option value="date">Recent (Date)</option>
+          </select>
+        </div>
+
         <div className="filter-group">
           <label htmlFor="asset-filter">
             Asset ({uniqueAssetCodes.length})
