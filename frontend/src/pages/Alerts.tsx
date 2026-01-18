@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { AlertItem } from '../services/api';
 import { alertService } from '../services/api';
 import { AlertCard } from '../components/AlertCard';
+import { processAlerts } from '../utils/alertFilters';
 import './Alerts.css';
 
 // Alert type display name mapping
@@ -48,7 +49,8 @@ export function Alerts() {
       setError(null);
 
       const data = await alertService.getAll();
-      setAlerts(data.alerts);
+      const processedAlerts = processAlerts(data.alerts);
+      setAlerts(processedAlerts);
       setAvailableFilters(data.available_filters);
     } catch (err) {
       setError('Failed to load alerts');
@@ -158,7 +160,7 @@ export function Alerts() {
         <div className="no-items">
           {hasActiveFilters
             ? 'No alerts match the selected filters.'
-            : 'No active alerts. Alerts from the last 7 days will appear here.'}
+            : 'No active alerts. Alerts from the last 5 days will appear here.'}
         </div>
       )}
 
