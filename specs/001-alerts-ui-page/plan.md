@@ -7,7 +7,7 @@
 
 ## Summary
 
-Create a web UI page to display all active alerts (7-day retention) that are currently only sent to Slack. The alerts are already being generated daily by the existing alerting system and stored in DynamoDB with TTL-based automatic expiration. This feature exposes them through REST API endpoints and renders them in a React-based frontend page with filtering capabilities.
+Create a web UI page to display all active alerts (7-day retention) that are currently only sent to Slack. The alerts are already being generated daily by the existing alerting system and stored in DynamoDB with TTL-based automatic expiration. This feature exposes them through REST API endpoints and renders them in a React-based frontend page with filtering and sorting capabilities. Alerts can be sorted by MA50 slope (default) or by date, helping traders prioritize assets with strongest trends.
 
 ## Technical Context
 
@@ -362,6 +362,33 @@ tests/api/routers/
 - Display 50 alerts per page (client-side pagination)
 - "Next/Previous" buttons in frontend
 - No backend API changes required
+
+### Decision 6: MA50 Slope Sorting (Default Sort Order)
+
+**Context**: User Story 3 requires sorting alerts by MA50 slope to prioritize strongest trends
+
+**Decision**: Calculate and store ma50_slope for ALL alert types during alert generation, make MA50 slope the default sort order (descending)
+
+**Rationale**:
+- MA50 slope indicates trend strength - helps traders prioritize assets with strongest momentum
+- Slope calculation already exists in `indicator_service.py` (slope_percentage function)
+- Calculating at generation time avoids on-demand computation overhead
+- All alert types benefit from trend context (not just COMBO alerts)
+- Sort by actual slope value (not absolute value) - positive slopes prioritized over negative
+
+**Implementation**:
+- Backend: Add ma50_slope calculation to all alert detection functions in `saxo_order/commands/alerting.py`
+- Backend: Store ma50_slope in alert.data dict for all alert types
+- Frontend: Default sort by ma50_slope descending (highest slope first)
+- Frontend: Provide sort dropdown with "MA50 Slope" (default) and "Recent" options
+- Handle null/missing slopes as 0 for sorting
+
+**Trade-offs**:
+- ✅ Better UX: Traders see most urgent assets first by default
+- ✅ Performance: Pre-calculated slopes avoid runtime computation
+- ✅ Consistency: All alerts have trend context
+- ⚠️ Storage: Adds ~8 bytes per alert (float64) - negligible impact
+- ⚠️ Computation: Adds ~5ms per alert generation (acceptable)
 
 ---
 

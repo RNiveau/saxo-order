@@ -116,6 +116,23 @@ def run_detection_for_asset(
         }
         candles = _build_candles(saxo_client, asset_dict)
 
+        # Calculate MA50 slope for this asset (used for sorting alerts)
+        ma50_slope: Optional[float] = None
+        try:
+            if (
+                len(candles) >= 60
+            ):  # Need at least 60 candles for MA50 calculation
+                ma50_last = indicator_service.mobile_average(candles, 50)
+                ma50_first = indicator_service.mobile_average(candles[10:], 50)
+                ma50_slope = indicator_service.slope_percentage(
+                    0, ma50_first, 10, ma50_last
+                )
+        except SaxoException:
+            logger.warning(
+                f"Could not calculate ma50_slope for {asset_code} - "
+                "insufficient candle data"
+            )
+
         # Run CONGESTION20 detection
         congestion_result = _run_congestion_indicator(
             asset_dict, candles, 20, 2
@@ -142,6 +159,7 @@ def run_detection_for_asset(
                             }
                             for c in congestion_result[0]
                         ],
+                        "ma50_slope": ma50_slope,
                     },
                     asset_code=asset_code,
                     asset_description=asset_description,
@@ -176,6 +194,7 @@ def run_detection_for_asset(
                             }
                             for c in congestion_result[0]
                         ],
+                        "ma50_slope": ma50_slope,
                     },
                     asset_code=asset_code,
                     asset_description=asset_description,
@@ -199,6 +218,7 @@ def run_detection_for_asset(
                         "open": candle.open,
                         "higher": candle.higher,
                         "lower": candle.lower,
+                        "ma50_slope": ma50_slope,
                     },
                     asset_code=asset_code,
                     asset_description=asset_description,
@@ -220,6 +240,7 @@ def run_detection_for_asset(
                         "open": candle.open,
                         "higher": candle.higher,
                         "lower": candle.lower,
+                        "ma50_slope": ma50_slope,
                     },
                     asset_code=asset_code,
                     asset_description=asset_description,
@@ -241,6 +262,7 @@ def run_detection_for_asset(
                         "open": candle.open,
                         "higher": candle.higher,
                         "lower": candle.lower,
+                        "ma50_slope": ma50_slope,
                     },
                     asset_code=asset_code,
                     asset_description=asset_description,
@@ -261,6 +283,7 @@ def run_detection_for_asset(
                         "strength": combo.strength.value,
                         "has_been_triggered": combo.has_been_triggered,
                         "details": combo.details,
+                        "ma50_slope": ma50_slope,
                     },
                     asset_code=asset_code,
                     asset_description=asset_description,

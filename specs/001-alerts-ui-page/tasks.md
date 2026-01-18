@@ -128,7 +128,42 @@ This is a **web application** with backend and frontend:
 
 ---
 
-## Phase 5: Polish & Cross-Cutting Concerns
+## Phase 5: User Story 3 - Sort Alerts by MA50 Slope (Priority: P2)
+
+**Goal**: Sort all alerts by their MA50 slope (highest first) to prioritize assets with the strongest upward trends
+
+**Independent Test**: Create multiple alerts with different MA50 slope values. Select "MA50 Slope" in sort dropdown (or verify it's selected by default). Verify alerts are sorted by slope value descending (e.g., +15.2, +8.3, -12.5, -20.4)
+
+**Acceptance Criteria**:
+1. ✅ MA50 slope sorting is the default sort order
+2. ✅ Sort dropdown provides "MA50 Slope" and "Recent" options
+3. ✅ Alerts sort by slope value descending (highest slope first)
+4. ✅ Sorting works with filtered results
+5. ✅ Sort selection persists when filters are applied
+
+### Backend Implementation
+
+- [X] T034 [US3] Calculate ma50_slope in `saxo_order/commands/alerting.py` for all alert types - reuse slope_percentage() from indicator_service.py
+- [X] T035 [US3] Store ma50_slope in alert.data for all alert types in `saxo_order/commands/alerting.py` - add to all Alert() instantiations
+- [X] T036 [US3] Update AlertItemResponse in `api/models/alerting.py` - ensure ma50_slope is included in data field schema
+
+### Frontend Implementation
+
+- [X] T037 [P] [US3] Add sort state in `frontend/src/pages/Alerts.tsx` - useState for sortBy ('ma50_slope' | 'date'), default to 'ma50_slope'
+- [X] T038 [US3] Add sort dropdown UI in `frontend/src/pages/Alerts.tsx` - select with options "MA50 Slope" and "Recent"
+- [X] T039 [US3] Implement sort logic in `frontend/src/pages/Alerts.tsx` - sort alerts by ma50_slope descending or date descending
+- [X] T040 [US3] Handle missing ma50_slope values in sort logic - treat null/undefined as 0
+
+### Integration & Polish
+
+- [X] T041 [US3] Style sort dropdown in `frontend/src/pages/Alerts.tsx` - create CSS for sort control
+- [X] T042 [US3] Verify sort persists with filters - test that changing filters maintains sort selection
+
+**Story 3 Complete**: ✅ User can sort alerts by MA50 slope to prioritize strongest trends
+
+---
+
+## Phase 6: Polish & Cross-Cutting Concerns
 
 **Purpose**: Final touches, testing, and deployment preparation
 
@@ -169,7 +204,11 @@ Phase 4 (User Story 2)    T017 → T018 → T019 (backend sequential, extends US
   ├──────────────────────→ T020, T021, T022, T023 (frontend parallel with backend)
   └──────────────────────→ T024, T025 (polish, depends on T022 + T023)
   ↓
-Phase 5 (Polish)          T026, T027, T028, T029 (all parallel)
+Phase 5 (User Story 3)    T034 → T035 → T036 (backend sequential, extends alert generation)
+  ├──────────────────────→ T037, T038, T039, T040 (frontend parallel with backend)
+  └──────────────────────→ T041, T042 (polish, depends on T039 + T040)
+  ↓
+Phase 6 (Polish)          T026, T027, T028, T029 (all parallel)
   └──────────────────────→ T030, T031 (parallel)
   └──────────────────────→ T032, T033 (final validation)
 ```
@@ -179,7 +218,8 @@ Phase 5 (Polish)          T026, T027, T028, T029 (all parallel)
 1. **Foundation** (blocking): T001-T004 MUST complete before any user story work
 2. **User Story 1** (MVP): T007-T016 deliver minimum viable product
 3. **User Story 2** (enhancement): T017-T025 add filtering (depends on US1 complete)
-4. **Polish** (optional): T026-T033 ensure quality and readiness
+4. **User Story 3** (enhancement): T034-T042 add MA50 slope sorting (depends on alert generation understanding)
+5. **Polish** (optional): T026-T033 ensure quality and readiness
 
 ### Parallel Opportunities
 
@@ -197,7 +237,12 @@ Phase 5 (Polish)          T026, T027, T028, T029 (all parallel)
 - T024-T025 (polish) can run parallel
 - Total: 2 parallel tracks
 
-**Within Phase 5 (Polish)**:
+**Within Phase 5 (User Story 3)**:
+- T034-T036 (backend) can run parallel with T037-T040 (frontend)
+- T041-T042 (polish) can run parallel
+- Total: 2 parallel tracks
+
+**Within Phase 6 (Polish)**:
 - T026-T029 (all code quality checks) can run parallel
 - T030-T031 (documentation/config) can run parallel
 - Total: 6 parallel tasks possible
@@ -214,13 +259,19 @@ Phase 5 (Polish)          T026, T027, T028, T029 (all parallel)
 - Independent test: Navigate to /alerts, see all alerts displayed
 - Time estimate: Can be completed in single implementation session
 
-**Post-MVP Enhancement** = User Story 2
+**Post-MVP Enhancement 1** = User Story 2
 - Tasks: T017-T025 (9 tasks)
 - Delivers: Filtering by asset and alert type
 - Independent test: Apply filter, verify only matching alerts show
 - Time estimate: Can be completed in separate session
 
-**Polish** = Phase 5
+**Post-MVP Enhancement 2** = User Story 3
+- Tasks: T034-T042 (9 tasks)
+- Delivers: MA50 slope sorting (default) to prioritize strongest trends
+- Independent test: Verify alerts sorted by slope descending, sort dropdown works
+- Time estimate: Can be completed in separate session
+
+**Polish** = Phase 6
 - Tasks: T026-T033 (8 tasks)
 - Delivers: Code quality, testing, deployment readiness
 - Time estimate: 1-2 hours for verification
@@ -237,7 +288,12 @@ Phase 5 (Polish)          T026, T027, T028, T029 (all parallel)
    - Backward compatible (filter params optional)
    - Enhanced user experience
 
-3. **Polish & Deploy** (T026-T033):
+3. **Add MA50 Slope Sorting** (T034-T042):
+   - Deploy after T042
+   - Backward compatible (adds ma50_slope to alert data)
+   - Helps prioritize assets with strongest trends
+
+4. **Polish & Deploy** (T026-T033):
    - Run quality checks
    - Verify production readiness
    - Final deployment
@@ -249,34 +305,37 @@ Phase 5 (Polish)          T026, T027, T028, T029 (all parallel)
 | Phase | Tasks | Parallelizable | User Story | Status |
 |-------|-------|----------------|------------|--------|
 | Setup | 0 | 0 | N/A | ✅ Complete |
-| Foundation | 6 (T001-T006) | 2 (T005, T006) | N/A | ⏭️ Ready |
-| User Story 1 | 10 (T007-T016) | 4 (T010, T013, T014, T015) | P1 | 🎯 MVP |
-| User Story 2 | 9 (T017-T025) | 2 (T020, T024) | P2 | ⏭️ Post-MVP |
+| Foundation | 6 (T001-T006) | 2 (T005, T006) | N/A | ✅ Complete |
+| User Story 1 | 10 (T007-T016) | 4 (T010, T013, T014, T015) | P1 | ✅ Complete |
+| User Story 2 | 9 (T017-T025) | 2 (T020, T024) | P2 | ✅ Complete |
+| User Story 3 | 9 (T034-T042) | 2 (T037, T041) | P2 | ⏭️ Ready |
 | Polish | 8 (T026-T033) | 6 (T026-T031) | N/A | ⏭️ Final |
-| **Total** | **33 tasks** | **14 parallel** | 2 stories | Ready |
+| **Total** | **42 tasks** | **16 parallel** | 3 stories | Ready |
 
 ---
 
 ## Validation Checklist
 
-**Format Compliance**: ✅ All 33 tasks follow checklist format
+**Format Compliance**: ✅ All 42 tasks follow checklist format
 - ✅ All tasks have checkbox `- [ ]`
-- ✅ All tasks have sequential ID (T001-T033)
-- ✅ All tasks have [P] marker where applicable (14 tasks)
-- ✅ All tasks have [Story] label for user story phases (19 tasks)
+- ✅ All tasks have sequential ID (T001-T042)
+- ✅ All tasks have [P] marker where applicable (16 tasks)
+- ✅ All tasks have [Story] label for user story phases (28 tasks)
 - ✅ All tasks have clear description with file path
 
 **Coverage Completeness**: ✅ All requirements mapped to tasks
 - ✅ User Story 1 (P1): 10 tasks covering all acceptance criteria
 - ✅ User Story 2 (P2): 9 tasks covering all acceptance criteria
-- ✅ Backend API: Pydantic models, service, router (T001-T009, T017-T019)
-- ✅ Frontend: Components, page, routing (T010-T012, T020-T023)
-- ✅ Integration: Navigation, styling, error handling (T013-T016, T024-T025)
+- ✅ User Story 3 (P2): 9 tasks covering all acceptance criteria
+- ✅ Backend API: Pydantic models, service, router (T001-T009, T017-T019, T034-T036)
+- ✅ Frontend: Components, page, routing (T010-T012, T020-T023, T037-T040)
+- ✅ Integration: Navigation, styling, error handling (T013-T016, T024-T025, T041-T042)
 - ✅ Quality: Testing, linting, deployment (T026-T033)
 
 **Independent Testing**: ✅ Each user story can be tested independently
 - ✅ US1 Independent Test: Navigate to /alerts, verify alerts display
 - ✅ US2 Independent Test: Apply filter, verify only matching alerts show
+- ✅ US3 Independent Test: Verify alerts sorted by MA50 slope, sort dropdown works
 
 **MVP Scope**: ✅ Clearly defined (User Story 1 only = T001-T016)
 
@@ -284,10 +343,11 @@ Phase 5 (Polish)          T026, T027, T028, T029 (all parallel)
 
 ## Next Steps
 
-1. **Start Implementation**: Begin with Phase 2 (Foundation) tasks T001-T006
-2. **MVP Delivery**: Complete Phase 3 (User Story 1) tasks T007-T016
-3. **Enhancement**: Add Phase 4 (User Story 2) tasks T017-T025
-4. **Polish**: Run Phase 5 (Polish) tasks T026-T033
-5. **Deploy**: Use `./deploy.sh` for backend, build frontend for hosting
+1. ✅ **Foundation Complete**: Phase 2 (Foundation) tasks T001-T006
+2. ✅ **MVP Delivered**: Phase 3 (User Story 1) tasks T007-T016
+3. ✅ **Filtering Added**: Phase 4 (User Story 2) tasks T017-T025
+4. **MA50 Slope Sorting**: Begin Phase 5 (User Story 3) tasks T034-T042
+5. **Polish**: Run Phase 6 (Polish) tasks T026-T033
+6. **Deploy**: Use `./deploy.sh` for backend, build frontend for hosting
 
-**Ready to implement**: ✅ All tasks defined, dependencies mapped, parallel opportunities identified
+**Ready to implement**: ✅ User Story 3 tasks defined, dependencies mapped, parallel opportunities identified
