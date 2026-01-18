@@ -38,7 +38,10 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
   };
 
   const handleAssetClick = () => {
-    navigate(`/asset/${encodeURIComponent(alert.asset_code)}?exchange=${alert.exchange}`, {
+    const symbol = alert.country_code
+      ? `${alert.asset_code}:${alert.country_code}`
+      : alert.asset_code;
+    navigate(`/asset/${encodeURIComponent(symbol)}?exchange=${alert.exchange}`, {
       state: { description: alert.asset_description }
     });
   };

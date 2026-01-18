@@ -12,6 +12,7 @@ import {
 } from '../services/api';
 import { IndicatorCard } from '../components/IndicatorCard';
 import { AlertCard } from '../components/AlertCard';
+import { processAlerts } from '../utils/alertFilters';
 import './AssetDetail.css';
 
 export function AssetDetail() {
@@ -158,7 +159,8 @@ export function AssetDetail() {
         country_code: countryCode,
       });
 
-      setAlertsData(data.alerts);
+      const processedAlerts = processAlerts(data.alerts);
+      setAlertsData(processedAlerts);
     } catch (err) {
       setAlertsError('Unable to load alerts. Please try refreshing the page.');
       console.error('Alerts fetch error:', err);

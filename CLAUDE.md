@@ -112,6 +112,8 @@ Examples:
 ## Active Technologies
 - Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend) (004-watchlist-menu)
 - AWS DynamoDB (existing "watchlist" table) (004-watchlist-menu)
+- TypeScript 5+ (frontend), Python 3.11+ (backend - no changes) + React 19+, Vite 7+, Axios (frontend) (005-filter-old-alerts)
+- No changes - uses existing DynamoDB alerts table with TTL (005-filter-old-alerts)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)
