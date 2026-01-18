@@ -228,6 +228,26 @@ class WatchlistService:
 
         return self._enrich_and_sort_watchlist(watchlist_items)
 
+    def get_long_term_positions(self) -> WatchlistResponse:
+        """
+        Get long-term tagged positions for the dedicated menu.
+        Filters for items with 'long-term' label and enriches with
+        current prices.
+
+        Returns:
+            WatchlistResponse with items that have 'long-term' label
+        """
+        watchlist_items = self.dynamodb_client.get_watchlist()
+
+        # Filter for ONLY long-term items
+        filtered_items = []
+        for item in watchlist_items:
+            labels = item.get("labels", [])
+            if WatchlistTag.LONG_TERM.value in labels:
+                filtered_items.append(item)
+
+        return self._enrich_and_sort_watchlist(filtered_items)
+
     def get_indexes(self) -> WatchlistResponse:
         """
         Get main market indexes with current prices and variations.

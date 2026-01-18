@@ -848,3 +848,71 @@ class TestWatchlistEndpoint:
         mock_dynamodb_client.update_watchlist_labels.assert_called_once_with(
             "asset1", ["homepage", "short-term", "crypto"]
         )
+
+
+class TestGetLongTermPositions:
+    """Tests for GET /api/watchlist/long-term endpoint."""
+
+    def test_get_long_term_endpoint_returns_200(
+        self, mock_dynamodb_client, mock_saxo_client
+    ):
+        """Test that GET /api/watchlist/long-term returns 200 with items."""
+        # Setup: Mock DynamoDB to return long-term items
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "long1",
+                "asset_symbol": "itp:xpar",
+                "description": "Interparfums",
+                "country_code": "xpar",
+                "added_at": "2024-01-01T00:00:00Z",
+                "labels": ["long-term"],
+                "asset_identifier": 123,
+                "asset_type": "Stock",
+                "exchange": "saxo",
+            },
+        ]
+
+        mock_dynamodb_client.get_tradingview_link.return_value = None
+
+        # Execute: Call endpoint
+        response = client.get("/api/watchlist/long-term")
+
+        # Assert: Success response
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert "total" in data
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == "long1"
+
+    def test_get_long_term_endpoint_empty_response(
+        self, mock_dynamodb_client, mock_saxo_client
+    ):
+        """Test that GET /api/watchlist/long-term returns empty when no
+        long-term items."""
+        # Setup: Mock DynamoDB to return no long-term items
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "short1",
+                "asset_symbol": "aapl:xnas",
+                "description": "Apple",
+                "country_code": "xnas",
+                "added_at": "2024-01-01T00:00:00Z",
+                "labels": ["short-term"],
+                "asset_identifier": 456,
+                "asset_type": "Stock",
+                "exchange": "saxo",
+            },
+        ]
+
+        mock_dynamodb_client.get_tradingview_link.return_value = None
+
+        # Execute
+        response = client.get("/api/watchlist/long-term")
+
+        # Assert: Empty result
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+        assert len(data["items"]) == 0
