@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AlertItem } from '../services/api';
+import { getTradingViewUrl } from '../utils/tradingview';
 import './AlertCard.css';
 
 interface AlertCardProps {
@@ -10,6 +11,7 @@ interface AlertCardProps {
 export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
   const navigate = useNavigate();
   const [isDataExpanded, setIsDataExpanded] = useState(false);
+
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     return date.toLocaleString('en-US', {
@@ -37,6 +39,41 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
     return `${days} days ago`;
   };
 
+  const formatMA50Slope = (slope: any): string => {
+    // Handle null, undefined, or non-numeric values
+    if (slope === null || slope === undefined || slope === '') {
+      return 'N/A';
+    }
+
+    // Convert to number if it's a string
+    const numericSlope = typeof slope === 'number' ? slope : parseFloat(slope);
+
+    // Check if conversion was successful
+    if (isNaN(numericSlope)) {
+      return 'N/A';
+    }
+
+    const sign = numericSlope > 0 ? '+' : '';
+    return `${sign}${numericSlope.toFixed(1)}%`;
+  };
+
+  const getMA50SlopeClass = (slope: any): string => {
+    // Handle null, undefined, or non-numeric values
+    if (slope === null || slope === undefined || slope === '') {
+      return 'ma50-slope-neutral';
+    }
+
+    // Convert to number if it's a string
+    const numericSlope = typeof slope === 'number' ? slope : parseFloat(slope);
+
+    // Check if conversion was successful
+    if (isNaN(numericSlope)) {
+      return 'ma50-slope-neutral';
+    }
+
+    return numericSlope >= 0 ? 'ma50-slope-positive' : 'ma50-slope-negative';
+  };
+
   const handleAssetClick = () => {
     const symbol = alert.country_code
       ? `${alert.asset_code}:${alert.country_code}`
@@ -45,6 +82,19 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
       state: { description: alert.asset_description }
     });
   };
+
+  const handleTradingViewClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const assetSymbol = alert.country_code
+      ? `${alert.asset_code}:${alert.country_code}`
+      : alert.asset_code;
+    // Use custom TradingView URL if configured, otherwise generate default URL
+    const url = alert.tradingview_url || getTradingViewUrl(assetSymbol);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  // Extract MA50 slope from alert data
+  const ma50Slope = alert.data?.ma50_slope;
 
   return (
     <div className="alert-card">
@@ -58,9 +108,24 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
       </div>
       <div className="alert-card-body">
         <div className="alert-card-asset">
-          <h3 className="asset-name" onClick={handleAssetClick}>
-            {alert.asset_description}
-          </h3>
+          <div className="asset-name-row">
+            <h3 className="asset-name" onClick={handleAssetClick}>
+              {alert.asset_description}
+            </h3>
+            <button
+              className="tradingview-button"
+              onClick={handleTradingViewClick}
+              title="View on TradingView"
+            >
+              📊
+            </button>
+          </div>
+        </div>
+        <div className="alert-card-ma50">
+          <span className="ma50-label">MA50 Slope:</span>
+          <span className={`ma50-value ${getMA50SlopeClass(ma50Slope)}`}>
+            {formatMA50Slope(ma50Slope)}
+          </span>
         </div>
         <div className="alert-card-timestamp">
           <span className="timestamp">{formatDate(alert.date)}</span>

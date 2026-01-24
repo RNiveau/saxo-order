@@ -33,6 +33,10 @@ class AlertItemResponse(BaseModel):
         description="Hours since alert was generated (calculated field)",
         ge=0,
     )
+    tradingview_url: Optional[str] = Field(
+        default=None,
+        description="Custom TradingView URL for this asset (if configured)",
+    )
 
 
 class AlertsResponse(BaseModel):

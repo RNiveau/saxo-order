@@ -67,8 +67,24 @@ class AlertingService:
         # Sort by date descending (newest first)
         filtered_alerts.sort(key=lambda a: a.date, reverse=True)
 
-        # Transform to response models
-        alert_items = [self._to_response(alert) for alert in filtered_alerts]
+        # Fetch TradingView links for all unique asset codes (batch operation)
+        unique_asset_codes = set(alert.asset_code for alert in filtered_alerts)
+        tradingview_links = {}
+        for code in unique_asset_codes:
+            try:
+                link = self.dynamodb_client.get_tradingview_link(code)
+                if link:
+                    tradingview_links[code] = link
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get TradingView link for {code}: {e}"
+                )
+
+        # Transform to response models with TradingView links
+        alert_items = [
+            self._to_response(alert, tradingview_links.get(alert.asset_code))
+            for alert in filtered_alerts
+        ]
 
         # Calculate available filters from ALL alerts (not filtered)
         filters = self._calculate_filters(all_alerts)
@@ -79,17 +95,21 @@ class AlertingService:
             available_filters=filters,
         )
 
-    def _to_response(self, alert: Alert) -> AlertItemResponse:
+    def _to_response(
+        self, alert: Alert, tradingview_url: Optional[str] = None
+    ) -> AlertItemResponse:
         """
         Transform Alert domain model to AlertItemResponse API model.
 
         Args:
             alert: Alert domain model
+            tradingview_url: Optional custom TradingView URL for this asset
 
         Returns:
-            AlertItemResponse with calculated age_hours
+            AlertItemResponse with calculated age_hours and tradingview_url
         """
         age = datetime.now() - alert.date
+
         return AlertItemResponse(
             id=alert.id,
             alert_type=alert.alert_type.value,
@@ -100,6 +120,7 @@ class AlertingService:
             date=alert.date,
             data=alert.data,
             age_hours=int(age.total_seconds() / 3600),
+            tradingview_url=tradingview_url,
         )
 
     def _calculate_filters(self, alerts: List[Alert]) -> Dict[str, List[str]]:
@@ -252,9 +273,21 @@ class AlertingService:
         # Calculate next allowed execution time
         next_allowed_at = datetime.now() + timedelta(minutes=5)
 
+        # Fetch TradingView link for this asset
+        tradingview_url = None
+        try:
+            tradingview_url = self.dynamodb_client.get_tradingview_link(
+                request.asset_code
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to get TradingView link for {request.asset_code}: {e}"
+            )
+
         # Transform alerts to response format
         alert_responses = [
-            self._to_response(alert) for alert in detected_alerts
+            self._to_response(alert, tradingview_url)
+            for alert in detected_alerts
         ]
 
         execution_time_ms = int((time.time() - start_time) * 1000)
