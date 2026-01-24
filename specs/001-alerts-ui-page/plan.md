@@ -7,7 +7,7 @@
 
 ## Summary
 
-Create a web UI page to display all active alerts (7-day retention) that are currently only sent to Slack. The alerts are already being generated daily by the existing alerting system and stored in DynamoDB with TTL-based automatic expiration. This feature exposes them through REST API endpoints and renders them in a React-based frontend page with filtering and sorting capabilities. Alerts can be sorted by MA50 slope (default) or by date, helping traders prioritize assets with strongest trends.
+Create a web UI page to display all active alerts (7-day retention) that are currently only sent to Slack. The alerts are already being generated daily by the existing alerting system and stored in DynamoDB with TTL-based automatic expiration. This feature exposes them through REST API endpoints and renders them in a React-based frontend page with filtering and sorting capabilities. Each alert displays: asset name, TradingView link (with consistent icon and custom link support), alert type, MA50 slope value (formatted as percentage with color styling), alert condition, and timestamp. Alerts can be sorted by MA50 slope (default) or by date, helping traders prioritize assets with strongest trends.
 
 ## Technical Context
 
@@ -50,10 +50,11 @@ Create a web UI page to display all active alerts (7-day retention) that are cur
 
 **Backend:**
 - ✅ API Layer: New `api/routers/alerting.py` with FastAPI router - thin orchestration only
-- ✅ Service Layer: New `api/services/alerting_service.py` with business logic (formatting, filtering)
+- ✅ Service Layer: New `api/services/alerting_service.py` with business logic (formatting, filtering, asset name resolution)
 - ✅ Client Layer: Existing `client/aws_client.py` DynamoDBClient - no changes needed
 - ✅ Model Layer: Existing `model/__init__.py` Alert dataclass - no changes needed
 - ✅ Dependency injection: AlertingService receives DynamoDBClient as constructor parameter
+- ✅ Asset resolution: Service layer resolves asset_code + country_code to asset name for display
 
 **Frontend:**
 - ✅ Pages: New `frontend/src/pages/Alerts.tsx` with routing - no direct API calls
@@ -154,9 +155,9 @@ model/
 # Frontend
 frontend/src/
 ├── pages/
-│   └── Alerts.tsx            # NEW: Alerts page component
+│   └── Alerts.tsx            # NEW: Alerts page component (sorting, filtering, pagination)
 ├── components/
-│   └── AlertCard.tsx         # NEW: Individual alert display component
+│   └── AlertCard.tsx         # NEW: Individual alert display (asset name, TradingView link, type, MA50 slope, condition, timestamp)
 ├── services/
 │   └── api.ts                # MODIFIED: Add alertService methods
 └── App.tsx                   # MODIFIED: Add /alerts route
@@ -234,6 +235,15 @@ tests/api/routers/
 | Frontend | AlertItem (TypeScript) | Component props interface |
 | Frontend | AlertsResponse (TypeScript) | API response interface |
 
+**Alert Display Elements**:
+Each alert must display the following information:
+- **Asset Name**: Full asset name (not just code)
+- **TradingView Link**: Icon-based link using consistent icon throughout app, respects custom link feature
+- **Alert Type**: Category of alert (e.g., COMBO, CONGESTION, DOUBLE_TOP)
+- **MA50 Slope Value**: Formatted as percentage (e.g., "+15.2%", "-8.3%") with color styling (green for positive, red for negative)
+- **Alert Condition**: Human-readable message describing the condition
+- **Timestamp**: Relative time (e.g., "2 hours ago") with absolute time on hover
+
 ---
 
 ### Phase 2: Implementation Planning (Tasks Generation)
@@ -248,8 +258,8 @@ tests/api/routers/
 
 **Expected Task Categories**:
 1. Backend API Layer (3-4 tasks)
-   - Create Pydantic models
-   - Create AlertingService
+   - Create Pydantic models (AlertItemResponse includes: asset_name, asset_code, country_code, alert_type, ma50_slope, condition, timestamp, data)
+   - Create AlertingService (includes asset name resolution logic)
    - Create AlertingRouter
    - Register router in main.py
 
@@ -259,8 +269,8 @@ tests/api/routers/
 
 3. Frontend (3-4 tasks)
    - Extend API service
-   - Create AlertCard component
-   - Create Alerts page
+   - Create AlertCard component (displays: asset name, TradingView link with icon, alert type, MA50 slope with formatting/color, condition, timestamp)
+   - Create Alerts page (with sorting and filtering)
    - Add route to App.tsx
 
 4. Integration & Polish (1-2 tasks)
@@ -446,12 +456,16 @@ tests/api/routers/
 - AlertingService.get_all_alerts() with asset_code filter
 - AlertingService.get_all_alerts() with alert_type filter
 - AlertingService.get_all_alerts() with country_code filter
-- AlertingService._to_response() transformation logic
+- AlertingService._to_response() transformation logic (includes asset name resolution)
+- AlertingService._resolve_asset_name() with valid asset_code + country_code
+- AlertingService._resolve_asset_name() with missing asset (fallback to asset_code)
+- AlertingService._resolve_asset_name() with crypto asset (no country_code)
 - AlertingService._calculate_filters() with various alert combinations
 - Edge case: Empty alert list
 - Edge case: Alerts with missing country_code (crypto assets)
+- Edge case: MA50 slope null/missing values in response
 
-**Coverage Target**: 100% for AlertingService (8 tests)
+**Coverage Target**: 100% for AlertingService (11 tests)
 
 **Integration Tests** (`tests/api/routers/test_alerting.py`):
 - GET /api/alerts returns 200 with valid schema
@@ -469,15 +483,23 @@ tests/api/routers/
 
 **Manual Testing Checklist**:
 - [ ] Page loads without errors
-- [ ] Alerts display correctly (asset, type, timestamp, data)
+- [ ] Alerts display all required elements: asset name, TradingView link, alert type, MA50 slope value, alert condition, timestamp
+- [ ] TradingView link uses consistent icon throughout app
+- [ ] TradingView link respects custom link feature (if configured for asset)
+- [ ] MA50 slope displays as formatted percentage (e.g., "+15.2%", "-8.3%")
+- [ ] MA50 slope positive values display in green, negative in red
+- [ ] MA50 slope missing/null values display as "N/A" or "--"
 - [ ] Filter by asset code works
 - [ ] Filter by alert type works
 - [ ] Filter counts update correctly
 - [ ] "Clear filters" button works
+- [ ] Sort by MA50 slope orders correctly (highest first)
+- [ ] Sort by Recent orders by date (newest first)
 - [ ] Empty state displays when no alerts
 - [ ] Error state displays on API failure
 - [ ] Loading state displays during fetch
 - [ ] Timestamps display in local timezone
+- [ ] Timestamps show absolute time on hover
 - [ ] Alert cards are styled correctly
 - [ ] Mobile responsive layout works
 
@@ -634,6 +656,68 @@ Reference for implementation:
 | AlertType enum | `model/enum.py` | Type enumeration |
 | DynamoDB table | `pulumi/dynamodb.py` | Infrastructure |
 | Lambda handler | `lambda_function.py` | AWS Lambda entry |
+
+### D. TradingView Link Implementation
+
+**Requirements**:
+- Use consistent TradingView icon throughout the application
+- Respect custom link feature if configured for the asset
+- Icon should be clickable and open TradingView in new tab
+
+**Implementation Notes**:
+- Check existing codebase for TradingView link pattern (e.g., in watchlist or other pages)
+- Custom link feature may be stored in asset configuration or database
+- Default to standard TradingView URL format if no custom link configured
+- Example URL format: `https://www.tradingview.com/chart/?symbol={exchange}:{asset_code}`
+
+**Reference Locations**:
+- Search codebase for existing TradingView icon usage
+- Look for custom link configuration in asset models or frontend services
+- Ensure consistent styling and behavior with existing implementations
+
+### E. MA50 Slope Display Formatting
+
+**Requirements**:
+- Display as formatted percentage with sign (e.g., "+15.2%", "-8.3%", "+0.5%")
+- Apply color styling: green for positive values, red for negative values
+- Handle null/missing values: display as "N/A" or "--"
+- Decimal precision: 1 decimal place recommended (e.g., "+15.2%")
+
+**Implementation Notes**:
+- Backend provides ma50_slope as float value (not percentage)
+- Frontend must format: `value > 0 ? `+${value.toFixed(1)}%` : `${value.toFixed(1)}%``
+- Color classes: Use existing design system color classes (success/danger or green/red)
+- Null handling: Check for `null`, `undefined`, or `0` values
+
+**Visual Examples**:
+- `+15.2%` → Green text
+- `-8.3%` → Red text
+- `+0.0%` → Could be gray or green (TBD during implementation)
+- `null` → "N/A" in gray text
+
+### F. Asset Name Resolution
+
+**Requirements**:
+- Backend must resolve asset_code + country_code to human-readable asset name
+- Asset name should be included in AlertItemResponse for frontend display
+- Handle assets without country_code (Binance/crypto assets)
+
+**Implementation Options**:
+1. **Asset Service Lookup**: Use existing asset service/repository to fetch asset details
+2. **Watchlist Integration**: Leverage existing watchlist data if available
+3. **Static Mapping**: Create asset code → name mapping if asset service doesn't exist
+4. **Fallback**: If asset name unavailable, display asset_code as fallback
+
+**Reference Locations**:
+- Check for existing asset service in `api/services/` or `saxo_order/service.py`
+- Look for asset repository or client in `client/` directory
+- Check model definitions in `model/` for asset-related classes
+- Review watchlist implementation for asset name resolution patterns
+
+**Implementation Notes**:
+- Asset name resolution happens in AlertingService, not router layer
+- Cache asset lookups if possible to reduce database/API calls
+- Handle missing/unknown assets gracefully (fallback to asset_code)
 
 ---
 

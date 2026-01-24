@@ -538,6 +538,7 @@ export interface AlertItem {
   date: string;
   data: Record<string, any>;
   age_hours: number;
+  tradingview_url?: string;
 }
 
 export interface AlertsResponse {

@@ -43,8 +43,14 @@
 
 .alert-card-asset {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.asset-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .asset-name {
@@ -61,6 +67,24 @@
   text-decoration: underline;
 }
 
+.tradingview-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tradingview-button:hover {
+  background: #2a5298;
+  transform: scale(1.1);
+}
+
 .country-code {
   background: #333;
   color: #aaa;
@@ -68,6 +92,35 @@
   border-radius: 3px;
   font-size: 11px;
   text-transform: uppercase;
+}
+
+.alert-card-ma50 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.ma50-label {
+  color: #888;
+  font-weight: 500;
+}
+
+.ma50-value {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.ma50-slope-positive {
+  color: #3fb950;
+}
+
+.ma50-slope-negative {
+  color: #f85149;
+}
+
+.ma50-slope-neutral {
+  color: #888;
 }
 
 .alert-card-timestamp {

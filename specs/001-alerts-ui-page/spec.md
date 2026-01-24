@@ -20,7 +20,7 @@ As a trader, I want to see all my active alerts in a dedicated page so I can qui
 1. **Given** alerts exist in the system, **When** I navigate to the Alerts page, **Then** I see a list of all active alerts sorted by timestamp (newest first)
 2. **Given** an alert was created 6 days ago, **When** I view the Alerts page, **Then** that alert is visible in the list
 3. **Given** an alert was created 8 days ago, **When** I view the Alerts page, **Then** that alert is not visible (expired after 7 days)
-4. **Given** multiple alerts exist, **When** I view the Alerts page, **Then** each alert displays asset name, alert condition, timestamp, and alert type
+4. **Given** multiple alerts exist, **When** I view the Alerts page, **Then** each alert displays: asset name, TradingView link (with consistent icon and custom link support), alert type, MA50 slope value, alert condition, and timestamp
 
 ---
 
@@ -71,6 +71,7 @@ As a trader, I want to sort all alerts by their MA50 slope (highest first) so I 
 - What happens when two alerts have identical MA50 slope values? (Secondary sort by date, newest first)
 - What happens when MA50 cannot be calculated for an asset due to insufficient historical data? (Store ma50_slope as null/0 in alert data)
 - What happens when all alerts have negative MA50 slopes? (Sort descending by slope value: -5 appears before -10, -10 before -20)
+- What happens when MA50 slope value is missing or null for display? (Display "N/A" or "--" instead of a percentage)
 
 ## Requirements *(mandatory)*
 
@@ -82,7 +83,7 @@ As a trader, I want to sort all alerts by their MA50 slope (highest first) so I 
 - **FR-003**: System MUST sort alerts by creation timestamp in descending order (newest first)
 
 **Display Requirements:**
-- **FR-004**: System MUST display for each alert: asset identifier, alert condition/message, creation timestamp, and alert type
+- **FR-004**: System MUST display for each alert: asset name, TradingView link, alert type, MA50 slope value, alert condition/message, and creation timestamp
 - **FR-005**: System MUST format timestamps in a human-readable format (e.g., "2 hours ago", "3 days ago")
 - **FR-006**: System MUST provide absolute timestamp on hover or in detail view
 - **FR-007**: System MUST handle empty state when no alerts exist
@@ -106,6 +107,8 @@ As a trader, I want to sort all alerts by their MA50 slope (highest first) so I 
 - **FR-019**: System MUST treat alerts without ma50_slope data as having slope = 0 for sorting purposes
 - **FR-020**: System MUST preserve sort selection when filters are applied or changed
 - **FR-021**: Alert detection MUST calculate and store ma50_slope in alert data payload for all alert types using slope_percentage() function
+- **FR-022**: TradingView link MUST use the same icon used throughout the application and MUST respect the custom link feature (if configured for the asset)
+- **FR-023**: MA50 slope value MUST be displayed as a formatted percentage (e.g., "+15.2%", "-8.3%") with appropriate visual styling (positive values in green, negative in red)
 
 ### Key Entities
 

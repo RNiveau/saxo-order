@@ -4,9 +4,34 @@
 **Input**: Design documents from `.specify/specs/001-alerts-ui-page/`
 **Prerequisites**: ✅ plan.md, ✅ spec.md, ✅ data-model.md, ✅ contracts/, ✅ quickstart.md
 
+**Last Updated**: 2026-01-24 - Added new display requirements (asset name, TradingView link, MA50 slope formatting)
+
 **Tests**: No test tasks included - feature spec does not require tests (existing test coverage patterns apply)
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+
+---
+
+## Recent Changes (2026-01-24)
+
+**New Display Requirements Added to User Story 1**:
+- Each alert must display: **asset name** (not just code), **TradingView link** (with icon), **alert type**, **MA50 slope value** (formatted as percentage with color), **alert condition**, **timestamp**
+- TradingView link must use consistent icon and respect custom link feature
+- MA50 slope must display green for positive, red for negative, "N/A" for null
+
+**New Tasks Added**:
+- **T008b**: [US1] Backend asset name resolution logic
+- **T010b**: [US1] Frontend MA50 slope formatting utility (percentage with color styling)
+- **T010c**: [US1] Frontend TradingView link component (icon + custom link support)
+
+**Tasks Modified**:
+- T001: Updated to include asset_name field in AlertItemResponse
+- T002: Updated to include asset name resolution capability
+- T007-T008: Updated to include asset name resolution
+- T010: Updated to display all required elements
+- T032: Updated smoke test to verify all display elements
+
+**Impact**: MVP (User Story 1) now includes 19 tasks (was 16) with complete display requirements
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -43,14 +68,14 @@ This is a **web application** with backend and frontend:
 
 ### Backend API Foundation
 
-- [X] T001 Create Pydantic models in `api/models/alerting.py` (AlertItemResponse, AlertsResponse)
-- [X] T002 Create AlertingService skeleton in `api/services/alerting_service.py` with DynamoDBClient injection
+- [X] T001 Create Pydantic models in `api/models/alerting.py` (AlertItemResponse with asset_name, AlertsResponse)
+- [X] T002 Create AlertingService skeleton in `api/services/alerting_service.py` with DynamoDBClient injection and asset name resolution capability
 - [X] T003 Create AlertingRouter in `api/routers/alerting.py` with GET /api/alerts endpoint
 - [X] T004 Register AlertingRouter in `api/main.py` with `/api/alerts` prefix
 
 ### Frontend API Service Foundation
 
-- [X] T005 [P] Add TypeScript interfaces in `frontend/src/services/api.ts` (AlertItem, AlertsResponse)
+- [X] T005 [P] Add TypeScript interfaces in `frontend/src/services/api.ts` (AlertItem with asset_name field, AlertsResponse)
 - [X] T006 [P] Add alertService object in `frontend/src/services/api.ts` with getAll() method
 
 **Checkpoint**: ✅ Foundation ready - user story implementation can now begin in parallel
@@ -66,19 +91,26 @@ This is a **web application** with backend and frontend:
 **Acceptance Criteria**:
 1. ✅ All alerts display in a list
 2. ✅ Sorted by timestamp (newest first)
-3. ✅ Each alert shows: asset code, alert type, timestamp, alert data
+3. Each alert shows: asset name, TradingView link (with icon), alert type, MA50 slope value (formatted as percentage with color), alert condition, timestamp
 4. ✅ Alerts older than 7 days not displayed (TTL handles this)
 5. ✅ Empty state displays when no alerts exist
+6. TradingView link uses consistent icon throughout app
+7. TradingView link respects custom link feature if configured
+8. MA50 slope displays with green for positive, red for negative values
+9. MA50 slope missing/null values display as "N/A" or "--"
 
 ### Backend Implementation
 
-- [X] T007 [US1] Implement AlertingService.get_all_alerts() in `api/services/alerting_service.py` - fetch from DynamoDB, sort, transform to responses
-- [X] T008 [US1] Implement AlertingService._to_response() in `api/services/alerting_service.py` - transform Alert to AlertItemResponse with age calculation
+- [X] T007 [US1] Implement AlertingService.get_all_alerts() in `api/services/alerting_service.py` - fetch from DynamoDB, sort, transform to responses with asset name resolution
+- [X] T008 [US1] Implement AlertingService._to_response() in `api/services/alerting_service.py` - transform Alert to AlertItemResponse with age calculation and asset_name field
+- [X] T008b [US1] Implement AlertingService._resolve_asset_name() in `api/services/alerting_service.py` - resolve asset_code + country_code to human-readable name (already implemented in Alert model)
 - [X] T009 [US1] Implement GET /api/alerts handler in `api/routers/alerting.py` - call service.get_all_alerts() and return AlertsResponse
 
 ### Frontend Implementation
 
-- [X] T010 [P] [US1] Create AlertCard component in `frontend/src/components/AlertCard.tsx` - display single alert with asset, type, timestamp, data
+- [X] T010 [P] [US1] Create AlertCard component in `frontend/src/components/AlertCard.tsx` - display: asset name, TradingView link (icon + custom link support), alert type, MA50 slope (formatted as percentage with color), alert condition, timestamp
+- [X] T010b [P] [US1] Implement MA50 slope formatting utility in AlertCard - format as "+X.X%" or "-X.X%" with green/red styling, handle null as "N/A"
+- [X] T010c [P] [US1] Implement TradingView link component - use consistent 📊 icon, respect custom link feature (from backend), open in new tab
 - [X] T011 [US1] Create Alerts page in `frontend/src/pages/Alerts.tsx` - fetch alerts, handle loading/error, display alert list
 - [X] T012 [US1] Add /alerts route in `frontend/src/App.tsx` - register Alerts page component
 
@@ -140,6 +172,8 @@ This is a **web application** with backend and frontend:
 3. ✅ Alerts sort by slope value descending (highest slope first)
 4. ✅ Sorting works with filtered results
 5. ✅ Sort selection persists when filters are applied
+6. MA50 slope value displayed in each alert card (formatted as percentage with color)
+7. MA50 slope calculation added to all alert types during alert generation
 
 ### Backend Implementation
 
@@ -178,7 +212,13 @@ This is a **web application** with backend and frontend:
 
 - [ ] T030 [P] Update API documentation - verify Swagger UI at http://localhost:8000/docs shows new endpoints
 - [ ] T031 [P] Verify CORS configuration in `api/main.py` - ensure frontend origin (localhost:5173) is allowed
-- [ ] T032 Manual smoke test - start backend and frontend, navigate to /alerts, verify alerts display and filtering works
+- [ ] T032 Manual smoke test - start backend and frontend, navigate to /alerts, verify:
+  - All display elements present (asset name, TradingView link, alert type, MA50 slope, condition, timestamp)
+  - TradingView link uses consistent icon and respects custom links
+  - MA50 slope displays with correct formatting (+X.X%/-X.X%) and colors (green/red)
+  - MA50 slope null values display as "N/A"
+  - Filtering works correctly
+  - Sorting by MA50 slope works (default sort)
 - [ ] T033 Pre-deployment checklist - verify DynamoDB has test data, backend accessible, frontend builds successfully
 
 **Polish Complete**: ✅ Feature ready for deployment
@@ -195,8 +235,8 @@ Phase 1 (Setup)           ✅ Complete (no tasks)
 Phase 2 (Foundation)      T001 → T002 → T003 → T004 (sequential)
   ├──────────────────────→ T005, T006 (parallel with T001-T004)
   ↓
-Phase 3 (User Story 1)    T007 → T008 → T009 (backend sequential)
-  ├──────────────────────→ T010, T011, T012 (frontend parallel with backend)
+Phase 3 (User Story 1)    T007 → T008 → T008b → T009 (backend sequential)
+  ├──────────────────────→ T010, T010b, T010c, T011, T012 (frontend parallel with backend)
   ├──────────────────────→ T013, T014 (integration, depends on T009 + T012)
   └──────────────────────→ T015, T016 (polish, depends on T011)
   ↓
@@ -228,7 +268,8 @@ Phase 6 (Polish)          T026, T027, T028, T029 (all parallel)
 - Total: 2 parallel tracks
 
 **Within Phase 3 (User Story 1)**:
-- T007-T009 (backend) can run parallel with T010-T012 (frontend)
+- T007-T009, T008b (backend) can run parallel with T010-T012, T010b, T010c (frontend)
+- T010, T010b, T010c can all run in parallel (different utilities/components)
 - T015-T016 (error handling) can run parallel with T014 (styling)
 - Total: 2-3 parallel tracks
 
@@ -254,9 +295,9 @@ Phase 6 (Polish)          T026, T027, T028, T029 (all parallel)
 ### MVP First Approach
 
 **Minimum Viable Product** = User Story 1 only
-- Tasks: T001-T016 (16 tasks)
-- Delivers: View all active alerts in a dedicated page
-- Independent test: Navigate to /alerts, see all alerts displayed
+- Tasks: T001-T016, T008b, T010b, T010c (19 tasks)
+- Delivers: View all active alerts in a dedicated page with complete display elements (asset name, TradingView link, alert type, MA50 slope, condition, timestamp)
+- Independent test: Navigate to /alerts, see all alerts displayed with all required elements
 - Time estimate: Can be completed in single implementation session
 
 **Post-MVP Enhancement 1** = User Story 2
@@ -306,29 +347,29 @@ Phase 6 (Polish)          T026, T027, T028, T029 (all parallel)
 |-------|-------|----------------|------------|--------|
 | Setup | 0 | 0 | N/A | ✅ Complete |
 | Foundation | 6 (T001-T006) | 2 (T005, T006) | N/A | ✅ Complete |
-| User Story 1 | 10 (T007-T016) | 4 (T010, T013, T014, T015) | P1 | ✅ Complete |
+| User Story 1 | 13 (T007-T016, T008b, T010b, T010c) | 6 (T010, T010b, T010c, T013, T014, T015) | P1 | ✅ Complete |
 | User Story 2 | 9 (T017-T025) | 2 (T020, T024) | P2 | ✅ Complete |
 | User Story 3 | 9 (T034-T042) | 2 (T037, T041) | P2 | ⏭️ Ready |
 | Polish | 8 (T026-T033) | 6 (T026-T031) | N/A | ⏭️ Final |
-| **Total** | **42 tasks** | **16 parallel** | 3 stories | Ready |
+| **Total** | **45 tasks** | **18 parallel** | 3 stories | Ready |
 
 ---
 
 ## Validation Checklist
 
-**Format Compliance**: ✅ All 42 tasks follow checklist format
+**Format Compliance**: ✅ All 45 tasks follow checklist format
 - ✅ All tasks have checkbox `- [ ]`
-- ✅ All tasks have sequential ID (T001-T042)
-- ✅ All tasks have [P] marker where applicable (16 tasks)
-- ✅ All tasks have [Story] label for user story phases (28 tasks)
+- ✅ All tasks have sequential ID (T001-T042, T008b, T010b, T010c)
+- ✅ All tasks have [P] marker where applicable (18 tasks)
+- ✅ All tasks have [Story] label for user story phases (31 tasks)
 - ✅ All tasks have clear description with file path
 
 **Coverage Completeness**: ✅ All requirements mapped to tasks
-- ✅ User Story 1 (P1): 10 tasks covering all acceptance criteria
+- ✅ User Story 1 (P1): 13 tasks covering all acceptance criteria including new display requirements
 - ✅ User Story 2 (P2): 9 tasks covering all acceptance criteria
 - ✅ User Story 3 (P2): 9 tasks covering all acceptance criteria
-- ✅ Backend API: Pydantic models, service, router (T001-T009, T017-T019, T034-T036)
-- ✅ Frontend: Components, page, routing (T010-T012, T020-T023, T037-T040)
+- ✅ Backend API: Pydantic models, service with asset name resolution, router (T001-T009, T008b, T017-T019, T034-T036)
+- ✅ Frontend: Components with all display elements, page, routing (T010-T012, T010b, T010c, T020-T023, T037-T040)
 - ✅ Integration: Navigation, styling, error handling (T013-T016, T024-T025, T041-T042)
 - ✅ Quality: Testing, linting, deployment (T026-T033)
 
@@ -337,17 +378,20 @@ Phase 6 (Polish)          T026, T027, T028, T029 (all parallel)
 - ✅ US2 Independent Test: Apply filter, verify only matching alerts show
 - ✅ US3 Independent Test: Verify alerts sorted by MA50 slope, sort dropdown works
 
-**MVP Scope**: ✅ Clearly defined (User Story 1 only = T001-T016)
+**MVP Scope**: ✅ Clearly defined (User Story 1 only = T001-T016, T008b, T010b, T010c)
 
 ---
 
 ## Next Steps
 
 1. ✅ **Foundation Complete**: Phase 2 (Foundation) tasks T001-T006
-2. ✅ **MVP Delivered**: Phase 3 (User Story 1) tasks T007-T016
-3. ✅ **Filtering Added**: Phase 4 (User Story 2) tasks T017-T025
+2. ✅ **MVP Complete**: Phase 3 (User Story 1) tasks T007-T016, T008b, T010b, T010c
+   - ✅ T008b: Asset name resolution (already in Alert model)
+   - ✅ T010b: MA50 slope formatting utility (percentage with color styling)
+   - ✅ T010c: TradingView link component with icon and custom link support
+3. ✅ **Filtering Complete**: Phase 4 (User Story 2) tasks T017-T025
 4. **MA50 Slope Sorting**: Begin Phase 5 (User Story 3) tasks T034-T042
 5. **Polish**: Run Phase 6 (Polish) tasks T026-T033
 6. **Deploy**: Use `./deploy.sh` for backend, build frontend for hosting
 
-**Ready to implement**: ✅ User Story 3 tasks defined, dependencies mapped, parallel opportunities identified
+**Ready for review**: All display requirements implemented - asset name, TradingView link with custom URL support, MA50 slope with color formatting
