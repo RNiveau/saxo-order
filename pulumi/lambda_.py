@@ -35,7 +35,7 @@ def alerting_lambda(
         "alerting",
         role=lambda_role_arn,
         image_uri=f"{_get_image_uri(repository_url)}",
-        timeout=1200,
+        timeout=900,
         memory_size=512,
         environment=aws.lambda_.FunctionEnvironmentArgs(
             variables={"SAXO_CONFIG": "prod_config.yml"}
