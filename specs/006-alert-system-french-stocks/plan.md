@@ -315,8 +315,10 @@ class TestFetchFrenchStocks:
 **Actual Effort**: 1 hour
 
 **Deliverables**:
-- ✅ `tests/saxo_order/commands/test_alerting.py` created with 10 test cases
-- ✅ 100% test coverage for `fetch_french_stocks()` function
+- ✅ `tests/saxo_order/commands/test_alerting.py` created with 7 test cases
+- ✅ Tests validate actual business logic (no mock-heavy tests)
+- ✅ Deduplication logic: 3 tests
+- ✅ Data transformation: 4 tests
 - ✅ All tests passing
 
 #### 2.2 Integration Testing
@@ -597,7 +599,7 @@ fields @timestamp, @message
 
 | File | Change Type | Lines Changed | Description |
 |------|-------------|---------------|-------------|
-| `tests/saxo_order/commands/test_alerting.py` | New | +330 | Unit tests for fetch logic ✅ |
+| `tests/saxo_order/commands/test_alerting.py` | New | +158 | Logic validation tests (deduplication, transformation) ✅ |
 
 ### Documentation
 
