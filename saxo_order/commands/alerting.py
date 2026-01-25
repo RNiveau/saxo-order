@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import time
 from typing import Dict, List, Optional, Tuple
 
 import click
@@ -41,6 +42,65 @@ def _parse_asset_code(code: str) -> Tuple[str, Optional[str]]:
         parts = code.split(":", 1)
         return parts[0], parts[1]
     return code, None
+
+
+def fetch_french_stocks(saxo_client: SaxoClient) -> List[Dict]:
+    """
+    Fetch all French stocks from Saxo API using pagination.
+
+    Args:
+        saxo_client: Initialized SaxoClient instance
+
+    Returns:
+        List of stock dictionaries with format:
+        {"name": str, "code": str, "saxo_uic": int}
+
+    Raises:
+        SaxoException: If API call fails
+    """
+    all_instruments = []
+    skip = 0
+    page_size = 1000
+
+    logger.info("Fetching French stocks from Saxo API...")
+
+    while True:
+        response = saxo_client.list_instruments(
+            asset_type="Stock",
+            exchange_id="PAR",
+            top=page_size,
+            skip=skip,
+            include_non_tradable=False,
+        )
+
+        data = response.get("Data", [])
+        if not data:
+            break
+
+        all_instruments.extend(data)
+        logger.debug(
+            f"Fetched page: {len(data)} instruments "
+            f"(total: {len(all_instruments)})"
+        )
+
+        if len(data) < page_size:
+            break
+
+        skip += page_size
+
+    # Transform to stock format
+    stocks = []
+    for instrument in all_instruments:
+        stocks.append(
+            {
+                "name": instrument.get("Description", ""),
+                "code": instrument.get("Symbol", ""),
+                "saxo_uic": instrument.get("Identifier"),
+            }
+        )
+
+    logger.info(f"Fetched {len(stocks)} French stocks from Saxo API")
+    return stocks
 
 
 @click.command()
@@ -308,17 +368,73 @@ def run_detection_for_asset(
 
 def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
 
-    if assets is None:
-        assets = _load_assets()
-
-    if assets is None or len(assets) == 0:
-        logger.error("No stocks to alert")
-        raise click.Abort()
-
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
     slack_client = WebClient(token=configuration.slack_token)
     dynamodb_client = DynamoDBClient()
+
+    if assets is None:
+        # Fetch French stocks from API with fallback to JSON
+        try:
+            start_time = time.time()
+            french_stocks = fetch_french_stocks(saxo_client)
+            fetch_duration = time.time() - start_time
+            logger.info(f"API fetch completed in {fetch_duration:.2f}s")
+        except Exception as e:
+            logger.error(f"Failed to fetch French stocks from API: {e}")
+            # Fallback to JSON
+            try:
+                with open("stocks.json") as f:
+                    french_stocks = json.load(f)
+                logger.info(
+                    f"Loaded {len(french_stocks)} stocks from stocks.json "
+                    "(fallback)"
+                )
+                # Notify error channel
+                slack_client.chat_postMessage(
+                    channel="#errors",
+                    text=(
+                        "Alert system failed to fetch French stocks "
+                        f"from API. Using fallback to stocks.json. "
+                        f"Error: {str(e)}"
+                    ),
+                )
+            except FileNotFoundError:
+                logger.error("stocks.json file not found, cannot proceed")
+                raise click.Abort()
+
+        # Load followup stocks (non-French, manual additions)
+        try:
+            with open("followup-stocks.json") as f:
+                followup_stocks = json.load(f)
+            logger.debug("Followup stocks file loaded")
+        except FileNotFoundError:
+            logger.warning(
+                "followup-stocks.json not found, " "using only French stocks"
+            )
+            followup_stocks = []
+
+        # Combine API stocks + followup stocks
+        all_stocks = french_stocks + followup_stocks
+
+        # Deduplicate by code (API takes precedence)
+        seen = set()
+        unique_stocks = []
+        for stock in all_stocks:
+            if stock["code"] not in seen:
+                unique_stocks.append(stock)
+                seen.add(stock["code"])
+
+        logger.info(
+            f"Processing {len(unique_stocks)} total stocks "
+            f"({len(french_stocks)} French + {len(followup_stocks)} followup)"
+        )
+
+        assets = unique_stocks
+
+    if assets is None or len(assets) == 0:
+        logger.error("No stocks to alert")
+        raise click.Abort()
 
     slack_messages: Dict[str, List[str]] = {
         "double_top": [],
