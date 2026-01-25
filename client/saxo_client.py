@@ -154,6 +154,46 @@ class SaxoClient:
         self._check_response(response)
         return response.json()["Data"]
 
+    def list_instruments(
+        self,
+        asset_type: str = "Stock",
+        exchange_id: Optional[str] = None,
+        top: int = 100,
+        skip: int = 0,
+        include_non_tradable: bool = False,
+    ) -> Dict:
+        """
+        List instruments of a specific asset type without keyword filter.
+
+        Args:
+            asset_type: Asset type to filter (default: "Stock")
+            exchange_id: Optional exchange ID filter (e.g., "XPAR", "NYSE")
+            top: Number of results to return (pagination)
+            skip: Number of results to skip (pagination)
+            include_non_tradable: Include non-tradable instruments
+
+        Returns:
+            Dict with 'Data' key containing list of instruments
+        """
+        params = {
+            "AssetTypes": asset_type,
+            "$top": top,
+            "$skip": skip,
+            "IncludeNonTradable": str(include_non_tradable).lower(),
+        }
+
+        if exchange_id:
+            params["ExchangeId"] = exchange_id
+
+        # Build query string
+        query_string = "&".join(f"{k}={v}" for k, v in params.items())
+
+        response = self.session.get(
+            f"{self.configuration.saxo_url}ref/v1/instruments/?{query_string}"
+        )
+        self._check_response(response)
+        return response.json()
+
     def get_total_amount(self) -> float:
         response = self.session.get(
             f"{self.configuration.saxo_url}port/v1/balances/me"
