@@ -11,6 +11,7 @@ import { LongTermPositions } from './pages/LongTermPositions';
 import { Report } from './pages/Report';
 import { Orders } from './pages/Orders';
 import { Alerts } from './pages/Alerts';
+import { AssetExclusions } from './pages/AssetExclusions';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
               <Route path="/watchlist" element={<Watchlist />} />
               <Route path="/long-term" element={<LongTermPositions />} />
               <Route path="/alerts" element={<Alerts />} />
+              <Route path="/exclusions" element={<AssetExclusions />} />
               <Route path="/report" element={<Report />} />
               <Route path="/search" element={<SearchResults />} />
               <Route path="/asset/:symbol" element={<AssetDetail />} />

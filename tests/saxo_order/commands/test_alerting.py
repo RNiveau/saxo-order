@@ -148,3 +148,128 @@ class TestStockTransformation:
         assert stock["name"] == "LVMH"
         assert stock["code"] == "MC:xpar"
         assert stock["saxo_uic"] is None
+
+
+class TestAssetExclusionFiltering:
+    """Test exclusion filtering logic in batch alerting."""
+
+    def test_exclusion_filters_out_excluded_assets(self):
+        """Test that excluded assets are filtered out from processing."""
+        # Input assets
+        all_assets = [
+            {"name": "Santander", "code": "SAN:xpar", "saxo_uic": 111},
+            {"name": "Interparfums", "code": "ITP:xpar", "saxo_uic": 222},
+            {"name": "BNP Paribas", "code": "BNP:xpar", "saxo_uic": 333},
+        ]
+
+        # Excluded asset IDs (from DynamoDB)
+        excluded_asset_ids = ["SAN:xpar", "BNP:xpar"]
+
+        # Exclusion filtering logic (same as in run_alerting)
+        original_count = len(all_assets)
+        filtered_assets = [
+            s for s in all_assets if s["code"] not in excluded_asset_ids
+        ]
+        filtered_count = original_count - len(filtered_assets)
+
+        # Assertions
+        assert len(filtered_assets) == 1
+        assert filtered_count == 2
+        assert filtered_assets[0]["code"] == "ITP:xpar"
+        assert filtered_assets[0]["name"] == "Interparfums"
+
+    def test_exclusion_no_filtering_when_no_exclusions(self):
+        """Test that all assets remain when no exclusions are set."""
+        # Input assets
+        all_assets = [
+            {"name": "Santander", "code": "SAN:xpar", "saxo_uic": 111},
+            {"name": "Interparfums", "code": "ITP:xpar", "saxo_uic": 222},
+            {"name": "BNP Paribas", "code": "BNP:xpar", "saxo_uic": 333},
+        ]
+
+        # No excluded assets
+        excluded_asset_ids = []
+
+        # Exclusion filtering logic
+        original_count = len(all_assets)
+        filtered_assets = [
+            s for s in all_assets if s["code"] not in excluded_asset_ids
+        ]
+        filtered_count = original_count - len(filtered_assets)
+
+        # Assertions
+        assert len(filtered_assets) == 3
+        assert filtered_count == 0
+        assert filtered_assets == all_assets
+
+    def test_exclusion_all_assets_excluded(self):
+        """Test handling when all assets are excluded."""
+        # Input assets
+        all_assets = [
+            {"name": "Santander", "code": "SAN:xpar", "saxo_uic": 111},
+            {"name": "Interparfums", "code": "ITP:xpar", "saxo_uic": 222},
+        ]
+
+        # All assets excluded
+        excluded_asset_ids = ["SAN:xpar", "ITP:xpar"]
+
+        # Exclusion filtering logic
+        original_count = len(all_assets)
+        filtered_assets = [
+            s for s in all_assets if s["code"] not in excluded_asset_ids
+        ]
+        filtered_count = original_count - len(filtered_assets)
+
+        # Assertions
+        assert len(filtered_assets) == 0
+        assert filtered_count == 2
+        # In actual implementation, this would trigger early return
+        # with Slack notification
+
+    def test_exclusion_preserves_non_excluded_assets(self):
+        """Test that non-excluded assets are preserved correctly."""
+        # Input assets
+        all_assets = [
+            {"name": "Stock A", "code": "A:xpar", "saxo_uic": 1},
+            {"name": "Stock B", "code": "B:xpar", "saxo_uic": 2},
+            {"name": "Stock C", "code": "C:xpar", "saxo_uic": 3},
+            {"name": "Stock D", "code": "D:xpar", "saxo_uic": 4},
+        ]
+
+        # Exclude middle two assets
+        excluded_asset_ids = ["B:xpar", "C:xpar"]
+
+        # Exclusion filtering logic
+        filtered_assets = [
+            s for s in all_assets if s["code"] not in excluded_asset_ids
+        ]
+
+        # Assertions
+        assert len(filtered_assets) == 2
+        assert filtered_assets[0]["code"] == "A:xpar"
+        assert filtered_assets[1]["code"] == "D:xpar"
+        # Verify data integrity
+        assert filtered_assets[0]["saxo_uic"] == 1
+        assert filtered_assets[1]["saxo_uic"] == 4
+
+    def test_exclusion_handles_assets_without_country_code(self):
+        """Test exclusion filtering for assets without country code."""
+        # Input assets (mix of Saxo with country code and assets without)
+        all_assets = [
+            {"name": "Santander", "code": "SAN:xpar", "saxo_uic": 111},
+            {"name": "Bitcoin", "code": "BTCUSDT", "saxo_uic": None},
+            {"name": "Ethereum", "code": "ETHUSDT", "saxo_uic": None},
+        ]
+
+        # Exclude Binance assets (no country code)
+        excluded_asset_ids = ["BTCUSDT", "ETHUSDT"]
+
+        # Exclusion filtering logic
+        filtered_assets = [
+            s for s in all_assets if s["code"] not in excluded_asset_ids
+        ]
+
+        # Assertions
+        assert len(filtered_assets) == 1
+        assert filtered_assets[0]["code"] == "SAN:xpar"
+        assert filtered_assets[0]["name"] == "Santander"

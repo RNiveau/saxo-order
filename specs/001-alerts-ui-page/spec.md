@@ -2,8 +2,19 @@
 
 **Feature Branch**: `001-alerts-ui-page`
 **Created**: 2026-01-10
-**Status**: Draft
+**Status**: ✅ Complete (Last Updated: 2026-01-26)
 **Input**: User description: "Today the alerting system runs every days and send a slack message. That's useful but we can't see these alerts in the UI yet. I want to see in a new page all the alerts. The alerts can live 7 days. They disappear after that."
+
+## Implementation Status
+
+| User Story | Priority | Status | Documentation |
+|------------|----------|--------|---------------|
+| **US1**: View All Active Alerts | P1 | ✅ Complete | See plan.md |
+| **US2**: Filter and Search Alerts | P2 | ✅ Complete | See plan.md |
+| **US3**: Sort Alerts by MA50 Slope | P2 | ✅ Complete | See plan.md |
+| **US4**: Exclude Assets from Alerting | P2 | ✅ Complete | [`user-story-4-asset-exclusion/`](./user-story-4-asset-exclusion/) |
+
+**Overall Feature Status**: All user stories completed and production-ready.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -58,6 +69,36 @@ As a trader, I want to sort all alerts by their MA50 slope (highest first) so I 
 
 ---
 
+### User Story 4 - Exclude Assets from Alerting (Priority: P2)
+
+As a trader, I want to exclude specific assets from alert processing so I can prevent unwanted alerts from appearing in my alert view and reduce computational overhead during batch runs.
+
+**Why this priority**: This improves system efficiency by skipping processing for assets I'm not interested in, and reduces noise in the alert view. It's particularly useful for assets that consistently generate false signals or are no longer relevant to my trading strategy.
+
+**Independent Test**: Add an asset to the exclusion list, run the batch alerting process, verify that no alerts are generated for the excluded asset and it doesn't appear in the alert view.
+
+**Acceptance Scenarios**:
+
+1. **Given** an asset is added to the exclusion list, **When** the batch alerting runs, **Then** that asset is skipped during processing and no alerts are generated for it
+2. **Given** an asset is in the exclusion list, **When** I view the Alerts page, **Then** any existing alerts for that asset are filtered out and not displayed
+3. **Given** an asset is excluded, **When** I manually trigger alerting for that specific asset using `--code`, **Then** the system respects the exclusion and does not process or generate alerts for it
+4. **Given** I have excluded assets, **When** I view the exclusion list, **Then** I see all currently excluded assets with their codes and country codes
+5. **Given** an asset is excluded, **When** I remove it from the exclusion list, **Then** future batch runs will process that asset again and new alerts will appear in the alert view
+6. **Given** multiple assets are excluded, **When** batch alerting builds the watchlist, **Then** all excluded assets are filtered out before processing begins, reducing total processing time
+
+> **📁 Implementation Documentation**: User Story 4 has been implemented. For complete implementation details, see [`user-story-4-asset-exclusion/`](./user-story-4-asset-exclusion/) directory which contains:
+> - Implementation plan and task breakdown
+> - API specifications (OpenAPI 3.0)
+> - Test results and testing guides
+> - Performance validation methodology
+> - Complete feature summary
+>
+> **Quick Start**: See [`user-story-4-asset-exclusion/README.md`](./user-story-4-asset-exclusion/README.md) for navigation guide.
+>
+> **Status**: ✅ Complete - Ready for Deployment (2026-01-26)
+
+---
+
 ### Edge Cases
 
 - What happens when no alerts exist in the last 7 days? (Display empty state message: "No active alerts")
@@ -72,6 +113,10 @@ As a trader, I want to sort all alerts by their MA50 slope (highest first) so I 
 - What happens when MA50 cannot be calculated for an asset due to insufficient historical data? (Store ma50_slope as null/0 in alert data)
 - What happens when all alerts have negative MA50 slopes? (Sort descending by slope value: -5 appears before -10, -10 before -20)
 - What happens when MA50 slope value is missing or null for display? (Display "N/A" or "--" instead of a percentage)
+- What happens when an asset is added to the exclusion list but already has active alerts? (Existing alerts are hidden from view but remain in storage until TTL expires)
+- What happens when trying to exclude an asset that doesn't exist in the watchlist? (System accepts the exclusion and will skip it if encountered in future)
+- What happens when all assets in the watchlist are excluded? (Batch run completes quickly with "No alerts for today" message, no processing occurs)
+- What happens when an excluded asset is removed from the exclusion list mid-batch run? (Change takes effect on next batch run, current run continues with original exclusion list)
 
 ## Requirements *(mandatory)*
 
@@ -110,6 +155,15 @@ As a trader, I want to sort all alerts by their MA50 slope (highest first) so I 
 - **FR-022**: TradingView link MUST use the same icon used throughout the application and MUST respect the custom link feature (if configured for the asset)
 - **FR-023**: MA50 slope value MUST be displayed as a formatted percentage (e.g., "+15.2%", "-8.3%") with appropriate visual styling (positive values in green, negative in red)
 
+**Asset Exclusion (Priority P2):**
+- **FR-024**: System MUST maintain a persistent list of excluded assets identified by asset code and country code
+- **FR-025**: Batch alerting process MUST filter out excluded assets from the watchlist before processing begins
+- **FR-026**: Alert retrieval API MUST filter out alerts for excluded assets before returning results to the UI
+- **FR-027**: System MUST allow adding assets to the exclusion list via configuration file or database
+- **FR-028**: System MUST allow removing assets from the exclusion list
+- **FR-029**: Exclusion MUST apply to both automatic batch runs and manual single-asset alerting commands
+- **FR-030**: System MUST log when assets are skipped due to exclusion for debugging purposes
+
 ### Key Entities
 
 - **Alert**: Represents a single alert notification generated by the alerting system
@@ -128,6 +182,12 @@ As a trader, I want to sort all alerts by their MA50 slope (highest first) so I 
   - Asset filter: Selected asset or "all"
   - Type filter: Selected alert type or "all"
 
+- **ExcludedAsset**: Represents an asset that should be excluded from alert processing
+  - Asset Code: The unique identifier of the asset (e.g., "SAN", "AAPL")
+  - Country Code: The market/country code for the asset (e.g., "xpar", "xnas")
+  - Exclusion Reason: Optional note explaining why the asset is excluded
+  - Added Date: When the exclusion was added (for audit purposes)
+
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
@@ -144,6 +204,9 @@ As a trader, I want to sort all alerts by their MA50 slope (highest first) so I 
 - **SC-010**: MA50 slope sorting correctly orders alerts by slope value descending (highest slope first, e.g., +15 before +5 before -5 before -15)
 - **SC-011**: Sorting by MA50 slope completes within 500ms for up to 500 alerts
 - **SC-012**: Sort selection persists or resets predictably across page operations (filter changes, pagination)
+- **SC-013**: Excluded assets are never processed during batch runs, reducing total processing time proportionally to the number of excluded assets
+- **SC-014**: Alerts for excluded assets never appear in the UI, even if they exist in storage from before exclusion
+- **SC-015**: Adding or removing an asset from the exclusion list takes effect on the next batch run (within 24 hours maximum)
 
 ### Assumptions
 
@@ -160,6 +223,9 @@ As a trader, I want to sort all alerts by their MA50 slope (highest first) so I 
 - MA50 slope calculation logic already exists in indicator_service.py and can be reused for all alert types
 - MA50 slope is calculated at alert generation time and stored with the alert (not calculated on-demand in UI)
 - Assets have sufficient historical data (50+ candles) to calculate MA50 slope for most alerts
+- Asset exclusion list can be stored in a configuration file, DynamoDB table, or similar persistent storage
+- Exclusion list is read at the start of each batch run (no runtime updates during processing)
+- Excluded assets remain in their original data sources (e.g., Saxo API, followup-stocks.json) but are filtered out during watchlist construction
 
 ## Technical Constraints
 

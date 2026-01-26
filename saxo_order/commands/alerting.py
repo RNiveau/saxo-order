@@ -432,9 +432,24 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
 
         assets = unique_stocks
 
-    if assets is None or len(assets) == 0:
-        logger.error("No stocks to alert")
-        raise click.Abort()
+    # Filter out excluded assets
+    excluded_asset_ids = dynamodb_client.get_excluded_assets()
+    logger.info(f"Excluded assets: {excluded_asset_ids}")
+
+    original_count = len(assets)
+    assets = [s for s in assets if s["code"] not in excluded_asset_ids]
+    filtered_count = original_count - len(assets)
+
+    logger.info(f"Assets after exclusion filtering: {len(assets)}")
+    logger.info(f"Filtered out {filtered_count} excluded assets")
+
+    if len(assets) == 0:
+        logger.warning("All assets are excluded. No alerts will be generated.")
+        slack_client.chat_postMessage(
+            channel="#stock",
+            text="No alerts for today (all assets excluded).",
+        )
+        return
 
     slack_messages: Dict[str, List[str]] = {
         "double_top": [],

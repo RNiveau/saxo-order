@@ -2,8 +2,9 @@ import os
 from functools import lru_cache
 from typing import Optional, Union
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 
+from api.services.asset_details_service import AssetDetailsService
 from client.aws_client import AwsClient, DynamoDBClient
 from client.binance_client import BinanceClient
 from client.gsheet_client import GSheetClient
@@ -121,3 +122,19 @@ def get_gsheet_client() -> GSheetClient:
         key_path=config.gsheet_creds_path,
         spreadsheet_id=config.spreadsheet_id,
     )
+
+
+def get_asset_details_service(
+    dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
+) -> AssetDetailsService:
+    """
+    Get AssetDetailsService instance.
+    This is a dependency that can be injected into FastAPI endpoints.
+
+    Args:
+        dynamodb_client: DynamoDB client instance
+
+    Returns:
+        AssetDetailsService instance
+    """
+    return AssetDetailsService(dynamodb_client)

@@ -541,6 +541,140 @@ npm run build          # Creates frontend/dist/
 
 ---
 
+## Asset Exclusion
+
+### Overview
+
+Assets can be excluded from alert processing to reduce noise and improve batch run efficiency. Excluded assets are automatically:
+- Skipped during batch alerting runs
+- Filtered out from alert view
+- Removed from filter dropdowns
+
+### Accessing Exclusion Management
+
+1. Navigate to `/exclusions` or click "Asset Exclusions" in the sidebar
+2. View excluded and active assets in separate sections
+3. Use search box to quickly find assets
+
+### Excluding/Un-excluding Assets
+
+**Via UI**:
+1. Find asset in the appropriate section (Active Assets or Excluded Assets)
+2. Click "Exclude" or "Un-exclude" button
+3. Confirm in dialog
+4. Changes take effect on next batch run (within 24 hours)
+
+**Programmatically**:
+```python
+# Via DynamoDB client
+from client.aws_client import DynamoDBClient
+
+dynamodb = DynamoDBClient()
+
+# Exclude an asset
+dynamodb.update_asset_exclusion("SAN", True)
+
+# Un-exclude an asset
+dynamodb.update_asset_exclusion("SAN", False)
+
+# Get list of excluded assets
+excluded = dynamodb.get_excluded_assets()
+print(f"Excluded assets: {excluded}")
+```
+
+**Via API**:
+```bash
+# Exclude an asset
+curl -X PUT http://localhost:8000/api/asset-details/SAN/exclusion \
+  -H "Content-Type: application/json" \
+  -d '{"is_excluded": true}'
+
+# Un-exclude an asset
+curl -X PUT http://localhost:8000/api/asset-details/SAN/exclusion \
+  -H "Content-Type: application/json" \
+  -d '{"is_excluded": false}'
+
+# Get all excluded assets
+curl http://localhost:8000/api/asset-details/excluded/list | jq .
+
+# Get all assets with exclusion status
+curl http://localhost:8000/api/asset-details | jq .
+```
+
+### Effects of Exclusion
+
+**Batch Alerting**:
+- Excluded assets are filtered from watchlist before processing begins
+- No detection algorithms run for excluded assets
+- Batch run time reduces proportionally (10 excluded ≈ 10% faster)
+- Logs show filtered count: `Filtered out 10 excluded assets`
+
+**Alert View**:
+- Existing alerts for excluded assets are hidden from UI
+- Excluded assets don't appear in filter dropdowns
+- Alerts remain in DynamoDB until TTL expires (7 days)
+
+**Manual Alerting**:
+```bash
+# This will respect exclusions and skip processing
+poetry run k-order alerting --code=SAN --country-code=xpar
+```
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/asset-details` | Get all assets with exclusion status |
+| GET | `/api/asset-details/{asset_id}` | Get single asset details |
+| PUT | `/api/asset-details/{asset_id}/exclusion` | Toggle exclusion status |
+| GET | `/api/asset-details/excluded/list` | Get only excluded assets |
+
+See `contracts/asset-exclusion-api.yaml` for full OpenAPI specification.
+
+### Troubleshooting Exclusions
+
+**Problem: Asset still generating alerts after exclusion**
+
+**Cause**: Exclusion takes effect on next batch run (not immediate)
+
+**Solution**:
+1. Verify exclusion was successful:
+   ```bash
+   curl http://localhost:8000/api/asset-details/SAN | jq '.is_excluded'
+   # Should return: true
+   ```
+2. Wait for next scheduled batch run (6:15 PM Paris time, Mon-Fri)
+3. Or manually trigger: `poetry run k-order alerting`
+4. Check logs confirm filtering: `Filtered out N excluded assets`
+
+**Problem: Excluded asset appears in alert view**
+
+**Cause**: Backend filtering not applied or cache issue
+
+**Solution**:
+1. Refresh the page (frontend cache clear)
+2. Check backend logs for filtering message
+3. Verify API response excludes asset:
+   ```bash
+   curl http://localhost:8000/api/alerts | jq '.alerts[].asset_code' | grep SAN
+   # Should return nothing if SAN is excluded
+   ```
+
+**Problem: Cannot find asset in exclusion management page**
+
+**Cause**: Asset not yet in `asset_details` table
+
+**Solution**:
+- Assets only appear after first manual interaction (e.g., setting TradingView link)
+- You can still exclude via API by creating the record:
+  ```bash
+  curl -X PUT http://localhost:8000/api/asset-details/NEWASSET/exclusion \
+    -H "Content-Type: application/json" \
+    -d '{"is_excluded": true}'
+  ```
+
+---
+
 ## Next Steps
 
 After completing this quickstart:

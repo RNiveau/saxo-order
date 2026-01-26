@@ -43,6 +43,21 @@ class AlertingService:
         # Fetch all alerts from DynamoDB
         all_alerts: List[Alert] = self.dynamodb_client.get_all_alerts()
 
+        # Filter out alerts from excluded assets
+        excluded_asset_ids = self.dynamodb_client.get_excluded_assets()
+        original_count = len(all_alerts)
+        all_alerts = [
+            alert
+            for alert in all_alerts
+            if alert.asset_code not in excluded_asset_ids
+        ]
+        filtered_count = original_count - len(all_alerts)
+
+        if filtered_count > 0:
+            logger.info(
+                f"Filtered {filtered_count} alerts from excluded assets"
+            )
+
         # Apply filters
         filtered_alerts = all_alerts
         if asset_code:

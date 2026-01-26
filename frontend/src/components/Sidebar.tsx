@@ -137,6 +137,15 @@ export function Sidebar() {
           </li>
           <li>
             <NavLink
+              to="/exclusions"
+              className={({ isActive }) => isActive ? 'active' : ''}
+            >
+              <span className="icon">🚫</span>
+              <span className="label">Asset Exclusions</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
               to="/report"
               className={({ isActive }) => isActive ? 'active' : ''}
             >
