@@ -10,7 +10,7 @@ The asset exclusion feature has been successfully implemented, tested, and docum
 
 ### Key Achievements
 - ✅ **20/20 tasks completed** (100%)
-- ✅ **25 automated tests passing** (100% pass rate)
+- ✅ **15 automated tests passing** (100% pass rate, removed 10 mock-only tests)
 - ✅ **4 new API endpoints** implemented
 - ✅ **Full UI management interface** built
 - ✅ **Backward compatible** (no breaking changes)
@@ -236,20 +236,9 @@ all_alerts = [alert for alert in all_alerts if alert.asset_code not in excluded_
    - `test_exclusion_preserves_non_excluded_assets`
    - `test_exclusion_handles_assets_without_country_code`
 
-#### Integration Tests (10 tests)
-4. **API Endpoint Tests** (`tests/api/routers/test_asset_details.py`):
-   - `test_get_asset_details_success`
-   - `test_get_asset_details_with_exclusion`
-   - `test_update_exclusion_to_true`
-   - `test_update_exclusion_to_false`
-   - `test_update_exclusion_invalid_request`
-   - `test_update_exclusion_service_error`
-   - `test_get_all_assets_success`
-   - `test_get_all_assets_empty`
-   - `test_get_excluded_assets_success`
-   - `test_get_excluded_assets_empty`
+**Test Coverage**: 15/15 passing (100%)
 
-**Test Coverage**: 25/25 passing (100%)
+**Note**: Router layer integration tests (10 tests) were removed as they only tested mocks, not real logic. The router is a thin wrapper with no business logic. API endpoints are validated through service layer tests (which test real implementation) and manual testing.
 
 ### Documentation
 
@@ -562,7 +551,7 @@ Potential future improvements:
 The asset exclusion feature has been successfully implemented with:
 - ✅ Complete backend API (4 endpoints)
 - ✅ Complete frontend UI (management page + integration)
-- ✅ Comprehensive testing (25 passing tests)
+- ✅ Comprehensive testing (15 tests with real logic, removed 10 mock-only tests)
 - ✅ Full documentation (OpenAPI, guides, test plans)
 - ✅ Backward compatibility (no breaking changes)
 - ✅ Performance optimization (proportional time savings)

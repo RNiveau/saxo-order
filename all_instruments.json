@@ -1,0 +1,5111 @@
+[
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "TotalEnergies SE",
+    "ExchangeId": "PAR",
+    "GroupId": 6516,
+    "Identifier": 23255427,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 23255427,
+    "SummaryType": "Instrument",
+    "Symbol": "TTE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "LVMH Moet Hennessy Louis Vuitton",
+    "ExchangeId": "PAR",
+    "GroupId": 1741,
+    "Identifier": 112813,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 112813,
+    "SummaryType": "Instrument",
+    "Symbol": "MC:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "BNP Paribas SA",
+    "ExchangeId": "PAR",
+    "GroupId": 132,
+    "Identifier": 112806,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 112806,
+    "SummaryType": "Instrument",
+    "Symbol": "BNP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "AIR France - KLM",
+    "ExchangeId": "PAR",
+    "GroupId": 2189,
+    "Identifier": 23820,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 23820,
+    "SummaryType": "Instrument",
+    "Symbol": "AF:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Air Liquide SA",
+    "ExchangeId": "PAR",
+    "GroupId": 72,
+    "Identifier": 111921,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 111921,
+    "SummaryType": "Instrument",
+    "Symbol": "AI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Airbus SE",
+    "ExchangeId": "PAR",
+    "GroupId": 1333,
+    "Identifier": 590850,
+    "IssuerCountry": "NL",
+    "PrimaryListing": 590850,
+    "SummaryType": "Instrument",
+    "Symbol": "AIR:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Sanofi SA",
+    "ExchangeId": "PAR",
+    "GroupId": 1295,
+    "Identifier": 114879,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 114879,
+    "SummaryType": "Instrument",
+    "Symbol": "SAN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Stellantis N.V.",
+    "ExchangeId": "PAR",
+    "GroupId": 221,
+    "Identifier": 33876623,
+    "IssuerCountry": "NL",
+    "PrimaryListing": 33876623,
+    "SummaryType": "Instrument",
+    "Symbol": "STLAP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Schneider Electric SE",
+    "ExchangeId": "PAR",
+    "GroupId": 568,
+    "Identifier": 114880,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 114880,
+    "SummaryType": "Instrument",
+    "Symbol": "SU:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Thales",
+    "ExchangeId": "PAR",
+    "GroupId": 395,
+    "Identifier": 2824,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2824,
+    "SummaryType": "Instrument",
+    "Symbol": "TCFP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Renault SA",
+    "ExchangeId": "PAR",
+    "GroupId": 6424,
+    "Identifier": 113958,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 113958,
+    "SummaryType": "Instrument",
+    "Symbol": "RNO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Eutelsat Communications",
+    "ExchangeId": "PAR",
+    "GroupId": 1558,
+    "Identifier": 21104,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 21104,
+    "SummaryType": "Instrument",
+    "Symbol": "ETL:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Engie SA",
+    "ExchangeId": "PAR",
+    "GroupId": 84,
+    "Identifier": 2258142,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2258142,
+    "SummaryType": "Instrument",
+    "Symbol": "ENGI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "FDJ United",
+    "ExchangeId": "PAR",
+    "GroupId": 1974,
+    "Identifier": 48048913,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 48048913,
+    "SummaryType": "Instrument",
+    "Symbol": "FDJU:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Vusion",
+    "ExchangeId": "PAR",
+    "GroupId": 3748,
+    "Identifier": 39844721,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 39844721,
+    "SummaryType": "Instrument",
+    "Symbol": "VU:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "DBV Technologies",
+    "ExchangeId": "PAR",
+    "GroupId": 18613,
+    "Identifier": 258151,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 258151,
+    "SummaryType": "Instrument",
+    "Symbol": "DBV:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "SOITEC",
+    "ExchangeId": "PAR",
+    "GroupId": 293,
+    "Identifier": 17518,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 17518,
+    "SummaryType": "Instrument",
+    "Symbol": "SOI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Edenred SA",
+    "ExchangeId": "PAR",
+    "GroupId": 11271,
+    "Identifier": 47604,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 47604,
+    "SummaryType": "Instrument",
+    "Symbol": "EDEN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Exail Technologies SA",
+    "ExchangeId": "PAR",
+    "GroupId": 5431,
+    "Identifier": 32787362,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 32787362,
+    "SummaryType": "Instrument",
+    "Symbol": "EXA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Dassault Systemes SE",
+    "ExchangeId": "PAR",
+    "GroupId": 6336,
+    "Identifier": 2806,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2806,
+    "SummaryType": "Instrument",
+    "Symbol": "DAST:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "EssilorLuxottica SA",
+    "ExchangeId": "PAR",
+    "GroupId": 1988,
+    "Identifier": 10910402,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 10910402,
+    "SummaryType": "Instrument",
+    "Symbol": "EL:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Abivax SA",
+    "ExchangeId": "PAR",
+    "GroupId": 4202,
+    "Identifier": 2202854,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2202854,
+    "SummaryType": "Instrument",
+    "Symbol": "ABVX:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Worldline SA",
+    "ExchangeId": "PAR",
+    "GroupId": 196,
+    "Identifier": 1069191,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1069191,
+    "SummaryType": "Instrument",
+    "Symbol": "WLN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Pernod Ricard SA",
+    "ExchangeId": "PAR",
+    "GroupId": 4238,
+    "Identifier": 7854,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 7854,
+    "SummaryType": "Instrument",
+    "Symbol": "RI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Ubisoft Entertainment",
+    "ExchangeId": "PAR",
+    "GroupId": 197,
+    "Identifier": 13254,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13254,
+    "SummaryType": "Instrument",
+    "Symbol": "UBIP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "L'Oreal SA",
+    "ExchangeId": "PAR",
+    "GroupId": 53,
+    "Identifier": 112811,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 112811,
+    "SummaryType": "Instrument",
+    "Symbol": "OR:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Societe Generale",
+    "ExchangeId": "PAR",
+    "GroupId": 195,
+    "Identifier": 1622,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1622,
+    "SummaryType": "Instrument",
+    "Symbol": "GLE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "AXA SA",
+    "ExchangeId": "PAR",
+    "GroupId": 3753,
+    "Identifier": 112805,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 112805,
+    "SummaryType": "Instrument",
+    "Symbol": "CS:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Atos",
+    "ExchangeId": "PAR",
+    "GroupId": 2416,
+    "Identifier": 13104,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13104,
+    "SummaryType": "Instrument",
+    "Symbol": "ATOS:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Saint Gobain",
+    "ExchangeId": "PAR",
+    "GroupId": 1613,
+    "Identifier": 113959,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 113959,
+    "SummaryType": "Instrument",
+    "Symbol": "SGO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Nanobiotix",
+    "ExchangeId": "PAR",
+    "GroupId": 9269,
+    "Identifier": 290534,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 290534,
+    "SummaryType": "Instrument",
+    "Symbol": "NANO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Bassac SA",
+    "ExchangeId": "PAR",
+    "GroupId": 14500,
+    "Identifier": 16183941,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 16183941,
+    "SummaryType": "Instrument",
+    "Symbol": "BASS:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Capgemini",
+    "ExchangeId": "PAR",
+    "GroupId": 3293,
+    "Identifier": 112807,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 112807,
+    "SummaryType": "Instrument",
+    "Symbol": "CAP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Vinci",
+    "ExchangeId": "PAR",
+    "GroupId": 11259,
+    "Identifier": 7853,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 7853,
+    "SummaryType": "Instrument",
+    "Symbol": "DG:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Valneva SE",
+    "ExchangeId": "PAR",
+    "GroupId": 887,
+    "Identifier": 397707,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 397707,
+    "SummaryType": "Instrument",
+    "Symbol": "VLA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "STMicroelectronics NV",
+    "ExchangeId": "PAR",
+    "GroupId": 4896,
+    "Identifier": 34356356,
+    "IssuerCountry": "NL",
+    "PrimaryListing": 34356356,
+    "SummaryType": "Instrument",
+    "Symbol": "STMPA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Safran ",
+    "ExchangeId": "PAR",
+    "GroupId": 1571,
+    "Identifier": 15311,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 15311,
+    "SummaryType": "Instrument",
+    "Symbol": "SAF:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Vallourec",
+    "ExchangeId": "PAR",
+    "GroupId": 8523,
+    "Identifier": 117274,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 117274,
+    "SummaryType": "Instrument",
+    "Symbol": "VK:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Alstom SA",
+    "ExchangeId": "PAR",
+    "GroupId": 552,
+    "Identifier": 111922,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 111922,
+    "SummaryType": "Instrument",
+    "Symbol": "ALO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Teleperformance SE",
+    "ExchangeId": "PAR",
+    "GroupId": 3847,
+    "Identifier": 9580372,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 9580372,
+    "SummaryType": "Instrument",
+    "Symbol": "TEP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Inventiva",
+    "ExchangeId": "PAR",
+    "GroupId": 11816,
+    "Identifier": 6216079,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 6216079,
+    "SummaryType": "Instrument",
+    "Symbol": "IVA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Hermes Intl.",
+    "ExchangeId": "PAR",
+    "GroupId": 6428,
+    "Identifier": 30044649,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 30044649,
+    "SummaryType": "Instrument",
+    "Symbol": "RMS:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Gaztransport & Technigaz SA",
+    "ExchangeId": "PAR",
+    "GroupId": 2243,
+    "Identifier": 703796,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 703796,
+    "SummaryType": "Instrument",
+    "Symbol": "GTT:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Veolia Environnement SA",
+    "ExchangeId": "PAR",
+    "GroupId": 7893,
+    "Identifier": 2826,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2826,
+    "SummaryType": "Instrument",
+    "Symbol": "VIE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Credit Agricole SA",
+    "ExchangeId": "PAR",
+    "GroupId": 808,
+    "Identifier": 7852,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 7852,
+    "SummaryType": "Instrument",
+    "Symbol": "ACA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "X-FAB Silicon Foundries SE",
+    "ExchangeId": "PAR",
+    "GroupId": 17676,
+    "Identifier": 6716068,
+    "IssuerCountry": "BE",
+    "PrimaryListing": 6716068,
+    "SummaryType": "Instrument",
+    "Symbol": "XFAB:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Viridien",
+    "ExchangeId": "PAR",
+    "GroupId": 2480,
+    "Identifier": 42328896,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 42328896,
+    "SummaryType": "Instrument",
+    "Symbol": "VIRI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Carrefour",
+    "ExchangeId": "PAR",
+    "GroupId": 4722,
+    "Identifier": 112808,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 112808,
+    "SummaryType": "Instrument",
+    "Symbol": "CA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Kering SA",
+    "ExchangeId": "PAR",
+    "GroupId": 591,
+    "Identifier": 398681,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 398681,
+    "SummaryType": "Instrument",
+    "Symbol": "KER:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Dassault Aviation SA",
+    "ExchangeId": "PAR",
+    "GroupId": 6338,
+    "Identifier": 25162340,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 25162340,
+    "SummaryType": "Instrument",
+    "Symbol": "AM:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Euronext NV",
+    "ExchangeId": "PAR",
+    "GroupId": 19367,
+    "Identifier": 956409,
+    "IssuerCountry": "NL",
+    "PrimaryListing": 956409,
+    "SummaryType": "Instrument",
+    "Symbol": "ENX:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "OVH GROUPE",
+    "ExchangeId": "PAR",
+    "GroupId": 3185,
+    "Identifier": 25287622,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 25287622,
+    "SummaryType": "Instrument",
+    "Symbol": "OVH:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Medincell SA",
+    "ExchangeId": "PAR",
+    "GroupId": 2902,
+    "Identifier": 12007429,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 12007429,
+    "SummaryType": "Instrument",
+    "Symbol": "MEDCL:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Eramet",
+    "ExchangeId": "PAR",
+    "GroupId": 3224,
+    "Identifier": 13142,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13142,
+    "SummaryType": "Instrument",
+    "Symbol": "ERMT:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Emeis",
+    "ExchangeId": "PAR",
+    "GroupId": 3117,
+    "Identifier": 43087727,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 43087727,
+    "SummaryType": "Instrument",
+    "Symbol": "EMEIS:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Technip Energies NV",
+    "ExchangeId": "PAR",
+    "GroupId": 9028,
+    "Identifier": 21415258,
+    "IssuerCountry": "NL",
+    "PrimaryListing": 21415258,
+    "SummaryType": "Instrument",
+    "Symbol": "TE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Exosens",
+    "ExchangeId": "PAR",
+    "GroupId": 3203,
+    "Identifier": 42652359,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 42652359,
+    "SummaryType": "Instrument",
+    "Symbol": "EXENS:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Scor SE",
+    "ExchangeId": "PAR",
+    "GroupId": 24146,
+    "Identifier": 24920,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 24920,
+    "SummaryType": "Instrument",
+    "Symbol": "SCR:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "DERICHEBOURG",
+    "ExchangeId": "PAR",
+    "GroupId": 23826,
+    "Identifier": 28249,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 28249,
+    "SummaryType": "Instrument",
+    "Symbol": "DBG:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Adocia",
+    "ExchangeId": "PAR",
+    "GroupId": 20833,
+    "Identifier": 132618,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 132618,
+    "SummaryType": "Instrument",
+    "Symbol": "ADOC:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Orange SA",
+    "ExchangeId": "PAR",
+    "GroupId": 2707,
+    "Identifier": 417208,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 417208,
+    "SummaryType": "Instrument",
+    "Symbol": "ORA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Clariane",
+    "ExchangeId": "PAR",
+    "GroupId": 1120,
+    "Identifier": 36069536,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36069536,
+    "SummaryType": "Instrument",
+    "Symbol": "CLARI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "STIF S.A.",
+    "ExchangeId": "PAR",
+    "GroupId": 3843,
+    "Identifier": 39154857,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 39154857,
+    "SummaryType": "Instrument",
+    "Symbol": "ALSTI:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Abionyx Pharma SA",
+    "ExchangeId": "PAR",
+    "GroupId": 15003,
+    "Identifier": 14742146,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 14742146,
+    "SummaryType": "Instrument",
+    "Symbol": "ABNX:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Maurel et Prom",
+    "ExchangeId": "PAR",
+    "GroupId": 1731,
+    "Identifier": 13511,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 49440702,
+    "SummaryType": "Instrument",
+    "Symbol": "MAUP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Vivendi",
+    "ExchangeId": "PAR",
+    "GroupId": 11260,
+    "Identifier": 21447,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 21447,
+    "SummaryType": "Instrument",
+    "Symbol": "VIV:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Sodexo",
+    "ExchangeId": "PAR",
+    "GroupId": 979,
+    "Identifier": 2809,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2809,
+    "SummaryType": "Instrument",
+    "Symbol": "EXHO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Remy Cointreau",
+    "ExchangeId": "PAR",
+    "GroupId": 3854,
+    "Identifier": 13229,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13229,
+    "SummaryType": "Instrument",
+    "Symbol": "RCOP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Legrand",
+    "ExchangeId": "PAR",
+    "GroupId": 3853,
+    "Identifier": 21377,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 21377,
+    "SummaryType": "Instrument",
+    "Symbol": "LR:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Forvia SE",
+    "ExchangeId": "PAR",
+    "GroupId": 2822,
+    "Identifier": 35807942,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 35807942,
+    "SummaryType": "Instrument",
+    "Symbol": "FRVIA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Coface SA",
+    "ExchangeId": "PAR",
+    "GroupId": 4509,
+    "Identifier": 983848,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 983848,
+    "SummaryType": "Instrument",
+    "Symbol": "COFA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Amundi SA",
+    "ExchangeId": "PAR",
+    "GroupId": 193,
+    "Identifier": 2873655,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2873655,
+    "SummaryType": "Instrument",
+    "Symbol": "AMUN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Valeo",
+    "ExchangeId": "PAR",
+    "GroupId": 17964,
+    "Identifier": 4710,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 4710,
+    "SummaryType": "Instrument",
+    "Symbol": "VLOF:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Unibail-Rodamco-Westfield SE",
+    "ExchangeId": "PAR",
+    "GroupId": 11246,
+    "Identifier": 19099381,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 19099381,
+    "SummaryType": "Instrument",
+    "Symbol": "URW:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Michelin",
+    "ExchangeId": "PAR",
+    "GroupId": 7561,
+    "Identifier": 112814,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 112814,
+    "SummaryType": "Instrument",
+    "Symbol": "ML:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Mersen",
+    "ExchangeId": "PAR",
+    "GroupId": 24931,
+    "Identifier": 13123,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13123,
+    "SummaryType": "Instrument",
+    "Symbol": "CBLP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Rubis SCA",
+    "ExchangeId": "PAR",
+    "GroupId": 11245,
+    "Identifier": 7503877,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 7503877,
+    "SummaryType": "Instrument",
+    "Symbol": "RUI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Elior Group SCA",
+    "ExchangeId": "PAR",
+    "GroupId": 291,
+    "Identifier": 931834,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 931834,
+    "SummaryType": "Instrument",
+    "Symbol": "ELIOR:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Ipsos",
+    "ExchangeId": "PAR",
+    "GroupId": 24953,
+    "Identifier": 13188,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13188,
+    "SummaryType": "Instrument",
+    "Symbol": "ISOS:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Genfit",
+    "ExchangeId": "PAR",
+    "GroupId": 380,
+    "Identifier": 803481,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 803481,
+    "SummaryType": "Instrument",
+    "Symbol": "GNFT:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Publicis Groupe",
+    "ExchangeId": "PAR",
+    "GroupId": 11265,
+    "Identifier": 10618,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 10618,
+    "SummaryType": "Instrument",
+    "Symbol": "PUBP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Nexity SA",
+    "ExchangeId": "PAR",
+    "GroupId": 11275,
+    "Identifier": 23824,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 23824,
+    "SummaryType": "Instrument",
+    "Symbol": "NXI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Getlink SE",
+    "ExchangeId": "PAR",
+    "GroupId": 11234,
+    "Identifier": 27610,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 27610,
+    "SummaryType": "Instrument",
+    "Symbol": "GET:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Metropole TV",
+    "ExchangeId": "PAR",
+    "GroupId": 11244,
+    "Identifier": 12768,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 12768,
+    "SummaryType": "Instrument",
+    "Symbol": "MMTP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Arkema",
+    "ExchangeId": "PAR",
+    "GroupId": 11268,
+    "Identifier": 21785,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 21785,
+    "SummaryType": "Instrument",
+    "Symbol": "AKE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Danone",
+    "ExchangeId": "PAR",
+    "GroupId": 11256,
+    "Identifier": 112809,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 112809,
+    "SummaryType": "Instrument",
+    "Symbol": "BN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Gensight Biologics SA",
+    "ExchangeId": "PAR",
+    "GroupId": 17758,
+    "Identifier": 5962055,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 5962055,
+    "SummaryType": "Instrument",
+    "Symbol": "SIGHT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Compagnie des Alpes",
+    "ExchangeId": "PAR",
+    "GroupId": 11247,
+    "Identifier": 36956,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36956,
+    "SummaryType": "Instrument",
+    "Symbol": "CDA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Casino Guichard-Perrachon",
+    "ExchangeId": "PAR",
+    "GroupId": 3414,
+    "Identifier": 2803,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2803,
+    "SummaryType": "Instrument",
+    "Symbol": "CASP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Sopra Steria Group SA",
+    "ExchangeId": "PAR",
+    "GroupId": 25083,
+    "Identifier": 11860,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 11860,
+    "SummaryType": "Instrument",
+    "Symbol": "SOPR:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "AB Science",
+    "ExchangeId": "PAR",
+    "GroupId": 21877,
+    "Identifier": 46643,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 46643,
+    "SummaryType": "Instrument",
+    "Symbol": "AB:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Wendel",
+    "ExchangeId": "PAR",
+    "GroupId": 859,
+    "Identifier": 13265,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13265,
+    "SummaryType": "Instrument",
+    "Symbol": "MWDP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Interparfums",
+    "ExchangeId": "PAR",
+    "GroupId": 11267,
+    "Identifier": 36976,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36976,
+    "SummaryType": "Instrument",
+    "Symbol": "ITP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Sartorius Stedim Biotech SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23882,
+    "Identifier": 27975,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 27975,
+    "SummaryType": "Instrument",
+    "Symbol": "DIM:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Innate Pharma SA",
+    "ExchangeId": "PAR",
+    "GroupId": 1906,
+    "Identifier": 23919,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 23919,
+    "SummaryType": "Instrument",
+    "Symbol": "IPH:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Lumibird SA",
+    "ExchangeId": "PAR",
+    "GroupId": 16341,
+    "Identifier": 9761114,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 9761114,
+    "SummaryType": "Instrument",
+    "Symbol": "LBIRD:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "PLUXEE N.V.",
+    "ExchangeId": "PAR",
+    "GroupId": 3689,
+    "Identifier": 40173572,
+    "IssuerCountry": "NL",
+    "PrimaryListing": 40173572,
+    "SummaryType": "Instrument",
+    "Symbol": "PLX:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Accor",
+    "ExchangeId": "PAR",
+    "GroupId": 11255,
+    "Identifier": 111920,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 111920,
+    "SummaryType": "Instrument",
+    "Symbol": "AC:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Eiffage SA",
+    "ExchangeId": "PAR",
+    "GroupId": 11263,
+    "Identifier": 37363,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 37363,
+    "SummaryType": "Instrument",
+    "Symbol": "FGR:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "S.E.B.",
+    "ExchangeId": "PAR",
+    "GroupId": 2359,
+    "Identifier": 13233,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13233,
+    "SummaryType": "Instrument",
+    "Symbol": "SEBF:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Equasens",
+    "ExchangeId": "PAR",
+    "GroupId": 6537,
+    "Identifier": 29512575,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 29512575,
+    "SummaryType": "Instrument",
+    "Symbol": "EQS:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "MAAT PHARMA",
+    "ExchangeId": "PAR",
+    "GroupId": 7792,
+    "Identifier": 25476433,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 25476433,
+    "SummaryType": "Instrument",
+    "Symbol": "MAAT:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Spie SA",
+    "ExchangeId": "PAR",
+    "GroupId": 18611,
+    "Identifier": 1996359,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1996359,
+    "SummaryType": "Instrument",
+    "Symbol": "SPIE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Parrot SA",
+    "ExchangeId": "PAR",
+    "GroupId": 24284,
+    "Identifier": 23236,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 23236,
+    "SummaryType": "Instrument",
+    "Symbol": "PARRO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Alten SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23200,
+    "Identifier": 36982,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36982,
+    "SummaryType": "Instrument",
+    "Symbol": "ATE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Bouygues",
+    "ExchangeId": "PAR",
+    "GroupId": 11266,
+    "Identifier": 99788,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 99788,
+    "SummaryType": "Instrument",
+    "Symbol": "EN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Gecina",
+    "ExchangeId": "PAR",
+    "GroupId": 2900,
+    "Identifier": 13164,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13164,
+    "SummaryType": "Instrument",
+    "Symbol": "GFCP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Mercialys",
+    "ExchangeId": "PAR",
+    "GroupId": 24386,
+    "Identifier": 21591,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 21591,
+    "SummaryType": "Instrument",
+    "Symbol": "MERY:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "TF1",
+    "ExchangeId": "PAR",
+    "GroupId": 11163,
+    "Identifier": 1242522,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1242522,
+    "SummaryType": "Instrument",
+    "Symbol": "TFI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Imerys",
+    "ExchangeId": "PAR",
+    "GroupId": 11258,
+    "Identifier": 13185,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13185,
+    "SummaryType": "Instrument",
+    "Symbol": "IMTP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Transgene SA",
+    "ExchangeId": "PAR",
+    "GroupId": 24248,
+    "Identifier": 24122,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 24122,
+    "SummaryType": "Instrument",
+    "Symbol": "TNG:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Nexans",
+    "ExchangeId": "PAR",
+    "GroupId": 1129,
+    "Identifier": 51467244,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 51467244,
+    "SummaryType": "Instrument",
+    "Symbol": "NEX:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Eurofins Scientific.",
+    "ExchangeId": "PAR",
+    "GroupId": 24866,
+    "Identifier": 14516,
+    "IssuerCountry": "LU",
+    "PrimaryListing": 14516,
+    "SummaryType": "Instrument",
+    "Symbol": "EUFI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "ABC Arbitrage",
+    "ExchangeId": "PAR",
+    "GroupId": 11269,
+    "Identifier": 13858,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13858,
+    "SummaryType": "Instrument",
+    "Symbol": "BITI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Jcdecaux Se",
+    "ExchangeId": "PAR",
+    "GroupId": 6140,
+    "Identifier": 31689627,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 31689627,
+    "SummaryType": "Instrument",
+    "Symbol": "DEC:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "SMCP",
+    "ExchangeId": "PAR",
+    "GroupId": 17042,
+    "Identifier": 8090026,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 8090026,
+    "SummaryType": "Instrument",
+    "Symbol": "SMCP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Ekinops",
+    "ExchangeId": "PAR",
+    "GroupId": 1456,
+    "Identifier": 402632,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 402632,
+    "SummaryType": "Instrument",
+    "Symbol": "EKI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Francaise Energie",
+    "ExchangeId": "PAR",
+    "GroupId": 7251,
+    "Identifier": 27094485,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 27094485,
+    "SummaryType": "Instrument",
+    "Symbol": "FDE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Ayvens SA",
+    "ExchangeId": "PAR",
+    "GroupId": 3232,
+    "Identifier": 42542774,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 42542774,
+    "SummaryType": "Instrument",
+    "Symbol": "AYV:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Euroapi",
+    "ExchangeId": "PAR",
+    "GroupId": 2876,
+    "Identifier": 28926067,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 28926067,
+    "SummaryType": "Instrument",
+    "Symbol": "EAPI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Trigano SA",
+    "ExchangeId": "PAR",
+    "GroupId": 25012,
+    "Identifier": 13253,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13253,
+    "SummaryType": "Instrument",
+    "Symbol": "TRIA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Pierre Vacances",
+    "ExchangeId": "PAR",
+    "GroupId": 24979,
+    "Identifier": 13221,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13221,
+    "SummaryType": "Instrument",
+    "Symbol": "PVAC:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Icade SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23616,
+    "Identifier": 30832,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 30832,
+    "SummaryType": "Instrument",
+    "Symbol": "ICAD:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Seche Environnement SA",
+    "ExchangeId": "PAR",
+    "GroupId": 25001,
+    "Identifier": 13234,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13234,
+    "SummaryType": "Instrument",
+    "Symbol": "CCHE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Eurazeo SE",
+    "ExchangeId": "PAR",
+    "GroupId": 2371,
+    "Identifier": 13146,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13146,
+    "SummaryType": "Instrument",
+    "Symbol": "EURA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Voltalia SA",
+    "ExchangeId": "PAR",
+    "GroupId": 18850,
+    "Identifier": 1618529,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1618529,
+    "SummaryType": "Instrument",
+    "Symbol": "VLTSA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Claranova SA",
+    "ExchangeId": "PAR",
+    "GroupId": 17315,
+    "Identifier": 7251230,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 7251230,
+    "SummaryType": "Instrument",
+    "Symbol": "CLA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "GeNeuro SA",
+    "ExchangeId": "PAR",
+    "GroupId": 18098,
+    "Identifier": 4347601,
+    "IssuerCountry": "CH",
+    "PrimaryListing": 4347601,
+    "SummaryType": "Instrument",
+    "Symbol": "GNRO:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Ose Immuno ",
+    "ExchangeId": "PAR",
+    "GroupId": 18859,
+    "Identifier": 1713584,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1713584,
+    "SummaryType": "Instrument",
+    "Symbol": "OSE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Solutions 30 SE",
+    "ExchangeId": "PAR",
+    "GroupId": 12210,
+    "Identifier": 18459453,
+    "IssuerCountry": "LU",
+    "PrimaryListing": 18459453,
+    "SummaryType": "Instrument",
+    "Symbol": "S30:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "ADP (Aeroports de Paris)",
+    "ExchangeId": "PAR",
+    "GroupId": 11270,
+    "Identifier": 22251,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 22251,
+    "SummaryType": "Instrument",
+    "Symbol": "ADP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Akwel SA",
+    "ExchangeId": "PAR",
+    "GroupId": 16226,
+    "Identifier": 9862950,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 9862950,
+    "SummaryType": "Instrument",
+    "Symbol": "AKW:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Aramis Group SAS",
+    "ExchangeId": "PAR",
+    "GroupId": 8527,
+    "Identifier": 23548560,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 23548560,
+    "SummaryType": "Instrument",
+    "Symbol": "ARAMI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Sword Group",
+    "ExchangeId": "PAR",
+    "GroupId": 23121,
+    "Identifier": 37319,
+    "IssuerCountry": "LU",
+    "PrimaryListing": 37319,
+    "SummaryType": "Instrument",
+    "Symbol": "SWP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Vicat",
+    "ExchangeId": "PAR",
+    "GroupId": 25019,
+    "Identifier": 13260,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13260,
+    "SummaryType": "Instrument",
+    "Symbol": "VCTP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Nacon Sasu",
+    "ExchangeId": "PAR",
+    "GroupId": 13865,
+    "Identifier": 17440161,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 17440161,
+    "SummaryType": "Instrument",
+    "Symbol": "NACON:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Bastide Le Confort Medical SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23359,
+    "Identifier": 33424,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 33424,
+    "SummaryType": "Instrument",
+    "Symbol": "BLC:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "BIC(Societe)",
+    "ExchangeId": "PAR",
+    "GroupId": 1130,
+    "Identifier": 51467245,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 51467245,
+    "SummaryType": "Instrument",
+    "Symbol": "BB:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Memscap",
+    "ExchangeId": "PAR",
+    "GroupId": 24879,
+    "Identifier": 14595,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 14595,
+    "SummaryType": "Instrument",
+    "Symbol": "MEMS:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "BioMerieux SA",
+    "ExchangeId": "PAR",
+    "GroupId": 1458,
+    "Identifier": 37099,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 37099,
+    "SummaryType": "Instrument",
+    "Symbol": "BIM:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Rexel SA",
+    "ExchangeId": "PAR",
+    "GroupId": 3852,
+    "Identifier": 26472,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 26472,
+    "SummaryType": "Instrument",
+    "Symbol": "RXL:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Chantiers Beneteau",
+    "ExchangeId": "PAR",
+    "GroupId": 1461,
+    "Identifier": 13109,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13109,
+    "SummaryType": "Instrument",
+    "Symbol": "CHBE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Quadient",
+    "ExchangeId": "PAR",
+    "GroupId": 14897,
+    "Identifier": 15008686,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 15008686,
+    "SummaryType": "Instrument",
+    "Symbol": "QDT:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Wavestone SA",
+    "ExchangeId": "PAR",
+    "GroupId": 11248,
+    "Identifier": 4641428,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 4641428,
+    "SummaryType": "Instrument",
+    "Symbol": "WAVE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "SES SA",
+    "ExchangeId": "PAR",
+    "GroupId": 715,
+    "Identifier": 21596,
+    "IssuerCountry": "LU",
+    "PrimaryListing": 19092238,
+    "SummaryType": "Instrument",
+    "Symbol": "SESG:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Virbac",
+    "ExchangeId": "PAR",
+    "GroupId": 25021,
+    "Identifier": 13263,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13263,
+    "SummaryType": "Instrument",
+    "Symbol": "VIRB:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "OPmobility",
+    "ExchangeId": "PAR",
+    "GroupId": 3263,
+    "Identifier": 42405019,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 42405019,
+    "SummaryType": "Instrument",
+    "Symbol": "OPM:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Bureau Veritas",
+    "ExchangeId": "PAR",
+    "GroupId": 11274,
+    "Identifier": 29884,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 29884,
+    "SummaryType": "Instrument",
+    "Symbol": "BVI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Neurones",
+    "ExchangeId": "PAR",
+    "GroupId": 2753,
+    "Identifier": 36305,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36305,
+    "SummaryType": "Instrument",
+    "Symbol": "NRO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Peugeot Invest SA",
+    "ExchangeId": "PAR",
+    "GroupId": 2022,
+    "Identifier": 22430773,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 22430773,
+    "SummaryType": "Instrument",
+    "Symbol": "PEUG:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "ID LOGISTICS GROUP",
+    "ExchangeId": "PAR",
+    "GroupId": 3367,
+    "Identifier": 318841,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 318841,
+    "SummaryType": "Instrument",
+    "Symbol": "IDL:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Electricite de Strasbourg",
+    "ExchangeId": "PAR",
+    "GroupId": 19913,
+    "Identifier": 479660,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 479660,
+    "SummaryType": "Instrument",
+    "Symbol": "ELEC:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Figeac Aero SA",
+    "ExchangeId": "PAR",
+    "GroupId": 18257,
+    "Identifier": 3772820,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 3772820,
+    "SummaryType": "Instrument",
+    "Symbol": "FGA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Assystem SA",
+    "ExchangeId": "PAR",
+    "GroupId": 24714,
+    "Identifier": 15775,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 15775,
+    "SummaryType": "Instrument",
+    "Symbol": "ASY:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Bollore",
+    "ExchangeId": "PAR",
+    "GroupId": 11240,
+    "Identifier": 25124,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 25124,
+    "SummaryType": "Instrument",
+    "Symbol": "BOL:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Lisi SA",
+    "ExchangeId": "PAR",
+    "GroupId": 94,
+    "Identifier": 13195,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13195,
+    "SummaryType": "Instrument",
+    "Symbol": "GFII:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Christian Dior",
+    "ExchangeId": "PAR",
+    "GroupId": 6430,
+    "Identifier": 30044651,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 30044651,
+    "SummaryType": "Instrument",
+    "Symbol": "CDI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "LDC SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23193,
+    "Identifier": 36980,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36980,
+    "SummaryType": "Instrument",
+    "Symbol": "LOUP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Bonduelle",
+    "ExchangeId": "PAR",
+    "GroupId": 24923,
+    "Identifier": 13114,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13114,
+    "SummaryType": "Instrument",
+    "Symbol": "BON:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Latecoere",
+    "ExchangeId": "PAR",
+    "GroupId": 413,
+    "Identifier": 49760,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 49760,
+    "SummaryType": "Instrument",
+    "Symbol": "LAT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Manitou BF",
+    "ExchangeId": "PAR",
+    "GroupId": 24966,
+    "Identifier": 13199,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13199,
+    "SummaryType": "Instrument",
+    "Symbol": "MANP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Planisware",
+    "ExchangeId": "PAR",
+    "GroupId": 3103,
+    "Identifier": 43142325,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 43142325,
+    "SummaryType": "Instrument",
+    "Symbol": "PLNW:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Jacquet Metals SA.",
+    "ExchangeId": "PAR",
+    "GroupId": 21202,
+    "Identifier": 53449,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 53449,
+    "SummaryType": "Instrument",
+    "Symbol": "JCQ:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Vetoquinol SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23264,
+    "Identifier": 36574,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36574,
+    "SummaryType": "Instrument",
+    "Symbol": "VETO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "CBO Territoria",
+    "ExchangeId": "PAR",
+    "GroupId": 4548,
+    "Identifier": 112212,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 112212,
+    "SummaryType": "Instrument",
+    "Symbol": "CBOT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Totalenergies EP Gabon",
+    "ExchangeId": "PAR",
+    "GroupId": 6813,
+    "Identifier": 28179621,
+    "IssuerCountry": "GA",
+    "PrimaryListing": 28179621,
+    "SummaryType": "Instrument",
+    "Symbol": "EC:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Viel et Compagnie SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23218,
+    "Identifier": 37003,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 37003,
+    "SummaryType": "Instrument",
+    "Symbol": "VIL:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "ARGAN",
+    "ExchangeId": "PAR",
+    "GroupId": 22788,
+    "Identifier": 42242,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 42242,
+    "SummaryType": "Instrument",
+    "Symbol": "ARG:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Burelle SA",
+    "ExchangeId": "PAR",
+    "GroupId": 21731,
+    "Identifier": 47986,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 47986,
+    "SummaryType": "Instrument",
+    "Symbol": "BUR:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Elis SA",
+    "ExchangeId": "PAR",
+    "GroupId": 18950,
+    "Identifier": 1553811,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1553811,
+    "SummaryType": "Instrument",
+    "Symbol": "ELIS:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Verallia",
+    "ExchangeId": "PAR",
+    "GroupId": 2992,
+    "Identifier": 15072874,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 15072874,
+    "SummaryType": "Instrument",
+    "Symbol": "VRLA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Klepierre SA",
+    "ExchangeId": "PAR",
+    "GroupId": 2946,
+    "Identifier": 13191,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13191,
+    "SummaryType": "Instrument",
+    "Symbol": "LOIM:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Ipsen",
+    "ExchangeId": "PAR",
+    "GroupId": 24416,
+    "Identifier": 21103,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 21103,
+    "SummaryType": "Instrument",
+    "Symbol": "IPN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "HighCo.. SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23183,
+    "Identifier": 36971,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36971,
+    "SummaryType": "Instrument",
+    "Symbol": "HCO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Ateme SA",
+    "ExchangeId": "PAR",
+    "GroupId": 18943,
+    "Identifier": 1397374,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1397374,
+    "SummaryType": "Instrument",
+    "Symbol": "ATEME:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Kaufman et Broad",
+    "ExchangeId": "PAR",
+    "GroupId": 1907,
+    "Identifier": 13190,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13190,
+    "SummaryType": "Instrument",
+    "Symbol": "KBH:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Carmila",
+    "ExchangeId": "PAR",
+    "GroupId": 17127,
+    "Identifier": 7969043,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 7969043,
+    "SummaryType": "Instrument",
+    "Symbol": "CARM:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Poxel SA",
+    "ExchangeId": "PAR",
+    "GroupId": 18936,
+    "Identifier": 1535211,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1535211,
+    "SummaryType": "Instrument",
+    "Symbol": "POXEL:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Guerbet SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23178,
+    "Identifier": 36970,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36970,
+    "SummaryType": "Instrument",
+    "Symbol": "GBT:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Stef",
+    "ExchangeId": "PAR",
+    "GroupId": 25007,
+    "Identifier": 13245,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13245,
+    "SummaryType": "Instrument",
+    "Symbol": "STF:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "P Robertet et Compagnie SA",
+    "ExchangeId": "PAR",
+    "GroupId": 11235,
+    "Identifier": 36988,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36988,
+    "SummaryType": "Instrument",
+    "Symbol": "RBT:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Robertet CI",
+    "ExchangeId": "PAR",
+    "GroupId": 11235,
+    "Identifier": 18525299,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18525299,
+    "SummaryType": "Instrument",
+    "Symbol": "CBE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Maisons Du Monde",
+    "ExchangeId": "PAR",
+    "GroupId": 17976,
+    "Identifier": 5056792,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 5056792,
+    "SummaryType": "Instrument",
+    "Symbol": "MDM:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Aubay",
+    "ExchangeId": "PAR",
+    "GroupId": 22008,
+    "Identifier": 45410,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 45410,
+    "SummaryType": "Instrument",
+    "Symbol": "AUB:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Artmarket.com",
+    "ExchangeId": "PAR",
+    "GroupId": 3170,
+    "Identifier": 20388,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 20388,
+    "SummaryType": "Instrument",
+    "Symbol": "ARTF:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Plastiques du Val de Loire SA",
+    "ExchangeId": "PAR",
+    "GroupId": 17528,
+    "Identifier": 6828784,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 6828784,
+    "SummaryType": "Instrument",
+    "Symbol": "PVLT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Lacroix Group SA",
+    "ExchangeId": "PAR",
+    "GroupId": 22066,
+    "Identifier": 45430,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 45430,
+    "SummaryType": "Instrument",
+    "Symbol": "LACR:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Institut de Developpement Industriel SA IDI",
+    "ExchangeId": "PAR",
+    "GroupId": 389,
+    "Identifier": 559379,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 559379,
+    "SummaryType": "Instrument",
+    "Symbol": "IDIP:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Fnac Darty SA",
+    "ExchangeId": "PAR",
+    "GroupId": 20032,
+    "Identifier": 406378,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 406378,
+    "SummaryType": "Instrument",
+    "Symbol": "FNAC:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Ste d'Explosifs & de Produits Chimiques",
+    "ExchangeId": "PAR",
+    "GroupId": 12071,
+    "Identifier": 18525415,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18525415,
+    "SummaryType": "Instrument",
+    "Symbol": "EXPL:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Forsee Power",
+    "ExchangeId": "PAR",
+    "GroupId": 7787,
+    "Identifier": 25520689,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 25520689,
+    "SummaryType": "Instrument",
+    "Symbol": "FORSE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "GL EVENTS",
+    "ExchangeId": "PAR",
+    "GroupId": 1679,
+    "Identifier": 49615387,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 49615387,
+    "SummaryType": "Instrument",
+    "Symbol": "GLO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Altarea",
+    "ExchangeId": "PAR",
+    "GroupId": 6671,
+    "Identifier": 53397,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 53397,
+    "SummaryType": "Instrument",
+    "Symbol": "ALTA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Solocal Group ",
+    "ExchangeId": "PAR",
+    "GroupId": 2932,
+    "Identifier": 403170,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 403170,
+    "SummaryType": "Instrument",
+    "Symbol": "LOCAL:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "AELIS FARMA S.A.",
+    "ExchangeId": "PAR",
+    "GroupId": 7161,
+    "Identifier": 27222203,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 27222203,
+    "SummaryType": "Instrument",
+    "Symbol": "AELIS:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Savencia SA",
+    "ExchangeId": "PAR",
+    "GroupId": 18688,
+    "Identifier": 2057133,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2057133,
+    "SummaryType": "Instrument",
+    "Symbol": "SAVE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Moncey (FIN.) nominatif",
+    "ExchangeId": "PAR",
+    "GroupId": 4996,
+    "Identifier": 33919254,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 33919254,
+    "SummaryType": "Instrument",
+    "Symbol": "FMONC:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Coheris",
+    "ExchangeId": "PAR",
+    "GroupId": 24152,
+    "Identifier": 25099,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 25099,
+    "SummaryType": "Instrument",
+    "Symbol": "COH:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Tikehau Capital SCA",
+    "ExchangeId": "PAR",
+    "GroupId": 17691,
+    "Identifier": 6389695,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 6389695,
+    "SummaryType": "Instrument",
+    "Symbol": "TKO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Bigben Interactive",
+    "ExchangeId": "PAR",
+    "GroupId": 22792,
+    "Identifier": 42243,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 42243,
+    "SummaryType": "Instrument",
+    "Symbol": "BIG:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "TFF Group",
+    "ExchangeId": "PAR",
+    "GroupId": 23211,
+    "Identifier": 36998,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36998,
+    "SummaryType": "Instrument",
+    "Symbol": "TFF:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "North Atlantic Energies",
+    "ExchangeId": "PAR",
+    "GroupId": 332,
+    "Identifier": 53878148,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 53878148,
+    "SummaryType": "Instrument",
+    "Symbol": "NAE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Vantiva SA",
+    "ExchangeId": "PAR",
+    "GroupId": 6162,
+    "Identifier": 31580663,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 31580663,
+    "SummaryType": "Instrument",
+    "Symbol": "VANTI:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "LNA Sante SA",
+    "ExchangeId": "PAR",
+    "GroupId": 24252,
+    "Identifier": 24132,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 24132,
+    "SummaryType": "Instrument",
+    "Symbol": "LNA:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Laurent-Perrier SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23196,
+    "Identifier": 36981,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36981,
+    "SummaryType": "Instrument",
+    "Symbol": "LPE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Verimatrix SA",
+    "ExchangeId": "PAR",
+    "GroupId": 292,
+    "Identifier": 14231498,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 14231498,
+    "SummaryType": "Instrument",
+    "Symbol": "VMX:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "LHYFE S.A",
+    "ExchangeId": "PAR",
+    "GroupId": 6606,
+    "Identifier": 28962997,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 28962997,
+    "SummaryType": "Instrument",
+    "Symbol": "LHYFE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Affluent Medical SAS",
+    "ExchangeId": "PAR",
+    "GroupId": 8414,
+    "Identifier": 23759081,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 23759081,
+    "SummaryType": "Instrument",
+    "Symbol": "AFME:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Antin Infrastructure Partners",
+    "ExchangeId": "PAR",
+    "GroupId": 7933,
+    "Identifier": 25116717,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 25116717,
+    "SummaryType": "Instrument",
+    "Symbol": "ANTIN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Exel Industries SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23173,
+    "Identifier": 36963,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36963,
+    "SummaryType": "Instrument",
+    "Symbol": "EXE:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Gerard Perrier Industrie SA",
+    "ExchangeId": "PAR",
+    "GroupId": 296,
+    "Identifier": 57041,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 57041,
+    "SummaryType": "Instrument",
+    "Symbol": "PERR:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "NRJ Group",
+    "ExchangeId": "PAR",
+    "GroupId": 24973,
+    "Identifier": 13214,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13214,
+    "SummaryType": "Instrument",
+    "Symbol": "SONO:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Deezer",
+    "ExchangeId": "PAR",
+    "GroupId": 31959,
+    "Identifier": 30033114,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 30033114,
+    "SummaryType": "Instrument",
+    "Symbol": "DEEZR:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Covivio SA",
+    "ExchangeId": "PAR",
+    "GroupId": 15619,
+    "Identifier": 9863812,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 9863812,
+    "SummaryType": "Instrument",
+    "Symbol": "COV:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Boiron SA",
+    "ExchangeId": "PAR",
+    "GroupId": 24915,
+    "Identifier": 13111,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13111,
+    "SummaryType": "Instrument",
+    "Symbol": "BOI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Union Tech Infor",
+    "ExchangeId": "PAR",
+    "GroupId": 21239,
+    "Identifier": 52428,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 52428,
+    "SummaryType": "Instrument",
+    "Symbol": "FPG:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Thermador Groupe SA",
+    "ExchangeId": "PAR",
+    "GroupId": 11272,
+    "Identifier": 37000,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 37000,
+    "SummaryType": "Instrument",
+    "Symbol": "THEP:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Waga Energy",
+    "ExchangeId": "PAR",
+    "GroupId": 7788,
+    "Identifier": 25476177,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 25476177,
+    "SummaryType": "Instrument",
+    "Symbol": "WAGA:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Infotel SA",
+    "ExchangeId": "PAR",
+    "GroupId": 22015,
+    "Identifier": 45424,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 45424,
+    "SummaryType": "Instrument",
+    "Symbol": "INF:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Ramsay Generale de Sante SA",
+    "ExchangeId": "PAR",
+    "GroupId": 25254,
+    "Identifier": 6171,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 6171,
+    "SummaryType": "Instrument",
+    "Symbol": "GDSF:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Compagnie Chargeurs Invest",
+    "ExchangeId": "PAR",
+    "GroupId": 24934,
+    "Identifier": 13126,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13126,
+    "SummaryType": "Instrument",
+    "Symbol": "CRI:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Groupe SFPI",
+    "ExchangeId": "PAR",
+    "GroupId": 15919,
+    "Identifier": 10738427,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 10738427,
+    "SummaryType": "Instrument",
+    "Symbol": "SFPI:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Bourse Direct",
+    "ExchangeId": "PAR",
+    "GroupId": 11253,
+    "Identifier": 14589,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 14589,
+    "SummaryType": "Instrument",
+    "Symbol": "BSD:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Groupe Crit SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23171,
+    "Identifier": 36960,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36960,
+    "SummaryType": "Instrument",
+    "Symbol": "CEN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Immobiliere dassault SA",
+    "ExchangeId": "PAR",
+    "GroupId": 20331,
+    "Identifier": 327843,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 327843,
+    "SummaryType": "Instrument",
+    "Symbol": "IMDA:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Proactis SA",
+    "ExchangeId": "PAR",
+    "GroupId": 15521,
+    "Identifier": 12007991,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 12007991,
+    "SummaryType": "Instrument",
+    "Symbol": "PROAC:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "SergeFerrari Group SA",
+    "ExchangeId": "PAR",
+    "GroupId": 18945,
+    "Identifier": 1397376,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1397376,
+    "SummaryType": "Instrument",
+    "Symbol": "SEFER:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Guillemot Corp.",
+    "ExchangeId": "PAR",
+    "GroupId": 24746,
+    "Identifier": 15924,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 15924,
+    "SummaryType": "Instrument",
+    "Symbol": "GTCN:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Lectra SA",
+    "ExchangeId": "PAR",
+    "GroupId": 24008,
+    "Identifier": 27060,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 27060,
+    "SummaryType": "Instrument",
+    "Symbol": "LSS:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Compagnie de L'Odet SA",
+    "ExchangeId": "PAR",
+    "GroupId": 2240,
+    "Identifier": 31830,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 31830,
+    "SummaryType": "Instrument",
+    "Symbol": "ODET:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Soditech Ing.",
+    "ExchangeId": "PAR",
+    "GroupId": 19197,
+    "Identifier": 1198370,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1198370,
+    "SummaryType": "Instrument",
+    "Symbol": "SEC:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Abeo SA",
+    "ExchangeId": "PAR",
+    "GroupId": 17789,
+    "Identifier": 5784857,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 5784857,
+    "SummaryType": "Instrument",
+    "Symbol": "ABEO:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Acanthe D\u00e9veloppement SE",
+    "ExchangeId": "PAR",
+    "GroupId": 2755,
+    "Identifier": 39535,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 39535,
+    "SummaryType": "Instrument",
+    "Symbol": "ACAN:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "GPE Groupe Pizzorno",
+    "ExchangeId": "PAR",
+    "GroupId": 24091,
+    "Identifier": 26427,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 26427,
+    "SummaryType": "Instrument",
+    "Symbol": "GPE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Showroomprive",
+    "ExchangeId": "PAR",
+    "GroupId": 18481,
+    "Identifier": 2830279,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2830279,
+    "SummaryType": "Instrument",
+    "Symbol": "SRP:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Aurea",
+    "ExchangeId": "PAR",
+    "GroupId": 24325,
+    "Identifier": 21908,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 21908,
+    "SummaryType": "Instrument",
+    "Symbol": "AURE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Synergie SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23209,
+    "Identifier": 36989,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36989,
+    "SummaryType": "Instrument",
+    "Symbol": "SDG:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Hydrogene de France",
+    "ExchangeId": "PAR",
+    "GroupId": 2104,
+    "Identifier": 23654535,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 23654535,
+    "SummaryType": "Instrument",
+    "Symbol": "HDF:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "74 Software",
+    "ExchangeId": "PAR",
+    "GroupId": 2477,
+    "Identifier": 46270518,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 46270518,
+    "SummaryType": "Instrument",
+    "Symbol": "74SW:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Bains Mer Monaco",
+    "ExchangeId": "PAR",
+    "GroupId": 24907,
+    "Identifier": 13108,
+    "IssuerCountry": "MC",
+    "PrimaryListing": 13108,
+    "SummaryType": "Instrument",
+    "Symbol": "BAIN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "CRCAM NORD CCI",
+    "ExchangeId": "PAR",
+    "GroupId": 4895,
+    "Identifier": 34356316,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 34356316,
+    "SummaryType": "Instrument",
+    "Symbol": "CNDF:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Linedata Services",
+    "ExchangeId": "PAR",
+    "GroupId": 23236,
+    "Identifier": 37091,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 37091,
+    "SummaryType": "Instrument",
+    "Symbol": "LIN:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Haulotte Group",
+    "ExchangeId": "PAR",
+    "GroupId": 24983,
+    "Identifier": 13222,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13222,
+    "SummaryType": "Instrument",
+    "Symbol": "PYHE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Tour Eiffel",
+    "ExchangeId": "PAR",
+    "GroupId": 23343,
+    "Identifier": 35192,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 35192,
+    "SummaryType": "Instrument",
+    "Symbol": "EIFF:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Graines Voltz",
+    "ExchangeId": "PAR",
+    "GroupId": 16615,
+    "Identifier": 9188301,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 9188301,
+    "SummaryType": "Instrument",
+    "Symbol": "GRVO:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Samse NV",
+    "ExchangeId": "PAR",
+    "GroupId": 24992,
+    "Identifier": 13232,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13232,
+    "SummaryType": "Instrument",
+    "Symbol": "SAMS:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Paref",
+    "ExchangeId": "PAR",
+    "GroupId": 20468,
+    "Identifier": 258165,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 258165,
+    "SummaryType": "Instrument",
+    "Symbol": "PAR:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Lagardere SA",
+    "ExchangeId": "PAR",
+    "GroupId": 6527,
+    "Identifier": 1301483,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1301483,
+    "SummaryType": "Instrument",
+    "Symbol": "MMB:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Electricite et Eaux de Madagascar SA",
+    "ExchangeId": "PAR",
+    "GroupId": 15474,
+    "Identifier": 12562648,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 12562648,
+    "SummaryType": "Instrument",
+    "Symbol": "EEM:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Financiere Marjos",
+    "ExchangeId": "PAR",
+    "GroupId": 12016,
+    "Identifier": 18529103,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18529103,
+    "SummaryType": "Instrument",
+    "Symbol": "FINM:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Arverne Group",
+    "ExchangeId": "PAR",
+    "GroupId": 30479,
+    "Identifier": 37884698,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 37884698,
+    "SummaryType": "Instrument",
+    "Symbol": "ARVEN:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Dekuple",
+    "ExchangeId": "PAR",
+    "GroupId": 7858,
+    "Identifier": 25284406,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 25284406,
+    "SummaryType": "Instrument",
+    "Symbol": "DKUPL:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Avenir Telecom SA",
+    "ExchangeId": "PAR",
+    "GroupId": 24863,
+    "Identifier": 14509,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 14509,
+    "SummaryType": "Instrument",
+    "Symbol": "AVOM:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Patrimoine et Commerce",
+    "ExchangeId": "PAR",
+    "GroupId": 2754,
+    "Identifier": 11452289,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 11452289,
+    "SummaryType": "Instrument",
+    "Symbol": "PAT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Balyo SA",
+    "ExchangeId": "PAR",
+    "GroupId": 17397,
+    "Identifier": 7096355,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 7096355,
+    "SummaryType": "Instrument",
+    "Symbol": "BALYO:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Caisse Reg. de Credit Agr. Mutuel Brie Picardie",
+    "ExchangeId": "PAR",
+    "GroupId": 21514,
+    "Identifier": 50508,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 50508,
+    "SummaryType": "Instrument",
+    "Symbol": "CRBP2:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Teract S.A.",
+    "ExchangeId": "PAR",
+    "GroupId": 6350,
+    "Identifier": 30530827,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 30530827,
+    "SummaryType": "Instrument",
+    "Symbol": "TRACT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Fonciere Inea",
+    "ExchangeId": "PAR",
+    "GroupId": 18368,
+    "Identifier": 3447671,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 3447671,
+    "SummaryType": "Instrument",
+    "Symbol": "INEA:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Caisse Regionale de Credit Agricole Mutuel Sud Rho",
+    "ExchangeId": "PAR",
+    "GroupId": 18596,
+    "Identifier": 2454085,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2454085,
+    "SummaryType": "Instrument",
+    "Symbol": "CRSU:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Covivio Hotels SCA",
+    "ExchangeId": "PAR",
+    "GroupId": 15970,
+    "Identifier": 10640257,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 10640257,
+    "SummaryType": "Instrument",
+    "Symbol": "COVH:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "CRCAM Paris Et IDF",
+    "ExchangeId": "PAR",
+    "GroupId": 21508,
+    "Identifier": 50507,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 50507,
+    "SummaryType": "Instrument",
+    "Symbol": "CAF:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Caisse regionale decredit gricole mutuel AlpesProv",
+    "ExchangeId": "PAR",
+    "GroupId": 20583,
+    "Identifier": 207669,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 207669,
+    "SummaryType": "Instrument",
+    "Symbol": "CRAP:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "ALTAMIR",
+    "ExchangeId": "PAR",
+    "GroupId": 11249,
+    "Identifier": 396918,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 396918,
+    "SummaryType": "Instrument",
+    "Symbol": "LTA:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "My Hotel Match",
+    "ExchangeId": "PAR",
+    "GroupId": 6626,
+    "Identifier": 28784650,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 28784650,
+    "SummaryType": "Instrument",
+    "Symbol": "MHM:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Caisse Regionale de Credit Agricole Mutuel Toulous",
+    "ExchangeId": "PAR",
+    "GroupId": 20691,
+    "Identifier": 199966,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 199966,
+    "SummaryType": "Instrument",
+    "Symbol": "CAT31:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Les Hotels de Paris",
+    "ExchangeId": "PAR",
+    "GroupId": 12100,
+    "Identifier": 18528391,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18528391,
+    "SummaryType": "Instrument",
+    "Symbol": "HDP:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Compagnie Fonciere Internationale",
+    "ExchangeId": "PAR",
+    "GroupId": 12032,
+    "Identifier": 18570927,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18570927,
+    "SummaryType": "Instrument",
+    "Symbol": "CFI:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Marie Brizard Wine and Spirits SA",
+    "ExchangeId": "PAR",
+    "GroupId": 11164,
+    "Identifier": 2273434,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 2273434,
+    "SummaryType": "Instrument",
+    "Symbol": "MBWS:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Roche Bobois SA",
+    "ExchangeId": "PAR",
+    "GroupId": 15428,
+    "Identifier": 13345191,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13345191,
+    "SummaryType": "Instrument",
+    "Symbol": "RBO:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Coty Inc.",
+    "ExchangeId": "PAR",
+    "GroupId": 275,
+    "Identifier": 46888708,
+    "IssuerCountry": "US",
+    "PrimaryListing": 405178,
+    "SummaryType": "Instrument",
+    "Symbol": "COTY:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Caisse Regionale du Credit Agricole Mutuel du Lang",
+    "ExchangeId": "PAR",
+    "GroupId": 20618,
+    "Identifier": 207911,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 207911,
+    "SummaryType": "Instrument",
+    "Symbol": "CRLA:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Ste Fermiere du Casino Municipal de Cannes",
+    "ExchangeId": "PAR",
+    "GroupId": 11252,
+    "Identifier": 49464,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 49464,
+    "SummaryType": "Instrument",
+    "Symbol": "FCMC:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Fonciere Volta",
+    "ExchangeId": "PAR",
+    "GroupId": 12128,
+    "Identifier": 18515210,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18515210,
+    "SummaryType": "Instrument",
+    "Symbol": "SPEL:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "ST Dupont",
+    "ExchangeId": "PAR",
+    "GroupId": 25069,
+    "Identifier": 11745,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 11745,
+    "SummaryType": "Instrument",
+    "Symbol": "DPT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Jacques Bogart SA",
+    "ExchangeId": "PAR",
+    "GroupId": 11242,
+    "Identifier": 7911743,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 7911743,
+    "SummaryType": "Instrument",
+    "Symbol": "JBOG:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "CRCAM Touraine CCI",
+    "ExchangeId": "PAR",
+    "GroupId": 23357,
+    "Identifier": 34500,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 34500,
+    "SummaryType": "Instrument",
+    "Symbol": "CRTO:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Gaumont SA",
+    "ExchangeId": "PAR",
+    "GroupId": 23176,
+    "Identifier": 36968,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 36968,
+    "SummaryType": "Instrument",
+    "Symbol": "GAM:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Caisse Regionale de Credit Agricole Mutuel de Norm",
+    "ExchangeId": "PAR",
+    "GroupId": 20617,
+    "Identifier": 207910,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 207910,
+    "SummaryType": "Instrument",
+    "Symbol": "CCN:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Groupe Partouche",
+    "ExchangeId": "PAR",
+    "GroupId": 24947,
+    "Identifier": 13177,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 13177,
+    "SummaryType": "Instrument",
+    "Symbol": "PARP:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Compagnie du Cambodge ",
+    "ExchangeId": "PAR",
+    "GroupId": 20412,
+    "Identifier": 330194,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 330194,
+    "SummaryType": "Instrument",
+    "Symbol": "CBDG:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Maison Pommery & Associes",
+    "ExchangeId": "PAR",
+    "GroupId": 111,
+    "Identifier": 54534722,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 54534722,
+    "SummaryType": "Instrument",
+    "Symbol": "POMRY:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Oeneo Bouchage",
+    "ExchangeId": "PAR",
+    "GroupId": 11243,
+    "Identifier": 28240,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 28240,
+    "SummaryType": "Instrument",
+    "Symbol": "SBT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "ABL Diagnostics SA",
+    "ExchangeId": "PAR",
+    "GroupId": 766,
+    "Identifier": 52492065,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 52492065,
+    "SummaryType": "Instrument",
+    "Symbol": "ABLD:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Atland",
+    "ExchangeId": "PAR",
+    "GroupId": 6536,
+    "Identifier": 29450639,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 29450639,
+    "SummaryType": "Instrument",
+    "Symbol": "ATLD:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Augros Cosmetics Packaging SA",
+    "ExchangeId": "PAR",
+    "GroupId": 21366,
+    "Identifier": 52307,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 52307,
+    "SummaryType": "Instrument",
+    "Symbol": "AUGR:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Caisse Regi de Credit Agricole Mutuel de la Loire",
+    "ExchangeId": "PAR",
+    "GroupId": 20589,
+    "Identifier": 207671,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 207671,
+    "SummaryType": "Instrument",
+    "Symbol": "CRLO:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Cr\u00e9dit Agricole Atlantique Vend\u00e9e",
+    "ExchangeId": "PAR",
+    "GroupId": 13940,
+    "Identifier": 17275952,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 17275952,
+    "SummaryType": "Instrument",
+    "Symbol": "CRAV:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Eagle Football Group",
+    "ExchangeId": "PAR",
+    "GroupId": 3448,
+    "Identifier": 41451290,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 41451290,
+    "SummaryType": "Instrument",
+    "Symbol": "EFG:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Acteos",
+    "ExchangeId": "PAR",
+    "GroupId": 21579,
+    "Identifier": 48826,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 48826,
+    "SummaryType": "Instrument",
+    "Symbol": "EOS:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Caisse Regionale de Credit Agricole Mutuel du Morb",
+    "ExchangeId": "PAR",
+    "GroupId": 20585,
+    "Identifier": 207670,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 207670,
+    "SummaryType": "Instrument",
+    "Symbol": "CMO:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Les Docks des Petroles d'Ambes",
+    "ExchangeId": "PAR",
+    "GroupId": 19196,
+    "Identifier": 1198368,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1198368,
+    "SummaryType": "Instrument",
+    "Symbol": "DPAM:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Malteries Franco-Belges SA",
+    "ExchangeId": "PAR",
+    "GroupId": 17080,
+    "Identifier": 7826103,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 7826103,
+    "SummaryType": "Instrument",
+    "Symbol": "MALT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "CRCAM D Ille et Vilaine CCI",
+    "ExchangeId": "PAR",
+    "GroupId": 20592,
+    "Identifier": 207679,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 207679,
+    "SummaryType": "Instrument",
+    "Symbol": "CIV:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Saint Jean Groupe SA",
+    "ExchangeId": "PAR",
+    "GroupId": 17149,
+    "Identifier": 7706995,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 7706995,
+    "SummaryType": "Instrument",
+    "Symbol": "SABE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Maroc Telecom",
+    "ExchangeId": "PAR",
+    "GroupId": 24939,
+    "Identifier": 13487,
+    "IssuerCountry": "MA",
+    "PrimaryListing": 13487,
+    "SummaryType": "Instrument",
+    "Symbol": "IAM:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "OREGE",
+    "ExchangeId": "PAR",
+    "GroupId": 20132,
+    "Identifier": 422731,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 422731,
+    "SummaryType": "Instrument",
+    "Symbol": "OREGE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Fiducial Real Estate SA",
+    "ExchangeId": "PAR",
+    "GroupId": 12013,
+    "Identifier": 18515211,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18515211,
+    "SummaryType": "Instrument",
+    "Symbol": "ORIA:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Groupe JAJ",
+    "ExchangeId": "PAR",
+    "GroupId": 21359,
+    "Identifier": 52290,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 52290,
+    "SummaryType": "Instrument",
+    "Symbol": "GJAJ:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Grenobloise d'Electronique et d'Automatismes SA GE",
+    "ExchangeId": "PAR",
+    "GroupId": 4999,
+    "Identifier": 52287,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 52287,
+    "SummaryType": "Instrument",
+    "Symbol": "GEA:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "SCBSM (SocCenDesBoisEtDesScieDeLaManche)",
+    "ExchangeId": "PAR",
+    "GroupId": 20945,
+    "Identifier": 57044,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 57044,
+    "SummaryType": "Instrument",
+    "Symbol": "CBSM:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Courtois SA",
+    "ExchangeId": "PAR",
+    "GroupId": 19194,
+    "Identifier": 1198367,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 1198367,
+    "SummaryType": "Instrument",
+    "Symbol": "COUR:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Fonciere 7 Investissement",
+    "ExchangeId": "PAR",
+    "GroupId": 12255,
+    "Identifier": 18335900,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18335900,
+    "SummaryType": "Instrument",
+    "Symbol": "LEBL:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Artea SA",
+    "ExchangeId": "PAR",
+    "GroupId": 12172,
+    "Identifier": 18350516,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18350516,
+    "SummaryType": "Instrument",
+    "Symbol": "ARTEA:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Crosswood SA",
+    "ExchangeId": "PAR",
+    "GroupId": 12186,
+    "Identifier": 18361022,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18361022,
+    "SummaryType": "Instrument",
+    "Symbol": "CROS:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Alan Allman Associates SA",
+    "ExchangeId": "PAR",
+    "GroupId": 8910,
+    "Identifier": 22550604,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 22550604,
+    "SummaryType": "Instrument",
+    "Symbol": "AAA:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Societe de Tayninh SA",
+    "ExchangeId": "PAR",
+    "GroupId": 12033,
+    "Identifier": 18585150,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18585150,
+    "SummaryType": "Instrument",
+    "Symbol": "TAYN:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Societe Francaise de Casinos",
+    "ExchangeId": "PAR",
+    "GroupId": 24461,
+    "Identifier": 20777,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 20777,
+    "SummaryType": "Instrument",
+    "Symbol": "SFCA:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "La Chausseria SA",
+    "ExchangeId": "PAR",
+    "GroupId": 12171,
+    "Identifier": 18350514,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18350514,
+    "SummaryType": "Instrument",
+    "Symbol": "CHSR:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Televerbier SA",
+    "ExchangeId": "PAR",
+    "GroupId": 15424,
+    "Identifier": 13345190,
+    "IssuerCountry": "CH",
+    "PrimaryListing": 13345190,
+    "SummaryType": "Instrument",
+    "Symbol": "TVRB:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Vitura SA.",
+    "ExchangeId": "PAR",
+    "GroupId": 24106,
+    "Identifier": 24670,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 24670,
+    "SummaryType": "Instrument",
+    "Symbol": "CGR:xpar",
+    "TradableAs": [
+      "Stock",
+      "SrdOnStock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Frey SA",
+    "ExchangeId": "PAR",
+    "GroupId": 16418,
+    "Identifier": 9668342,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 9668342,
+    "SummaryType": "Instrument",
+    "Symbol": "FREY:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "NR21 SA",
+    "ExchangeId": "PAR",
+    "GroupId": 12068,
+    "Identifier": 18525414,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18525414,
+    "SummaryType": "Instrument",
+    "Symbol": "NR21:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Aerkomm Inc.",
+    "ExchangeId": "PAR",
+    "GroupId": 10947,
+    "Identifier": 20928535,
+    "IssuerCountry": "US",
+    "PrimaryListing": 20928535,
+    "SummaryType": "Instrument",
+    "Symbol": "AKOM:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Bleecker",
+    "ExchangeId": "PAR",
+    "GroupId": 12099,
+    "Identifier": 18528390,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18528390,
+    "SummaryType": "Instrument",
+    "Symbol": "BLEE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Fiducial Office Solutions SA",
+    "ExchangeId": "PAR",
+    "GroupId": 7780,
+    "Identifier": 25529470,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 25529470,
+    "SummaryType": "Instrument",
+    "Symbol": "SACI:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Artois nominatif adm",
+    "ExchangeId": "PAR",
+    "GroupId": 12112,
+    "Identifier": 18515158,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18515158,
+    "SummaryType": "Instrument",
+    "Symbol": "ARTO:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "FIPP",
+    "ExchangeId": "PAR",
+    "GroupId": 2752,
+    "Identifier": 52464,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 52464,
+    "SummaryType": "Instrument",
+    "Symbol": "FIPP:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "INTEXA-Reduce Only",
+    "ExchangeId": "PAR",
+    "GroupId": 12145,
+    "Identifier": 18501248,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18501248,
+    "SummaryType": "Instrument",
+    "Symbol": "ITXT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Media 6",
+    "ExchangeId": "PAR",
+    "GroupId": 21369,
+    "Identifier": 52309,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 52309,
+    "SummaryType": "Instrument",
+    "Symbol": "EDI:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Barbara Bui SA",
+    "ExchangeId": "PAR",
+    "GroupId": 21370,
+    "Identifier": 52319,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 52319,
+    "SummaryType": "Instrument",
+    "Symbol": "BUI:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Selectirente",
+    "ExchangeId": "PAR",
+    "GroupId": 12030,
+    "Identifier": 18570926,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18570926,
+    "SummaryType": "Instrument",
+    "Symbol": "SELER:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Alliance Developpement Capital SIIC SE",
+    "ExchangeId": "PAR",
+    "GroupId": 12028,
+    "Identifier": 18570925,
+    "IssuerCountry": "BE",
+    "PrimaryListing": 18570925,
+    "SummaryType": "Instrument",
+    "Symbol": "ALDV:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "La Forestiere Equatoriale",
+    "ExchangeId": "PAR",
+    "GroupId": 12258,
+    "Identifier": 18347070,
+    "IssuerCountry": "CI",
+    "PrimaryListing": 18347070,
+    "SummaryType": "Instrument",
+    "Symbol": "FORE:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Eurasia Fonciere Investissements SA",
+    "ExchangeId": "PAR",
+    "GroupId": 12000,
+    "Identifier": 18583137,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18583137,
+    "SummaryType": "Instrument",
+    "Symbol": "EFI:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Selcodis-Reduce Only",
+    "ExchangeId": "PAR",
+    "GroupId": 12062,
+    "Identifier": 18525298,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18525298,
+    "SummaryType": "Instrument",
+    "Symbol": "SLCO:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Transition Evergreen",
+    "ExchangeId": "PAR",
+    "GroupId": 8189,
+    "Identifier": 24312245,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 24312245,
+    "SummaryType": "Instrument",
+    "Symbol": "EGR:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  },
+  {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Altareit",
+    "ExchangeId": "PAR",
+    "GroupId": 11237,
+    "Identifier": 18350513,
+    "IssuerCountry": "FR",
+    "PrimaryListing": 18350513,
+    "SummaryType": "Instrument",
+    "Symbol": "AREIT:xpar",
+    "TradableAs": [
+      "Stock"
+    ]
+  }
+]
