@@ -304,13 +304,9 @@ class DynamoDBClient(AwsClient):
             True on success, False on failure
         """
         try:
-            item = {
-                "asset_id": asset_id,
-                "is_excluded": is_excluded,
-                "updated_at": datetime.datetime.now(
-                    datetime.timezone.utc
-                ).isoformat(),
-            }
+            updated_at = datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat()
 
             response = self.dynamodb.Table("asset_details").update_item(
                 Key={"asset_id": asset_id},
@@ -319,7 +315,7 @@ class DynamoDBClient(AwsClient):
                 ),
                 ExpressionAttributeValues={
                     ":is_excluded": is_excluded,
-                    ":updated_at": item["updated_at"],
+                    ":updated_at": updated_at,
                 },
                 ReturnValues="ALL_NEW",
             )
