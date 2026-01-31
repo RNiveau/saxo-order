@@ -64,13 +64,18 @@
 ## Summary
 
 ### Test Coverage
-- **Core Tests**: 13
-- **Passing**: 13 ✅
+- **Core Tests**: 11
+- **Passing**: 11 ✅
 - **Failing**: 0
 - **Skipped**: 0
-- **Removed**: 12 (10 mock-only router tests + 2 trivial empty-list tests)
+- **Removed**: 19 tests total
 
-**Note**: All 13 tests validate real business logic. Removed tests only verified that mocks work or that Python's empty list handling works - neither adds value.
+**Removed Test Categories**:
+- 10 router tests (only tested mocks)
+- 2 empty-list tests (only tested Python)
+- 7 DynamoDB client tests (only tested boto3 wrapper)
+
+**Why Remove DynamoDB Tests?**: The DynamoDB client is a thin wrapper around boto3. Tests with mocked boto3 don't validate business logic - they just verify we know how to call AWS SDK. Real validation happens through service-layer tests.
 
 ### Coverage Areas
 1. ✅ **Data Layer**: DynamoDB exclusion methods (get, update)
