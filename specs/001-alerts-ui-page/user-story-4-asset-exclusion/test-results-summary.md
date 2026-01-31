@@ -64,11 +64,13 @@
 ## Summary
 
 ### Test Coverage
-- **Total Tests**: 15
-- **Passing**: 15 ✅
+- **Core Tests**: 13
+- **Passing**: 13 ✅
 - **Failing**: 0
 - **Skipped**: 0
-- **Removed**: 10 (mock-only router tests)
+- **Removed**: 12 (10 mock-only router tests + 2 trivial empty-list tests)
+
+**Note**: All 13 tests validate real business logic. Removed tests only verified that mocks work or that Python's empty list handling works - neither adds value.
 
 ### Coverage Areas
 1. ✅ **Data Layer**: DynamoDB exclusion methods (get, update)

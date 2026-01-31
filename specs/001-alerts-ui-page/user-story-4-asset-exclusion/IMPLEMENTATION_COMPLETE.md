@@ -10,7 +10,7 @@ The asset exclusion feature has been successfully implemented, tested, and docum
 
 ### Key Achievements
 - ✅ **20/20 tasks completed** (100%)
-- ✅ **15 automated tests passing** (100% pass rate, removed 10 mock-only tests)
+- ✅ **13 core tests passing** (100% pass rate, removed 12 low-value tests)
 - ✅ **4 new API endpoints** implemented
 - ✅ **Full UI management interface** built
 - ✅ **Backward compatible** (no breaking changes)
@@ -214,7 +214,7 @@ all_alerts = [alert for alert in all_alerts if alert.asset_code not in excluded_
 
 ### Testing
 
-#### Unit Tests (15 tests)
+#### Core Tests (13 tests)
 1. **DynamoDB Client Tests** (`tests/client/test_aws_client.py`):
    - `test_get_excluded_assets_with_exclusions`
    - `test_update_asset_exclusion_success`
@@ -236,9 +236,9 @@ all_alerts = [alert for alert in all_alerts if alert.asset_code not in excluded_
    - `test_exclusion_preserves_non_excluded_assets`
    - `test_exclusion_handles_assets_without_country_code`
 
-**Test Coverage**: 15/15 passing (100%)
+**Test Coverage**: 13/13 passing (100%)
 
-**Note**: Router layer integration tests (10 tests) were removed as they only tested mocks, not real logic. The router is a thin wrapper with no business logic. API endpoints are validated through service layer tests (which test real implementation) and manual testing.
+**Removed Tests** (12 tests): 10 mock-only router tests + 2 trivial empty-list tests. These tests only verified that mocks work or that Python's list comprehension handles empty lists - neither adds value. All remaining tests validate real business logic.
 
 ### Documentation
 
@@ -551,7 +551,7 @@ Potential future improvements:
 The asset exclusion feature has been successfully implemented with:
 - ✅ Complete backend API (4 endpoints)
 - ✅ Complete frontend UI (management page + integration)
-- ✅ Comprehensive testing (15 tests with real logic, removed 10 mock-only tests)
+- ✅ Comprehensive testing (13 core tests, all validate real logic)
 - ✅ Full documentation (OpenAPI, guides, test plans)
 - ✅ Backward compatibility (no breaking changes)
 - ✅ Performance optimization (proportional time savings)

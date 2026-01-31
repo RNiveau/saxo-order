@@ -190,24 +190,6 @@ class TestDynamoDBClient:
         assert result["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     @patch("client.aws_client.boto3")
-    def test_get_excluded_assets_empty(self, mock_boto3):
-        """Test get_excluded_assets returns empty list when no exclusions."""
-        mock_table = MagicMock()
-        mock_table.scan.return_value = {
-            "ResponseMetadata": {"HTTPStatusCode": 200},
-            "Items": [],
-        }
-        mock_dynamodb = MagicMock()
-        mock_dynamodb.Table.return_value = mock_table
-        mock_boto3.resource.return_value = mock_dynamodb
-
-        client = DynamoDBClient()
-        result = client.get_excluded_assets()
-
-        assert result == []
-        mock_table.scan.assert_called_once()
-
-    @patch("client.aws_client.boto3")
     def test_get_excluded_assets_with_exclusions(self, mock_boto3):
         """Test get_excluded_assets returns correct list of asset IDs."""
         mock_table = MagicMock()
@@ -323,23 +305,6 @@ class TestDynamoDBClient:
         result = client.update_asset_exclusion("SAN", True)
 
         assert result is False
-
-    @patch("client.aws_client.boto3")
-    def test_get_all_asset_details_empty(self, mock_boto3):
-        """Test get_all_asset_details returns empty list."""
-        mock_table = MagicMock()
-        mock_table.scan.return_value = {
-            "ResponseMetadata": {"HTTPStatusCode": 200},
-            "Items": [],
-        }
-        mock_dynamodb = MagicMock()
-        mock_dynamodb.Table.return_value = mock_table
-        mock_boto3.resource.return_value = mock_dynamodb
-
-        client = DynamoDBClient()
-        result = client.get_all_asset_details()
-
-        assert result == []
 
     @patch("client.aws_client.boto3")
     def test_get_all_asset_details_with_data(self, mock_boto3):
