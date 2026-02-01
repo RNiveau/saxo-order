@@ -19,6 +19,12 @@
   margin-bottom: 12px;
 }
 
+.alert-card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .alert-type-badge {
   background: #2a5298;
   color: #fff;
@@ -33,6 +39,31 @@
 .age-label {
   color: #888;
   font-size: 12px;
+}
+
+.exclude-button {
+  background: transparent;
+  border: 1px solid #ef4444;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.exclude-button:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.exclude-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .alert-card-body {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { AlertItem } from '../services/api';
 import { alertService } from '../services/api';
 import { AlertCard } from '../components/AlertCard';
@@ -112,6 +113,17 @@ export function Alerts() {
         </button>
       </div>
 
+      {/* Exclusion Info Banner */}
+      <div className="info-banner">
+        <span className="info-icon">ℹ️</span>
+        <span className="info-text">
+          Alerts from excluded assets are automatically hidden.{' '}
+          <Link to="/exclusions" className="info-link">
+            Manage exclusions
+          </Link>
+        </span>
+      </div>
+
       {/* Filter and Sort Controls */}
       <div className="filter-controls">
         <div className="filter-group">
@@ -203,6 +215,7 @@ export function Alerts() {
             <AlertCard
               key={`${alert.asset_code}_${alert.alert_type}_${alert.date}`}
               alert={alert}
+              onExclude={loadAlerts}
             />
           ))}
         </div>

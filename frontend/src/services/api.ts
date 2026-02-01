@@ -583,3 +583,45 @@ export const alertService = {
     return response.data;
   },
 };
+
+export interface AssetDetailResponse {
+  asset_id: string;
+  tradingview_url?: string;
+  updated_at?: string;
+  is_excluded?: boolean;
+}
+
+export interface AssetListResponse {
+  assets: AssetDetailResponse[];
+  count: number;
+  excluded_count?: number;
+  active_count?: number;
+}
+
+export const assetDetailsService = {
+  getAllAssets: async (): Promise<AssetListResponse> => {
+    const response = await api.get<AssetListResponse>('/api/asset-details');
+    return response.data;
+  },
+
+  getExcludedAssets: async (): Promise<AssetListResponse> => {
+    const response = await api.get<AssetListResponse>('/api/asset-details/excluded/list');
+    return response.data;
+  },
+
+  updateExclusion: async (
+    assetId: string,
+    isExcluded: boolean
+  ): Promise<AssetDetailResponse> => {
+    const response = await api.put<AssetDetailResponse>(
+      `/api/asset-details/${assetId}/exclusion`,
+      { is_excluded: isExcluded }
+    );
+    return response.data;
+  },
+
+  getAssetDetails: async (assetId: string): Promise<AssetDetailResponse> => {
+    const response = await api.get<AssetDetailResponse>(`/api/asset-details/${assetId}`);
+    return response.data;
+  },
+};

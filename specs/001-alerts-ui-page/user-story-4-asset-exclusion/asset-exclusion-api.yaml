@@ -1,0 +1,253 @@
+openapi: 3.0.0
+info:
+  title: Asset Exclusion API
+  version: 1.0.0
+  description: API endpoints for managing asset exclusions in the alerting system
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://your-api-url.com
+    description: Production
+
+paths:
+  /api/asset-details:
+    get:
+      summary: Get all assets with details
+      description: Returns all assets including exclusion status and counts
+      tags:
+        - Asset Exclusions
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetListResponse'
+              example:
+                assets:
+                  - asset_id: "SAN"
+                    tradingview_url: "https://www.tradingview.com/chart/?symbol=XPAR:SAN"
+                    updated_at: "2026-01-26T10:30:00Z"
+                    is_excluded: true
+                  - asset_id: "ITP"
+                    tradingview_url: null
+                    updated_at: "2026-01-25T15:00:00Z"
+                    is_excluded: false
+                count: 2
+                excluded_count: 1
+                active_count: 1
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/asset-details/{asset_id}:
+    get:
+      summary: Get single asset details
+      description: Returns details for a specific asset including exclusion status
+      tags:
+        - Asset Exclusions
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Asset identifier (e.g., 'SAN', 'ITP')
+          example: "SAN"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDetailResponse'
+              example:
+                asset_id: "SAN"
+                tradingview_url: "https://www.tradingview.com/chart/?symbol=XPAR:SAN"
+                updated_at: "2026-01-26T10:30:00Z"
+                is_excluded: false
+        '404':
+          description: Asset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/asset-details/{asset_id}/exclusion:
+    put:
+      summary: Update asset exclusion status
+      description: Toggle exclusion status for an asset (exclude or un-exclude)
+      tags:
+        - Asset Exclusions
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Asset identifier
+          example: "SAN"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetExclusionUpdateRequest'
+            examples:
+              exclude:
+                summary: Exclude an asset
+                value:
+                  is_excluded: true
+              unexclude:
+                summary: Un-exclude an asset
+                value:
+                  is_excluded: false
+      responses:
+        '200':
+          description: Successful update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDetailResponse'
+              example:
+                asset_id: "SAN"
+                tradingview_url: "https://www.tradingview.com/chart/?symbol=XPAR:SAN"
+                updated_at: "2026-01-26T10:35:00Z"
+                is_excluded: true
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Asset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/asset-details/excluded/list:
+    get:
+      summary: Get only excluded assets
+      description: Returns a list of all assets that are currently excluded from alerting
+      tags:
+        - Asset Exclusions
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetListResponse'
+              example:
+                assets:
+                  - asset_id: "SAN"
+                    tradingview_url: "https://www.tradingview.com/chart/?symbol=XPAR:SAN"
+                    updated_at: "2026-01-26T10:30:00Z"
+                    is_excluded: true
+                  - asset_id: "BNP"
+                    tradingview_url: null
+                    updated_at: "2026-01-25T14:00:00Z"
+                    is_excluded: true
+                count: 2
+                excluded_count: 2
+                active_count: 0
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    AssetDetailResponse:
+      type: object
+      required:
+        - asset_id
+      properties:
+        asset_id:
+          type: string
+          description: Unique identifier for the asset
+          example: "SAN"
+        tradingview_url:
+          type: string
+          nullable: true
+          description: Custom TradingView URL for this asset (if configured)
+          example: "https://www.tradingview.com/chart/?symbol=XPAR:SAN"
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO 8601 timestamp of last update
+          example: "2026-01-26T10:30:00Z"
+        is_excluded:
+          type: boolean
+          default: false
+          description: True if asset is excluded from alerting
+          example: true
+
+    AssetListResponse:
+      type: object
+      required:
+        - assets
+        - count
+      properties:
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetDetailResponse'
+          description: List of asset details
+        count:
+          type: integer
+          description: Total number of assets
+          example: 50
+        excluded_count:
+          type: integer
+          nullable: true
+          description: Number of excluded assets
+          example: 10
+        active_count:
+          type: integer
+          nullable: true
+          description: Number of active (non-excluded) assets
+          example: 40
+
+    AssetExclusionUpdateRequest:
+      type: object
+      required:
+        - is_excluded
+      properties:
+        is_excluded:
+          type: boolean
+          description: Exclusion status (true to exclude, false to un-exclude)
+          example: true
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Internal server error"
+
+tags:
+  - name: Asset Exclusions
+    description: Operations for managing asset exclusions in the alerting system

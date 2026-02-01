@@ -254,6 +254,163 @@ class DynamoDBClient(AwsClient):
             return detail.get("tradingview_url")
         return None
 
+    def get_all_tradingview_links(self) -> Dict[str, str]:
+        """
+        Batch fetch all TradingView links from asset_details table.
+
+        Returns:
+            Dictionary mapping asset_id to tradingview_url for all assets
+            that have a tradingview_url set
+        """
+        try:
+            response = self.dynamodb.Table("asset_details").scan(
+                ProjectionExpression="asset_id, tradingview_url",
+            )
+
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB scan error: {response}")
+                return {}
+
+            items = response.get("Items", [])
+
+            # Handle pagination
+            while "LastEvaluatedKey" in response:
+                response = self.dynamodb.Table("asset_details").scan(
+                    ProjectionExpression="asset_id, tradingview_url",
+                    ExclusiveStartKey=response["LastEvaluatedKey"],
+                )
+                items.extend(response.get("Items", []))
+
+            # Build dictionary, only including items with tradingview_url
+            links = {
+                item["asset_id"]: item["tradingview_url"]
+                for item in items
+                if "tradingview_url" in item and item["tradingview_url"]
+            }
+
+            self.logger.info(
+                f"Loaded {len(links)} TradingView links from asset_details"
+            )
+            return links
+
+        except Exception as e:
+            self.logger.error(f"Failed to fetch TradingView links: {e}")
+            return {}
+
+    def get_excluded_assets(self) -> List[str]:
+        """
+        Get list of asset IDs that are excluded from alerting.
+
+        Returns:
+            List of asset_id strings where is_excluded=true
+        """
+        try:
+            response = self.dynamodb.Table("asset_details").scan(
+                FilterExpression="is_excluded = :true_val",
+                ExpressionAttributeValues={":true_val": True},
+            )
+
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB scan error: {response}")
+                return []
+
+            items = response.get("Items", [])
+
+            # Handle pagination
+            while "LastEvaluatedKey" in response:
+                response = self.dynamodb.Table("asset_details").scan(
+                    FilterExpression="is_excluded = :true_val",
+                    ExpressionAttributeValues={":true_val": True},
+                    ExclusiveStartKey=response["LastEvaluatedKey"],
+                )
+                items.extend(response.get("Items", []))
+
+            excluded_ids = [item["asset_id"] for item in items]
+            self.logger.info(f"Found {len(excluded_ids)} excluded assets")
+            return excluded_ids
+
+        except Exception as e:
+            self.logger.error(f"Error getting excluded assets: {e}")
+            return []
+
+    def update_asset_exclusion(self, asset_id: str, is_excluded: bool) -> bool:
+        """
+        Update exclusion status for an asset.
+
+        Creates the item if it doesn't exist, updates if it does.
+
+        Args:
+            asset_id: Asset identifier
+            is_excluded: True to exclude, False to un-exclude
+
+        Returns:
+            True on success, False on failure
+        """
+        try:
+            updated_at = datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat()
+
+            response = self.dynamodb.Table("asset_details").update_item(
+                Key={"asset_id": asset_id},
+                UpdateExpression=(
+                    "SET is_excluded = :is_excluded, updated_at = :updated_at"
+                ),
+                ExpressionAttributeValues={
+                    ":is_excluded": is_excluded,
+                    ":updated_at": updated_at,
+                },
+                ReturnValues="ALL_NEW",
+            )
+
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB update_item error: {response}")
+                return False
+
+            self.logger.info(
+                f"Updated exclusion for {asset_id}: is_excluded={is_excluded}"
+            )
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error updating exclusion for {asset_id}: {e}")
+            return False
+
+    def get_all_asset_details(self) -> List[Dict[str, Any]]:
+        """
+        Get all asset details including exclusion status.
+
+        Returns:
+            List of asset detail dictionaries with all fields
+        """
+        try:
+            response = self.dynamodb.Table("asset_details").scan()
+
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB scan error: {response}")
+                return []
+
+            items = response.get("Items", [])
+
+            # Handle pagination
+            while "LastEvaluatedKey" in response:
+                response = self.dynamodb.Table("asset_details").scan(
+                    ExclusiveStartKey=response["LastEvaluatedKey"]
+                )
+                items.extend(response.get("Items", []))
+
+            # Default is_excluded to False for items without the field
+            for item in items:
+                if "is_excluded" not in item:
+                    item["is_excluded"] = False
+
+            self.logger.info(f"Retrieved {len(items)} asset details")
+            return items
+
+        except Exception as e:
+            self.logger.error(f"Error getting all asset details: {e}")
+            return []
+
     def store_alerts(
         self,
         asset_code: str,
