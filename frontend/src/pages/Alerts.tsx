@@ -215,6 +215,7 @@ export function Alerts() {
             <AlertCard
               key={`${alert.asset_code}_${alert.alert_type}_${alert.date}`}
               alert={alert}
+              onExclude={loadAlerts}
             />
           ))}
         </div>

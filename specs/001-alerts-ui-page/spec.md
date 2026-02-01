@@ -85,6 +85,8 @@ As a trader, I want to exclude specific assets from alert processing so I can pr
 4. **Given** I have excluded assets, **When** I view the exclusion list, **Then** I see all currently excluded assets with their codes and country codes
 5. **Given** an asset is excluded, **When** I remove it from the exclusion list, **Then** future batch runs will process that asset again and new alerts will appear in the alert view
 6. **Given** multiple assets are excluded, **When** batch alerting builds the watchlist, **Then** all excluded assets are filtered out before processing begins, reducing total processing time
+7. **Given** I'm viewing an alert in the Alerts page, **When** I click the exclude button (🚫) on the alert card, **Then** a confirmation dialog appears asking to confirm exclusion
+8. **Given** I confirm exclusion from an alert card, **When** the exclusion is saved, **Then** the alert disappears from the list immediately and all alerts for that asset are hidden
 
 > **📁 Implementation Documentation**: User Story 4 has been implemented. For complete implementation details, see [`user-story-4-asset-exclusion/`](./user-story-4-asset-exclusion/) directory which contains:
 > - Implementation plan and task breakdown

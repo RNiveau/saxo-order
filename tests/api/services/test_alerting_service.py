@@ -50,7 +50,7 @@ class TestAlertExclusionFiltering:
             ),
         ]
         mock_dynamodb_client.get_all_alerts.return_value = alerts
-        mock_dynamodb_client.get_tradingview_link.return_value = None
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         # Execute
         response = alerting_service.get_all_alerts()
@@ -63,8 +63,8 @@ class TestAlertExclusionFiltering:
         self, alerting_service, mock_dynamodb_client
     ):
         """Test get_all_alerts filters out excluded asset alerts."""
-        # Setup: SAN is excluded
-        mock_dynamodb_client.get_excluded_assets.return_value = ["SAN"]
+        # Setup: SAN:xpar is excluded (must match full asset_id format)
+        mock_dynamodb_client.get_excluded_assets.return_value = ["SAN:xpar"]
 
         # Setup: Alerts for both SAN and ITP
         alerts = [
@@ -88,7 +88,7 @@ class TestAlertExclusionFiltering:
             ),
         ]
         mock_dynamodb_client.get_all_alerts.return_value = alerts
-        mock_dynamodb_client.get_tradingview_link.return_value = None
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         # Execute
         response = alerting_service.get_all_alerts()
@@ -102,11 +102,11 @@ class TestAlertExclusionFiltering:
         self, alerting_service, mock_dynamodb_client
     ):
         """Test get_all_alerts returns empty when all alerts are excluded."""
-        # Setup: All assets excluded
+        # Setup: All assets excluded (must match full asset_id format)
         mock_dynamodb_client.get_excluded_assets.return_value = [
-            "SAN",
-            "ITP",
-            "BNP",
+            "SAN:xpar",
+            "ITP:xpar",
+            "BNP:xpar",
         ]
 
         # Setup: Alerts from excluded assets
@@ -131,7 +131,7 @@ class TestAlertExclusionFiltering:
             ),
         ]
         mock_dynamodb_client.get_all_alerts.return_value = alerts
-        mock_dynamodb_client.get_tradingview_link.return_value = None
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         # Execute
         response = alerting_service.get_all_alerts()
@@ -145,7 +145,7 @@ class TestAlertExclusionFiltering:
     ):
         """Test available filters don't include excluded assets."""
         # Setup: SAN is excluded
-        mock_dynamodb_client.get_excluded_assets.return_value = ["SAN"]
+        mock_dynamodb_client.get_excluded_assets.return_value = ["SAN:xpar"]
 
         # Setup: Alerts for both SAN and ITP
         alerts = [
@@ -169,7 +169,7 @@ class TestAlertExclusionFiltering:
             ),
         ]
         mock_dynamodb_client.get_all_alerts.return_value = alerts
-        mock_dynamodb_client.get_tradingview_link.return_value = None
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         # Execute
         response = alerting_service.get_all_alerts()
@@ -183,7 +183,7 @@ class TestAlertExclusionFiltering:
     ):
         """Test both user filters and exclusions are applied correctly."""
         # Setup: SAN is excluded
-        mock_dynamodb_client.get_excluded_assets.return_value = ["SAN"]
+        mock_dynamodb_client.get_excluded_assets.return_value = ["SAN:xpar"]
 
         # Setup: Multiple alerts with different types
         alerts = [
@@ -216,7 +216,7 @@ class TestAlertExclusionFiltering:
             ),
         ]
         mock_dynamodb_client.get_all_alerts.return_value = alerts
-        mock_dynamodb_client.get_tradingview_link.return_value = None
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         # Execute: Filter by alert_type=combo
         response = alerting_service.get_all_alerts(alert_type="combo")

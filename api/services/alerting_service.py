@@ -49,7 +49,12 @@ class AlertingService:
         all_alerts = [
             alert
             for alert in all_alerts
-            if alert.asset_code not in excluded_asset_ids
+            if (
+                f"{alert.asset_code}:{alert.country_code}"
+                if alert.country_code
+                else alert.asset_code
+            )
+            not in excluded_asset_ids
         ]
         filtered_count = original_count - len(all_alerts)
 
@@ -82,24 +87,20 @@ class AlertingService:
         # Sort by date descending (newest first)
         filtered_alerts.sort(key=lambda a: a.date, reverse=True)
 
-        # Fetch TradingView links for all unique asset codes (batch operation)
-        unique_asset_codes = set(alert.asset_code for alert in filtered_alerts)
-        tradingview_links = {}
-        for code in unique_asset_codes:
-            try:
-                link = self.dynamodb_client.get_tradingview_link(code)
-                if link:
-                    tradingview_links[code] = link
-            except Exception as e:
-                logger.warning(
-                    f"Failed to get TradingView link for {code}: {e}"
-                )
+        # Fetch all TradingView links in one batch operation
+        tradingview_links = self.dynamodb_client.get_all_tradingview_links()
 
         # Transform to response models with TradingView links
-        alert_items = [
-            self._to_response(alert, tradingview_links.get(alert.asset_code))
-            for alert in filtered_alerts
-        ]
+        # Construct full asset_id for lookup (code:country_code or just code)
+        alert_items = []
+        for alert in filtered_alerts:
+            asset_id = (
+                f"{alert.asset_code}:{alert.country_code}"
+                if alert.country_code
+                else alert.asset_code
+            )
+            tradingview_url = tradingview_links.get(asset_id)
+            alert_items.append(self._to_response(alert, tradingview_url))
 
         # Calculate available filters from ALL alerts (not filtered)
         filters = self._calculate_filters(all_alerts)

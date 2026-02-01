@@ -183,7 +183,16 @@ all_alerts = [alert for alert in all_alerts if alert.asset_code not in excluded_
 
 **Lines Added**: ~60 lines
 
-#### 4. Alerts Page (`frontend/src/pages/Alerts.tsx`)
+#### 4. Alert Card Component (`frontend/src/components/AlertCard.tsx`)
+**Enhancement**: Added quick-exclude button to each alert card
+- 🚫 icon button in card header for one-click exclusion
+- Confirmation dialog before excluding
+- Automatic refresh after exclusion
+- Disabled state during API call
+
+**Lines Added**: ~25 lines
+
+#### 5. Alerts Page (`frontend/src/pages/Alerts.tsx`)
 **Modification**: Added info banner with link to exclusions page
 ```tsx
 <div className="info-banner">
@@ -194,20 +203,30 @@ all_alerts = [alert for alert in all_alerts if alert.asset_code not in excluded_
 
 **Lines Added**: ~15 lines
 
-#### 5. Alerts CSS (`frontend/src/pages/Alerts.css`)
-**New Styles**: Info banner styling
-- Blue background with border
-- Icon and link styling
+#### 6. Alerts CSS (`frontend/src/pages/Alerts.css`)
+**New Styles**: Info banner styling with dark theme
+- Translucent blue background (10% opacity)
+- Light gray text for comfortable reading
+- Soft blue accent for icon and link
 - Responsive layout
+
+**Lines Added**: ~25 lines
+
+#### 7. Alert Card CSS (`frontend/src/components/AlertCard.css`)
+**New Styles**: Quick-exclude button styling
+- Transparent background with red border
+- Hover effect with translucent red background
+- Scale animation on hover
+- Disabled state styling
 
 **Lines Added**: ~20 lines
 
-#### 6. App Routing (`frontend/src/App.tsx`)
+#### 8. App Routing (`frontend/src/App.tsx`)
 **New Route**: `/exclusions` → `AssetExclusions` component
 
 **Lines Added**: ~2 lines
 
-#### 7. Sidebar Navigation (`frontend/src/components/Sidebar.tsx`)
+#### 9. Sidebar Navigation (`frontend/src/components/Sidebar.tsx`)
 **New Link**: "Asset Exclusions" with 🚫 icon
 
 **Lines Added**: ~8 lines
@@ -296,11 +315,13 @@ Created:
 Modified:
 ✏️  frontend/src/services/api.ts               (+60 lines)
 ✏️  frontend/src/pages/Alerts.tsx              (+15 lines)
-✏️  frontend/src/pages/Alerts.css              (+20 lines)
+✏️  frontend/src/pages/Alerts.css              (+25 lines)
+✏️  frontend/src/components/AlertCard.tsx      (+25 lines)
+✏️  frontend/src/components/AlertCard.css      (+20 lines)
 ✏️  frontend/src/App.tsx                       (+2 lines)
 ✏️  frontend/src/components/Sidebar.tsx        (+8 lines)
 
-Total Frontend: ~555 lines added
+Total Frontend: ~605 lines added
 ```
 
 ### Documentation
@@ -470,6 +491,15 @@ If issues occur, rollback is simple:
 ## Usage Examples
 
 ### Via UI
+
+**Method 1: Quick-Exclude from Alert Card** (Fastest)
+1. Navigate to `/` (Alerts page)
+2. Find the alert you want to exclude
+3. Click the 🚫 button in the alert card header
+4. Confirm exclusion in the dialog
+5. Alert disappears immediately
+
+**Method 2: Asset Exclusions Page** (Manage All)
 1. Navigate to `/exclusions`
 2. Search for asset (e.g., "SAN")
 3. Click "Exclude" button

@@ -254,6 +254,49 @@ class DynamoDBClient(AwsClient):
             return detail.get("tradingview_url")
         return None
 
+    def get_all_tradingview_links(self) -> Dict[str, str]:
+        """
+        Batch fetch all TradingView links from asset_details table.
+
+        Returns:
+            Dictionary mapping asset_id to tradingview_url for all assets
+            that have a tradingview_url set
+        """
+        try:
+            response = self.dynamodb.Table("asset_details").scan(
+                ProjectionExpression="asset_id, tradingview_url",
+            )
+
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB scan error: {response}")
+                return {}
+
+            items = response.get("Items", [])
+
+            # Handle pagination
+            while "LastEvaluatedKey" in response:
+                response = self.dynamodb.Table("asset_details").scan(
+                    ProjectionExpression="asset_id, tradingview_url",
+                    ExclusiveStartKey=response["LastEvaluatedKey"],
+                )
+                items.extend(response.get("Items", []))
+
+            # Build dictionary, only including items with tradingview_url
+            links = {
+                item["asset_id"]: item["tradingview_url"]
+                for item in items
+                if "tradingview_url" in item and item["tradingview_url"]
+            }
+
+            self.logger.info(
+                f"Loaded {len(links)} TradingView links from asset_details"
+            )
+            return links
+
+        except Exception as e:
+            self.logger.error(f"Failed to fetch TradingView links: {e}")
+            return {}
+
     def get_excluded_assets(self) -> List[str]:
         """
         Get list of asset IDs that are excluded from alerting.

@@ -2,15 +2,18 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AlertItem } from '../services/api';
 import { getTradingViewUrl } from '../utils/tradingview';
+import { assetDetailsService } from '../services/api';
 import './AlertCard.css';
 
 interface AlertCardProps {
   alert: AlertItem;
+  onExclude?: () => void;
 }
 
-export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
+export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
   const navigate = useNavigate();
   const [isDataExpanded, setIsDataExpanded] = useState(false);
+  const [isExcluding, setIsExcluding] = useState(false);
 
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -96,14 +99,48 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert }) => {
   // Extract MA50 slope from alert data
   const ma50Slope = alert.data?.ma50_slope;
 
+  const handleExcludeClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!confirm(`Exclude "${alert.asset_description}" from alerts?\n\nThis will hide all future alerts for this asset.`)) {
+      return;
+    }
+
+    setIsExcluding(true);
+    try {
+      const assetId = alert.country_code
+        ? `${alert.asset_code}:${alert.country_code}`
+        : alert.asset_code;
+
+      await assetDetailsService.updateExclusion(assetId, true);
+
+      if (onExclude) {
+        onExclude();
+      }
+    } catch (error) {
+      console.error('Failed to exclude asset:', error);
+      alert('Failed to exclude asset. Please try again.');
+    } finally {
+      setIsExcluding(false);
+    }
+  };
+
   return (
     <div className="alert-card">
       <div className="alert-card-header">
         <div className="alert-card-type">
           <span className="alert-type-badge">{formatAlertType(alert.alert_type)}</span>
         </div>
-        <div className="alert-card-age">
+        <div className="alert-card-header-right">
           <span className="age-label">{getAgeLabel(alert.age_hours)}</span>
+          <button
+            className="exclude-button"
+            onClick={handleExcludeClick}
+            disabled={isExcluding}
+            title="Exclude this asset from alerts"
+          >
+            🚫
+          </button>
         </div>
       </div>
       <div className="alert-card-body">

@@ -437,7 +437,28 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
     logger.info(f"Excluded assets: {excluded_asset_ids}")
 
     original_count = len(assets)
-    assets = [s for s in assets if s["code"] not in excluded_asset_ids]
+
+    # Filter assets by constructing full asset_id for exclusion check
+    filtered_assets = []
+    for asset in assets:
+        # Parse asset code to separate asset_code and country_code
+        parsed_asset_code, parsed_country_code = _parse_asset_code(
+            asset["code"]
+        )
+        # Prefer explicit country_code from asset dict, fallback to parsed
+        final_country_code = asset.get("country_code") or parsed_country_code
+
+        # Construct full asset_id for exclusion check
+        asset_id = (
+            f"{parsed_asset_code}:{final_country_code}"
+            if final_country_code
+            else parsed_asset_code
+        )
+
+        if asset_id not in excluded_asset_ids:
+            filtered_assets.append(asset)
+
+    assets = filtered_assets
     filtered_count = original_count - len(assets)
 
     logger.info(f"Assets after exclusion filtering: {len(assets)}")
