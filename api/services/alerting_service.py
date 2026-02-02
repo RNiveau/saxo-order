@@ -1,6 +1,9 @@
+import threading
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
+
+from cachetools import TTLCache
 
 from api.models.alerting import (
     AlertItemResponse,
@@ -22,6 +25,8 @@ class AlertingService:
 
     def __init__(self, dynamodb_client: DynamoDBClient):
         self.dynamodb_client = dynamodb_client
+        self._alerts_cache: TTLCache = TTLCache(maxsize=1, ttl=3600)
+        self._cache_lock = threading.RLock()
 
     def get_all_alerts(
         self,
@@ -31,6 +36,7 @@ class AlertingService:
     ) -> AlertsResponse:
         """
         Get all alerts from DynamoDB with optional filtering.
+        Results are cached for 1 hour to improve performance.
 
         Args:
             asset_code: Optional filter by asset code
@@ -40,30 +46,51 @@ class AlertingService:
         Returns:
             AlertsResponse with filtered alerts and available filter options
         """
-        # Fetch all alerts from DynamoDB
-        all_alerts: List[Alert] = self.dynamodb_client.get_all_alerts()
+        cache_key = "alerts_base_data"
 
-        # Filter out alerts from excluded assets
-        excluded_asset_ids = self.dynamodb_client.get_excluded_assets()
-        original_count = len(all_alerts)
-        all_alerts = [
-            alert
-            for alert in all_alerts
-            if (
-                f"{alert.asset_code}:{alert.country_code}"
-                if alert.country_code
-                else alert.asset_code
-            )
-            not in excluded_asset_ids
-        ]
-        filtered_count = original_count - len(all_alerts)
+        with self._cache_lock:
+            if cache_key in self._alerts_cache:
+                logger.debug("Using cached alerts data")
+                cached_data = self._alerts_cache[cache_key]
+                all_alerts = cached_data["all_alerts"]
+                tradingview_links = cached_data["tradingview_links"]
+            else:
+                logger.info("Cache miss - fetching alerts from DynamoDB")
+                all_alerts = self.dynamodb_client.get_all_alerts()
+                excluded_asset_ids = self.dynamodb_client.get_excluded_assets()
+                original_count = len(all_alerts)
+                all_alerts = [
+                    alert
+                    for alert in all_alerts
+                    if (
+                        f"{alert.asset_code}:{alert.country_code}"
+                        if alert.country_code
+                        else alert.asset_code
+                    )
+                    not in excluded_asset_ids
+                ]
+                filtered_count = original_count - len(all_alerts)
 
-        if filtered_count > 0:
-            logger.info(
-                f"Filtered {filtered_count} alerts from excluded assets"
-            )
+                if filtered_count > 0:
+                    logger.info(
+                        f"Filtered {filtered_count} alerts "
+                        f"from excluded assets"
+                    )
 
-        # Apply filters
+                tradingview_links = (
+                    self.dynamodb_client.get_all_tradingview_links()
+                )
+
+                self._alerts_cache[cache_key] = {
+                    "all_alerts": all_alerts,
+                    "tradingview_links": tradingview_links,
+                }
+                logger.info(
+                    f"Cached {len(all_alerts)} alerts with "
+                    f"{len(tradingview_links)} TradingView links"
+                )
+
+        # Apply user-provided filters
         filtered_alerts = all_alerts
         if asset_code:
             filtered_alerts = [
@@ -87,11 +114,7 @@ class AlertingService:
         # Sort by date descending (newest first)
         filtered_alerts.sort(key=lambda a: a.date, reverse=True)
 
-        # Fetch all TradingView links in one batch operation
-        tradingview_links = self.dynamodb_client.get_all_tradingview_links()
-
         # Transform to response models with TradingView links
-        # Construct full asset_id for lookup (code:country_code or just code)
         alert_items = []
         for alert in filtered_alerts:
             asset_id = (
@@ -161,6 +184,12 @@ class AlertingService:
             "alert_types": alert_types,
             "country_codes": country_codes,
         }
+
+    def invalidate_cache(self) -> None:
+        """Invalidate the alerts cache to force fresh data on next request."""
+        with self._cache_lock:
+            self._alerts_cache.clear()
+            logger.info("Alerts cache invalidated")
 
     def _is_cooldown_active(
         self, asset_code: str, country_code: Optional[str]
@@ -280,6 +309,10 @@ class AlertingService:
                 message=f"Alert detection failed: {str(e)}",
                 next_allowed_at=datetime.now() + timedelta(minutes=5),
             )
+
+        # Invalidate cache since new alerts may have been stored
+        if detected_alerts:
+            self.invalidate_cache()
 
         # Update last_run_at timestamp
         self.dynamodb_client.update_last_run_at(
