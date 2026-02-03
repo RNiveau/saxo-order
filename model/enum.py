@@ -65,6 +65,7 @@ class AssetType(EnumWithGetValue):
     WARRANT = "WarrantOpenEndKnockOut"
     WARRANT_KNOCK_OUT = "WarrantKnockOut"
     ETF = "Etf"
+    ETC = "Etc"
     TURBO = "MiniFuture"
     STOCK = "Stock"
     INDEX = "StockIndex"
