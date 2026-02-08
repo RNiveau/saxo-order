@@ -22,7 +22,7 @@ class WatchlistService:
         self.dynamodb_client = dynamodb_client
         self.indicator_service = indicator_service
 
-    def _enforce_tag_mutual_exclusivity(self, labels: List[str]) -> List[str]:
+    def enforce_tag_mutual_exclusivity(self, labels: List[str]) -> List[str]:
         """
         Enforce mutual exclusivity between SLWIN and SHORT_TERM tags.
 

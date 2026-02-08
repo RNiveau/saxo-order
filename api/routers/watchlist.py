@@ -263,7 +263,7 @@ async def update_watchlist_labels(
                 )
 
         # Enforce mutual exclusivity between SLWIN and SHORT_TERM tags
-        labels = watchlist_service._enforce_tag_mutual_exclusivity(
+        labels = watchlist_service.enforce_tag_mutual_exclusivity(
             request.labels.copy()
         )
 
