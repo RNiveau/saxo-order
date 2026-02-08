@@ -225,6 +225,7 @@ async def update_watchlist_labels(
     asset_id: str,
     request: UpdateLabelsRequest,
     dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
+    watchlist_service: WatchlistService = Depends(get_watchlist_service),
 ):
     """
     Update labels for a watchlist item.
@@ -261,12 +262,17 @@ async def update_watchlist_labels(
                     ),
                 )
 
-        dynamodb_client.update_watchlist_labels(asset_id, request.labels)
+        # Enforce mutual exclusivity between SLWIN and SHORT_TERM tags
+        labels = watchlist_service.enforce_tag_mutual_exclusivity(
+            request.labels.copy()
+        )
+
+        dynamodb_client.update_watchlist_labels(asset_id, labels)
 
         return UpdateLabelsResponse(
             message="Labels updated successfully",
             asset_id=asset_id,
-            labels=request.labels,
+            labels=labels,
         )
     except HTTPException:
         raise

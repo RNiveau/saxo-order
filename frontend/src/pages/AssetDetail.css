@@ -109,6 +109,40 @@
   cursor: not-allowed;
 }
 
+.slwin-btn {
+  background: #d97706;
+  color: #ffffff;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slwin-btn:hover:not(:disabled) {
+  background: #f59e0b;
+  border-color: #fbbf24;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.slwin-btn.active {
+  background: #059669;
+  border-color: #10b981;
+}
+
+.slwin-btn.active:hover:not(:disabled) {
+  background: #10b981;
+  border-color: #34d399;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.slwin-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .long-term-btn {
   background: #7c3aed;
   color: #ffffff;

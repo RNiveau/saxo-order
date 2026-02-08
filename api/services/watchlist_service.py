@@ -22,6 +22,29 @@ class WatchlistService:
         self.dynamodb_client = dynamodb_client
         self.indicator_service = indicator_service
 
+    def enforce_tag_mutual_exclusivity(self, labels: List[str]) -> List[str]:
+        """
+        Enforce mutual exclusivity between SLWIN and SHORT_TERM tags.
+
+        Args:
+            labels: Requested labels array
+
+        Returns:
+            Filtered labels array with only one of SLWIN or SHORT_TERM
+        """
+        has_slwin = WatchlistTag.SLWIN.value in labels
+        has_short_term = WatchlistTag.SHORT_TERM.value in labels
+
+        # If both present, remove short-term (SLWIN takes precedence)
+        if has_slwin and has_short_term:
+            labels = [
+                label
+                for label in labels
+                if label != WatchlistTag.SHORT_TERM.value
+            ]
+
+        return labels
+
     def _enrich_asset(
         self,
         asset_symbol: str,
@@ -169,12 +192,22 @@ class WatchlistService:
                     f"{item.get('asset_symbol', 'unknown')}: {e}"
                 )
 
-        # Sort items: short-term positions first (alphabetically),
-        # then other items (alphabetically)
+        # Sort items: short-term positions first, SLWIN second,
+        # then other items (all alphabetically)
         def sort_key(item: WatchlistItem) -> tuple:
             has_short_term = WatchlistTag.SHORT_TERM.value in item.labels
+            has_slwin = WatchlistTag.SLWIN.value in item.labels
             description = item.description.lower() if item.description else ""
-            return (0 if has_short_term else 1, description)
+
+            # Priority: 0=short-term, 1=slwin, 2=other
+            if has_short_term:
+                priority = 0
+            elif has_slwin:
+                priority = 1
+            else:
+                priority = 2
+
+            return (priority, description)
 
         sorted_items = sorted(enriched_items, key=sort_key)
 
@@ -204,10 +237,11 @@ class WatchlistService:
             if WatchlistTag.LONG_TERM.value in labels:
                 continue
 
-            # Exclude crypto assets WITHOUT short-term tag
+            # Exclude crypto assets WITHOUT short-term OR slwin tag
             has_crypto = WatchlistTag.CRYPTO.value in labels
             has_short_term = WatchlistTag.SHORT_TERM.value in labels
-            if has_crypto and not has_short_term:
+            has_slwin = WatchlistTag.SLWIN.value in labels
+            if has_crypto and not has_short_term and not has_slwin:
                 continue
 
             filtered_items.append(item)

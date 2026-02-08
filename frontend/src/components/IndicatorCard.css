@@ -53,13 +53,13 @@
 .tradingview-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
+  gap: 3px;
+  padding: 4px 8px;
   background: #2962ff;
   color: white;
   text-decoration: none;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: 4px;
+  font-size: 11px;
   font-weight: 600;
   transition: background 0.2s, transform 0.2s;
 }
@@ -74,13 +74,13 @@
 }
 
 .edit-tradingview-btn {
-  padding: 6px 10px;
+  padding: 4px 8px;
   background: transparent;
   border: 1px solid #666;
   color: #e0e0e0;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   transition: all 0.2s;
 }
 

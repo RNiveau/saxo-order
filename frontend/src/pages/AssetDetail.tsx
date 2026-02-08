@@ -35,6 +35,7 @@ export function AssetDetail() {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [checkingWatchlist, setCheckingWatchlist] = useState(false);
   const [isShortTerm, setIsShortTerm] = useState(false);
+  const [isSLWIN, setIsSLWIN] = useState(false);
   const [isLongTerm, setIsLongTerm] = useState(false);
   const [isHomepage, setIsHomepage] = useState(false);
   const [updatingLabel, setUpdatingLabel] = useState(false);
@@ -132,6 +133,7 @@ export function AssetDetail() {
         const item = watchlistData.items.find(item => item.id === code);
         if (item) {
           setIsShortTerm(item.labels.includes('short-term'));
+          setIsSLWIN(item.labels.includes('slwin'));
           setIsLongTerm(item.labels.includes('long-term'));
           setIsHomepage(item.labels.includes('homepage'));
         }
@@ -344,6 +346,7 @@ export function AssetDetail() {
         setWatchlistSuccess(`Removed ${assetName} from watchlist`);
         setIsInWatchlist(false);
         setIsShortTerm(false);
+        setIsSLWIN(false);
         setIsLongTerm(false);
         setIsHomepage(false);
       } else {
@@ -382,14 +385,16 @@ export function AssetDetail() {
       const [code] = symbol.split(':');
       const assetName = indicatorData?.description || symbol;
 
-      // Build labels array keeping long-term if it exists, toggling short-term
+      // Build labels array: exclude slwin, toggle short-term, keep others
       const newLabels: string[] = [];
       if (isLongTerm) newLabels.push('long-term');
+      if (isHomepage) newLabels.push('homepage');
       if (!isShortTerm) newLabels.push('short-term');
 
       await watchlistService.updateLabels(code, newLabels);
 
       setIsShortTerm(!isShortTerm);
+      if (isSLWIN) setIsSLWIN(false);
       const action = isShortTerm ? 'Removed from' : 'Added to';
       setWatchlistSuccess(`${action} short-term positions: ${assetName}`);
 
@@ -471,6 +476,42 @@ export function AssetDetail() {
     }
   };
 
+  const handleToggleSLWIN = async () => {
+    if (!symbol) return;
+
+    try {
+      setUpdatingLabel(true);
+      setWatchlistError(null);
+      setWatchlistSuccess(null);
+
+      const [code] = symbol.split(':');
+      const assetName = indicatorData?.description || symbol;
+
+      // Build labels array: exclude short-term, toggle slwin, keep others
+      const newLabels: string[] = [];
+      if (isLongTerm) newLabels.push('long-term');
+      if (isHomepage) newLabels.push('homepage');
+      if (!isSLWIN) newLabels.push('slwin');
+
+      await watchlistService.updateLabels(code, newLabels);
+
+      setIsSLWIN(!isSLWIN);
+      if (isShortTerm) setIsShortTerm(false);
+
+      const action = isSLWIN ? 'Removed from' : 'Added to';
+      setWatchlistSuccess(`${action} SLWIN positions: ${assetName}`);
+
+      setTimeout(() => setWatchlistSuccess(null), 3000);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || 'Failed to update label';
+      setWatchlistError(errorMessage);
+      console.error('Label toggle error:', err);
+      setTimeout(() => setWatchlistError(null), 5000);
+    } finally {
+      setUpdatingLabel(false);
+    }
+  };
+
   const handleCreateOrder = () => {
     if (!symbol || !indicatorData) return;
 
@@ -540,6 +581,19 @@ export function AssetDetail() {
                   : isShortTerm
                   ? '⭐ Close Short Term Position'
                   : '⭐ Short Term Position'}
+              </button>
+              <button
+                onClick={handleToggleSLWIN}
+                disabled={updatingLabel || checkingWatchlist}
+                className={`slwin-btn ${isSLWIN ? 'active' : ''}`}
+              >
+                {updatingLabel
+                  ? isSLWIN
+                    ? 'Removing...'
+                    : 'Adding...'
+                  : isSLWIN
+                  ? '🎯 Close SLWIN Position'
+                  : '🎯 SLWIN Position'}
               </button>
               <button
                 onClick={handleToggleLongTerm}

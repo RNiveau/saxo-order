@@ -70,6 +70,7 @@ The codebase MUST maintain strict separation between architectural layers:
 - Backend: Models use enums for status/type fields, never hardcoded strings
 - Backend: **NEVER access client internals from service layer** - use client methods, never `client.dynamodb.Table()` or similar
 - Backend: Clients MUST expose methods for all operations - encapsulate implementation details
+- Backend: **NEVER use underscore prefix for public methods** - methods called from outside the class (routers, other services) MUST NOT start with `_`
 - Frontend: All API calls MUST go through services in `frontend/src/services/`
 - Frontend: Components receive data via props, emit events via callbacks - NO direct API calls
 - API: TypeScript interfaces in frontend MUST match Pydantic models in backend (use exact field names)

@@ -1,0 +1,363 @@
+# API Contract: SLWIN Tag Extension
+
+# This document defines the API contract extensions for the SLWIN tag feature.
+# Note: No new endpoints are added. Existing endpoints handle SLWIN tag.
+
+openapi: 3.0.3
+info:
+  title: Watchlist API - SLWIN Tag Extension
+  description: |
+    API contract for SLWIN (Stop Loss Win) tag functionality.
+    Extends existing watchlist endpoints to support new tag value.
+
+    **Key Changes**:
+    - WatchlistTag enum includes new "slwin" value
+    - Backend enforces mutual exclusivity between "slwin" and "short-term"
+    - Sorting places SLWIN assets between short-term and untagged
+    - Crypto assets with SLWIN tag included in sidebar
+  version: 1.0.0
+  contact:
+    name: saxo-order
+    url: https://github.com/RNiveau/saxo-order
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+  - url: https://api.saxo-order.example.com/api
+    description: Production server
+
+paths:
+  /watchlist:
+    get:
+      summary: Get watchlist items for sidebar
+      description: |
+        Returns watchlist items excluding long-term positions.
+        SLWIN-tagged assets appear after short-term but before untagged.
+        Crypto assets excluded UNLESS tagged short-term OR slwin.
+      operationId: getWatchlist
+      responses:
+        '200':
+          description: Watchlist items retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistResponse'
+              examples:
+                withSLWIN:
+                  summary: Watchlist with SLWIN assets
+                  value:
+                    items:
+                      - id: "aapl"
+                        asset_symbol: "aapl:xnas"
+                        description: "Apple Inc."
+                        country_code: "xnas"
+                        current_price: 175.50
+                        variation_pct: 1.25
+                        currency: "USD"
+                        added_at: "2026-02-01T10:00:00Z"
+                        labels: ["short-term"]
+                        exchange: "saxo"
+                      - id: "googl"
+                        asset_symbol: "googl:xnas"
+                        description: "Alphabet Inc."
+                        country_code: "xnas"
+                        current_price: 2850.00
+                        variation_pct: -0.5
+                        currency: "USD"
+                        added_at: "2026-02-05T14:30:00Z"
+                        labels: ["slwin"]
+                        exchange: "saxo"
+                      - id: "btcusd"
+                        asset_symbol: "btcusd"
+                        description: "Bitcoin"
+                        country_code: ""
+                        current_price: 45000.00
+                        variation_pct: 3.2
+                        currency: "USD"
+                        added_at: "2026-02-06T09:00:00Z"
+                        labels: ["slwin", "crypto"]
+                        exchange: "binance"
+                      - id: "msft"
+                        asset_symbol: "msft:xnas"
+                        description: "Microsoft Corporation"
+                        country_code: "xnas"
+                        current_price: 420.00
+                        variation_pct: 0.8
+                        currency: "USD"
+                        added_at: "2026-01-20T11:00:00Z"
+                        labels: []
+                        exchange: "saxo"
+                    total: 4
+
+  /watchlist/{asset_id}/labels:
+    put:
+      summary: Update labels for a watchlist asset
+      description: |
+        Updates the labels array for a specific asset.
+        Backend automatically enforces mutual exclusivity:
+        - If both "slwin" and "short-term" present, removes "short-term"
+        - Uses last-write-wins for concurrent updates
+      operationId: updateLabels
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          description: Unique identifier for the asset
+          schema:
+            type: string
+          example: "aapl"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLabelsRequest'
+            examples:
+              addSLWIN:
+                summary: Add SLWIN tag
+                value:
+                  labels: ["slwin"]
+              addSLWINWithLongTerm:
+                summary: Add SLWIN with long-term (valid)
+                value:
+                  labels: ["slwin", "long-term"]
+              conflictingTags:
+                summary: Conflicting tags (backend auto-resolves)
+                value:
+                  labels: ["slwin", "short-term"]  # Backend removes "short-term"
+      responses:
+        '200':
+          description: Labels updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateLabelsResponse'
+              examples:
+                slwinAdded:
+                  summary: SLWIN tag added
+                  value:
+                    message: "Labels updated successfully"
+                    asset_id: "aapl"
+                    labels: ["slwin"]
+                conflictResolved:
+                  summary: Mutual exclusivity enforced
+                  value:
+                    message: "Labels updated successfully"
+                    asset_id: "aapl"
+                    labels: ["slwin"]  # "short-term" was removed by backend
+        '404':
+          description: Asset not found in watchlist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Asset aapl not found in watchlist"
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Invalid label format"
+
+components:
+  schemas:
+    WatchlistTag:
+      type: string
+      enum:
+        - short-term
+        - long-term
+        - crypto
+        - homepage
+        - slwin  # NEW: Stop Loss Win tag
+      description: |
+        Valid tag values for watchlist items.
+        **Mutual Exclusivity**: "slwin" and "short-term" cannot coexist.
+
+    WatchlistItem:
+      type: object
+      required:
+        - id
+        - asset_symbol
+        - description
+        - country_code
+        - current_price
+        - variation_pct
+        - currency
+        - added_at
+        - labels
+        - exchange
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the watchlist item
+          example: "aapl"
+        asset_symbol:
+          type: string
+          description: Asset symbol (e.g., 'itp:xpar' for Saxo, 'btcusd' for Binance)
+          example: "aapl:xnas"
+        description:
+          type: string
+          description: Asset description/name
+          example: "Apple Inc."
+        country_code:
+          type: string
+          description: Country code (e.g., 'xpar', 'xnas'). Can be empty for Binance assets.
+          example: "xnas"
+        current_price:
+          type: number
+          format: float
+          description: Current price of the asset
+          example: 175.50
+        variation_pct:
+          type: number
+          format: float
+          description: Percentage variation from previous period
+          example: 1.25
+        currency:
+          type: string
+          description: Currency code (e.g., 'EUR', 'USD')
+          example: "USD"
+        added_at:
+          type: string
+          format: date-time
+          description: ISO timestamp when added to watchlist
+          example: "2026-02-08T10:00:00Z"
+        labels:
+          type: array
+          items:
+            type: string
+          description: |
+            Labels for the asset. Can include "slwin" value.
+            **Note**: "slwin" and "short-term" are mutually exclusive.
+          example: ["slwin", "long-term"]
+        tradingview_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Custom TradingView URL for this asset
+          example: "https://www.tradingview.com/chart/?symbol=NASDAQ:AAPL"
+        exchange:
+          type: string
+          enum: ["saxo", "binance"]
+          description: Exchange where asset is traded
+          example: "saxo"
+
+    WatchlistResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WatchlistItem'
+          description: |
+            List of watchlist items sorted by priority:
+            1. short-term (priority 0)
+            2. slwin (priority 1)
+            3. untagged or other (priority 2)
+            Within each priority group, sorted alphabetically by description.
+        total:
+          type: integer
+          description: Total number of items in watchlist
+          example: 10
+
+    UpdateLabelsRequest:
+      type: object
+      required:
+        - labels
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+          description: |
+            Complete labels array to set for the asset.
+            If both "slwin" and "short-term" provided, backend auto-removes "short-term".
+          example: ["slwin", "long-term"]
+
+    UpdateLabelsResponse:
+      type: object
+      required:
+        - message
+        - asset_id
+        - labels
+      properties:
+        message:
+          type: string
+          description: Success message
+          example: "Labels updated successfully"
+        asset_id:
+          type: string
+          description: Asset ID that was updated
+          example: "aapl"
+        labels:
+          type: array
+          items:
+            type: string
+          description: Final labels array after backend enforcement
+          example: ["slwin"]
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Asset not found in watchlist"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token authentication (if required in production)
+
+security:
+  - bearerAuth: []  # Apply to all endpoints if auth enabled
+
+# Business Rules Documentation
+x-business-rules:
+  mutual-exclusivity:
+    description: SLWIN and SHORT_TERM tags are mutually exclusive
+    enforcement: Backend service layer (watchlist_service.py)
+    behavior: When both tags present in request, backend removes SHORT_TERM
+    example:
+      request: ["slwin", "short-term"]
+      response: ["slwin"]
+
+  sorting-priority:
+    description: Watchlist items sorted by tag priority then alphabetically
+    priorities:
+      - priority: 0
+        tags: ["short-term"]
+      - priority: 1
+        tags: ["slwin"]
+      - priority: 2
+        tags: ["long-term", "crypto", "homepage", "untagged"]
+    implementation: watchlist_service.py - sort_key function
+
+  crypto-filtering:
+    description: Crypto assets excluded from sidebar unless tagged
+    rule: "Exclude if has 'crypto' AND NOT ('short-term' OR 'slwin')"
+    examples:
+      - labels: ["crypto"]
+        included: false
+      - labels: ["crypto", "short-term"]
+        included: true
+      - labels: ["crypto", "slwin"]
+        included: true
+      - labels: ["crypto", "slwin", "long-term"]
+        included: false  # long-term exclusion takes precedence
+
+  concurrency:
+    description: Concurrent label updates handled with last-write-wins
+    strategy: DynamoDB atomic update operations
+    behavior: Last write to reach DynamoDB persists
+    risk: Low (acceptable for tag toggle operations)
