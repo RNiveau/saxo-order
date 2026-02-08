@@ -261,12 +261,24 @@ async def update_watchlist_labels(
                     ),
                 )
 
-        dynamodb_client.update_watchlist_labels(asset_id, request.labels)
+        # Enforce mutual exclusivity between SLWIN and SHORT_TERM tags
+        labels = request.labels.copy()
+        has_slwin = WatchlistTag.SLWIN.value in labels
+        has_short_term = WatchlistTag.SHORT_TERM.value in labels
+        if has_slwin and has_short_term:
+            # Remove short-term when both present (SLWIN takes precedence)
+            labels = [
+                label
+                for label in labels
+                if label != WatchlistTag.SHORT_TERM.value
+            ]
+
+        dynamodb_client.update_watchlist_labels(asset_id, labels)
 
         return UpdateLabelsResponse(
             message="Labels updated successfully",
             asset_id=asset_id,
-            labels=request.labels,
+            labels=labels,
         )
     except HTTPException:
         raise

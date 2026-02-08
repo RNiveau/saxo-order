@@ -11,6 +11,7 @@ class WatchlistTag(str, Enum):
     LONG_TERM = "long-term"
     CRYPTO = "crypto"
     HOMEPAGE = "homepage"
+    SLWIN = "slwin"  # Stop Loss Win - mutually exclusive with SHORT_TERM
 
 
 class AddToWatchlistRequest(BaseModel):

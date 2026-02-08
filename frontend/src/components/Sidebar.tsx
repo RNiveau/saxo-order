@@ -183,9 +183,15 @@ export function Sidebar() {
           <ul className="watchlist-items">
             {watchlistItems.map((item, index) => {
               const isShortTerm = item.labels.includes('short-term');
+              const isSLWIN = item.labels.includes('slwin');
               const prevItem = index > 0 ? watchlistItems[index - 1] : null;
               const prevIsShortTerm = prevItem?.labels.includes('short-term');
-              const showDivider = prevIsShortTerm && !isShortTerm;
+              const prevIsSLWIN = prevItem?.labels.includes('slwin');
+
+              // Show divider when transitioning from short-term to SLWIN or other
+              // OR when transitioning from SLWIN to other
+              const showDivider = (prevIsShortTerm && !isShortTerm) ||
+                                  (prevIsSLWIN && !isSLWIN && !isShortTerm);
 
               return (
                 <li key={item.id}>
