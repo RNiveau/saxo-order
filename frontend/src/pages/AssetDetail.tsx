@@ -592,8 +592,8 @@ export function AssetDetail() {
                     ? 'Removing...'
                     : 'Adding...'
                   : isSLWIN
-                  ? '⭐ Close SLWIN Position'
-                  : '⭐ SLWIN Position'}
+                  ? '🎯 Close SLWIN Position'
+                  : '🎯 SLWIN Position'}
               </button>
               <button
                 onClick={handleToggleLongTerm}
