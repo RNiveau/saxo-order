@@ -60,14 +60,7 @@ async def check_watchlist(
         CheckWatchlistResponse with in_watchlist boolean and labels
     """
     try:
-        response = dynamodb_client.dynamodb.Table("watchlist").get_item(
-            Key={"id": asset_id}
-        )
-
-        in_watchlist = "Item" in response
-        labels = (
-            response.get("Item", {}).get("labels", []) if in_watchlist else []
-        )
+        in_watchlist, labels = dynamodb_client.get_watchlist_item(asset_id)
 
         return CheckWatchlistResponse(
             in_watchlist=in_watchlist,

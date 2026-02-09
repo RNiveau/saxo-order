@@ -206,6 +206,21 @@ class DynamoDBClient(AwsClient):
         )
         return "Item" in response
 
+    def get_watchlist_item(self, asset_id: str) -> tuple[bool, list[str]]:
+        """Get watchlist item and its labels.
+
+        Returns:
+            Tuple of (in_watchlist: bool, labels: list[str])
+        """
+        response = self.dynamodb.Table("watchlist").get_item(
+            Key={"id": asset_id}
+        )
+        in_watchlist = "Item" in response
+        labels = (
+            response.get("Item", {}).get("labels", []) if in_watchlist else []
+        )
+        return in_watchlist, labels
+
     def update_watchlist_labels(
         self, asset_id: str, labels: list[str]
     ) -> Dict[str, Any]:
