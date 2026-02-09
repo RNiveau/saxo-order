@@ -51,20 +51,21 @@ async def check_watchlist(
     dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
 ):
     """
-    Check if an asset is in the watchlist.
+    Check if an asset is in the watchlist and return its labels.
 
     Args:
         asset_id: ID of the asset to check
 
     Returns:
-        CheckWatchlistResponse with in_watchlist boolean
+        CheckWatchlistResponse with in_watchlist boolean and labels
     """
     try:
-        in_watchlist = dynamodb_client.is_in_watchlist(asset_id)
+        in_watchlist, labels = dynamodb_client.get_watchlist_item(asset_id)
 
         return CheckWatchlistResponse(
             in_watchlist=in_watchlist,
             asset_id=asset_id,
+            labels=labels,
         )
     except Exception as e:
         logger.error(f"Unexpected error checking watchlist {asset_id}: {e}")

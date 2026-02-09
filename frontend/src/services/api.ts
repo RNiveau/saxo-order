@@ -214,6 +214,7 @@ export interface RemoveFromWatchlistResponse {
 export interface CheckWatchlistResponse {
   in_watchlist: boolean;
   asset_id: string;
+  labels: string[];
 }
 
 export interface UpdateLabelsRequest {
