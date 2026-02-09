@@ -77,6 +77,10 @@ class RemoveFromWatchlistResponse(BaseModel):
 class CheckWatchlistResponse(BaseModel):
     in_watchlist: bool = Field(description="Whether asset is in watchlist")
     asset_id: str = Field(description="Asset ID that was checked")
+    labels: List[str] = Field(
+        default_factory=list,
+        description="Labels for the asset if in watchlist",
+    )
 
 
 class UpdateLabelsRequest(BaseModel):

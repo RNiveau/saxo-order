@@ -127,16 +127,11 @@ export function AssetDetail() {
       const response = await watchlistService.checkWatchlist(code);
       setIsInWatchlist(response.in_watchlist);
 
-      // If in watchlist, get the full watchlist to check labels
       if (response.in_watchlist) {
-        const watchlistData = await watchlistService.getAllWatchlist();
-        const item = watchlistData.items.find(item => item.id === code);
-        if (item) {
-          setIsShortTerm(item.labels.includes('short-term'));
-          setIsSLWIN(item.labels.includes('slwin'));
-          setIsLongTerm(item.labels.includes('long-term'));
-          setIsHomepage(item.labels.includes('homepage'));
-        }
+        setIsShortTerm(response.labels.includes('short-term'));
+        setIsSLWIN(response.labels.includes('slwin'));
+        setIsLongTerm(response.labels.includes('long-term'));
+        setIsHomepage(response.labels.includes('homepage'));
       }
     } catch (err) {
       console.error('Check watchlist error:', err);
