@@ -101,6 +101,83 @@ export interface AssetWorkflowsResponse {
   workflows: WorkflowInfo[];
 }
 
+// Workflow Management Interfaces
+export interface WorkflowListItem {
+  id: string;
+  name: string;
+  index: string;
+  cfd: string;
+  enable: boolean;
+  dry_run: boolean;
+  is_us: boolean;
+  end_date: string | null;
+  primary_indicator: string | null;
+  primary_unit_time: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowListResponse {
+  workflows: WorkflowListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+export interface IndicatorDetail {
+  name: string;
+  ut: string;
+  value: number | null;
+  zone_value: number | null;
+}
+
+export interface CloseDetail {
+  direction: string;
+  ut: string;
+  spread: number;
+}
+
+export interface ConditionDetail {
+  indicator: IndicatorDetail;
+  close: CloseDetail;
+  element: string | null;
+}
+
+export interface TriggerDetail {
+  ut: string;
+  signal: string;
+  location: string;
+  order_direction: string;
+  quantity: number;
+}
+
+export interface WorkflowDetail {
+  id: string;
+  name: string;
+  index: string;
+  cfd: string;
+  enable: boolean;
+  dry_run: boolean;
+  is_us: boolean;
+  end_date: string | null;
+  conditions: ConditionDetail[];
+  trigger: TriggerDetail;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowListParams {
+  page?: number;
+  per_page?: number;
+  enabled?: boolean;
+  index?: string;
+  indicator_type?: string;
+  dry_run?: boolean;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
 export const searchService = {
   search: async (
     keyword: string,
@@ -638,80 +715,3 @@ export const assetDetailsService = {
     return response.data;
   },
 };
-
-// Workflow Management Interfaces
-export interface WorkflowListItem {
-  id: string;
-  name: string;
-  index: string;
-  cfd: string;
-  enable: boolean;
-  dry_run: boolean;
-  is_us: boolean;
-  end_date: string | null;
-  primary_indicator: string | null;
-  primary_unit_time: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkflowListResponse {
-  workflows: WorkflowListItem[];
-  total: number;
-  page: number;
-  per_page: number;
-  total_pages: number;
-}
-
-export interface IndicatorDetail {
-  name: string;
-  ut: string;
-  value: number | null;
-  zone_value: number | null;
-}
-
-export interface CloseDetail {
-  direction: string;
-  ut: string;
-  spread: number;
-}
-
-export interface ConditionDetail {
-  indicator: IndicatorDetail;
-  close: CloseDetail;
-  element: string | null;
-}
-
-export interface TriggerDetail {
-  ut: string;
-  signal: string;
-  location: string;
-  order_direction: string;
-  quantity: number;
-}
-
-export interface WorkflowDetail {
-  id: string;
-  name: string;
-  index: string;
-  cfd: string;
-  enable: boolean;
-  dry_run: boolean;
-  is_us: boolean;
-  end_date: string | null;
-  conditions: ConditionDetail[];
-  trigger: TriggerDetail;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkflowListParams {
-  page?: number;
-  per_page?: number;
-  enabled?: boolean;
-  index?: string;
-  indicator_type?: string;
-  dry_run?: boolean;
-  sort_by?: string;
-  sort_order?: 'asc' | 'desc';
-}
