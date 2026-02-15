@@ -28,7 +28,7 @@ function Workflows() {
       setError(null);
       const response = await workflowService.listWorkflows({
         page: 1,
-        per_page: 1000,
+        per_page: 100,
       });
       setWorkflows(response.workflows);
     } catch (err) {
