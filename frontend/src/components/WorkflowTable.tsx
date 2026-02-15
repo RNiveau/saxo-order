@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { WorkflowListItem } from '../services/api';
+import type { WorkflowListItem } from '../services/api';
 import './WorkflowTable.css';
 
 interface WorkflowTableProps {

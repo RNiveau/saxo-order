@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { WorkflowDetail, workflowService } from '../services/api';
+import type { WorkflowDetail } from '../services/api';
+import { workflowService } from '../services/api';
 import './WorkflowDetailModal.css';
 
 interface WorkflowDetailModalProps {

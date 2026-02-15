@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { WorkflowListItem, workflowService } from '../services/api';
+import type { WorkflowListItem } from '../services/api';
+import { workflowService } from '../services/api';
 import WorkflowTable from '../components/WorkflowTable';
 import { WorkflowDetailModal } from '../components/WorkflowDetailModal';
 import './Workflows.css';
