@@ -57,3 +57,15 @@ def alerts_table() -> aws.dynamodb.Table:
             attribute_name="ttl",
         ),
     )
+
+
+def workflows_table() -> aws.dynamodb.Table:
+    return aws.dynamodb.Table(
+        "workflows",
+        attributes=[aws.dynamodb.TableAttributeArgs(name="id", type="S")],
+        hash_key="id",
+        name="workflows",
+        billing_mode="PAY_PER_REQUEST",
+        stream_enabled=True,
+        stream_view_type="NEW_AND_OLD_IMAGES",
+    )
