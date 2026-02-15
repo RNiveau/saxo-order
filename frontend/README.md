@@ -5,8 +5,17 @@ Simple frontend interface for the Saxo Order Management system.
 ## Features
 
 - View available funds across Saxo accounts
+- Search and view asset details with technical indicators
+- Manage watchlist with live price updates
+- View and manage automated trading workflows
+  - Filter workflows by status, index, indicator, and mode
+  - Sort by name, index, or end date
+  - View detailed workflow configuration including conditions and triggers
+- View long-term positions and alerts
+- Manage asset exclusions for trading automation
+- Trading reports and performance analytics
 - No authentication required (local use only)
-- Real-time fund calculations including open buy orders
+- Real-time data updates with automatic refresh
 
 ## Development
 
