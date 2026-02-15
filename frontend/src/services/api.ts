@@ -132,6 +132,18 @@ export const workflowService = {
     );
     return response.data;
   },
+
+  listWorkflows: async (params?: WorkflowListParams): Promise<WorkflowListResponse> => {
+    const response = await api.get<WorkflowListResponse>('/api/workflow/workflows', {
+      params,
+    });
+    return response.data;
+  },
+
+  getWorkflowDetail: async (id: string): Promise<WorkflowDetail> => {
+    const response = await api.get<WorkflowDetail>(`/api/workflow/workflows/${id}`);
+    return response.data;
+  },
 };
 
 export interface MovingAverageInfo {
@@ -703,17 +715,3 @@ export interface WorkflowListParams {
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
 }
-
-export const workflowService = {
-  listWorkflows: async (params?: WorkflowListParams): Promise<WorkflowListResponse> => {
-    const response = await api.get<WorkflowListResponse>('/api/workflow/workflows', {
-      params,
-    });
-    return response.data;
-  },
-
-  getWorkflowDetail: async (id: string): Promise<WorkflowDetail> => {
-    const response = await api.get<WorkflowDetail>(`/api/workflow/workflows/${id}`);
-    return response.data;
-  },
-};
