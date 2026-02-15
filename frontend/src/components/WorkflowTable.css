@@ -1,0 +1,123 @@
+.workflow-table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.data-table {
+  overflow-x: auto;
+}
+
+.data-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  background: #f7fafc;
+  color: #2d3748;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-align: left;
+  padding: 1rem;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.9rem;
+  color: #4a5568;
+}
+
+.data-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.data-table tbody tr:hover {
+  background: #f7fafc;
+}
+
+.workflow-name {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-enabled {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.status-disabled {
+  background: #fed7d7;
+  color: #742a2a;
+}
+
+.dry-run-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #fef5e7;
+  color: #c05621;
+  white-space: nowrap;
+}
+
+.indicator-badge {
+  display: inline-block;
+  padding: 0.25rem 0.65rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #e6f7ff;
+  color: #0066cc;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f7fafc;
+}
+
+.pagination-button {
+  background: white;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background: #edf2f7;
+  border-color: #a0aec0;
+}
+
+.pagination-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  color: #718096;
+  font-size: 0.9rem;
+}
