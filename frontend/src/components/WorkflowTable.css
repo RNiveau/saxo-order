@@ -25,6 +25,16 @@
   white-space: nowrap;
 }
 
+.data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.data-table th.sortable:hover {
+  background: #edf2f7;
+}
+
 .data-table td {
   padding: 1rem;
   border-bottom: 1px solid #e2e8f0;

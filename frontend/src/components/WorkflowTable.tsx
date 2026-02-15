@@ -4,9 +4,12 @@ import './WorkflowTable.css';
 
 interface WorkflowTableProps {
   workflows: WorkflowListItem[];
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  onSortChange?: (sortBy: string) => void;
 }
 
-function WorkflowTable({ workflows }: WorkflowTableProps) {
+function WorkflowTable({ workflows, sortBy, sortOrder, onSortChange }: WorkflowTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -20,20 +23,47 @@ function WorkflowTable({ workflows }: WorkflowTableProps) {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const getSortIcon = (column: string) => {
+    if (sortBy !== column) return null;
+    return sortOrder === 'asc' ? ' ↑' : ' ↓';
+  };
+
+  const handleHeaderClick = (column: string) => {
+    if (onSortChange) {
+      onSortChange(column);
+      setCurrentPage(1); // Reset to first page when sorting changes
+    }
+  };
+
   return (
     <div className="workflow-table-container">
       <div className="data-table">
         <table>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Index</th>
+              <th
+                className={onSortChange ? 'sortable' : ''}
+                onClick={() => handleHeaderClick('name')}
+              >
+                Name{getSortIcon('name')}
+              </th>
+              <th
+                className={onSortChange ? 'sortable' : ''}
+                onClick={() => handleHeaderClick('index')}
+              >
+                Index{getSortIcon('index')}
+              </th>
               <th>CFD</th>
               <th>Status</th>
               <th>Dry Run</th>
               <th>Indicator</th>
               <th>Unit Time</th>
-              <th>End Date</th>
+              <th
+                className={onSortChange ? 'sortable' : ''}
+                onClick={() => handleHeaderClick('end_date')}
+              >
+                End Date{getSortIcon('end_date')}
+              </th>
             </tr>
           </thead>
           <tbody>
