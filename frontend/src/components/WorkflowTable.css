@@ -50,6 +50,14 @@
   background: #f7fafc;
 }
 
+.data-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+.data-table tbody tr.clickable-row:hover {
+  background: #edf2f7;
+}
+
 .workflow-name {
   font-weight: 500;
   color: #2d3748;

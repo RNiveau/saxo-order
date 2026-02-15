@@ -7,9 +7,10 @@ interface WorkflowTableProps {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   onSortChange?: (sortBy: string) => void;
+  onRowClick?: (workflowId: string) => void;
 }
 
-function WorkflowTable({ workflows, sortBy, sortOrder, onSortChange }: WorkflowTableProps) {
+function WorkflowTable({ workflows, sortBy, sortOrder, onSortChange, onRowClick }: WorkflowTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -68,7 +69,11 @@ function WorkflowTable({ workflows, sortBy, sortOrder, onSortChange }: WorkflowT
           </thead>
           <tbody>
             {paginatedWorkflows.map((workflow) => (
-              <tr key={workflow.id}>
+              <tr
+                key={workflow.id}
+                onClick={() => onRowClick?.(workflow.id)}
+                className={onRowClick ? 'clickable-row' : ''}
+              >
                 <td className="workflow-name">{workflow.name}</td>
                 <td>{workflow.index}</td>
                 <td>{workflow.cfd}</td>

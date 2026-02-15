@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { WorkflowListItem, workflowService } from '../services/api';
 import WorkflowTable from '../components/WorkflowTable';
+import { WorkflowDetailModal } from '../components/WorkflowDetailModal';
 import './Workflows.css';
 
 function Workflows() {
@@ -9,6 +10,7 @@ function Workflows() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
 
   // Filter state from URL
   const filterEnabled = searchParams.get('status') || 'all';
@@ -138,6 +140,14 @@ function Workflows() {
     setSearchParams(newParams);
   };
 
+  const handleRowClick = (workflowId: string) => {
+    setSelectedWorkflowId(workflowId);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedWorkflowId(null);
+  };
+
   if (loading) {
     return (
       <div className="workflows-container">
@@ -250,7 +260,15 @@ function Workflows() {
         sortBy={sortBy}
         sortOrder={sortOrder}
         onSortChange={handleSortChange}
+        onRowClick={handleRowClick}
       />
+
+      {selectedWorkflowId && (
+        <WorkflowDetailModal
+          workflowId={selectedWorkflowId}
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 }
