@@ -650,3 +650,66 @@ class DynamoDBClient(AwsClient):
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB update_item error: {response}")
+
+    def get_all_workflows(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve all workflows from DynamoDB.
+
+        Returns:
+            List of workflow dictionaries
+        """
+        workflows: List[Dict[str, Any]] = []
+        response = self.dynamodb.Table("workflows").scan()
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB scan error: {response}")
+            return workflows
+
+        workflows.extend(response.get("Items", []))
+
+        while "LastEvaluatedKey" in response:
+            response = self.dynamodb.Table("workflows").scan(
+                ExclusiveStartKey=response["LastEvaluatedKey"]
+            )
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB scan error: {response}")
+                break
+            workflows.extend(response.get("Items", []))
+
+        return workflows
+
+    def get_workflow_by_id(self, workflow_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a single workflow by ID.
+
+        Args:
+            workflow_id: Workflow unique identifier (UUID)
+
+        Returns:
+            Workflow dictionary or None if not found
+        """
+        response = self.dynamodb.Table("workflows").get_item(
+            Key={"id": workflow_id}
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB get_item error: {response}")
+            return None
+
+        return response.get("Item")
+
+    def batch_put_workflows(self, workflows: List[Dict[str, Any]]) -> None:
+        """
+        Batch insert workflows into DynamoDB for migration support.
+
+        Args:
+            workflows: List of workflow dictionaries to insert
+        """
+        table = self.dynamodb.Table("workflows")
+
+        with table.batch_writer() as batch:
+            for workflow in workflows:
+                converted_workflow = self._convert_floats_to_decimal(workflow)
+                batch.put_item(Item=converted_workflow)
+
+        self.logger.info(f"Batch inserted {len(workflows)} workflows")

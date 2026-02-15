@@ -1,0 +1,424 @@
+openapi: 3.0.3
+info:
+  title: Workflows Management API
+  description: API endpoints for managing trading workflow configurations
+  version: 1.0.0
+  contact:
+    name: saxo-order API
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.saxo-order.com
+    description: Production
+
+paths:
+  /api/workflows:
+    get:
+      summary: List all workflows
+      description: |
+        Retrieve all workflows with optional filtering, sorting, and pagination.
+        Supports filtering by enabled status, index, indicator type, and dry run mode.
+      operationId: listWorkflows
+      tags:
+        - workflows
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination (1-indexed)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: enabled
+          in: query
+          description: Filter by enabled status
+          required: false
+          schema:
+            type: boolean
+        - name: index
+          in: query
+          description: Filter by index symbol (case-insensitive partial match)
+          required: false
+          schema:
+            type: string
+            example: "DAX.I"
+        - name: indicator_type
+          in: query
+          description: Filter by indicator type
+          required: false
+          schema:
+            type: string
+            enum: [ma50, combo, bbb, bbh, polarite, zone]
+        - name: dry_run
+          in: query
+          description: Filter by dry run mode
+          required: false
+          schema:
+            type: boolean
+        - name: sort_by
+          in: query
+          description: Field to sort by
+          required: false
+          schema:
+            type: string
+            enum: [name, index, end_date, created_at, updated_at]
+            default: name
+        - name: sort_order
+          in: query
+          description: Sort order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+      responses:
+        '200':
+          description: Successful response with paginated workflows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowListResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/workflows/{id}:
+    get:
+      summary: Get workflow by ID
+      description: Retrieve complete details for a single workflow
+      operationId: getWorkflowById
+      tags:
+        - workflows
+      parameters:
+        - name: id
+          in: path
+          description: Workflow unique identifier (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response with workflow details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowDetail'
+        '404':
+          description: Workflow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: "Workflow not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    WorkflowListResponse:
+      type: object
+      required:
+        - workflows
+        - total
+        - page
+        - per_page
+        - total_pages
+      properties:
+        workflows:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowSummary'
+          description: List of workflows for current page
+        total:
+          type: integer
+          description: Total number of workflows matching filters
+          example: 125
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+          example: 1
+        per_page:
+          type: integer
+          description: Number of items per page
+          example: 20
+        total_pages:
+          type: integer
+          description: Total number of pages
+          example: 7
+
+    WorkflowSummary:
+      type: object
+      required:
+        - id
+        - name
+        - index
+        - cfd
+        - enable
+        - dry_run
+        - is_us
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique workflow identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          description: Human-readable workflow name
+          example: "buy bbb h1 dax"
+        index:
+          type: string
+          description: Target index symbol
+          example: "DAX.I"
+        cfd:
+          type: string
+          description: CFD symbol for order execution
+          example: "GER40.I"
+        enable:
+          type: boolean
+          description: Whether workflow is active
+          example: true
+        dry_run:
+          type: boolean
+          description: Whether workflow is in dry run mode
+          example: false
+        is_us:
+          type: boolean
+          description: Whether workflow targets US market
+          example: false
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Optional expiration date (ISO 8601)
+          example: "2026-12-31"
+        primary_indicator:
+          type: string
+          description: Indicator type from first condition
+          example: "bbb"
+        primary_unit_time:
+          type: string
+          description: Unit time from first condition
+          example: "h1"
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp (ISO 8601)
+          example: "2026-02-08T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp (ISO 8601)
+          example: "2026-02-08T10:00:00Z"
+
+    WorkflowDetail:
+      type: object
+      required:
+        - id
+        - name
+        - index
+        - cfd
+        - enable
+        - dry_run
+        - is_us
+        - conditions
+        - trigger
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique workflow identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          description: Human-readable workflow name
+          example: "buy bbb h1 dax"
+        index:
+          type: string
+          description: Target index symbol
+          example: "DAX.I"
+        cfd:
+          type: string
+          description: CFD symbol for order execution
+          example: "GER40.I"
+        enable:
+          type: boolean
+          description: Whether workflow is active
+          example: true
+        dry_run:
+          type: boolean
+          description: Whether workflow is in dry run mode
+          example: false
+        is_us:
+          type: boolean
+          description: Whether workflow targets US market
+          example: false
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Optional expiration date (ISO 8601)
+          example: "2026-12-31"
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+          description: List of evaluation conditions
+          minItems: 1
+        trigger:
+          $ref: '#/components/schemas/Trigger'
+          description: Order generation parameters
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp (ISO 8601)
+          example: "2026-02-08T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp (ISO 8601)
+          example: "2026-02-08T10:00:00Z"
+
+    Condition:
+      type: object
+      required:
+        - indicator
+        - close
+      properties:
+        indicator:
+          $ref: '#/components/schemas/Indicator'
+        close:
+          $ref: '#/components/schemas/Close'
+        element:
+          type: string
+          nullable: true
+          enum: [close, high, low]
+          description: Optional candle element to evaluate
+          example: null
+
+    Indicator:
+      type: object
+      required:
+        - name
+        - ut
+      properties:
+        name:
+          type: string
+          enum: [ma50, combo, bbb, bbh, polarite, zone]
+          description: Indicator type
+          example: "bbb"
+        ut:
+          type: string
+          enum: [daily, h1, h4, 15m, weekly, monthly]
+          description: Unit time for indicator calculation
+          example: "h1"
+        value:
+          type: number
+          format: float
+          nullable: true
+          description: Fixed indicator value (for polarite/zone)
+          example: null
+        zone_value:
+          type: number
+          format: float
+          nullable: true
+          description: Zone upper bound (for zone indicator)
+          example: null
+
+    Close:
+      type: object
+      required:
+        - direction
+        - ut
+        - spread
+      properties:
+        direction:
+          type: string
+          enum: [above, below]
+          description: Evaluation direction relative to indicator
+          example: "above"
+        ut:
+          type: string
+          enum: [daily, h1, h4, 15m, weekly, monthly]
+          description: Unit time for close candle retrieval
+          example: "h1"
+        spread:
+          type: number
+          format: float
+          description: Tolerance in points
+          example: 20
+
+    Trigger:
+      type: object
+      required:
+        - ut
+        - signal
+        - location
+        - order_direction
+        - quantity
+      properties:
+        ut:
+          type: string
+          enum: [daily, h1, h4, 15m, weekly, monthly]
+          description: Unit time for trigger candle retrieval
+          example: "h1"
+        signal:
+          type: string
+          enum: [breakout]
+          description: Signal type
+          example: "breakout"
+        location:
+          type: string
+          enum: [higher, lower]
+          description: Order location relative to indicator
+          example: "higher"
+        order_direction:
+          type: string
+          enum: [buy, sell]
+          description: Buy or sell direction
+          example: "buy"
+        quantity:
+          type: number
+          format: float
+          description: Order quantity
+          example: 0.1
+
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Internal server error"
