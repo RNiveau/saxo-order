@@ -1,7 +1,7 @@
 .workflow-table-container {
-  background: white;
+  background: #161b22;
+  border: 1px solid #30363d;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
 
@@ -15,14 +15,16 @@
 }
 
 .data-table th {
-  background: #f7fafc;
-  color: #2d3748;
+  background: #0d1117;
+  color: #8b949e;
   font-weight: 600;
   font-size: 0.875rem;
   text-align: left;
   padding: 1rem;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 1px solid #30363d;
   white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .data-table th.sortable {
@@ -32,14 +34,15 @@
 }
 
 .data-table th.sortable:hover {
-  background: #edf2f7;
+  background: #161b22;
+  color: #e6edf3;
 }
 
 .data-table td {
   padding: 1rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #21262d;
   font-size: 0.9rem;
-  color: #4a5568;
+  color: #e6edf3;
 }
 
 .data-table tbody tr {
@@ -47,7 +50,7 @@
 }
 
 .data-table tbody tr:hover {
-  background: #f7fafc;
+  background: #1c2128;
 }
 
 .data-table tbody tr.clickable-row {
@@ -55,7 +58,11 @@
 }
 
 .data-table tbody tr.clickable-row:hover {
-  background: #edf2f7;
+  background: #1c2128;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .workflow-name {

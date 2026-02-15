@@ -14,11 +14,11 @@
 .workflows-header h1 {
   margin: 0;
   font-size: 2rem;
-  color: #1a202c;
+  color: #e6edf3;
 }
 
 .workflows-count {
-  color: #718096;
+  color: #8b949e;
   font-size: 0.95rem;
 }
 
@@ -54,7 +54,7 @@
 
 .loading-state p {
   margin-top: 1rem;
-  color: #718096;
+  color: #8b949e;
   font-size: 0.95rem;
 }
 
@@ -103,9 +103,9 @@
   flex-wrap: wrap;
   gap: 1.5rem;
   padding: 1.5rem;
-  background: white;
+  background: #161b22;
+  border: 1px solid #30363d;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   margin-bottom: 1.5rem;
 }
 
@@ -119,32 +119,39 @@
 .filter-group label {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #4a5568;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .filter-group select,
 .filter-group input {
   padding: 0.5rem 0.75rem;
-  border: 1px solid #cbd5e0;
+  border: 1px solid #30363d;
   border-radius: 6px;
   font-size: 0.9rem;
-  color: #2d3748;
-  background: white;
+  color: #e6edf3;
+  background: #0d1117;
   transition: border-color 0.2s ease;
 }
 
 .filter-group select:hover,
 .filter-group input:hover {
-  border-color: #a0aec0;
+  border-color: #484f58;
 }
 
 .filter-group select:focus,
 .filter-group input:focus {
   outline: none;
-  border-color: #3182ce;
-  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+  border-color: #58a6ff;
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
 }
 
 .filter-group input::placeholder {
-  color: #a0aec0;
+  color: #6e7681;
+}
+
+.filter-group select option {
+  background: #0d1117;
+  color: #e6edf3;
 }
