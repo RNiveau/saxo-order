@@ -17,6 +17,7 @@ class BinanceClient:
     ASSET_WITHLIST = [
         "ETH",
         "BTC",
+        "BNB",
         "XRP",
         "COTI",
         "SOL",
