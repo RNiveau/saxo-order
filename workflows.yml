@@ -4,165 +4,155 @@
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: bbb
-          ut: h1
-      close:
-         direction: above
-         ut: h1
-         spread: 20
-  trigger:
+  - indicator:
+      name: bbb
       ut: h1
-      signal: breakout
-      location: higher
-      order_direction: buy
-      quantity: 0.1
-
+    close:
+      direction: above
+      ut: h1
+      spread: 20
+  trigger:
+    ut: h1
+    signal: breakout
+    location: higher
+    order_direction: buy
+    quantity: 0.1
 - name: sell bbh h1 dax
   index: DAX.I
   cfd: GER40.I
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: bbh
-          ut: h1
-      close:
-         direction: below
-         ut: h1
-         spread: 20
-  trigger:
+  - indicator:
+      name: bbh
       ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
+    close:
+      direction: below
+      ut: h1
+      spread: 20
+  trigger:
+    ut: h1
+    signal: breakout
+    location: lower
+    order_direction: sell
+    quantity: 0.1
 - name: sell ma50 h4 dax
   index: DAX.I
   cfd: GER40.I
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: ma50
-          ut: h4
-      close:
-         direction: below
-         ut: h1
-         spread: 40
-  trigger:
+  - indicator:
+      name: ma50
+      ut: h4
+    close:
+      direction: below
       ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
+      spread: 40
+  trigger:
+    ut: h1
+    signal: breakout
+    location: lower
+    order_direction: sell
+    quantity: 0.1
 - name: sell ma50 h1 dax
   index: DAX.I
   cfd: GER40.I
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: ma50
-          ut: h1
-      close:
-         direction: below
-         ut: h1
-         spread: 20
-  trigger:
+  - indicator:
+      name: ma50
       ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
+    close:
+      direction: below
+      ut: h1
+      spread: 20
+  trigger:
+    ut: h1
+    signal: breakout
+    location: lower
+    order_direction: sell
+    quantity: 0.1
 - name: sell ma50 h4 cac
   index: CAC40.I
   cfd: FRA40.I
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: ma50
-          ut: h4
-      close:
-         direction: below
-         ut: h1
-         spread: 40
-  trigger:
+  - indicator:
+      name: ma50
+      ut: h4
+    close:
+      direction: below
       ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
+      spread: 40
+  trigger:
+    ut: h1
+    signal: breakout
+    location: lower
+    order_direction: sell
+    quantity: 0.1
 - name: combo h1 cac40
   index: CAC40.I
   cfd: FRA40.I
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: combo
-          ut: h1
-      close:
-         direction: below
-         ut: h1
-
+  - indicator:
+      name: combo
+      ut: h1
+    close:
+      direction: below
+      ut: h1
 - name: combo h4 cac40
   index: CAC40.I
   cfd: FRA40.I
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: combo
-          ut: h4
-      close:
-         direction: below
-         ut: h1
-  trigger:
+  - indicator:
+      name: combo
+      ut: h4
+    close:
+      direction: below
       ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
-
+  trigger:
+    ut: h1
+    signal: breakout
+    location: lower
+    order_direction: sell
+    quantity: 0.1
 - name: combo h1 dax
   index: DAX.I
   cfd: GER40.I
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: combo
-          ut: h1
-      close:
-         direction: below
-         ut: h1
-
+  - indicator:
+      name: combo
+      ut: h1
+    close:
+      direction: below
+      ut: h1
 - name: combo h4 dax
   index: DAX.I
   cfd: GER40.I
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: combo
-          ut: h4
-      close:
-         direction: below
-         ut: h1
-  trigger:
+  - indicator:
+      name: combo
+      ut: h4
+    close:
+      direction: below
       ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
+  trigger:
+    ut: h1
+    signal: breakout
+    location: lower
+    order_direction: sell
+    quantity: 0.1
 - name: combo h1 sp500
   index: US500.I
   cfd: US500.I
@@ -170,13 +160,12 @@
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: combo
-          ut: h1
-      close:
-         direction: below
-         ut: h1
-
+  - indicator:
+      name: combo
+      ut: h1
+    close:
+      direction: below
+      ut: h1
 - name: combo h4 sp500
   index: US500.I
   cfd: US500.I
@@ -184,19 +173,18 @@
   enable: true
   dry_run: false
   conditions:
-    - indicator:
-          name: combo
-          ut: h4
-      close:
-         direction: below
-         ut: h1
-  trigger:
+  - indicator:
+      name: combo
+      ut: h4
+    close:
+      direction: below
       ut: h1
-      signal: breakout
-      location: lower
-      order_direction: sell
-      quantity: 0.1
-
+  trigger:
+    ut: h1
+    signal: breakout
+    location: lower
+    order_direction: sell
+    quantity: 0.1
 - name: sell ma50 h1 sp500
   index: US500.I
   cfd: US500.I
@@ -204,555 +192,511 @@
   dry_run: false
   is_us: true
   conditions:
-    - indicator:
-          name: ma50
-          ut: h1
-      close:
-         direction: below
-         ut: h1
-         spread: 10
-
-########### Actions
-
+  - indicator:
+      name: ma50
+      ut: h1
+    close:
+      direction: below
+      ut: h1
+      spread: 10
 - name: sell zone eramet
   index: ERMT:xpar
   cfd: ERMT:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 73
-          zone_value: 78
-      close:
-         direction: below
-         ut: h1
-         spread: 1
-
-- name: buy zone interparfum
+  - indicator:
+      name: zone
+      ut: h1
+      value: 73
+      zone_value: 78
+    close:
+      direction: below
+      ut: h1
+      spread: 1
+- name: buy zone interparfum 35-37
   index: ITP:xpar
   cfd: ITP:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          name: zone
-          ut: h1
-          value: 35
-          zone_value: 37
-      close:
-         direction: below
-         direction: below
-         ut: h1
-         spread: 1
-
-- name: buy zone interparfum
+  - indicator:
+      name: zone
+      ut: h1
+      value: 35
+      zone_value: 37
+    close:
+      direction: below
+      ut: h1
+      spread: 1
+- name: buy zone interparfum 29-27
   index: ITP:xpar
   cfd: ITP:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 29
-          zone_value: 27
-      close:
-         direction: below
-         ut: h1
-         spread: 1
-
-- name: buy zone interparfum
+  - indicator:
+      name: zone
+      ut: h1
+      value: 29
+      zone_value: 27
+    close:
+      direction: below
+      ut: h1
+      spread: 1
+- name: buy zone interparfum 24-24.5
   index: ITP:xpar
   cfd: ITP:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 24
-          zone_value: 24.5
-      close:
-         direction: below
-         ut: h1
-         spread: 1
-
-
-- name: buy zone pernod
+  - indicator:
+      name: zone
+      ut: h1
+      value: 24
+      zone_value: 24.5
+    close:
+      direction: below
+      ut: h1
+      spread: 1
+- name: buy zone pernod 116-122
   index: RI:xpar
   cfd: RI:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 116
-          zone_value: 122
-      close:
-         direction: below
-         ut: h1
-         spread: 1
-
-- name: buy zone pernod
+  - indicator:
+      name: zone
+      ut: h1
+      value: 116
+      zone_value: 122
+    close:
+      direction: below
+      ut: h1
+      spread: 1
+- name: buy zone pernod 87-90
   index: RI:xpar
   cfd: RI:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 87
-          zone_value: 90
-      close:
-         direction: below
-         ut: h1
-         spread: 1
-
-- name: buy zone pernod
+  - indicator:
+      name: zone
+      ut: h1
+      value: 87
+      zone_value: 90
+    close:
+      direction: below
+      ut: h1
+      spread: 1
+- name: buy zone pernod 144-148
   index: RI:xpar
   cfd: RI:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 144
-          zone_value: 148
-      close:
-         direction: below
-         ut: h1
-         spread: 1
-
+  - indicator:
+      name: zone
+      ut: h1
+      value: 144
+      zone_value: 148
+    close:
+      direction: below
+      ut: h1
+      spread: 1
 - name: buy zone trigano
   index: TRIA:xpar
   cfd: TRIA:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 93
-          zone_value: 101
-      close:
-         direction: below
-         ut: h1
-         spread: 1
-
+  - indicator:
+      name: zone
+      ut: h1
+      value: 93
+      zone_value: 101
+    close:
+      direction: below
+      ut: h1
+      spread: 1
 - name: buy cassure beneteau
   index: CHBE:xpar
   cfd: CHBE:xpar
   enable: true
   conditions:
-    - indicator:
-          name: polarite
-          ut: h1
-          value: 10.5
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
+  - indicator:
+      name: polarite
+      ut: h1
+      value: 10.5
+    close:
+      direction: above
+      ut: h1
+      spread: 1
 - name: buy zone lt gtt
   index: gtt:xpar
   cfd: gtt:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 91
-          zone_value: 93
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt legrand
+  - indicator:
+      name: zone
+      ut: h1
+      value: 91
+      zone_value: 93
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt legrand 67-69
   index: lr:xpar
   cfd: lr:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 67
-          zone_value: 69
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt legrand
+  - indicator:
+      name: zone
+      ut: h1
+      value: 67
+      zone_value: 69
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt legrand 103-104.6
   index: lr:xpar
   cfd: lr:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 103
-          zone_value: 104.6
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt schneider
+  - indicator:
+      name: zone
+      ut: h1
+      value: 103
+      zone_value: 104.6
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt schneider 73-79
   index: su:xpar
   cfd: su:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 73
-          zone_value: 79
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt schneider
+  - indicator:
+      name: zone
+      ut: h1
+      value: 73
+      zone_value: 79
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt schneider 173-180
   index: su:xpar
   cfd: su:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 173
-          zone_value: 180
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
+  - indicator:
+      name: zone
+      ut: h1
+      value: 173
+      zone_value: 180
+    close:
+      direction: above
+      ut: h1
+      spread: 1
 - name: buy zone lt euronext
   index: enx:xpar
   cfd: enx:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 59
-          zone_value: 62
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
+  - indicator:
+      name: zone
+      ut: h1
+      value: 59
+      zone_value: 62
+    close:
+      direction: above
+      ut: h1
+      spread: 1
 - name: buy zone lt remy cointreau
   index: RCOP:xpar
   cfd: RCOP:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 50
-          zone_value: 53
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
+  - indicator:
+      name: zone
+      ut: h1
+      value: 50
+      zone_value: 53
+    close:
+      direction: above
+      ut: h1
+      spread: 1
 - name: buy zone lt dassault aviation
   index: am:xpar
   cfd: am:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 165
-          zone_value: 173
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
+  - indicator:
+      name: zone
+      ut: h1
+      value: 165
+      zone_value: 173
+    close:
+      direction: above
+      ut: h1
+      spread: 1
 - name: buy cassure resistance W elior group
   index: ELIOR:xpar
   cfd: ELIOR:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: daily
-          value: 2.72
-          zone_value: 2.80
-      close:
-         direction: above
-         ut: h1
-
+  - indicator:
+      name: zone
+      ut: daily
+      value: 2.72
+      zone_value: 2.8
+    close:
+      direction: above
+      ut: h1
 - name: buy support xfab
   index: xfab:xpar
   cfd: xfab:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: daily
-          value: 4.15
-          zone_value: 4.34
-      close:
-         direction: above
-         ut: h1
-         spread: 0.3
-
+  - indicator:
+      name: zone
+      ut: daily
+      value: 4.15
+      zone_value: 4.34
+    close:
+      direction: above
+      ut: h1
+      spread: 0.3
 - name: buy cassurance resistance xfab
   index: xfab:xpar
   cfd: xfab:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: daily
-          value: 5.3
-          zone_value: 5.4
-      close:
-         direction: above
-         ut: h1
-         spread: 0.3
-
-- name: buy zone lt apple
+  - indicator:
+      name: zone
+      ut: daily
+      value: 5.3
+      zone_value: 5.4
+    close:
+      direction: above
+      ut: h1
+      spread: 0.3
+- name: buy zone lt apple 193-200
   index: AAPL:xnas
   cfd: AAPL:xnas
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 193
-          zone_value: 200
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt apple
+  - indicator:
+      name: zone
+      ut: h1
+      value: 193
+      zone_value: 200
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt apple 164-171
   index: AAPL:xnas
   cfd: AAPL:xnas
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 164
-          zone_value: 171
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt apple
+  - indicator:
+      name: zone
+      ut: h1
+      value: 164
+      zone_value: 171
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt apple 128-135
   index: AAPL:xnas
   cfd: AAPL:xnas
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 128
-          zone_value: 135
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-
-- name: buy zone lt google
+  - indicator:
+      name: zone
+      ut: h1
+      value: 128
+      zone_value: 135
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt google 120-126
   index: GOOG:xnas
   cfd: GOOG:xnas
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 120
-          zone_value: 126
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt google
+  - indicator:
+      name: zone
+      ut: h1
+      value: 120
+      zone_value: 126
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt google 80-90
   index: GOOG:xnas
   cfd: GOOG:xnas
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 80
-          zone_value: 90
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
+  - indicator:
+      name: zone
+      ut: h1
+      value: 80
+      zone_value: 90
+    close:
+      direction: above
+      ut: h1
+      spread: 1
 - name: buy zone lt nike
   index: NKE:xnys
   cfd: NKE:xnys
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 49
-          zone_value: 52
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt capgemini
+  - indicator:
+      name: zone
+      ut: h1
+      value: 49
+      zone_value: 52
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt capgemini 113-120
   index: cap:xpar
   cfd: cap:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 113
-          zone_value: 120
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt capgemini
+  - indicator:
+      name: zone
+      ut: h1
+      value: 113
+      zone_value: 120
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt capgemini 88-92
   index: cap:xpar
   cfd: cap:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 88
-          zone_value: 92
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt lvmh
+  - indicator:
+      name: zone
+      ut: h1
+      value: 88
+      zone_value: 92
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt lvmh 406-436
   index: mc:xpar
   cfd: mc:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 406
-          zone_value: 436
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt lvmh
+  - indicator:
+      name: zone
+      ut: h1
+      value: 406
+      zone_value: 436
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt lvmh 288-316
   index: mc:xpar
   cfd: mc:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: h1
-          value: 288
-          zone_value: 316
-      close:
-         direction: above
-         ut: h1
-         spread: 1
-
-- name: buy zone lt total
+  - indicator:
+      name: zone
+      ut: h1
+      value: 288
+      zone_value: 316
+    close:
+      direction: above
+      ut: h1
+      spread: 1
+- name: buy zone lt total 48-50.3
   index: tte:xpar
   cfd: tte:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: daily
-          value: 48
-          zone_value: 50.3
-      close:
-         direction: above
-         ut: h1
-         spread: 0.3
-
-- name: buy zone lt total
+  - indicator:
+      name: zone
+      ut: daily
+      value: 48
+      zone_value: 50.3
+    close:
+      direction: above
+      ut: h1
+      spread: 0.3
+- name: buy zone lt total 29-33
   index: tte:xpar
   cfd: tte:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: daily
-          value: 29
-          zone_value: 33
-      close:
-         direction: above
-         ut: h1
-         spread: 0.3
-
+  - indicator:
+      name: zone
+      ut: daily
+      value: 29
+      zone_value: 33
+    close:
+      direction: above
+      ut: h1
+      spread: 0.3
 - name: buy resistance forvia
   index: frvia:xpar
   cfd: frvia:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: daily
-          value: 11.15
-          zone_value: 11.26
-      close:
-         direction: above
-         ut: h1
-         spread: 0.1
-
+  - indicator:
+      name: zone
+      ut: daily
+      value: 11.15
+      zone_value: 11.26
+    close:
+      direction: above
+      ut: h1
+      spread: 0.1
 - name: buy zone long term ipsos
   index: ISOS:xpar
   cfd: ISOS:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: daily
-          value: 33.3
-          zone_value: 31.80
-      close:
-         direction: above
-         ut: h1
-         spread: 0.1
-
+  - indicator:
+      name: zone
+      ut: daily
+      value: 33.3
+      zone_value: 31.8
+    close:
+      direction: above
+      ut: h1
+      spread: 0.1
 - name: buy zone long term veto
   index: VETO:xpar
   cfd: VETO:xpar
   enable: true
   conditions:
-    - indicator:
-          name: zone
-          ut: daily
-          value: 65.5
-          zone_value: 60.5
-      close:
-         direction: above
-         ut: h1
-         spread: 0.1
-
+  - indicator:
+      name: zone
+      ut: daily
+      value: 65.5
+      zone_value: 60.5
+    close:
+      direction: above
+      ut: h1
+      spread: 0.1
 - name: buy support W ERF
   index: eufi:xpar
   cfd: eufi:xpar
   enable: true
   conditions:
-    - indicator:
-          name: polarite
-          ut: daily
-          value: 61.5
-      close:
-         direction: above
-         ut: h1
-         spread: 0.1
-
+  - indicator:
+      name: polarite
+      ut: daily
+      value: 61.5
+    close:
+      direction: above
+      ut: h1
+      spread: 0.1
