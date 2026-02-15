@@ -1,7 +1,14 @@
-from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Path, Query
 
 from api.models.workflow import AssetWorkflowsResponse
-from api.services.workflow_service import WorkflowService
+from api.services.workflow_service import (
+    WorkflowService as LegacyWorkflowService,
+)
+from client.aws_client import DynamoDBClient
+from model.workflow_api import WorkflowDetail, WorkflowListResponse
+from services.workflow_service import WorkflowService
 from utils.exception import SaxoException
 from utils.logger import Logger
 
@@ -32,8 +39,8 @@ async def get_asset_workflows(
     configuration, conditions, and trigger settings.
     """
     try:
-        workflow_service = WorkflowService(force_from_disk=force_from_disk)
-        workflows = workflow_service.get_workflows_by_asset(
+        legacy_service = LegacyWorkflowService(force_from_disk=force_from_disk)
+        workflows = legacy_service.get_workflows_by_asset(
             code=code, country_code=country_code
         )
 
@@ -50,4 +57,86 @@ async def get_asset_workflows(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Unexpected error getting workflows for {code}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/workflows", response_model=WorkflowListResponse)
+async def list_workflows(
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    per_page: int = Query(
+        20, ge=1, le=100, description="Items per page (max 100)"
+    ),
+    enabled: Optional[bool] = Query(
+        None, description="Filter by enabled status"
+    ),
+    index: Optional[str] = Query(
+        None, description="Filter by index (case-insensitive partial match)"
+    ),
+    indicator_type: Optional[str] = Query(
+        None,
+        description="Filter by indicator type (ma50, combo, bbb, etc.)",
+    ),
+    dry_run: Optional[bool] = Query(
+        None, description="Filter by dry run mode"
+    ),
+    sort_by: str = Query(
+        "name",
+        description="Sort by field (name, index, end_date, etc.)",
+    ),
+    sort_order: str = Query("asc", description="Sort order (asc or desc)"),
+):
+    """
+    List all workflows with filtering, sorting, and pagination.
+
+    Returns paginated list of workflows with summary information.
+    Supports filtering by enabled status, index, indicator type, dry run,
+    and sorting by various fields.
+    """
+    try:
+        dynamodb_client = DynamoDBClient()
+        workflow_service = WorkflowService(dynamodb_client)
+
+        return workflow_service.list_workflows(
+            page=page,
+            per_page=per_page,
+            enabled=enabled,
+            index=index,
+            indicator_type=indicator_type,
+            dry_run=dry_run,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+
+    except Exception as e:
+        logger.error(f"Error listing workflows: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/workflows/{workflow_id}", response_model=WorkflowDetail)
+async def get_workflow_by_id(
+    workflow_id: str = Path(
+        ..., description="Workflow unique identifier (UUID)"
+    ),
+):
+    """
+    Get complete workflow details by ID.
+
+    Returns full workflow configuration including all conditions,
+    trigger parameters, and metadata.
+    """
+    try:
+        dynamodb_client = DynamoDBClient()
+        workflow_service = WorkflowService(dynamodb_client)
+
+        workflow_data = dynamodb_client.get_workflow_by_id(workflow_id)
+
+        if not workflow_data:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+
+        return workflow_service._convert_to_detail(workflow_data)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting workflow {workflow_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
