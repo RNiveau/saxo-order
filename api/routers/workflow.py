@@ -1,5 +1,3 @@
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Path, Query
 
 from api.models.workflow import AssetWorkflowsResponse
@@ -61,51 +59,19 @@ async def get_asset_workflows(
 
 
 @router.get("/workflows", response_model=WorkflowListResponse)
-async def list_workflows(
-    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
-    per_page: int = Query(
-        20, ge=1, le=100, description="Items per page (max 100)"
-    ),
-    enabled: Optional[bool] = Query(
-        None, description="Filter by enabled status"
-    ),
-    index: Optional[str] = Query(
-        None, description="Filter by index (case-insensitive partial match)"
-    ),
-    indicator_type: Optional[str] = Query(
-        None,
-        description="Filter by indicator type (ma50, combo, bbb, etc.)",
-    ),
-    dry_run: Optional[bool] = Query(
-        None, description="Filter by dry run mode"
-    ),
-    sort_by: str = Query(
-        "name",
-        description="Sort by field (name, index, end_date, etc.)",
-    ),
-    sort_order: str = Query("asc", description="Sort order (asc or desc)"),
-):
+async def list_workflows():
     """
-    List all workflows with filtering, sorting, and pagination.
+    List all workflows.
 
-    Returns paginated list of workflows with summary information.
-    Supports filtering by enabled status, index, indicator type, dry run,
-    and sorting by various fields.
+    Returns all workflows without server-side filtering or pagination.
+    Filtering, sorting, and pagination are handled on the frontend.
+    Results are cached for 10 minutes to improve performance.
     """
     try:
         dynamodb_client = DynamoDBClient()
         workflow_service = WorkflowService(dynamodb_client)
 
-        return workflow_service.list_workflows(
-            page=page,
-            per_page=per_page,
-            enabled=enabled,
-            index=index,
-            indicator_type=indicator_type,
-            dry_run=dry_run,
-            sort_by=sort_by,
-            sort_order=sort_order,
-        )
+        return workflow_service.list_workflows()
 
     except Exception as e:
         logger.error(f"Error listing workflows: {e}")

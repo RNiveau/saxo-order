@@ -26,10 +26,7 @@ function Workflows() {
   const loadWorkflows = async () => {
     try {
       setError(null);
-      const response = await workflowService.listWorkflows({
-        page: 1,
-        per_page: 100,
-      });
+      const response = await workflowService.listWorkflows();
       setWorkflows(response.workflows);
     } catch (err) {
       console.error('Error loading workflows:', err);

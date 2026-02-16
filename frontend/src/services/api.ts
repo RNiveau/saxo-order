@@ -167,17 +167,6 @@ export interface WorkflowDetail {
   updated_at: string;
 }
 
-export interface WorkflowListParams {
-  page?: number;
-  per_page?: number;
-  enabled?: boolean;
-  index?: string;
-  indicator_type?: string;
-  dry_run?: boolean;
-  sort_by?: string;
-  sort_order?: 'asc' | 'desc';
-}
-
 export const searchService = {
   search: async (
     keyword: string,
@@ -210,10 +199,8 @@ export const workflowService = {
     return response.data;
   },
 
-  listWorkflows: async (params?: WorkflowListParams): Promise<WorkflowListResponse> => {
-    const response = await api.get<WorkflowListResponse>('/api/workflow/workflows', {
-      params,
-    });
+  listWorkflows: async (): Promise<WorkflowListResponse> => {
+    const response = await api.get<WorkflowListResponse>('/api/workflow/workflows');
     return response.data;
   },
 

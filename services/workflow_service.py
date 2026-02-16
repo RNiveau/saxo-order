@@ -1,6 +1,5 @@
 import logging
-import math
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from client.aws_client import DynamoDBClient
 from model.workflow_api import (
@@ -12,6 +11,7 @@ from model.workflow_api import (
     WorkflowListItem,
     WorkflowListResponse,
 )
+from utils.cache import ttl_cache
 from utils.logger import Logger
 
 
@@ -28,109 +28,39 @@ class WorkflowService:
         self.logger = Logger.get_logger("workflow_service", logging.INFO)
         self.dynamodb_client = dynamodb_client
 
-    def list_workflows(
-        self,
-        page: int = 1,
-        per_page: int = 20,
-        enabled: Optional[bool] = None,
-        index: Optional[str] = None,
-        indicator_type: Optional[str] = None,
-        dry_run: Optional[bool] = None,
-        sort_by: str = "name",
-        sort_order: str = "asc",
-    ) -> WorkflowListResponse:
+    @ttl_cache(ttl_seconds=600)
+    def _get_cached_workflows(self) -> List[Dict[str, Any]]:
         """
-        List all workflows with filtering, sorting, and pagination.
-
-        Args:
-            page: Page number (1-indexed)
-            per_page: Items per page
-            enabled: Filter by enabled status
-            index: Filter by index (case-insensitive partial match)
-            indicator_type: Filter by indicator type in conditions
-            dry_run: Filter by dry run mode
-            sort_by: Field to sort by
-            sort_order: Sort order (asc or desc)
+        Get all workflows from DynamoDB with 10-minute TTL cache.
 
         Returns:
-            WorkflowListResponse with paginated results
+            List of workflow data dictionaries
         """
-        workflows_data = self.dynamodb_client.get_all_workflows()
+        return self.dynamodb_client.get_all_workflows()
 
-        filtered = self._apply_filters(
-            workflows_data, enabled, index, indicator_type, dry_run
-        )
+    def list_workflows(self) -> WorkflowListResponse:
+        """
+        List all workflows without filtering or pagination.
+        Filtering and sorting are handled on the frontend.
 
-        sorted_workflows = self._apply_sorting(filtered, sort_by, sort_order)
+        Returns:
+            WorkflowListResponse with all workflows
+        """
+        workflows_data = self._get_cached_workflows()
 
         workflow_items = [
-            self._convert_to_list_item(w) for w in sorted_workflows
+            self._convert_to_list_item(w) for w in workflows_data
         ]
 
         total = len(workflow_items)
-        total_pages = math.ceil(total / per_page) if total > 0 else 1
-
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        paginated = workflow_items[start_idx:end_idx]
 
         return WorkflowListResponse(
-            workflows=paginated,
+            workflows=workflow_items,
             total=total,
-            page=page,
-            per_page=per_page,
-            total_pages=total_pages,
+            page=1,
+            per_page=total,
+            total_pages=1,
         )
-
-    def _apply_filters(
-        self,
-        workflows: List[Dict[str, Any]],
-        enabled: Optional[bool],
-        index: Optional[str],
-        indicator_type: Optional[str],
-        dry_run: Optional[bool],
-    ) -> List[Dict[str, Any]]:
-        """Apply filters to workflow list"""
-        filtered = workflows
-
-        if enabled is not None:
-            filtered = [w for w in filtered if w.get("enable") == enabled]
-
-        if index:
-            index_lower = index.lower()
-            filtered = [
-                w
-                for w in filtered
-                if index_lower in w.get("index", "").lower()
-            ]
-
-        if indicator_type:
-            filtered = [
-                w
-                for w in filtered
-                if any(
-                    c.get("indicator", {}).get("name") == indicator_type
-                    for c in w.get("conditions", [])
-                )
-            ]
-
-        if dry_run is not None:
-            filtered = [w for w in filtered if w.get("dry_run") == dry_run]
-
-        return filtered
-
-    def _apply_sorting(
-        self, workflows: List[Dict[str, Any]], sort_by: str, sort_order: str
-    ) -> List[Dict[str, Any]]:
-        """Apply sorting to workflow list"""
-        reverse = sort_order == "desc"
-
-        def get_sort_key(w: Dict[str, Any]) -> Any:
-            if sort_by == "end_date":
-                return w.get("end_date") or ""
-            return w.get(sort_by, "")
-
-        return sorted(workflows, key=get_sort_key, reverse=reverse)
 
     def _convert_to_list_item(
         self, workflow_data: Dict[str, Any]
