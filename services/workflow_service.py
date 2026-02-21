@@ -1,6 +1,9 @@
 import logging
 from typing import Any, Dict, List
 
+from cachetools import TTLCache, cachedmethod
+from cachetools.keys import hashkey
+
 from client.aws_client import DynamoDBClient
 from model.workflow_api import (
     CloseDetail,
@@ -11,7 +14,6 @@ from model.workflow_api import (
     WorkflowListItem,
     WorkflowListResponse,
 )
-from utils.cache import ttl_cache
 from utils.logger import Logger
 
 
@@ -27,8 +29,10 @@ class WorkflowService:
         """
         self.logger = Logger.get_logger("workflow_service", logging.INFO)
         self.dynamodb_client = dynamodb_client
+        # 10-minute TTL cache for workflow data
+        self._cache: TTLCache = TTLCache(maxsize=1, ttl=600)
 
-    @ttl_cache(ttl_seconds=600)
+    @cachedmethod(lambda self: self._cache, key=lambda self: hashkey())
     def _get_cached_workflows(self) -> List[Dict[str, Any]]:
         """
         Get all workflows from DynamoDB with 10-minute TTL cache.
