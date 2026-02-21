@@ -62,6 +62,31 @@ class WorkflowService:
             total_pages=1,
         )
 
+    def get_workflows_by_asset(
+        self, code: str, country_code: str = "xpar"
+    ) -> List[WorkflowDetail]:
+        """
+        Get all workflows associated with a specific asset.
+
+        Args:
+            code: Asset code (e.g., "itp", "DAX.I")
+            country_code: Country code (e.g., "xpar"). Defaults to "xpar".
+
+        Returns:
+            List of WorkflowDetail objects matching the asset
+        """
+        symbol = f"{code}:{country_code}" if country_code else code
+        workflows_data = self._get_cached_workflows()
+
+        matching_workflows = [
+            w
+            for w in workflows_data
+            if w.get("index", "").lower() == code.lower()
+            or w.get("index", "").lower() == symbol.lower()
+        ]
+
+        return [self._convert_to_detail(w) for w in matching_workflows]
+
     def _convert_to_list_item(
         self, workflow_data: Dict[str, Any]
     ) -> WorkflowListItem:

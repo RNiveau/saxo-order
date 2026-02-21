@@ -1,80 +1,88 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
-from model.workflow import (
-    Close,
-    Condition,
-    Indicator,
-    IndicatorType,
-    Trigger,
-    UnitTime,
-    Workflow,
-    WorkflowDirection,
-    WorkflowLocation,
-    WorkflowSignal,
-)
-from utils.exception import SaxoException
 
 client = TestClient(app)
 
 
 @pytest.fixture
-def mock_load_workflows():
-    """Mock load_workflows function."""
-    with patch("api.services.workflow_service.load_workflows") as mock:
-        yield mock
+def mock_dynamodb_client():
+    """Mock DynamoDBClient."""
+    with patch("api.dependencies.DynamoDBClient") as mock_class:
+        mock_instance = MagicMock()
+        mock_class.return_value = mock_instance
+        yield mock_instance
+
+
+def create_workflow_data(
+    workflow_id: str,
+    name: str,
+    index: str,
+    cfd: str,
+    enabled: bool = True,
+    dry_run: bool = False,
+    indicator_name: str = "bbb",
+    indicator_ut: str = "h1",
+    close_direction: str = "above",
+    close_spread: int = 20,
+    order_direction: str = "buy",
+):
+    """Helper to create workflow data dict for testing."""
+    return {
+        "id": workflow_id,
+        "name": name,
+        "index": index,
+        "cfd": cfd,
+        "enable": enabled,
+        "dry_run": dry_run,
+        "is_us": False,
+        "end_date": None,
+        "conditions": [
+            {
+                "indicator": {
+                    "name": indicator_name,
+                    "ut": indicator_ut,
+                    "value": None,
+                    "zone_value": None,
+                },
+                "close": {
+                    "direction": close_direction,
+                    "ut": indicator_ut,
+                    "spread": close_spread,
+                },
+                "element": None,
+            }
+        ],
+        "trigger": {
+            "ut": indicator_ut,
+            "signal": "breakout",
+            "location": "higher" if order_direction == "buy" else "lower",
+            "order_direction": order_direction,
+            "quantity": 0.1,
+        },
+        "created_at": "2024-01-01T00:00:00",
+        "updated_at": "2024-01-01T00:00:00",
+    }
 
 
 class TestWorkflowEndpoint:
-    def test_get_asset_workflows_success(self, mock_load_workflows):
+    def test_get_asset_workflows_success(self, mock_dynamodb_client):
         """Test successful retrieval of workflows for an asset."""
-        # Create mock workflows
-        workflow1 = Workflow(
-            name="buy bbb h1 dax",
-            index="DAX.I",
-            cfd="GER40.I",
-            enable=True,
-            dry_run=False,
-            conditions=[
-                Condition(
-                    indicator=Indicator(IndicatorType.BBB, UnitTime.H1),
-                    close=Close(WorkflowDirection.ABOVE, UnitTime.H1, 20),
-                )
-            ],
-            trigger=Trigger(
-                ut=UnitTime.H1,
-                signal=WorkflowSignal.BREAKOUT,
-                location=WorkflowLocation.HIGHER,
-                order_direction="buy",
-                quantity=0.1,
-            ),
-        )
-
-        workflow2 = Workflow(
-            name="sell bbh h1 dax",
-            index="DAX.I",
-            cfd="GER40.I",
-            enable=True,
-            dry_run=False,
-            conditions=[
-                Condition(
-                    indicator=Indicator(IndicatorType.BBH, UnitTime.H1),
-                    close=Close(WorkflowDirection.BELOW, UnitTime.H1, 20),
-                )
-            ],
-            trigger=Trigger(
-                ut=UnitTime.H1,
-                signal=WorkflowSignal.BREAKOUT,
-                location=WorkflowLocation.LOWER,
+        mock_dynamodb_client.get_all_workflows.return_value = [
+            create_workflow_data("1", "buy bbb h1 dax", "DAX.I", "GER40.I"),
+            create_workflow_data(
+                "2",
+                "sell bbh h1 dax",
+                "DAX.I",
+                "GER40.I",
+                indicator_name="bbh",
+                close_direction="below",
                 order_direction="sell",
-                quantity=0.1,
             ),
-        )
-
-        mock_load_workflows.return_value = [workflow1, workflow2]
+        ]
 
         response = client.get(
             "/api/workflow/asset?code=DAX.I&country_code=xpar"
@@ -91,31 +99,20 @@ class TestWorkflowEndpoint:
         assert data["workflows"][0]["dry_run"] is False
 
     def test_get_asset_workflows_with_default_country_code(
-        self, mock_load_workflows
+        self, mock_dynamodb_client
     ):
         """Test workflow retrieval with default country_code."""
-        workflow = Workflow(
-            name="test workflow",
-            index="ITP:xpar",
-            cfd="ITP.PAR",
-            enable=True,
-            dry_run=True,
-            conditions=[
-                Condition(
-                    indicator=Indicator(IndicatorType.MA50, UnitTime.H4),
-                    close=Close(WorkflowDirection.ABOVE, UnitTime.H4, 10),
-                )
-            ],
-            trigger=Trigger(
-                ut=UnitTime.H4,
-                signal=WorkflowSignal.BREAKOUT,
-                location=WorkflowLocation.HIGHER,
-                order_direction="buy",
-                quantity=1.0,
-            ),
-        )
-
-        mock_load_workflows.return_value = [workflow]
+        mock_dynamodb_client.get_all_workflows.return_value = [
+            create_workflow_data(
+                "1",
+                "test workflow",
+                "ITP:xpar",
+                "ITP.PAR",
+                dry_run=True,
+                indicator_name="ma50",
+                indicator_ut="h4",
+            )
+        ]
 
         response = client.get("/api/workflow/asset?code=ITP")
 
@@ -124,30 +121,11 @@ class TestWorkflowEndpoint:
         assert data["asset_symbol"] == "ITP:xpar"
         assert data["total"] == 1
 
-    def test_get_asset_workflows_no_results(self, mock_load_workflows):
+    def test_get_asset_workflows_no_results(self, mock_dynamodb_client):
         """Test when no workflows match the asset."""
-        workflow = Workflow(
-            name="other workflow",
-            index="OTHER.I",
-            cfd="OTHER.I",
-            enable=True,
-            dry_run=False,
-            conditions=[
-                Condition(
-                    indicator=Indicator(IndicatorType.MA50, UnitTime.D),
-                    close=Close(WorkflowDirection.ABOVE, UnitTime.D, 0),
-                )
-            ],
-            trigger=Trigger(
-                ut=UnitTime.D,
-                signal=WorkflowSignal.BREAKOUT,
-                location=WorkflowLocation.HIGHER,
-                order_direction="buy",
-                quantity=1.0,
-            ),
-        )
-
-        mock_load_workflows.return_value = [workflow]
+        mock_dynamodb_client.get_all_workflows.return_value = [
+            create_workflow_data("1", "other workflow", "OTHER.I", "OTHER.I")
+        ]
 
         response = client.get("/api/workflow/asset?code=NONEXISTENT")
 
@@ -162,61 +140,46 @@ class TestWorkflowEndpoint:
 
         assert response.status_code == 422  # Validation error
 
-    def test_get_asset_workflows_force_from_disk(self, mock_load_workflows):
-        """Test force_from_disk parameter."""
-        mock_load_workflows.return_value = []
+    def test_get_asset_workflows_force_from_disk(self, mock_dynamodb_client):
+        """Test that force_from_disk parameter is no longer supported."""
+        mock_dynamodb_client.get_all_workflows.return_value = []
 
+        # force_from_disk parameter is ignored now
         response = client.get(
             "/api/workflow/asset?code=TEST&force_from_disk=true"
         )
 
         assert response.status_code == 200
-        mock_load_workflows.assert_called_once_with(True)
 
-    def test_get_asset_workflows_saxo_exception(self, mock_load_workflows):
-        """Test handling of SaxoException."""
-        mock_load_workflows.side_effect = SaxoException("No yaml to load")
-
-        response = client.get("/api/workflow/asset?code=TEST")
-
-        assert response.status_code == 400
-        assert "No yaml to load" in response.json()["detail"]
-
-    def test_get_asset_workflows_unexpected_exception(
-        self, mock_load_workflows
-    ):
-        """Test handling of unexpected exception."""
-        mock_load_workflows.side_effect = Exception("Unexpected error")
+    def test_get_asset_workflows_saxo_exception(self, mock_dynamodb_client):
+        """Test handling of exceptions (no longer SaxoException)."""
+        mock_dynamodb_client.get_all_workflows.side_effect = Exception(
+            "Database error"
+        )
 
         response = client.get("/api/workflow/asset?code=TEST")
 
         assert response.status_code == 500
         assert response.json()["detail"] == "Internal server error"
 
-    def test_get_asset_workflows_case_insensitive(self, mock_load_workflows):
-        """Test that asset matching is case-insensitive."""
-        workflow = Workflow(
-            name="test workflow",
-            index="DAX.I",
-            cfd="GER40.I",
-            enable=True,
-            dry_run=False,
-            conditions=[
-                Condition(
-                    indicator=Indicator(IndicatorType.MA50, UnitTime.H1),
-                    close=Close(WorkflowDirection.ABOVE, UnitTime.H1, 0),
-                )
-            ],
-            trigger=Trigger(
-                ut=UnitTime.H1,
-                signal=WorkflowSignal.BREAKOUT,
-                location=WorkflowLocation.HIGHER,
-                order_direction="buy",
-                quantity=1.0,
-            ),
+    def test_get_asset_workflows_unexpected_exception(
+        self, mock_dynamodb_client
+    ):
+        """Test handling of unexpected exception."""
+        mock_dynamodb_client.get_all_workflows.side_effect = Exception(
+            "Unexpected error"
         )
 
-        mock_load_workflows.return_value = [workflow]
+        response = client.get("/api/workflow/asset?code=TEST")
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Internal server error"
+
+    def test_get_asset_workflows_case_insensitive(self, mock_dynamodb_client):
+        """Test that asset matching is case-insensitive."""
+        mock_dynamodb_client.get_all_workflows.return_value = [
+            create_workflow_data("1", "test workflow", "DAX.I", "GER40.I")
+        ]
 
         response = client.get("/api/workflow/asset?code=dax.i")
 
