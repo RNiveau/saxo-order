@@ -101,6 +101,72 @@ export interface AssetWorkflowsResponse {
   workflows: WorkflowInfo[];
 }
 
+// Workflow Management Interfaces
+export interface WorkflowListItem {
+  id: string;
+  name: string;
+  index: string;
+  cfd: string;
+  enable: boolean;
+  dry_run: boolean;
+  is_us: boolean;
+  end_date: string | null;
+  primary_indicator: string | null;
+  primary_unit_time: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowListResponse {
+  workflows: WorkflowListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+export interface IndicatorDetail {
+  name: string;
+  ut: string;
+  value: number | null;
+  zone_value: number | null;
+}
+
+export interface CloseDetail {
+  direction: string;
+  ut: string;
+  spread: number;
+}
+
+export interface ConditionDetail {
+  indicator: IndicatorDetail;
+  close: CloseDetail;
+  element: string | null;
+}
+
+export interface TriggerDetail {
+  ut: string;
+  signal: string;
+  location: string;
+  order_direction: string;
+  quantity: number;
+}
+
+export interface WorkflowDetail {
+  id: string;
+  name: string;
+  index: string;
+  cfd: string;
+  enable: boolean;
+  dry_run: boolean;
+  is_us: boolean;
+  end_date: string | null;
+  conditions: ConditionDetail[];
+  trigger: TriggerDetail;
+  created_at: string;
+  updated_at: string;
+}
+
 export const searchService = {
   search: async (
     keyword: string,
@@ -130,6 +196,16 @@ export const workflowService = {
       '/api/workflow/asset',
       { params }
     );
+    return response.data;
+  },
+
+  listWorkflows: async (): Promise<WorkflowListResponse> => {
+    const response = await api.get<WorkflowListResponse>('/api/workflow/workflows');
+    return response.data;
+  },
+
+  getWorkflowDetail: async (id: string): Promise<WorkflowDetail> => {
+    const response = await api.get<WorkflowDetail>(`/api/workflow/workflows/${id}`);
     return response.data;
   },
 };

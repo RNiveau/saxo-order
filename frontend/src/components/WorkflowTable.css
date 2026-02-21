@@ -1,0 +1,152 @@
+.workflow-table-container {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.data-table {
+  overflow-x: auto;
+}
+
+.data-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  background: #0d1117;
+  color: #8b949e;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-align: left;
+  padding: 1rem;
+  border-bottom: 1px solid #30363d;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.data-table th.sortable:hover {
+  background: #161b22;
+  color: #e6edf3;
+}
+
+.data-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #21262d;
+  font-size: 0.9rem;
+  color: #e6edf3;
+}
+
+.data-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.data-table tbody tr:hover {
+  background: #1c2128;
+}
+
+.data-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+.data-table tbody tr.clickable-row:hover {
+  background: #1c2128;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.workflow-name {
+  font-weight: 500;
+  color: #e6edf3;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-enabled {
+  background: rgba(46, 160, 67, 0.15);
+  border: 1px solid #3fb950;
+  color: #3fb950;
+}
+
+.status-disabled {
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid #f85149;
+  color: #f85149;
+}
+
+.dry-run-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(219, 109, 40, 0.15);
+  border: 1px solid #db6d28;
+  color: #ff9966;
+  white-space: nowrap;
+}
+
+.indicator-badge {
+  display: inline-block;
+  padding: 0.25rem 0.65rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(88, 166, 255, 0.2);
+  color: #58a6ff;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #30363d;
+  background: #0d1117;
+}
+
+.pagination-button {
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #e6edf3;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background: #30363d;
+  border-color: #484f58;
+}
+
+.pagination-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #8b949e;
+}
+
+.pagination-info {
+  color: #8b949e;
+  font-size: 0.9rem;
+}

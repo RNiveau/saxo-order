@@ -11,6 +11,7 @@ from client.gsheet_client import GSheetClient
 from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from services.candles_service import CandlesService
+from services.workflow_service import WorkflowService
 from utils.configuration import Configuration
 from utils.logger import Logger
 
@@ -138,3 +139,19 @@ def get_asset_details_service(
         AssetDetailsService instance
     """
     return AssetDetailsService(dynamodb_client)
+
+
+def get_workflow_service(
+    dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
+) -> WorkflowService:
+    """
+    Get WorkflowService instance.
+    This is a dependency that can be injected into FastAPI endpoints.
+
+    Args:
+        dynamodb_client: DynamoDB client instance
+
+    Returns:
+        WorkflowService instance
+    """
+    return WorkflowService(dynamodb_client)

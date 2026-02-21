@@ -12,6 +12,7 @@ import { Report } from './pages/Report';
 import { Orders } from './pages/Orders';
 import { Alerts } from './pages/Alerts';
 import { AssetExclusions } from './pages/AssetExclusions';
+import Workflows from './pages/Workflows';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
               <Route path="/available-funds" element={<AvailableFunds />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/watchlist" element={<Watchlist />} />
+              <Route path="/workflows" element={<Workflows />} />
               <Route path="/long-term" element={<LongTermPositions />} />
               <Route path="/alerts" element={<Alerts />} />
               <Route path="/exclusions" element={<AssetExclusions />} />

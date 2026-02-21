@@ -119,6 +119,15 @@ export function Sidebar() {
           </li>
           <li>
             <NavLink
+              to="/workflows"
+              className={({ isActive }) => isActive ? 'active' : ''}
+            >
+              <span className="icon">⚙️</span>
+              <span className="label">Workflows</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
               to="/long-term"
               className={({ isActive }) => isActive ? 'active' : ''}
             >
