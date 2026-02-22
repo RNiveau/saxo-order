@@ -19,6 +19,7 @@ watchlist_table = dynamodb.watchlist_table()
 asset_details_table = dynamodb.asset_details_table()
 alerts_table = dynamodb.alerts_table()
 workflows_table = dynamodb.workflows_table()
+workflow_orders_table = dynamodb.workflow_orders_table()
 refresh_token_lambda = ecr_repository.repository_url.apply(
     lambda repository_url: lambda_.resfreh_token_lambda(
         repository_url, lambda_role.arn
@@ -47,6 +48,7 @@ iam.dynamodb_policy(
         asset_details_table,
         alerts_table,
         workflows_table,
+        workflow_orders_table,
     ],
     lambda_role,
 )
@@ -57,6 +59,7 @@ iam.user_dynamodb_policy(
         asset_details_table,
         alerts_table,
         workflows_table,
+        workflow_orders_table,
     ],
     user,
 )
@@ -130,3 +133,4 @@ pulumi.export("watchlist_table_name", watchlist_table.name)
 pulumi.export("asset_details_table_name", asset_details_table.name)
 pulumi.export("alerts_table_name", alerts_table.name)
 pulumi.export("workflows_table_name", workflows_table.name)
+pulumi.export("workflow_orders_table_name", workflow_orders_table.name)
