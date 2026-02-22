@@ -170,7 +170,7 @@ class WorkflowEngine:
                         order_direction=order_obj.direction.name,
                         order_type=order_obj.type.name,
                         asset_type=(
-                            asset["AssetType"].name
+                            asset["AssetType"]
                             if asset.get("AssetType")
                             else None
                         ),
