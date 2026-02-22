@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from model.workflow_api import WorkflowOrderListItem
 
@@ -69,6 +69,25 @@ class AssetWorkflowsResponse(BaseModel):
 class WorkflowOrderDetail(BaseModel):
     """Complete workflow order details for API single retrieval."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8",
+                "workflow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "workflow_name": "DAX Breakout Strategy",
+                "placed_at": "2026-02-22T14:30:00Z",
+                "order_code": "FRA40.I",
+                "order_price": 7850.25,
+                "order_quantity": 10.0,
+                "order_direction": "BUY",
+                "order_type": "LIMIT",
+                "asset_type": "CfdOnIndex",
+                "trigger_close": 7845.50,
+                "execution_context": "lambda-event-123abc",
+            }
+        }
+    )
+
     id: str = Field(..., description="Order record UUID")
     workflow_id: str = Field(..., description="Parent workflow UUID")
     workflow_name: str = Field(..., description="Workflow display name")
@@ -86,38 +105,12 @@ class WorkflowOrderDetail(BaseModel):
         None, description="Execution source"
     )
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "id": "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8",
-                "workflow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "workflow_name": "DAX Breakout Strategy",
-                "placed_at": "2026-02-22T14:30:00Z",
-                "order_code": "FRA40.I",
-                "order_price": 7850.25,
-                "order_quantity": 10.0,
-                "order_direction": "BUY",
-                "order_type": "LIMIT",
-                "asset_type": "CfdOnIndex",
-                "trigger_close": 7845.50,
-                "execution_context": "lambda-event-123abc",
-            }
-        }
-
 
 class WorkflowOrderHistoryResponse(BaseModel):
     """Paginated response for workflow order history."""
 
-    workflow_id: str = Field(..., description="Workflow UUID")
-    orders: List[WorkflowOrderListItem] = Field(
-        default_factory=list,
-        description="List of orders (sorted newest first)",
-    )
-    total_count: int = Field(..., ge=0, description="Total orders in history")
-    limit: int = Field(..., ge=1, le=100, description="Requested limit")
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "workflow_id": "550e8400-e29b-41d4-a716-446655440000",
                 "orders": [
@@ -135,3 +128,12 @@ class WorkflowOrderHistoryResponse(BaseModel):
                 "limit": 20,
             }
         }
+    )
+
+    workflow_id: str = Field(..., description="Workflow UUID")
+    orders: List[WorkflowOrderListItem] = Field(
+        default_factory=list,
+        description="List of orders (sorted newest first)",
+    )
+    total_count: int = Field(..., ge=0, description="Total orders in history")
+    limit: int = Field(..., ge=1, le=100, description="Requested limit")

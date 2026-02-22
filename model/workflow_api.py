@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class WorkflowListItem(BaseModel):
@@ -125,16 +125,8 @@ class WorkflowListResponse(BaseModel):
 class WorkflowOrderListItem(BaseModel):
     """Simplified workflow order for API list responses."""
 
-    id: str = Field(..., description="Order record UUID")
-    workflow_id: str = Field(..., description="Parent workflow UUID")
-    placed_at: str = Field(..., description="ISO 8601 timestamp")
-    order_code: str = Field(..., description="Asset code (e.g., 'FRA40.I')")
-    order_price: float = Field(..., gt=0, description="Order entry price")
-    order_quantity: float = Field(..., gt=0, description="Order quantity")
-    order_direction: str = Field(..., description="BUY or SELL")
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8",
                 "workflow_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -145,3 +137,12 @@ class WorkflowOrderListItem(BaseModel):
                 "order_direction": "BUY",
             }
         }
+    )
+
+    id: str = Field(..., description="Order record UUID")
+    workflow_id: str = Field(..., description="Parent workflow UUID")
+    placed_at: str = Field(..., description="ISO 8601 timestamp")
+    order_code: str = Field(..., description="Asset code (e.g., 'FRA40.I')")
+    order_price: float = Field(..., gt=0, description="Order entry price")
+    order_quantity: float = Field(..., gt=0, description="Order quantity")
+    order_direction: str = Field(..., description="BUY or SELL")

@@ -130,14 +130,12 @@ async def get_workflow_by_id(
     trigger parameters, and metadata.
     """
     try:
-        workflow_data = workflow_service.dynamodb_client.get_workflow_by_id(
-            workflow_id
-        )
+        workflow = workflow_service.get_workflow_by_id(workflow_id)
 
-        if not workflow_data:
+        if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
 
-        return workflow_service._convert_to_detail(workflow_data)
+        return workflow
 
     except HTTPException:
         raise
@@ -171,11 +169,9 @@ async def get_workflow_order_history(
     """
     try:
         # Verify workflow exists before querying orders
-        workflow_data = workflow_service.dynamodb_client.get_workflow_by_id(
-            workflow_id
-        )
+        workflow = workflow_service.get_workflow_by_id(workflow_id)
 
-        if not workflow_data:
+        if not workflow:
             raise HTTPException(
                 status_code=404,
                 detail=f"Workflow with id {workflow_id} not found",

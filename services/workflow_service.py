@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from cachetools import TTLCache, cachedmethod
 from cachetools.keys import hashkey
@@ -78,6 +78,21 @@ class WorkflowService:
             per_page=total,
             total_pages=1,
         )
+
+    def get_workflow_by_id(self, workflow_id: str) -> Optional[WorkflowDetail]:
+        """
+        Get a single workflow by its ID.
+
+        Args:
+            workflow_id: UUID of the workflow
+
+        Returns:
+            WorkflowDetail if found, None otherwise
+        """
+        workflow_data = self.dynamodb_client.get_workflow_by_id(workflow_id)
+        if not workflow_data:
+            return None
+        return self._convert_to_detail(workflow_data)
 
     def get_workflows_by_asset(
         self, code: str, country_code: str = "xpar"
