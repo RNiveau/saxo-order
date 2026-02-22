@@ -4,6 +4,7 @@ import click
 from click.core import Context
 from slack_sdk import WebClient
 
+from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
 from engines.workflow_engine import WorkflowEngine
 from engines.workflow_loader import load_workflows
@@ -116,6 +117,7 @@ def execute_workflow(
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
     candles_service = CandlesService(saxo_client)
+    dynamodb_client = DynamoDBClient()
     workflows = load_workflows(force_from_disk)
 
     if select_workflow is True:
@@ -136,5 +138,6 @@ def execute_workflow(
         slack_client=WebClient(token=configuration.slack_token),
         candles_service=candles_service,
         saxo_client=saxo_client,
+        dynamodb_client=dynamodb_client,
     )
     engine.run()

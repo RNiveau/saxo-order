@@ -7,6 +7,7 @@ from api.models.workflow import (
     WorkflowConditionInfo,
     WorkflowIndicatorInfo,
     WorkflowInfo,
+    WorkflowOrderHistoryResponse,
     WorkflowTriggerInfo,
 )
 from model.workflow_api import WorkflowDetail, WorkflowListResponse
@@ -143,3 +144,62 @@ async def get_workflow_by_id(
     except Exception as e:
         logger.error(f"Error getting workflow {workflow_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get(
+    "/workflows/{workflow_id}/orders",
+    response_model=WorkflowOrderHistoryResponse,
+)
+async def get_workflow_order_history(
+    workflow_id: str = Path(
+        ..., description="Workflow unique identifier (UUID)"
+    ),
+    limit: int = Query(
+        20,
+        ge=1,
+        le=100,
+        description="Maximum number of orders to return (1-100)",
+    ),
+    workflow_service: WorkflowService = Depends(get_workflow_service),
+):
+    """
+    Get order history for a specific workflow.
+
+    Returns the most recent orders placed by this workflow,
+    sorted by placement time (newest first).
+    Orders are retained for 7 days via DynamoDB TTL.
+    """
+    try:
+        # Verify workflow exists before querying orders
+        workflow_data = workflow_service.dynamodb_client.get_workflow_by_id(
+            workflow_id
+        )
+
+        if not workflow_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Workflow with id {workflow_id} not found",
+            )
+
+        # Get order history from DynamoDB
+        orders = workflow_service.get_workflow_order_history(
+            workflow_id=workflow_id, limit=limit
+        )
+
+        return WorkflowOrderHistoryResponse(
+            workflow_id=workflow_id,
+            orders=orders,
+            total_count=len(orders),
+            limit=limit,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error getting order history for workflow {workflow_id}: {e}"
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve order history",
+        )

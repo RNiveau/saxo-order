@@ -69,3 +69,23 @@ def workflows_table() -> aws.dynamodb.Table:
         stream_enabled=True,
         stream_view_type="NEW_AND_OLD_IMAGES",
     )
+
+
+def workflow_orders_table() -> aws.dynamodb.Table:
+    return aws.dynamodb.Table(
+        "workflow_orders",
+        attributes=[
+            aws.dynamodb.TableAttributeArgs(name="workflow_id", type="S"),
+            aws.dynamodb.TableAttributeArgs(name="placed_at", type="N"),
+        ],
+        hash_key="workflow_id",
+        range_key="placed_at",
+        name="workflow_orders",
+        billing_mode="PAY_PER_REQUEST",
+        stream_enabled=True,
+        stream_view_type="NEW_AND_OLD_IMAGES",
+        ttl=aws.dynamodb.TableTtlArgs(
+            enabled=True,
+            attribute_name="ttl",
+        ),
+    )

@@ -1,8 +1,9 @@
 import datetime
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Dict, List, Optional, Union
 
-from model.enum import Direction
+from model.enum import AssetType, Direction, OrderType
 from model.enum_with_get_value import EnumWithGetValue
 
 
@@ -150,6 +151,7 @@ class Workflow:
     enable: bool = False
     dry_run: bool = True
     is_us: bool = False
+    id: Optional[str] = None
 
 
 @dataclass
@@ -204,3 +206,31 @@ class ComboSignal:
     direction: Direction
     strength: SignalStrength
     details: Dict
+
+
+@dataclass
+class WorkflowOrder:
+    """Domain model for a workflow order placement event."""
+
+    id: str
+    workflow_id: str
+    workflow_name: str
+    placed_at: int
+    order_code: str
+    order_price: Decimal
+    order_quantity: Decimal
+    order_direction: Direction
+    order_type: OrderType
+    asset_type: Optional[AssetType] = None
+    trigger_close: Optional[Decimal] = None
+    execution_context: Optional[str] = None
+    ttl: int = 0
+
+    def __post_init__(self):
+        """Validate order data after initialization."""
+        if self.order_price <= 0:
+            raise ValueError("order_price must be positive")
+        if self.order_quantity <= 0:
+            raise ValueError("order_quantity must be positive")
+        if self.ttl > 0 and self.ttl <= self.placed_at:
+            raise ValueError("ttl must be greater than placed_at")

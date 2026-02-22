@@ -116,6 +116,7 @@ Examples:
 - No changes - uses existing DynamoDB alerts table with TTL (005-filter-old-alerts)
 - Python 3.11 (backend), TypeScript 5+ (frontend) + FastAPI (backend API), React 19+ (frontend), Vite 7+ (frontend build), DynamoDB (storage) (007-slwin-tag)
 - AWS DynamoDB (watchlist table with labels attribute) (007-slwin-tag)
+- AWS DynamoDB (workflow_orders table with TTL enabled) (010-workflow-execution-tracking)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)
