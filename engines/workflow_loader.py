@@ -120,17 +120,19 @@ def load_workflows(force_from_disk: bool = False) -> List[Workflow]:
         conditions = []
         for condition_data in conditions_data:
             indicator_data = condition_data["indicator"]
+            raw_value = indicator_data.get("value")
+            raw_zone_value = indicator_data.get("zone_value")
             indicator = Indicator(
                 indicator_data["name"],
                 indicator_data["ut"],
-                indicator_data.get("value"),
-                indicator_data.get("zone_value"),
+                float(raw_value) if raw_value is not None else None,
+                float(raw_zone_value) if raw_zone_value is not None else None,
             )
             close_data = condition_data["close"]
             close = Close(
                 close_data["direction"],
                 close_data["ut"],
-                close_data.get("spread", 0),
+                float(close_data.get("spread", 0)),
             )
             element = condition_data.get("element")
             if element is not None:
