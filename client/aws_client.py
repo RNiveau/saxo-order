@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import uuid
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -745,8 +746,6 @@ class DynamoDBClient(AwsClient):
         Returns:
             DynamoDB put_item response
         """
-        import uuid
-
         now = datetime.datetime.now(datetime.timezone.utc)
         placed_at = int(now.timestamp())
         # TTL set to 7 days from placement
