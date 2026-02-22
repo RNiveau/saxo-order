@@ -41,9 +41,14 @@ class TestWorkflowEngine:
                 )
             ]
             slack_client = mocker.Mock()
+            dynamodb_client = mocker.Mock()
             mocker.patch.object(slack_client, "chat_postMessage")
             workflow_engine = WorkflowEngine(
-                workflows, slack_client, mocker.Mock(), mocker.Mock()
+                workflows,
+                slack_client,
+                mocker.Mock(),
+                mocker.Mock(),
+                dynamodb_client,
             )
             workflow_engine.run()
             assert slack_client.chat_postMessage.call_count == 0
@@ -146,6 +151,7 @@ class TestWorkflowEngine:
         slack_client = mocker.Mock()
         candles_service = mocker.Mock()
         saxo_client = mocker.Mock()
+        dynamodb_client = mocker.Mock()
         mocker.patch.object(slack_client, "chat_postMessage")
         mocker.patch.object(
             candles_service, "build_hour_candles", return_value=[]
@@ -165,7 +171,11 @@ class TestWorkflowEngine:
         mocker.patch("engines.workflows.mobile_average", return_value=ma)
 
         workflow_engine = WorkflowEngine(
-            workflows, slack_client, candles_service, saxo_client
+            workflows,
+            slack_client,
+            candles_service,
+            saxo_client,
+            dynamodb_client,
         )
         workflow_engine.run()
         assert candles_service.build_hour_candles.call_count == 1

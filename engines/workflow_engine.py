@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from slack_sdk import WebClient
 
+from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
 from engines.workflows import (
     AbstractWorkflow,
@@ -43,12 +44,14 @@ class WorkflowEngine:
         slack_client: WebClient,
         candles_service: CandlesService,
         saxo_client: SaxoClient,
+        dynamodb_client: DynamoDBClient,
     ) -> None:
         self.logger = Logger.get_logger("workflow_engine", logging.DEBUG)
         self.workflows = workflows
         self.slack_client = slack_client
         self.candles_service = candles_service
         self.saxo_client = saxo_client
+        self.dynamodb_client = dynamodb_client
 
     def run(self) -> None:
         results = []
@@ -144,6 +147,47 @@ class WorkflowEngine:
                     else "#workflows"
                 )
                 self.slack_client.chat_postMessage(channel=channel, text=log)
+
+                try:
+                    order_obj = order[1][1]
+                    if order_obj.direction is None or order_obj.type is None:
+                        self.logger.error(
+                            f"Order for {order[0].name} missing "
+                            f"direction or type"
+                        )
+                        continue
+                    if order[0].id is None:
+                        self.logger.error(
+                            f"Workflow {order[0].name} missing id"
+                        )
+                        continue
+                    self.dynamodb_client.record_workflow_order(
+                        workflow_id=order[0].id,
+                        workflow_name=order[0].name,
+                        order_code=order_obj.code,
+                        order_price=float(order_obj.price),
+                        order_quantity=float(order_obj.quantity),
+                        order_direction=order_obj.direction.name,
+                        order_type=order_obj.type.name,
+                        asset_type=(
+                            asset["AssetType"].name
+                            if asset.get("AssetType")
+                            else None
+                        ),
+                        trigger_close=(
+                            float(order[1][0].close)
+                            if order[1][0].close
+                            else None
+                        ),
+                        execution_context="workflow_engine",
+                    )
+                    self.logger.info(
+                        f"Recorded order for workflow {order[0].name}"
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        f"Failed to track order for {order[0].name}: {e}"
+                    )
 
     def _get_candles_from_indicator_ut(
         self, workflow: Workflow, indicator: Indicator

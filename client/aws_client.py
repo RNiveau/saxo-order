@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import uuid
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -713,3 +714,120 @@ class DynamoDBClient(AwsClient):
                 batch.put_item(Item=converted_workflow)
 
         self.logger.info(f"Batch inserted {len(workflows)} workflows")
+
+    def record_workflow_order(
+        self,
+        workflow_id: str,
+        workflow_name: str,
+        order_code: str,
+        order_price: float,
+        order_quantity: float,
+        order_direction: str,
+        order_type: str,
+        asset_type: Optional[str] = None,
+        trigger_close: Optional[float] = None,
+        execution_context: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Record a workflow order placement to DynamoDB.
+
+        Args:
+            workflow_id: Workflow UUID
+            workflow_name: Workflow display name
+            order_code: Asset code
+            order_price: Entry price
+            order_quantity: Order size
+            order_direction: BUY or SELL
+            order_type: LIMIT or OPEN_STOP
+            asset_type: Optional asset classification
+            trigger_close: Optional trigger candle close
+            execution_context: Optional Lambda/CLI context
+
+        Returns:
+            DynamoDB put_item response
+        """
+        now = datetime.datetime.now(datetime.timezone.utc)
+        placed_at = int(now.timestamp())
+        # TTL set to 7 days from placement
+        # (7 days * 24 hours * 60 minutes * 60 seconds = 604800 seconds)
+        # DynamoDB will automatically delete this record after the TTL expires
+        ttl = placed_at + (7 * 24 * 60 * 60)
+
+        item = {
+            "id": str(uuid.uuid4()),
+            "workflow_id": workflow_id,
+            "workflow_name": workflow_name,
+            "placed_at": placed_at,
+            "order_code": order_code,
+            "order_price": order_price,
+            "order_quantity": order_quantity,
+            "order_direction": order_direction,
+            "order_type": order_type,
+            "ttl": ttl,
+        }
+
+        if asset_type:
+            item["asset_type"] = asset_type
+        if trigger_close is not None:
+            item["trigger_close"] = trigger_close
+        if execution_context:
+            item["execution_context"] = execution_context
+
+        item = self._convert_floats_to_decimal(item)
+
+        response = self.dynamodb.Table("workflow_orders").put_item(Item=item)
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB put_item error: {response}")
+
+        return response
+
+    def get_workflow_orders(
+        self, workflow_id: str, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get order history for a workflow, sorted newest first.
+
+        Args:
+            workflow_id: Workflow UUID
+            limit: Optional max orders to return
+
+        Returns:
+            List of order dictionaries
+        """
+        try:
+            query_params = {
+                "KeyConditionExpression": "workflow_id = :wf_id",
+                "ExpressionAttributeValues": {":wf_id": workflow_id},
+                "ScanIndexForward": False,
+            }
+
+            if limit:
+                query_params["Limit"] = limit
+
+            response = self.dynamodb.Table("workflow_orders").query(
+                **query_params
+            )
+
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB query error: {response}")
+                return []
+
+            items = response.get("Items", [])
+
+            while "LastEvaluatedKey" in response:
+                query_params["ExclusiveStartKey"] = response[
+                    "LastEvaluatedKey"
+                ]
+                response = self.dynamodb.Table("workflow_orders").query(
+                    **query_params
+                )
+                items.extend(response.get("Items", []))
+
+            return items
+
+        except Exception as e:
+            self.logger.error(
+                f"Error querying orders for workflow {workflow_id}: {e}"
+            )
+            return []

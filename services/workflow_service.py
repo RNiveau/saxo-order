@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from cachetools import TTLCache, cachedmethod
 from cachetools.keys import hashkey
@@ -13,6 +13,7 @@ from model.workflow_api import (
     WorkflowDetail,
     WorkflowListItem,
     WorkflowListResponse,
+    WorkflowOrderListItem,
 )
 from utils.logger import Logger
 
@@ -56,6 +57,18 @@ class WorkflowService:
             self._convert_to_list_item(w) for w in workflows_data
         ]
 
+        # Enrich each workflow with last order information
+        for workflow_item in workflow_items:
+            last_order = self._get_last_order_for_workflow(workflow_item.id)
+            if last_order:
+                workflow_item.last_order_timestamp = last_order["placed_at"]
+                workflow_item.last_order_direction = last_order[
+                    "order_direction"
+                ]
+                workflow_item.last_order_quantity = float(
+                    last_order["order_quantity"]
+                )
+
         total = len(workflow_items)
 
         return WorkflowListResponse(
@@ -65,6 +78,21 @@ class WorkflowService:
             per_page=total,
             total_pages=1,
         )
+
+    def get_workflow_by_id(self, workflow_id: str) -> Optional[WorkflowDetail]:
+        """
+        Get a single workflow by its ID.
+
+        Args:
+            workflow_id: UUID of the workflow
+
+        Returns:
+            WorkflowDetail if found, None otherwise
+        """
+        workflow_data = self.dynamodb_client.get_workflow_by_id(workflow_id)
+        if not workflow_data:
+            return None
+        return self._convert_to_detail(workflow_data)
 
     def get_workflows_by_asset(
         self, code: str, country_code: str = "xpar"
@@ -118,6 +146,9 @@ class WorkflowService:
             primary_unit_time=primary_unit_time,
             created_at=workflow_data["created_at"],
             updated_at=workflow_data["updated_at"],
+            last_order_timestamp=None,
+            last_order_direction=None,
+            last_order_quantity=None,
         )
 
     def _convert_to_detail(
@@ -181,3 +212,78 @@ class WorkflowService:
             created_at=workflow_data["created_at"],
             updated_at=workflow_data["updated_at"],
         )
+
+    def get_workflow_order_history(
+        self, workflow_id: str, limit: int = 20
+    ) -> List[WorkflowOrderListItem]:
+        """
+        Get order history for a specific workflow.
+
+        Args:
+            workflow_id: UUID of the workflow
+            limit: Maximum number of orders to return (default 20)
+
+        Returns:
+            List of WorkflowOrderListItem objects (newest first)
+        """
+        orders_data = self.dynamodb_client.get_workflow_orders(
+            workflow_id=workflow_id, limit=limit
+        )
+        return [
+            self._convert_order_to_list_item(order) for order in orders_data
+        ]
+
+    def _convert_order_to_list_item(
+        self, order_data: Dict[str, Any]
+    ) -> WorkflowOrderListItem:
+        """
+        Convert DynamoDB order dict to WorkflowOrderListItem.
+
+        Args:
+            order_data: Raw order data from DynamoDB
+
+        Returns:
+            WorkflowOrderListItem with converted fields
+        """
+        from decimal import Decimal
+
+        return WorkflowOrderListItem(
+            id=order_data["id"],
+            workflow_id=order_data["workflow_id"],
+            placed_at=order_data["placed_at"],
+            order_code=order_data["order_code"],
+            order_price=(
+                float(order_data["order_price"])
+                if isinstance(order_data["order_price"], Decimal)
+                else order_data["order_price"]
+            ),
+            order_quantity=(
+                float(order_data["order_quantity"])
+                if isinstance(order_data["order_quantity"], Decimal)
+                else order_data["order_quantity"]
+            ),
+            order_direction=order_data["order_direction"],
+        )
+
+    def _get_last_order_for_workflow(
+        self, workflow_id: str
+    ) -> Dict[str, Any] | None:
+        """
+        Get the most recent order for a specific workflow.
+
+        Args:
+            workflow_id: UUID of the workflow
+
+        Returns:
+            Order data dict or None if no orders exist
+        """
+        try:
+            orders = self.dynamodb_client.get_workflow_orders(
+                workflow_id=workflow_id, limit=1
+            )
+            return orders[0] if orders else None
+        except Exception as e:
+            self.logger.error(
+                f"Error fetching last order for workflow {workflow_id}: {e}"
+            )
+            return None

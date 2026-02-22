@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class WorkflowListItem(BaseModel):
@@ -27,6 +27,15 @@ class WorkflowListItem(BaseModel):
     )
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
+    last_order_timestamp: Optional[int] = Field(
+        None, description="Unix timestamp of most recent order placement"
+    )
+    last_order_direction: Optional[str] = Field(
+        None, description="Direction of most recent order (BUY/SELL)"
+    )
+    last_order_quantity: Optional[float] = Field(
+        None, description="Quantity of most recent order"
+    )
 
 
 class IndicatorDetail(BaseModel):
@@ -111,3 +120,29 @@ class WorkflowListResponse(BaseModel):
     page: int = Field(..., description="Current page number (1-indexed)")
     per_page: int = Field(..., description="Number of items per page")
     total_pages: int = Field(..., description="Total number of pages")
+
+
+class WorkflowOrderListItem(BaseModel):
+    """Simplified workflow order for API list responses."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8",
+                "workflow_id": "550e8400-e29b-41d4-a716-446655440000",
+                "placed_at": "2026-02-22T14:30:00Z",
+                "order_code": "FRA40.I",
+                "order_price": 7850.25,
+                "order_quantity": 10.0,
+                "order_direction": "BUY",
+            }
+        }
+    )
+
+    id: str = Field(..., description="Order record UUID")
+    workflow_id: str = Field(..., description="Parent workflow UUID")
+    placed_at: str = Field(..., description="ISO 8601 timestamp")
+    order_code: str = Field(..., description="Asset code (e.g., 'FRA40.I')")
+    order_price: float = Field(..., gt=0, description="Order entry price")
+    order_quantity: float = Field(..., gt=0, description="Order quantity")
+    order_direction: str = Field(..., description="BUY or SELL")

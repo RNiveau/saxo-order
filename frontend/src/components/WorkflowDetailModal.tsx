@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { WorkflowDetail } from '../services/api';
+import type { WorkflowDetail, OrderHistoryItem } from '../services/api';
 import { workflowService } from '../services/api';
 import './WorkflowDetailModal.css';
 
@@ -12,6 +12,8 @@ export function WorkflowDetailModal({ workflowId, onClose }: WorkflowDetailModal
   const [workflow, setWorkflow] = useState<WorkflowDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [orderHistory, setOrderHistory] = useState<OrderHistoryItem[]>([]);
+  const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
 
   useEffect(() => {
     const loadWorkflowDetail = async () => {
@@ -31,9 +33,37 @@ export function WorkflowDetailModal({ workflowId, onClose }: WorkflowDetailModal
     loadWorkflowDetail();
   }, [workflowId]);
 
+  useEffect(() => {
+    const loadOrderHistory = async () => {
+      try {
+        setOrderHistoryLoading(true);
+        const data = await workflowService.getWorkflowOrderHistory(workflowId, 20);
+        setOrderHistory(data.orders);
+      } catch (err) {
+        console.error('Error loading order history:', err);
+        // Don't show error to user, just log it - order history is optional
+        setOrderHistory([]);
+      } finally {
+        setOrderHistoryLoading(false);
+      }
+    };
+
+    loadOrderHistory();
+  }, [workflowId]);
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'No end date';
     return new Date(dateString).toLocaleString();
+  };
+
+  const formatTimestamp = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -202,6 +232,55 @@ export function WorkflowDetailModal({ workflowId, onClose }: WorkflowDetailModal
                   <span className="detail-value">{workflow.trigger.quantity}</span>
                 </div>
               </div>
+            </section>
+
+            <section className="detail-section">
+              <h3>Order History</h3>
+              {orderHistoryLoading ? (
+                <div className="order-history-loading">
+                  <div className="spinner-small"></div>
+                  <p>Loading order history...</p>
+                </div>
+              ) : orderHistory.length === 0 ? (
+                <div className="order-history-empty">
+                  <p>No orders placed yet</p>
+                </div>
+              ) : (
+                <div className="order-history-table-container">
+                  <table className="order-history-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Direction</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Asset</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orderHistory.map((order) => (
+                        <tr key={order.id}>
+                          <td>{formatTimestamp(order.placed_at)}</td>
+                          <td>
+                            <span
+                              className={`order-direction-badge ${
+                                order.order_direction === 'BUY'
+                                  ? 'order-direction-buy'
+                                  : 'order-direction-sell'
+                              }`}
+                            >
+                              {order.order_direction}
+                            </span>
+                          </td>
+                          <td>{order.order_quantity}</td>
+                          <td>{order.order_price.toFixed(2)}</td>
+                          <td>{order.order_code}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
 
             <section className="detail-section metadata-section">

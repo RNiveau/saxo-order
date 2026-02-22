@@ -24,6 +24,25 @@ function WorkflowTable({ workflows, sortBy, sortOrder, onSortChange, onRowClick 
     return new Date(dateString).toLocaleDateString();
   };
 
+  const formatRelativeTime = (timestamp: number | null | undefined) => {
+    if (!timestamp) return '-';
+
+    const now = Date.now();
+    const orderTime = timestamp * 1000; // Convert Unix timestamp to milliseconds
+    const diffMs = now - orderTime;
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    // For older than 7 days, show the actual date
+    return new Date(orderTime).toLocaleDateString();
+  };
+
   const getSortIcon = (column: string) => {
     if (sortBy !== column) return null;
     return sortOrder === 'asc' ? ' ↑' : ' ↓';
@@ -64,6 +83,12 @@ function WorkflowTable({ workflows, sortBy, sortOrder, onSortChange, onRowClick 
                 onClick={() => handleHeaderClick('end_date')}
               >
                 End Date{getSortIcon('end_date')}
+              </th>
+              <th
+                className={onSortChange ? 'sortable' : ''}
+                onClick={() => handleHeaderClick('last_order_timestamp')}
+              >
+                Last Order{getSortIcon('last_order_timestamp')}
               </th>
             </tr>
           </thead>
@@ -108,6 +133,9 @@ function WorkflowTable({ workflows, sortBy, sortOrder, onSortChange, onRowClick 
                     : '-'}
                 </td>
                 <td>{formatDate(workflow.end_date)}</td>
+                <td className="last-order-cell">
+                  {formatRelativeTime(workflow.last_order_timestamp)}
+                </td>
               </tr>
             ))}
           </tbody>

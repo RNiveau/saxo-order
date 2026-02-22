@@ -115,6 +115,9 @@ export interface WorkflowListItem {
   primary_unit_time: string | null;
   created_at: string;
   updated_at: string;
+  last_order_timestamp?: number | null;
+  last_order_direction?: string | null;
+  last_order_quantity?: number | null;
 }
 
 export interface WorkflowListResponse {
@@ -167,6 +170,23 @@ export interface WorkflowDetail {
   updated_at: string;
 }
 
+export interface OrderHistoryItem {
+  id: string;
+  workflow_id: string;
+  placed_at: number;
+  order_code: string;
+  order_price: number;
+  order_quantity: number;
+  order_direction: string;
+}
+
+export interface OrderHistoryResponse {
+  workflow_id: string;
+  orders: OrderHistoryItem[];
+  total_count: number;
+  limit: number;
+}
+
 export const searchService = {
   search: async (
     keyword: string,
@@ -206,6 +226,18 @@ export const workflowService = {
 
   getWorkflowDetail: async (id: string): Promise<WorkflowDetail> => {
     const response = await api.get<WorkflowDetail>(`/api/workflow/workflows/${id}`);
+    return response.data;
+  },
+
+  getWorkflowOrderHistory: async (
+    workflowId: string,
+    limit: number = 20
+  ): Promise<OrderHistoryResponse> => {
+    const params: Record<string, number> = { limit };
+    const response = await api.get<OrderHistoryResponse>(
+      `/api/workflow/workflows/${workflowId}/orders`,
+      { params }
+    );
     return response.data;
   },
 };

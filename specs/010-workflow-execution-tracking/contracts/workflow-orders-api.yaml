@@ -1,0 +1,373 @@
+openapi: 3.0.3
+info:
+  title: Workflow Order History API
+  description: API endpoints for tracking and retrieving workflow order placements
+  version: 1.0.0
+  contact:
+    name: saxo-order API Team
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+  - url: https://api.saxo-order.com/api
+    description: Production server
+
+tags:
+  - name: Workflow Orders
+    description: Operations for retrieving workflow order history
+
+paths:
+  /workflow/workflows/{workflow_id}/orders:
+    get:
+      tags:
+        - Workflow Orders
+      summary: Get order history for a workflow
+      description: |
+        Retrieves the order placement history for a specific workflow, sorted by most recent first.
+        Orders are automatically deleted after 7 days (TTL).
+      operationId: getWorkflowOrderHistory
+      parameters:
+        - name: workflow_id
+          in: path
+          required: true
+          description: Unique workflow identifier (UUID)
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of orders to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+
+      responses:
+        '200':
+          description: Successful response with order history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowOrderHistoryResponse'
+              examples:
+                withOrders:
+                  summary: Workflow with order history
+                  value:
+                    workflow_id: "550e8400-e29b-41d4-a716-446655440000"
+                    orders:
+                      - id: "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8"
+                        workflow_id: "550e8400-e29b-41d4-a716-446655440000"
+                        placed_at: "2026-02-22T14:30:00Z"
+                        order_code: "FRA40.I"
+                        order_price: 7850.25
+                        order_quantity: 10.0
+                        order_direction: "BUY"
+                      - id: "b2c3d4e5-f6a7-4890-b012-c3d4e5f6a7b8"
+                        workflow_id: "550e8400-e29b-41d4-a716-446655440000"
+                        placed_at: "2026-02-21T09:15:00Z"
+                        order_code: "FRA40.I"
+                        order_price: 7820.50
+                        order_quantity: 5.0
+                        order_direction: "SELL"
+                    total_count: 2
+                    limit: 20
+
+                noOrders:
+                  summary: Workflow with no orders
+                  value:
+                    workflow_id: "550e8400-e29b-41d4-a716-446655440000"
+                    orders: []
+                    total_count: 0
+                    limit: 20
+
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Invalid workflow_id format - must be valid UUID"
+
+        '404':
+          description: Workflow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Workflow with id 550e8400-e29b-41d4-a716-446655440000 not found"
+
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "DynamoDB query failed"
+
+  /workflow/orders/{order_id}:
+    get:
+      tags:
+        - Workflow Orders
+      summary: Get single order details
+      description: |
+        Retrieves complete details for a specific order record.
+        Returns 404 if order has been deleted by TTL (7 days).
+      operationId: getOrderDetail
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: Unique order identifier (UUID)
+          schema:
+            type: string
+            format: uuid
+          example: "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8"
+
+      responses:
+        '200':
+          description: Successful response with order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowOrderDetail'
+              example:
+                id: "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8"
+                workflow_id: "550e8400-e29b-41d4-a716-446655440000"
+                workflow_name: "DAX Breakout Strategy"
+                placed_at: "2026-02-22T14:30:00Z"
+                order_code: "FRA40.I"
+                order_price: 7850.25
+                order_quantity: 10.0
+                order_direction: "BUY"
+                order_type: "LIMIT"
+                asset_type: "CfdOnIndex"
+                trigger_close: 7845.50
+                execution_context: "lambda-event-123abc"
+
+        '404':
+          description: Order not found (may have been deleted by TTL)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Order with id a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8 not found"
+
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "DynamoDB get_item failed"
+
+components:
+  schemas:
+    WorkflowOrderListItem:
+      type: object
+      description: Simplified order data for list responses
+      required:
+        - id
+        - workflow_id
+        - placed_at
+        - order_code
+        - order_price
+        - order_quantity
+        - order_direction
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Order record unique identifier
+          example: "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8"
+
+        workflow_id:
+          type: string
+          format: uuid
+          description: Parent workflow identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+        placed_at:
+          type: string
+          format: date-time
+          description: Order placement timestamp (ISO 8601)
+          example: "2026-02-22T14:30:00Z"
+
+        order_code:
+          type: string
+          description: Asset code (e.g., ISIN, symbol)
+          example: "FRA40.I"
+
+        order_price:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: Order entry price
+          example: 7850.25
+
+        order_quantity:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: Order quantity/size
+          example: 10.0
+
+        order_direction:
+          type: string
+          enum: [BUY, SELL]
+          description: Order direction
+          example: "BUY"
+
+    WorkflowOrderDetail:
+      type: object
+      description: Complete order details with all metadata
+      required:
+        - id
+        - workflow_id
+        - workflow_name
+        - placed_at
+        - order_code
+        - order_price
+        - order_quantity
+        - order_direction
+        - order_type
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Order record unique identifier
+          example: "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8"
+
+        workflow_id:
+          type: string
+          format: uuid
+          description: Parent workflow identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+        workflow_name:
+          type: string
+          description: Workflow display name
+          example: "DAX Breakout Strategy"
+
+        placed_at:
+          type: string
+          format: date-time
+          description: Order placement timestamp (ISO 8601)
+          example: "2026-02-22T14:30:00Z"
+
+        order_code:
+          type: string
+          description: Asset code
+          example: "FRA40.I"
+
+        order_price:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: Order entry price
+          example: 7850.25
+
+        order_quantity:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: Order quantity/size
+          example: 10.0
+
+        order_direction:
+          type: string
+          enum: [BUY, SELL]
+          description: Order direction
+          example: "BUY"
+
+        order_type:
+          type: string
+          enum: [LIMIT, OPEN_STOP]
+          description: Order type
+          example: "LIMIT"
+
+        asset_type:
+          type: string
+          nullable: true
+          description: Asset classification (AssetType enum)
+          example: "CfdOnIndex"
+
+        trigger_close:
+          type: number
+          format: double
+          nullable: true
+          description: Trigger candle close price
+          example: 7845.50
+
+        execution_context:
+          type: string
+          nullable: true
+          description: Lambda event ID or CLI user identifier
+          example: "lambda-event-123abc"
+
+    WorkflowOrderHistoryResponse:
+      type: object
+      description: Paginated order history response
+      required:
+        - workflow_id
+        - orders
+        - total_count
+        - limit
+      properties:
+        workflow_id:
+          type: string
+          format: uuid
+          description: Workflow identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+        orders:
+          type: array
+          description: List of orders sorted by placed_at descending (newest first)
+          items:
+            $ref: '#/components/schemas/WorkflowOrderListItem'
+
+        total_count:
+          type: integer
+          minimum: 0
+          description: Total number of orders in history (not affected by limit)
+          example: 2
+
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Maximum orders returned (from request parameter)
+          example: 20
+
+    ErrorResponse:
+      type: object
+      description: Standard error response format
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: "Workflow not found"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: JWT bearer token authentication (if applicable)
+
+security:
+  - {} # No authentication required for MVP (add BearerAuth if needed)
