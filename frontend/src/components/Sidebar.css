@@ -11,8 +11,42 @@
 }
 
 .sidebar-nav {
-  padding: 1rem 0;
   border-bottom: 1px solid #30363d;
+}
+
+.sidebar-nav--collapsed {
+  padding: 0;
+}
+
+.sidebar-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: color 0.2s ease;
+}
+
+.sidebar-nav-header:hover {
+  color: #e6edf3;
+}
+
+.sidebar-nav-header .chevron {
+  font-size: 0.7rem;
+  transform: rotate(180deg);
+  transition: transform 0.2s ease;
+}
+
+.sidebar-nav--collapsed .sidebar-nav-header .chevron {
+  transform: rotate(0deg);
 }
 
 .sidebar-menu {
