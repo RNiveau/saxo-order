@@ -10,6 +10,9 @@ export function Sidebar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastLoadTime, setLastLoadTime] = useState<number>(Date.now());
+  const [navCollapsed, setNavCollapsed] = useState<boolean>(
+    localStorage.getItem('nav_collapsed') !== 'false'
+  );
 
   // Data is considered stale after 1 minute
   const isStale = Date.now() - lastLoadTime > 60000;
@@ -77,92 +80,106 @@ export function Sidebar() {
     return `${sign}${variation.toFixed(2)}%`;
   };
 
+  const toggleNav = () => {
+    setNavCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('nav_collapsed', String(next));
+      return next;
+    });
+  };
+
   return (
     <aside className="sidebar">
-      <nav className="sidebar-nav">
-        <ul className="sidebar-menu">
-          <li>
-            <NavLink
-              to="/"
-              className={({ isActive }) => isActive ? 'active' : ''}
-            >
-              <span className="icon">🏠</span>
-              <span className="label">Home</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/available-funds"
-              className={({ isActive }) => isActive ? 'active' : ''}
-            >
-              <span className="icon">💰</span>
-              <span className="label">Available Funds</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/orders"
-              className={({ isActive }) => isActive ? 'active' : ''}
-            >
-              <span className="icon">📝</span>
-              <span className="label">Create Order</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/watchlist"
-              className={({ isActive }) => isActive ? 'active' : ''}
-            >
-              <span className="icon">⭐</span>
-              <span className="label">Watchlist</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/workflows"
-              className={({ isActive }) => isActive ? 'active' : ''}
-            >
-              <span className="icon">⚙️</span>
-              <span className="label">Workflows</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/long-term"
-              className={({ isActive }) => isActive ? 'active' : ''}
-            >
-              <span className="icon">📊</span>
-              <span className="label">Long-Term Positions</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/alerts"
-              className={({ isActive }) => isActive ? 'active' : ''}
-            >
-              <span className="icon">🔔</span>
-              <span className="label">Alerts</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/exclusions"
-              className={({ isActive }) => isActive ? 'active' : ''}
-            >
-              <span className="icon">🚫</span>
-              <span className="label">Asset Exclusions</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink
-              to="/report"
-              className={({ isActive }) => isActive ? 'active' : ''}
-            >
-              <span className="icon">📊</span>
-              <span className="label">Trading Report</span>
-            </NavLink>
-          </li>
-        </ul>
+      <nav className={`sidebar-nav${navCollapsed ? ' sidebar-nav--collapsed' : ''}`}>
+        <button className="sidebar-nav-header" onClick={toggleNav}>
+          <span>Navigation</span>
+          <span className="chevron">▼</span>
+        </button>
+        {!navCollapsed && (
+          <ul className="sidebar-menu">
+            <li>
+              <NavLink
+                to="/"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">🏠</span>
+                <span className="label">Home</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/available-funds"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">💰</span>
+                <span className="label">Available Funds</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/orders"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">📝</span>
+                <span className="label">Create Order</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/watchlist"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">⭐</span>
+                <span className="label">Watchlist</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/workflows"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">⚙️</span>
+                <span className="label">Workflows</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/long-term"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">📊</span>
+                <span className="label">Long-Term Positions</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/alerts"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">🔔</span>
+                <span className="label">Alerts</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/exclusions"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">🚫</span>
+                <span className="label">Asset Exclusions</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/report"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">📊</span>
+                <span className="label">Trading Report</span>
+              </NavLink>
+            </li>
+          </ul>
+        )}
       </nav>
 
       <div className="sidebar-section">
