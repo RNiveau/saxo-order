@@ -23,7 +23,7 @@ prettytable = "^3.12.0"
 fastapi = "^0.121.1"
 uvicorn = {extras = ["standard"], version = "^0.38.0"}
 pydantic = "^2.12.4"
-cachetools = "^6.2.1"
+cachetools = "^6.2.6"
 
 [tool.poetry.dev-dependencies]
 black = "^25.11.0"
