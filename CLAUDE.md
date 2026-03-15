@@ -117,6 +117,8 @@ Examples:
 - Python 3.11 (backend), TypeScript 5+ (frontend) + FastAPI (backend API), React 19+ (frontend), Vite 7+ (frontend build), DynamoDB (storage) (007-slwin-tag)
 - AWS DynamoDB (watchlist table with labels attribute) (007-slwin-tag)
 - AWS DynamoDB (workflow_orders table with TTL enabled) (010-workflow-execution-tracking)
+- Python 3.11 + FastAPI 0.121+, aioboto3 13.0+ (replacing boto3 1.40+), uvicorn 0.38+, pytest 9.0+ (011-async-dynamodb-operations)
+- AWS DynamoDB (6 tables: indicators, watchlist, asset_details, alerts, workflows, workflow_orders) (011-async-dynamodb-operations)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)
