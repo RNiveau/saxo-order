@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: All Workflow Orders API
+  description: New endpoint to retrieve orders across all workflows for the Workflow Orders list page
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+
+tags:
+  - name: Workflow Orders
+    description: Cross-workflow order history
+
+paths:
+  /workflow/orders:
+    get:
+      tags:
+        - Workflow Orders
+      summary: Get all workflow orders (cross-workflow)
+      description: |
+        Returns all orders placed by all workflows within the past 7 days,
+        sorted by placement timestamp descending (newest first).
+        Dataset is bounded by the 7-day DynamoDB TTL on the workflow_orders table.
+      operationId: getAllWorkflowOrders
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of orders to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+          example: 100
+
+      responses:
+        '200':
+          description: Successful response with all workflow orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllWorkflowOrdersResponse'
+              examples:
+                withOrders:
+                  summary: Multiple workflows with orders
+                  value:
+                    orders:
+                      - id: "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8"
+                        workflow_id: "550e8400-e29b-41d4-a716-446655440000"
+                        workflow_name: "DAX Breakout Strategy"
+                        placed_at: 1740233400
+                        order_code: "FRA40.I"
+                        order_price: 7850.25
+                        order_quantity: 10.0
+                        order_direction: "BUY"
+                      - id: "b2c3d4e5-f6a7-4890-b012-c3d4e5f6a7b8"
+                        workflow_id: "661f9511-f3ac-52e5-b827-557766551111"
+                        workflow_name: "CAC40 Momentum"
+                        placed_at: 1740147000
+                        order_code: "FRA40.I"
+                        order_price: 7820.50
+                        order_quantity: 5.0
+                        order_direction: "SELL"
+                    total_count: 2
+                    limit: 100
+
+                noOrders:
+                  summary: No orders in the past 7 days
+                  value:
+                    orders: []
+                    total_count: 0
+                    limit: 100
+
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Failed to retrieve workflow orders"
+
+components:
+  schemas:
+    AllWorkflowOrderItem:
+      type: object
+      description: A single order placed by a workflow, including the workflow name
+      required:
+        - id
+        - workflow_id
+        - workflow_name
+        - placed_at
+        - order_code
+        - order_price
+        - order_quantity
+        - order_direction
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Order record unique identifier
+          example: "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8"
+
+        workflow_id:
+          type: string
+          format: uuid
+          description: Parent workflow identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+        workflow_name:
+          type: string
+          description: Workflow display name captured at order placement time
+          example: "DAX Breakout Strategy"
+
+        placed_at:
+          type: integer
+          description: Order placement timestamp (Unix epoch seconds)
+          example: 1740233400
+
+        order_code:
+          type: string
+          description: Asset code
+          example: "FRA40.I"
+
+        order_price:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: Order entry price
+          example: 7850.25
+
+        order_quantity:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          description: Order quantity
+          example: 10.0
+
+        order_direction:
+          type: string
+          enum: [BUY, SELL]
+          description: Order direction
+          example: "BUY"
+
+    AllWorkflowOrdersResponse:
+      type: object
+      description: All workflow orders response
+      required:
+        - orders
+        - total_count
+        - limit
+      properties:
+        orders:
+          type: array
+          description: Orders sorted by placed_at descending (newest first)
+          items:
+            $ref: '#/components/schemas/AllWorkflowOrderItem'
+
+        total_count:
+          type: integer
+          minimum: 0
+          description: Number of orders returned
+          example: 2
+
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Requested limit (echoed back)
+          example: 100
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          example: "Failed to retrieve workflow orders"
