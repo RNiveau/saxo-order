@@ -2,7 +2,20 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from model.workflow_api import WorkflowOrderListItem
+from model.workflow_api import AllWorkflowOrderItem, WorkflowOrderListItem
+
+
+class AllWorkflowOrdersResponse(BaseModel):
+    """Response for the cross-workflow orders list endpoint."""
+
+    orders: List[AllWorkflowOrderItem] = Field(
+        default_factory=list,
+        description="Flat list of all orders, sorted newest first",
+    )
+    total_count: int = Field(
+        ..., ge=0, description="Number of orders returned"
+    )
+    limit: int = Field(..., ge=1, le=100, description="Requested limit")
 
 
 class WorkflowIndicatorInfo(BaseModel):

@@ -782,6 +782,44 @@ class DynamoDBClient(AwsClient):
 
         return response
 
+    def get_all_workflow_orders(
+        self, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve all orders from the workflow_orders table across all
+        workflows.
+
+        Args:
+            limit: Optional max orders to return (applied after sort)
+
+        Returns:
+            List of order dictionaries sorted by placed_at descending
+        """
+        orders: List[Dict[str, Any]] = []
+        response = self.dynamodb.Table("workflow_orders").scan()
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB scan error: {response}")
+            return orders
+
+        orders.extend(response.get("Items", []))
+
+        while "LastEvaluatedKey" in response:
+            response = self.dynamodb.Table("workflow_orders").scan(
+                ExclusiveStartKey=response["LastEvaluatedKey"]
+            )
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB scan error: {response}")
+                break
+            orders.extend(response.get("Items", []))
+
+        orders.sort(key=lambda o: int(o.get("placed_at", 0)), reverse=True)
+
+        if limit is not None:
+            orders = orders[:limit]
+
+        return orders
+
     def get_workflow_orders(
         self, workflow_id: str, limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:

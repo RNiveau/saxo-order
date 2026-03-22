@@ -122,6 +122,19 @@ class WorkflowListResponse(BaseModel):
     total_pages: int = Field(..., description="Total number of pages")
 
 
+class AllWorkflowOrderItem(BaseModel):
+    """Cross-workflow order item for the all-orders list endpoint."""
+
+    id: str = Field(..., description="Order record UUID")
+    workflow_id: str = Field(..., description="Parent workflow UUID")
+    workflow_name: str = Field(..., description="Workflow display name")
+    placed_at: int = Field(..., description="Unix epoch timestamp (seconds)")
+    order_code: str = Field(..., description="Asset code (e.g., 'FRA40.I')")
+    order_price: float = Field(..., gt=0, description="Order entry price")
+    order_quantity: float = Field(..., gt=0, description="Order quantity")
+    order_direction: str = Field(..., description="BUY or SELL")
+
+
 class WorkflowOrderListItem(BaseModel):
     """Simplified workflow order for API list responses."""
 

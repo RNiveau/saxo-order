@@ -6,6 +6,7 @@ from cachetools.keys import hashkey
 
 from client.aws_client import DynamoDBClient
 from model.workflow_api import (
+    AllWorkflowOrderItem,
     CloseDetail,
     ConditionDetail,
     IndicatorDetail,
@@ -232,6 +233,46 @@ class WorkflowService:
         return [
             self._convert_order_to_list_item(order) for order in orders_data
         ]
+
+    def get_all_orders(self, limit: int = 100) -> List[AllWorkflowOrderItem]:
+        """
+        Get all orders across all workflows, sorted newest first.
+
+        Args:
+            limit: Maximum number of orders to return (default 100)
+
+        Returns:
+            List of AllWorkflowOrderItem objects (newest first)
+        """
+        orders_data = self.dynamodb_client.get_all_workflow_orders(limit=limit)
+        return [
+            self._convert_all_order_to_item(order) for order in orders_data
+        ]
+
+    def _convert_all_order_to_item(
+        self, order_data: Dict[str, Any]
+    ) -> AllWorkflowOrderItem:
+        """Convert DynamoDB order dict to AllWorkflowOrderItem."""
+        from decimal import Decimal
+
+        return AllWorkflowOrderItem(
+            id=order_data["id"],
+            workflow_id=order_data["workflow_id"],
+            workflow_name=order_data["workflow_name"],
+            placed_at=int(order_data["placed_at"]),
+            order_code=order_data["order_code"],
+            order_price=(
+                float(order_data["order_price"])
+                if isinstance(order_data["order_price"], Decimal)
+                else order_data["order_price"]
+            ),
+            order_quantity=(
+                float(order_data["order_quantity"])
+                if isinstance(order_data["order_quantity"], Decimal)
+                else order_data["order_quantity"]
+            ),
+            order_direction=order_data["order_direction"],
+        )
 
     def _convert_order_to_list_item(
         self, order_data: Dict[str, Any]
