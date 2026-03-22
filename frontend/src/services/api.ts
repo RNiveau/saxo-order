@@ -311,6 +311,10 @@ export const workflowService = {
     const response = await api.put<WorkflowDetail>(`/api/workflow/workflows/${id}`, data);
     return response.data;
   },
+
+  deleteWorkflow: async (id: string): Promise<void> => {
+    await api.delete(`/api/workflow/workflows/${id}`);
+  },
 };
 
 export interface MovingAverageInfo {

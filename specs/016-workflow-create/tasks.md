@@ -86,7 +86,26 @@
 
 ---
 
-## Phase 6: Polish & Cross-Cutting Concerns
+## Phase 6: User Story 4 — Delete Workflow (Priority: P3)
+
+**Goal**: A "Delete" button in the workflow detail modal shows an inline confirmation prompt. On confirmation, `DELETE /api/workflow/workflows/{id}` is called, the modal closes, and the workflow is removed from the Workflows list.
+
+**Independent Test**: Open a workflow detail modal, click "Delete", confirm → modal closes and workflow is gone from the list; cancel the prompt → nothing happens.
+
+### Implementation
+
+- [ ] T021 [P] Add `delete_workflow(self, workflow_id: str) -> None` method to `client/aws_client.py` after `update_workflow`: call `self.dynamodb.Table("workflows").delete_item(Key={"id": workflow_id})`; check HTTP status ≥ 400 and raise `RuntimeError("Failed to delete workflow")` if so
+- [ ] T022 Add `delete_workflow(self, workflow_id: str) -> None` method to `services/workflow_service.py`: fetch existing via `self.dynamodb_client.get_workflow_by_id(workflow_id)`; raise `ValueError("Workflow not found")` if None; call `self.dynamodb_client.delete_workflow(workflow_id)` (depends on T021)
+- [ ] T023 [P] Add `DELETE /api/workflow/workflows/{workflow_id}` endpoint to `api/routers/workflow.py`: `@router.delete("/workflows/{workflow_id}", status_code=204)`; handler calls `workflow_service.delete_workflow(workflow_id)`; catch `ValueError` → 404; catch generic `Exception` → 500 "Failed to delete workflow" (depends on T022)
+- [ ] T024 [P] Add `deleteWorkflow: async (id: string): Promise<void>` to `workflowService` in `frontend/src/services/api.ts`: `DELETE /api/workflow/workflows/{id}`, no response body
+- [ ] T025 Add delete UI to `WorkflowDetailModal` in `frontend/src/components/WorkflowDetailModal.tsx`: add `showDeleteConfirm` state (boolean, default false) and `deleting` state; add a "Delete" button in `.modal-header-actions` (styled destructively); when clicked set `showDeleteConfirm = true`; render an inline confirmation block below the header when `showDeleteConfirm` is true: show "Are you sure? This cannot be undone." with "Confirm Delete" and "Cancel" buttons; on confirm: set `deleting = true`, call `workflowService.deleteWorkflow(workflowId)`, on success call `onDelete()` prop; on failure set `deleteError` and display it inline without closing; on cancel: set `showDeleteConfirm = false`; add `onDelete: () => void` to `WorkflowDetailModalProps` (depends on T024)
+- [ ] T026 Wire `onDelete` callback in `frontend/src/pages/Workflows.tsx`: pass `onDelete={() => { setSelectedWorkflowId(null); loadWorkflows(); }}` to `WorkflowDetailModal`
+
+**Checkpoint**: `curl -X DELETE http://localhost:8000/api/workflow/workflows/{id}` returns 204; open a workflow detail modal, click "Delete", confirm → modal closes and workflow gone from list; cancel → modal stays open.
+
+---
+
+## Phase 7: Polish & Cross-Cutting Concerns
 
 - [x] T010 [P] Run `poetry run mypy model/workflow_api.py client/aws_client.py services/workflow_service.py api/routers/workflow.py` and `poetry run flake8 model/workflow_api.py client/aws_client.py services/workflow_service.py api/routers/workflow.py` from repo root; fix any type or lint errors in the modified backend files
 - [x] T011 [P] Run `npm run build` and `npm run lint` in `frontend/`; fix any TypeScript or ESLint errors introduced in `WorkflowCreateModal.tsx`, `api.ts`, `Workflows.tsx`, `AssetDetail.tsx`
@@ -104,7 +123,8 @@
 - **Phase 3 (US1)**: T005 depends on T001 + T003; T006 depends on T004; T007 parallel with T006; T008 depends on T006
 - **Phase 4 (US2)**: Depends on T006 (WorkflowCreateModal must exist)
 - **Phase 5 (US3 — Edit)**: T013 parallel; T014 depends on T013; T015 depends on T014; T016 parallel; T017 depends on T016; T018 depends on T017
-- **Phase 6 (Polish)**: Depends on all Phase 5 tasks complete
+- **Phase 6 (US4 — Delete)**: T021 parallel; T022 depends on T021; T023 depends on T022; T024 parallel; T025 depends on T024; T026 depends on T025
+- **Phase 7 (Polish)**: Depends on all Phase 6 tasks complete
 
 ### Execution Graph
 

@@ -162,6 +162,23 @@ async def update_workflow(
         )
 
 
+@router.delete("/workflows/{workflow_id}", status_code=204)
+async def delete_workflow(
+    workflow_id: str = Path(...),
+    workflow_service: WorkflowService = Depends(get_workflow_service),
+):
+    """Delete a workflow."""
+    try:
+        workflow_service.delete_workflow(workflow_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error deleting workflow {workflow_id}: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to delete workflow"
+        )
+
+
 @router.get("/workflows", response_model=WorkflowListResponse)
 async def list_workflows(
     workflow_service: WorkflowService = Depends(get_workflow_service),

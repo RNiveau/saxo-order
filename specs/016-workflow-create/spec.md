@@ -62,6 +62,25 @@ A user can edit an existing workflow's configuration. An "Edit" button is availa
 
 ---
 
+---
+
+### User Story 4 — Delete a Workflow (Priority: P3)
+
+A user can permanently delete a workflow. A "Delete" button is available in the workflow detail modal. Clicking it prompts for confirmation before proceeding. On confirmation, the workflow is deleted and the modal closes; the workflow disappears from the Workflows list.
+
+**Why this priority**: Deletion completes the full CRUD lifecycle for workflow management.
+
+**Independent Test**: Open a workflow detail modal, click "Delete", confirm the prompt, verify the modal closes and the workflow no longer appears in the Workflows list.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is viewing a workflow in the detail modal, **When** they click "Delete", **Then** a confirmation prompt appears (e.g., "Are you sure you want to delete this workflow? This action cannot be undone.").
+2. **Given** the confirmation prompt is shown, **When** the user confirms, **Then** the workflow is deleted, the modal closes, and the workflow is removed from the Workflows list.
+3. **Given** the confirmation prompt is shown, **When** the user cancels, **Then** no deletion occurs and the detail modal remains open.
+4. **Given** the delete API call fails, **Then** an inline error message is shown inside the modal and the workflow is not removed.
+
+---
+
 ### Edge Cases
 
 - What happens if the user changes indicator type after filling in condition fields? → Indicator-specific value fields (value, zone_value) reset; other fields are preserved.
@@ -94,6 +113,9 @@ A user can edit an existing workflow's configuration. An "Edit" button is availa
 - **FR-013**: The `WorkflowCreateModal` MUST support an optional `workflow` prop containing an existing `WorkflowDetail`. When provided, the modal is in edit mode: the title changes to "Edit Workflow", the form is pre-filled, and saving issues a `PUT /api/workflow/workflows/{id}` request instead of POST.
 - **FR-014**: The `PUT` endpoint MUST accept the same `WorkflowCreateRequest` body and return the updated `WorkflowDetail` (200). The `id`, `created_at` fields are preserved; `updated_at` is refreshed.
 - **FR-015**: After a successful edit, the workflow detail view MUST reflect the updated values immediately.
+- **FR-016**: A "Delete" button MUST be available in the workflow detail modal. Clicking it MUST show an inline confirmation prompt before any deletion occurs.
+- **FR-017**: On confirmation, the workflow MUST be permanently deleted via `DELETE /api/workflow/workflows/{id}`. The modal MUST close and the Workflows list MUST remove the deleted entry without a manual page refresh.
+- **FR-018**: If the delete API call fails, an inline error message MUST appear inside the modal; the workflow MUST NOT be removed from the list.
 
 ### Key Entities
 
@@ -115,6 +137,8 @@ A user can edit an existing workflow's configuration. An "Edit" button is availa
 - **SC-005**: The form correctly adapts to show only the relevant fields for each of the 6 indicator types — no wrong fields shown, no required fields missing.
 - **SC-006**: A user can edit any field of an existing workflow and see the updated values reflected immediately after saving.
 - **SC-007**: Editing a workflow preserves all fields not explicitly changed (id, created_at, conditions not modified, etc.).
+- **SC-008**: A deleted workflow disappears from the Workflows list immediately after the user confirms deletion, with no manual refresh required.
+- **SC-009**: Deletion always requires explicit user confirmation — no workflow can be deleted with a single click.
 
 ---
 
@@ -133,5 +157,5 @@ A user can edit an existing workflow's configuration. An "Edit" button is availa
 - Only one condition per workflow is supported at creation time, matching the existing majority of workflows. Multiple conditions may be added in a future iteration.
 - The signal type is always "breakout" (the only type currently supported by the execution engine); no selector is shown in the form.
 - Workflows created via the form are stored directly in DynamoDB. The YAML file is used for seeding/migration only and is not involved here.
-- Workflow editing is in scope in this feature (US3). Deletion remains out of scope.
+- Workflow editing (US3) and deletion (US4) are both in scope for this feature.
 - The "is US market" flag defaults to off and is toggled manually by the user when needed.

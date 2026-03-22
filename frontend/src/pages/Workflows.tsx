@@ -272,6 +272,10 @@ function Workflows() {
         <WorkflowDetailModal
           workflowId={selectedWorkflowId}
           onClose={handleCloseModal}
+          onDelete={() => {
+            setSelectedWorkflowId(null);
+            loadWorkflows();
+          }}
         />
       )}
       {showCreateModal && (

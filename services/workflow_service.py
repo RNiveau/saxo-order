@@ -187,6 +187,13 @@ class WorkflowService:
         self.dynamodb_client.update_workflow(workflow_id, converted)
         return self._convert_to_detail(workflow_dict)
 
+    def delete_workflow(self, workflow_id: str) -> None:
+        """Delete a workflow from DynamoDB."""
+        existing = self.dynamodb_client.get_workflow_by_id(workflow_id)
+        if existing is None:
+            raise ValueError(f"Workflow not found: {workflow_id!r}")
+        self.dynamodb_client.delete_workflow(workflow_id)
+
     def get_workflow_by_id(self, workflow_id: str) -> Optional[WorkflowDetail]:
         """
         Get a single workflow by its ID.

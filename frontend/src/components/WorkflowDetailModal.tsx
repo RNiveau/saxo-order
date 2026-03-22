@@ -7,15 +7,19 @@ import './WorkflowDetailModal.css';
 interface WorkflowDetailModalProps {
   workflowId: string;
   onClose: () => void;
+  onDelete?: () => void;
 }
 
-export function WorkflowDetailModal({ workflowId, onClose }: WorkflowDetailModalProps) {
+export function WorkflowDetailModal({ workflowId, onClose, onDelete }: WorkflowDetailModalProps) {
   const [workflow, setWorkflow] = useState<WorkflowDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orderHistory, setOrderHistory] = useState<OrderHistoryItem[]>([]);
   const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadWorkflowDetail = async () => {
@@ -81,15 +85,51 @@ export function WorkflowDetailModal({ workflowId, onClose }: WorkflowDetailModal
           <h2>Workflow Details</h2>
           <div className="modal-header-actions">
             {workflow && (
-              <button className="btn-edit-workflow" onClick={() => setShowEdit(true)}>
-                Edit
-              </button>
+              <>
+                <button className="btn-edit-workflow" onClick={() => setShowEdit(true)}>
+                  Edit
+                </button>
+                <button className="btn-delete-workflow" onClick={() => setShowDeleteConfirm(true)}>
+                  Delete
+                </button>
+              </>
             )}
             <button className="modal-close-button" onClick={onClose}>
               ✕
             </button>
           </div>
         </div>
+
+        {showDeleteConfirm && (
+          <div className="delete-confirm-banner">
+            <p>Are you sure you want to delete this workflow? This action cannot be undone.</p>
+            {deleteError && <p className="delete-error">{deleteError}</p>}
+            <div className="delete-confirm-actions">
+              <button
+                className="btn-confirm-delete"
+                disabled={deleting}
+                onClick={async () => {
+                  setDeleting(true);
+                  setDeleteError(null);
+                  try {
+                    await workflowService.deleteWorkflow(workflowId);
+                    onDelete?.();
+                    onClose();
+                  } catch {
+                    setDeleteError('Failed to delete workflow. Please try again.');
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+              >
+                {deleting ? 'Deleting…' : 'Confirm Delete'}
+              </button>
+              <button className="btn-cancel-delete" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {loading && (
           <div className="modal-loading">
