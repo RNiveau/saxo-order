@@ -62,7 +62,9 @@ class WorkflowService:
         for workflow_item in workflow_items:
             last_order = self._get_last_order_for_workflow(workflow_item.id)
             if last_order:
-                workflow_item.last_order_timestamp = last_order["placed_at"]
+                workflow_item.last_order_timestamp = int(
+                    last_order["placed_at"]
+                )
                 workflow_item.last_order_direction = last_order[
                     "order_direction"
                 ]
