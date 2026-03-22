@@ -186,7 +186,7 @@ class WorkflowService:
         converted = self.dynamodb_client._convert_floats_to_decimal(
             workflow_dict
         )
-        self.dynamodb_client.put_workflow(converted)
+        self.dynamodb_client.update_workflow(workflow_id, converted)
         return self._convert_to_detail(workflow_dict)
 
     def delete_workflow(self, workflow_id: str) -> None:
