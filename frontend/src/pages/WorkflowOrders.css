@@ -169,7 +169,11 @@
   color: #e6edf3;
 }
 
-.workflow-orders-table tbody tr:hover {
+.workflow-orders-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+.workflow-orders-table tbody tr.clickable-row:hover {
   background: #161b22;
 }
 
