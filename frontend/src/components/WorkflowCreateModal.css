@@ -1,0 +1,114 @@
+.create-workflow-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-row label {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  color: #8b949e;
+  margin-bottom: 0.25rem;
+}
+
+.form-row input,
+.form-row select {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.form-row input:focus,
+.form-row select:focus {
+  outline: none;
+  border-color: #58a6ff;
+}
+
+.form-toggles {
+  display: flex;
+  flex-direction: row;
+  gap: 1.5rem;
+}
+
+.form-toggles label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #e6edf3;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.form-section-title {
+  color: #8b949e;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #30363d;
+  padding-bottom: 0.25rem;
+}
+
+.form-error {
+  color: #f85149;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.save-error-banner {
+  background: rgba(248, 81, 73, 0.15);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  color: #f85149;
+  margin-bottom: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #30363d;
+}
+
+.btn-save {
+  background: #1f6feb;
+  color: white;
+  border: 1px solid #58a6ff;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  background: transparent;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-cancel:hover {
+  color: #e6edf3;
+  border-color: #8b949e;
+}

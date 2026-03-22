@@ -17,9 +17,29 @@
   color: #e6edf3;
 }
 
+.workflows-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .workflows-count {
   color: #8b949e;
   font-size: 0.95rem;
+}
+
+.btn-new-workflow {
+  background: #1f6feb;
+  color: white;
+  border: 1px solid #58a6ff;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-new-workflow:hover {
+  background: #388bfd;
 }
 
 .loading-state,

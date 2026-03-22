@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class WorkflowListItem(BaseModel):
@@ -133,6 +133,49 @@ class AllWorkflowOrderItem(BaseModel):
     order_price: float = Field(..., gt=0, description="Order entry price")
     order_quantity: float = Field(..., gt=0, description="Order quantity")
     order_direction: str = Field(..., description="BUY or SELL")
+
+
+class WorkflowIndicatorInput(BaseModel):
+    name: str
+    ut: str
+    value: Optional[float] = None
+    zone_value: Optional[float] = None
+
+
+class WorkflowCloseInput(BaseModel):
+    direction: str
+    ut: str
+    spread: float = Field(..., gt=0)
+
+
+class WorkflowConditionInput(BaseModel):
+    indicator: WorkflowIndicatorInput
+    close: WorkflowCloseInput
+    element: Optional[str] = None
+
+
+class WorkflowTriggerInput(BaseModel):
+    ut: str
+    location: str
+    order_direction: str
+    quantity: float = Field(..., gt=0)
+
+
+class WorkflowCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1)
+    index: str = Field(..., min_length=1)
+    cfd: str = Field(..., min_length=1)
+    enable: bool = True
+    dry_run: bool = True
+    is_us: bool = False
+    end_date: Optional[str] = None
+    conditions: List[WorkflowConditionInput] = Field(..., min_length=1)
+    trigger: WorkflowTriggerInput
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        return v.strip()
 
 
 class WorkflowOrderListItem(BaseModel):

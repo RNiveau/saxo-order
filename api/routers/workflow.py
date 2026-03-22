@@ -11,7 +11,11 @@ from api.models.workflow import (
     WorkflowOrderHistoryResponse,
     WorkflowTriggerInfo,
 )
-from model.workflow_api import WorkflowDetail, WorkflowListResponse
+from model.workflow_api import (
+    WorkflowCreateRequest,
+    WorkflowDetail,
+    WorkflowListResponse,
+)
 from services.workflow_service import WorkflowService
 from utils.logger import Logger
 
@@ -119,6 +123,23 @@ async def get_asset_workflows(
     except Exception as e:
         logger.error(f"Error getting workflows for {code}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/workflows", response_model=WorkflowDetail, status_code=201)
+async def create_workflow(
+    data: WorkflowCreateRequest,
+    workflow_service: WorkflowService = Depends(get_workflow_service),
+):
+    """Create a new workflow."""
+    try:
+        return workflow_service.create_workflow(data)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating workflow: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to create workflow"
+        )
 
 
 @router.get("/workflows", response_model=WorkflowListResponse)
