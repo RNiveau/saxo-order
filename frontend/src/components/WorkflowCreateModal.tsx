@@ -7,6 +7,7 @@ interface WorkflowCreateModalProps {
   onClose: () => void;
   onSuccess: (workflow: WorkflowDetail) => void;
   prefill?: { index: string; cfd: string };
+  workflow?: WorkflowDetail;
 }
 
 const INDICATOR_OPTIONS = [
@@ -49,27 +50,30 @@ const ELEMENT_OPTIONS = [
   { value: 'low', label: 'Low' },
 ];
 
-export function WorkflowCreateModal({ onClose, onSuccess, prefill }: WorkflowCreateModalProps) {
-  const [name, setName] = useState('');
-  const [nameDirty, setNameDirty] = useState(false);
-  const [index, setIndex] = useState(prefill?.index ?? '');
-  const [cfd, setCfd] = useState(prefill?.cfd ?? '');
-  const [enable, setEnable] = useState(true);
-  const [dryRun, setDryRun] = useState(true);
-  const [isUs, setIsUs] = useState(false);
-  const [endDate, setEndDate] = useState('');
-  const [indicatorName, setIndicatorName] = useState('bbb');
-  const [indicatorUt, setIndicatorUt] = useState('h1');
-  const [indicatorValue, setIndicatorValue] = useState('');
-  const [indicatorZoneValue, setIndicatorZoneValue] = useState('');
-  const [closeDirection, setCloseDirection] = useState('above');
-  const [closeUt, setCloseUt] = useState('h1');
-  const [spread, setSpread] = useState('');
-  const [element, setElement] = useState('');
-  const [triggerUt, setTriggerUt] = useState('h1');
-  const [triggerLocation, setTriggerLocation] = useState('higher');
-  const [orderDirection, setOrderDirection] = useState('buy');
-  const [quantity, setQuantity] = useState('');
+export function WorkflowCreateModal({ onClose, onSuccess, prefill, workflow }: WorkflowCreateModalProps) {
+  const editMode = workflow != null;
+  const cond = workflow?.conditions[0];
+
+  const [name, setName] = useState(workflow?.name ?? '');
+  const [nameDirty, setNameDirty] = useState(editMode);
+  const [index, setIndex] = useState(workflow?.index ?? prefill?.index ?? '');
+  const [cfd, setCfd] = useState(workflow?.cfd ?? prefill?.cfd ?? '');
+  const [enable, setEnable] = useState(workflow?.enable ?? true);
+  const [dryRun, setDryRun] = useState(workflow?.dry_run ?? true);
+  const [isUs, setIsUs] = useState(workflow?.is_us ?? false);
+  const [endDate, setEndDate] = useState(workflow?.end_date ?? '');
+  const [indicatorName, setIndicatorName] = useState(cond?.indicator.name ?? 'bbb');
+  const [indicatorUt, setIndicatorUt] = useState(cond?.indicator.ut ?? 'h1');
+  const [indicatorValue, setIndicatorValue] = useState(cond?.indicator.value != null ? String(cond.indicator.value) : '');
+  const [indicatorZoneValue, setIndicatorZoneValue] = useState(cond?.indicator.zone_value != null ? String(cond.indicator.zone_value) : '');
+  const [closeDirection, setCloseDirection] = useState(cond?.close.direction ?? 'above');
+  const [closeUt, setCloseUt] = useState(cond?.close.ut ?? 'h1');
+  const [spread, setSpread] = useState(cond?.close.spread != null ? String(cond.close.spread) : '');
+  const [element, setElement] = useState(cond?.element ?? '');
+  const [triggerUt, setTriggerUt] = useState(workflow?.trigger.ut ?? 'h1');
+  const [triggerLocation, setTriggerLocation] = useState(workflow?.trigger.location ?? 'higher');
+  const [orderDirection, setOrderDirection] = useState(workflow?.trigger.order_direction ?? 'buy');
+  const [quantity, setQuantity] = useState(workflow?.trigger.quantity != null ? String(workflow.trigger.quantity) : '');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState('');
@@ -158,12 +162,14 @@ export function WorkflowCreateModal({ onClose, onSuccess, prefill }: WorkflowCre
     };
 
     try {
-      const result = await workflowService.createWorkflow(payload);
+      const result = editMode
+        ? await workflowService.updateWorkflow(workflow.id, payload)
+        : await workflowService.createWorkflow(payload);
       onSuccess(result);
       onClose();
     } catch (err) {
-      console.error('Error creating workflow:', err);
-      setSaveError('Failed to create workflow. Please try again.');
+      console.error('Error saving workflow:', err);
+      setSaveError(`Failed to ${editMode ? 'update' : 'create'} workflow. Please try again.`);
     } finally {
       setSaving(false);
     }
@@ -177,7 +183,7 @@ export function WorkflowCreateModal({ onClose, onSuccess, prefill }: WorkflowCre
     <div className="modal-backdrop" onClick={handleBackdropClick}>
       <div className="modal-content">
         <div className="modal-header">
-          <h2>New Workflow</h2>
+          <h2>{editMode ? 'Edit Workflow' : 'New Workflow'}</h2>
           <button className="modal-close-button" onClick={onClose}>✕</button>
         </div>
         <form className="create-workflow-form" onSubmit={handleSubmit}>

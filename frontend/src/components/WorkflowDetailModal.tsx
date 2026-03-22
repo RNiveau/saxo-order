@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { WorkflowDetail, OrderHistoryItem } from '../services/api';
 import { workflowService } from '../services/api';
+import { WorkflowCreateModal } from './WorkflowCreateModal';
 import './WorkflowDetailModal.css';
 
 interface WorkflowDetailModalProps {
@@ -14,6 +15,7 @@ export function WorkflowDetailModal({ workflowId, onClose }: WorkflowDetailModal
   const [error, setError] = useState<string | null>(null);
   const [orderHistory, setOrderHistory] = useState<OrderHistoryItem[]>([]);
   const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   useEffect(() => {
     const loadWorkflowDetail = async () => {
@@ -77,9 +79,16 @@ export function WorkflowDetailModal({ workflowId, onClose }: WorkflowDetailModal
       <div className="modal-content">
         <div className="modal-header">
           <h2>Workflow Details</h2>
-          <button className="modal-close-button" onClick={onClose}>
-            ✕
-          </button>
+          <div className="modal-header-actions">
+            {workflow && (
+              <button className="btn-edit-workflow" onClick={() => setShowEdit(true)}>
+                Edit
+              </button>
+            )}
+            <button className="modal-close-button" onClick={onClose}>
+              ✕
+            </button>
+          </div>
         </div>
 
         {loading && (
@@ -298,6 +307,16 @@ export function WorkflowDetailModal({ workflowId, onClose }: WorkflowDetailModal
           </div>
         )}
       </div>
+      {showEdit && workflow && (
+        <WorkflowCreateModal
+          workflow={workflow}
+          onClose={() => setShowEdit(false)}
+          onSuccess={(updated) => {
+            setWorkflow(updated);
+            setShowEdit(false);
+          }}
+        />
+      )}
     </div>
   );
 }

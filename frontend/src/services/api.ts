@@ -306,6 +306,11 @@ export const workflowService = {
     const response = await api.post<WorkflowDetail>('/api/workflow/workflows', data);
     return response.data;
   },
+
+  updateWorkflow: async (id: string, data: WorkflowCreateRequest): Promise<WorkflowDetail> => {
+    const response = await api.put<WorkflowDetail>(`/api/workflow/workflows/${id}`, data);
+    return response.data;
+  },
 };
 
 export interface MovingAverageInfo {

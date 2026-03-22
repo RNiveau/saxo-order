@@ -142,6 +142,26 @@ async def create_workflow(
         )
 
 
+@router.put(
+    "/workflows/{workflow_id}", response_model=WorkflowDetail, status_code=200
+)
+async def update_workflow(
+    data: WorkflowCreateRequest,
+    workflow_id: str = Path(...),
+    workflow_service: WorkflowService = Depends(get_workflow_service),
+):
+    """Update an existing workflow."""
+    try:
+        return workflow_service.update_workflow(workflow_id, data)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating workflow {workflow_id}: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to update workflow"
+        )
+
+
 @router.get("/workflows", response_model=WorkflowListResponse)
 async def list_workflows(
     workflow_service: WorkflowService = Depends(get_workflow_service),

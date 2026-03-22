@@ -87,6 +87,17 @@ class WorkflowService:
 
     def create_workflow(self, data: WorkflowCreateRequest) -> WorkflowDetail:
         """Create a new workflow and persist it to DynamoDB."""
+        self._validate_request(data)
+        now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        workflow_dict = self._build_workflow_dict(data, str(uuid.uuid4()), now)
+        converted = self.dynamodb_client._convert_floats_to_decimal(
+            workflow_dict
+        )
+        self.dynamodb_client.put_workflow(converted)
+        return self._convert_to_detail(workflow_dict)
+
+    def _validate_request(self, data: WorkflowCreateRequest) -> None:
+        """Validate end_date and indicator-specific fields."""
         if data.end_date is not None:
             try:
                 end_dt = datetime.fromisoformat(data.end_date)
@@ -114,9 +125,13 @@ class WorkflowService:
                     "is 'zone'"
                 )
 
+    def _build_workflow_dict(
+        self, data: WorkflowCreateRequest, workflow_id: str, created_at: str
+    ) -> Dict[str, Any]:
+        """Build the DynamoDB item dict from a WorkflowCreateRequest."""
         now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-        workflow_dict: Dict[str, Any] = {
-            "id": str(uuid.uuid4()),
+        return {
+            "id": workflow_id,
             "name": data.name,
             "index": data.index,
             "cfd": data.cfd,
@@ -148,14 +163,28 @@ class WorkflowService:
                 "order_direction": data.trigger.order_direction,
                 "quantity": data.trigger.quantity,
             },
-            "created_at": now,
+            "created_at": created_at,
             "updated_at": now,
         }
 
+    def update_workflow(
+        self, workflow_id: str, data: WorkflowCreateRequest
+    ) -> WorkflowDetail:
+        """Update an existing workflow in DynamoDB."""
+        existing = self.dynamodb_client.get_workflow_by_id(workflow_id)
+        if existing is None:
+            raise ValueError(f"Workflow not found: {workflow_id!r}")
+
+        self._validate_request(data)
+
+        created_at = str(existing.get("created_at", ""))
+        workflow_dict = self._build_workflow_dict(
+            data, workflow_id, created_at
+        )
         converted = self.dynamodb_client._convert_floats_to_decimal(
             workflow_dict
         )
-        self.dynamodb_client.put_workflow(converted)
+        self.dynamodb_client.update_workflow(workflow_id, converted)
         return self._convert_to_detail(workflow_dict)
 
     def get_workflow_by_id(self, workflow_id: str) -> Optional[WorkflowDetail]:

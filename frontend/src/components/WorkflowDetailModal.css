@@ -40,6 +40,26 @@
   color: #e6edf3;
 }
 
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-edit-workflow {
+  background: transparent;
+  color: #58a6ff;
+  border: 1px solid #58a6ff;
+  border-radius: 6px;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.btn-edit-workflow:hover {
+  background: rgba(88, 166, 255, 0.1);
+}
+
 .modal-close-button {
   background: none;
   border: none;

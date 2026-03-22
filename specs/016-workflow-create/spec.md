@@ -1,9 +1,10 @@
-# Feature Specification: Create Workflow
+# Feature Specification: Create & Edit Workflow
 
 **Feature Branch**: `016-workflow-create`
 **Created**: 2026-03-22
-**Status**: Draft
-**Input**: User description: "Create new workflows from the Workflows view or Asset Detail page. Need to handle all different kinds of workflows that exist in the system."
+**Updated**: 2026-03-22
+**Status**: In Progress
+**Input**: User description: "Create new workflows from the Workflows view or Asset Detail page. Need to handle all different kinds of workflows that exist in the system. Add edit capability."
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -41,12 +42,33 @@ A user viewing the detail page of a specific asset can create a workflow directl
 
 ---
 
+---
+
+### User Story 3 — Edit an Existing Workflow (Priority: P2)
+
+A user can edit an existing workflow's configuration. An "Edit" button is available in the workflow detail modal. Clicking it opens the same `WorkflowCreateModal` pre-filled with the workflow's current values. On save, the workflow is updated in place.
+
+**Why this priority**: Creation alone is not enough for day-to-day management — users need to adjust names, spreads, quantities, and dates without deleting and recreating.
+
+**Independent Test**: Open a workflow detail modal, click "Edit", change the spread value, save, and verify the workflow detail shows the updated spread.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user is viewing a workflow in the detail modal, **When** they click "Edit", **Then** the modal switches to edit mode with all current values pre-filled.
+2. **Given** the edit form is open with pre-filled values, **When** the user changes a field and clicks "Save", **Then** the workflow is updated and the updated values are visible in the detail view.
+3. **Given** a required field is cleared, **When** the user clicks "Save", **Then** validation fires inline and the update is not submitted.
+4. **Given** the backend update call fails, **When** the user tries to save, **Then** an error banner appears inside the modal, form input is preserved, and the user can retry.
+5. **Given** the user clicks "Cancel" in edit mode, **Then** no changes are persisted and the modal returns to the detail view (or closes).
+
+---
+
 ### Edge Cases
 
 - What happens if the user changes indicator type after filling in condition fields? → Indicator-specific value fields (value, zone_value) reset; other fields are preserved.
 - What if an end date in the past is submitted? → Inline validation error; form does not submit.
 - What if quantity is zero or negative? → Inline validation error; form does not submit.
 - What if the CFD symbol is not known from the asset detail page? → The field is pre-filled with a best-effort value and remains editable.
+- What if a workflow is edited while it is actively running? → The update is persisted; the engine picks up new values on the next evaluation cycle.
 
 ---
 
@@ -68,6 +90,10 @@ A user viewing the detail page of a specific asset can create a workflow directl
 - **FR-009**: The enabled toggle MUST default to on so the workflow is active immediately after creation.
 - **FR-010**: The end date field is optional; if provided, it MUST be validated to be a future date.
 - **FR-011**: The candle element field (close / high / low) is optional; if not specified, the workflow engine applies its default evaluation logic.
+- **FR-012**: An "Edit" button MUST be available in the workflow detail modal (`WorkflowDetailModal`). Clicking it opens `WorkflowCreateModal` in edit mode with all current workflow values pre-filled.
+- **FR-013**: The `WorkflowCreateModal` MUST support an optional `workflow` prop containing an existing `WorkflowDetail`. When provided, the modal is in edit mode: the title changes to "Edit Workflow", the form is pre-filled, and saving issues a `PUT /api/workflow/workflows/{id}` request instead of POST.
+- **FR-014**: The `PUT` endpoint MUST accept the same `WorkflowCreateRequest` body and return the updated `WorkflowDetail` (200). The `id`, `created_at` fields are preserved; `updated_at` is refreshed.
+- **FR-015**: After a successful edit, the workflow detail view MUST reflect the updated values immediately.
 
 ### Key Entities
 
@@ -87,6 +113,8 @@ A user viewing the detail page of a specific asset can create a workflow directl
 - **SC-003**: A newly created workflow appears in the Workflows list immediately after saving, with no manual refresh required.
 - **SC-004**: When opening the form from an Asset Detail page, the asset index and CFD fields are pre-filled correctly 100% of the time.
 - **SC-005**: The form correctly adapts to show only the relevant fields for each of the 6 indicator types — no wrong fields shown, no required fields missing.
+- **SC-006**: A user can edit any field of an existing workflow and see the updated values reflected immediately after saving.
+- **SC-007**: Editing a workflow preserves all fields not explicitly changed (id, created_at, conditions not modified, etc.).
 
 ---
 
@@ -105,5 +133,5 @@ A user viewing the detail page of a specific asset can create a workflow directl
 - Only one condition per workflow is supported at creation time, matching the existing majority of workflows. Multiple conditions may be added in a future iteration.
 - The signal type is always "breakout" (the only type currently supported by the execution engine); no selector is shown in the form.
 - Workflows created via the form are stored directly in DynamoDB. The YAML file is used for seeding/migration only and is not involved here.
-- No workflow editing is in scope — only creation. A separate feature will cover editing and deletion.
+- Workflow editing is in scope in this feature (US3). Deletion remains out of scope.
 - The "is US market" flag defaults to off and is toggled manually by the user when needed.

@@ -67,11 +67,32 @@
 
 ---
 
-## Phase 5: Polish & Cross-Cutting Concerns
+## Phase 5: User Story 3 — Edit Workflow (Priority: P2)
+
+**Goal**: An "Edit" button in the workflow detail modal opens `WorkflowCreateModal` in edit mode, pre-filled with the workflow's current values. On save, `PUT /api/workflow/workflows/{id}` updates the record and the detail view reflects the changes immediately.
+
+**Independent Test**: Open a workflow detail modal, click "Edit", change the spread, save, verify the updated spread appears in the detail view.
+
+### Implementation
+
+- [x] T013 [P] Add `update_workflow(self, workflow_id: str, workflow: Dict[str, Any]) -> None` method to `client/aws_client.py` after `put_workflow`: call `self.dynamodb.Table("workflows").put_item(Item=workflow)` (full replacement); check HTTP status ≥ 400 and log error + raise `RuntimeError("Failed to update workflow")` if so
+- [x] T014 Add `update_workflow(self, workflow_id: str, data: WorkflowCreateRequest) -> WorkflowDetail` method to `services/workflow_service.py`: (1) fetch existing workflow via `self.dynamodb_client.get_workflow_by_id(workflow_id)`; raise `ValueError("Workflow not found")` if None; (2) apply same end_date and indicator-specific validations as `create_workflow`; (3) build updated `workflow_dict` reusing existing `id` and `created_at`, setting `updated_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")`; (4) call `self.dynamodb_client.update_workflow(workflow_id, converted_dict)`; (5) return `self._convert_to_detail(workflow_dict)` (depends on T013)
+- [x] T015 [P] Add `PUT /api/workflow/workflows/{id}` endpoint to `api/routers/workflow.py`: `@router.put("/workflows/{workflow_id}", response_model=WorkflowDetail, status_code=200)`; handler `async def update_workflow(workflow_id: str = Path(...), data: WorkflowCreateRequest, workflow_service: WorkflowService = Depends(get_workflow_service))`; catch `ValueError` → 422; catch generic `Exception` → 500 "Failed to update workflow" (depends on T014)
+- [x] T016 [P] Add `updateWorkflow: async (id: string, data: WorkflowCreateRequest): Promise<WorkflowDetail>` method to `workflowService` in `frontend/src/services/api.ts`: `PUT /api/workflow/workflows/{id}` with JSON body, return `response.data`
+- [x] T017 Add `workflow?: WorkflowDetail` prop to `WorkflowCreateModal` in `frontend/src/components/WorkflowCreateModal.tsx`: when `workflow` is provided, pre-fill all form state from it on mount; change modal title to "Edit Workflow"; on submit call `workflowService.updateWorkflow(workflow.id, payload)` instead of `createWorkflow`; all existing validation and error-banner behaviour unchanged (depends on T016)
+- [x] T018 Add "Edit" button to `WorkflowDetailModal` in `frontend/src/components/WorkflowDetailModal.tsx`: add `showEdit` state (boolean, default false); add an "Edit" button in `.modal-header`; when clicked set `showEdit = true`; render `{showEdit && <WorkflowCreateModal workflow={workflow} onClose={() => setShowEdit(false)} onSuccess={(updated) => { setWorkflow(updated); setShowEdit(false); }} />}` — import `WorkflowCreateModal`; `updated` replaces the current `workflow` state so detail view reflects changes immediately (depends on T017)
+
+**Checkpoint**: Open a workflow detail modal, click "Edit", verify all fields pre-filled, change spread, save → detail view shows new spread; `curl -X PUT http://localhost:8000/api/workflow/workflows/{id}` with valid payload returns 200 with updated `WorkflowDetail`.
+
+---
+
+## Phase 6: Polish & Cross-Cutting Concerns
 
 - [x] T010 [P] Run `poetry run mypy model/workflow_api.py client/aws_client.py services/workflow_service.py api/routers/workflow.py` and `poetry run flake8 model/workflow_api.py client/aws_client.py services/workflow_service.py api/routers/workflow.py` from repo root; fix any type or lint errors in the modified backend files
 - [x] T011 [P] Run `npm run build` and `npm run lint` in `frontend/`; fix any TypeScript or ESLint errors introduced in `WorkflowCreateModal.tsx`, `api.ts`, `Workflows.tsx`, `AssetDetail.tsx`
 - [x] T012 Run all acceptance scenarios from `specs/016-workflow-create/quickstart.md` (scenarios 1–9) manually
+- [x] T019 [P] Run backend mypy + flake8 on updated files after Phase 5
+- [x] T020 [P] Run `npm run build` + lint on updated frontend files after Phase 5
 
 ---
 
@@ -82,7 +103,8 @@
 - **Phase 2 (Foundational)**: No dependencies — start immediately; T001 and T002 and T004 are parallel
 - **Phase 3 (US1)**: T005 depends on T001 + T003; T006 depends on T004; T007 parallel with T006; T008 depends on T006
 - **Phase 4 (US2)**: Depends on T006 (WorkflowCreateModal must exist)
-- **Phase 5 (Polish)**: Depends on all Phase 3 + 4 tasks complete
+- **Phase 5 (US3 — Edit)**: T013 parallel; T014 depends on T013; T015 depends on T014; T016 parallel; T017 depends on T016; T018 depends on T017
+- **Phase 6 (Polish)**: Depends on all Phase 5 tasks complete
 
 ### Execution Graph
 
