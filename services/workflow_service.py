@@ -291,7 +291,7 @@ class WorkflowService:
         return WorkflowOrderListItem(
             id=order_data["id"],
             workflow_id=order_data["workflow_id"],
-            placed_at=order_data["placed_at"],
+            placed_at=int(order_data["placed_at"]),
             order_code=order_data["order_code"],
             order_price=(
                 float(order_data["order_price"])

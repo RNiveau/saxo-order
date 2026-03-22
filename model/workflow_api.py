@@ -143,7 +143,7 @@ class WorkflowOrderListItem(BaseModel):
             "example": {
                 "id": "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8",
                 "workflow_id": "550e8400-e29b-41d4-a716-446655440000",
-                "placed_at": "2026-02-22T14:30:00Z",
+                "placed_at": 1740220200,
                 "order_code": "FRA40.I",
                 "order_price": 7850.25,
                 "order_quantity": 10.0,
@@ -154,7 +154,7 @@ class WorkflowOrderListItem(BaseModel):
 
     id: str = Field(..., description="Order record UUID")
     workflow_id: str = Field(..., description="Parent workflow UUID")
-    placed_at: str = Field(..., description="ISO 8601 timestamp")
+    placed_at: int = Field(..., description="Unix epoch timestamp (seconds)")
     order_code: str = Field(..., description="Asset code (e.g., 'FRA40.I')")
     order_price: float = Field(..., gt=0, description="Order entry price")
     order_quantity: float = Field(..., gt=0, description="Order quantity")
