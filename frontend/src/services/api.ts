@@ -180,6 +180,23 @@ export interface OrderHistoryItem {
   order_direction: string;
 }
 
+export interface AllWorkflowOrderItem {
+  id: string;
+  workflow_id: string;
+  workflow_name: string;
+  placed_at: number;
+  order_code: string;
+  order_price: number;
+  order_quantity: number;
+  order_direction: string;
+}
+
+export interface AllWorkflowOrdersResponse {
+  orders: AllWorkflowOrderItem[];
+  total_count: number;
+  limit: number;
+}
+
 export interface OrderHistoryResponse {
   workflow_id: string;
   orders: OrderHistoryItem[];
@@ -238,6 +255,12 @@ export const workflowService = {
       `/api/workflow/workflows/${workflowId}/orders`,
       { params }
     );
+    return response.data;
+  },
+
+  getAllOrders: async (limit: number = 100): Promise<AllWorkflowOrdersResponse> => {
+    const params: Record<string, number> = { limit };
+    const response = await api.get<AllWorkflowOrdersResponse>('/api/workflow/orders', { params });
     return response.data;
   },
 };

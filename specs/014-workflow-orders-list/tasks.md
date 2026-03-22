@@ -27,9 +27,9 @@
 
 **⚠️ CRITICAL**: Phase 3 and 4 cannot begin until T001–T003 are complete.
 
-- [ ] T001 [P] Add `AllWorkflowOrderItem` Pydantic model (fields: `id`, `workflow_id`, `workflow_name`, `placed_at: int`, `order_code`, `order_price`, `order_quantity`, `order_direction`) to `model/workflow_api.py` after the existing `WorkflowOrderListItem` class
-- [ ] T002 Add `AllWorkflowOrdersResponse` Pydantic model (fields: `orders: List[AllWorkflowOrderItem]`, `total_count: int`, `limit: int`) to `api/models/workflow.py`; import `AllWorkflowOrderItem` from `model.workflow_api` (depends on T001)
-- [ ] T003 [P] Add `get_all_workflow_orders(self, limit: Optional[int] = None) -> List[Dict[str, Any]]` method to `client/aws_client.py`: scan `workflow_orders` table (same pagination loop pattern as `get_all_workflows`), sort results by `placed_at` descending in Python, apply limit after sort
+- [X] T001 [P] Add `AllWorkflowOrderItem` Pydantic model (fields: `id`, `workflow_id`, `workflow_name`, `placed_at: int`, `order_code`, `order_price`, `order_quantity`, `order_direction`) to `model/workflow_api.py` after the existing `WorkflowOrderListItem` class
+- [X] T002 Add `AllWorkflowOrdersResponse` Pydantic model (fields: `orders: List[AllWorkflowOrderItem]`, `total_count: int`, `limit: int`) to `api/models/workflow.py`; import `AllWorkflowOrderItem` from `model.workflow_api` (depends on T001)
+- [X] T003 [P] Add `get_all_workflow_orders(self, limit: Optional[int] = None) -> List[Dict[str, Any]]` method to `client/aws_client.py`: scan `workflow_orders` table (same pagination loop pattern as `get_all_workflows`), sort results by `placed_at` descending in Python, apply limit after sort
 
 **Checkpoint**: Models importable; `get_all_workflow_orders` scannable against real DynamoDB — foundation ready for user story work.
 
@@ -43,13 +43,13 @@
 
 ### Implementation
 
-- [ ] T004 [US1] Add `get_all_orders(self, limit: int = 100) -> List[AllWorkflowOrderItem]` method to `services/workflow_service.py`: call `self.dynamodb_client.get_all_workflow_orders(limit=limit)`, convert each dict to `AllWorkflowOrderItem` using a new `_convert_all_order_to_item` private method; import `AllWorkflowOrderItem` from `model.workflow_api` (depends on T001, T003)
-- [ ] T005 [US1] Add `GET /api/workflow/orders` endpoint to `api/routers/workflow.py`: `limit: int = Query(100, ge=1, le=100)`, call `workflow_service.get_all_orders(limit=limit)`, return `AllWorkflowOrdersResponse`; import `AllWorkflowOrdersResponse` from `api.models.workflow` (depends on T002, T004)
-- [ ] T006 [P] [US1] Add `AllWorkflowOrderItem` interface, `AllWorkflowOrdersResponse` interface, and `workflowService.getAllOrders(limit: number = 100): Promise<AllWorkflowOrdersResponse>` method (calls `GET /api/workflow/orders?limit={limit}`) to `frontend/src/services/api.ts`
-- [ ] T007 [US1] Create `frontend/src/pages/WorkflowOrders.tsx`: fetch all orders via `workflowService.getAllOrders()` on mount, render a `<table>` with columns (Date, Workflow, Asset, Direction, Price, Quantity), show loading state while fetching, show empty state ("No recent workflow orders") when `orders.length === 0` (depends on T006)
-- [ ] T008 [P] [US1] Create `frontend/src/pages/WorkflowOrders.css`: style the orders table (`.workflow-orders-table`, `.direction-badge.buy`, `.direction-badge.sell`), page header (`.workflow-orders-header`), loading and empty states — mirror the style patterns from `frontend/src/pages/Workflows.css`
-- [ ] T009 [P] [US1] Add `import WorkflowOrders from './pages/WorkflowOrders'` and `<Route path="/workflow-orders" element={<WorkflowOrders />} />` to `frontend/src/App.tsx` (depends on T007)
-- [ ] T010 [P] [US1] Add a nav link `<NavLink to="/workflow-orders">` with icon `📋` and label "Workflow Orders" to `frontend/src/components/Sidebar.tsx`, placed after the existing "Workflows" link (depends on T007)
+- [X] T004 [US1] Add `get_all_orders(self, limit: int = 100) -> List[AllWorkflowOrderItem]` method to `services/workflow_service.py`: call `self.dynamodb_client.get_all_workflow_orders(limit=limit)`, convert each dict to `AllWorkflowOrderItem` using a new `_convert_all_order_to_item` private method; import `AllWorkflowOrderItem` from `model.workflow_api` (depends on T001, T003)
+- [X] T005 [US1] Add `GET /api/workflow/orders` endpoint to `api/routers/workflow.py`: `limit: int = Query(100, ge=1, le=100)`, call `workflow_service.get_all_orders(limit=limit)`, return `AllWorkflowOrdersResponse`; import `AllWorkflowOrdersResponse` from `api.models.workflow` (depends on T002, T004)
+- [X] T006 [P] [US1] Add `AllWorkflowOrderItem` interface, `AllWorkflowOrdersResponse` interface, and `workflowService.getAllOrders(limit: number = 100): Promise<AllWorkflowOrdersResponse>` method (calls `GET /api/workflow/orders?limit={limit}`) to `frontend/src/services/api.ts`
+- [X] T007 [US1] Create `frontend/src/pages/WorkflowOrders.tsx`: fetch all orders via `workflowService.getAllOrders()` on mount, render a `<table>` with columns (Date, Workflow, Asset, Direction, Price, Quantity), show loading state while fetching, show empty state ("No recent workflow orders") when `orders.length === 0` (depends on T006)
+- [X] T008 [P] [US1] Create `frontend/src/pages/WorkflowOrders.css`: style the orders table (`.workflow-orders-table`, `.direction-badge.buy`, `.direction-badge.sell`), page header (`.workflow-orders-header`), loading and empty states — mirror the style patterns from `frontend/src/pages/Workflows.css`
+- [X] T009 [P] [US1] Add `import WorkflowOrders from './pages/WorkflowOrders'` and `<Route path="/workflow-orders" element={<WorkflowOrders />} />` to `frontend/src/App.tsx` (depends on T007)
+- [X] T010 [P] [US1] Add a nav link `<NavLink to="/workflow-orders">` with icon `📋` and label "Workflow Orders" to `frontend/src/components/Sidebar.tsx`, placed after the existing "Workflows" link (depends on T007)
 
 **Checkpoint**: `curl http://localhost:8000/api/workflow/orders` returns orders JSON; navigating to `/workflow-orders` renders the table; link visible in sidebar.
 
@@ -63,9 +63,9 @@
 
 ### Implementation
 
-- [ ] T011 [US2] Add `workflowFilter` (string, default `''`) and `directionFilter` (string, default `'all'`) state variables to `frontend/src/pages/WorkflowOrders.tsx`; derive `filteredOrders` by applying both filters to the loaded `orders` array; replace the table's data source with `filteredOrders`; derive `workflowNames` as `[...new Set(orders.map(o => o.workflow_name))]` for the dropdown options (depends on T007)
-- [ ] T012 [US2] Add a filter toolbar row above the table in `frontend/src/pages/WorkflowOrders.tsx`: a `<select>` for workflow (options: "All workflows" + each unique name) bound to `workflowFilter`, and a `<select>` for direction (options: All / BUY / SELL) bound to `directionFilter` (depends on T011)
-- [ ] T013 [P] [US2] Add `.workflow-orders-filters`, `.filter-select` styles to `frontend/src/pages/WorkflowOrders.css`: flex row layout, consistent select styling matching the existing Workflows filter bar
+- [X] T011 [US2] Add `workflowFilter` (string, default `''`) and `directionFilter` (string, default `'all'`) state variables to `frontend/src/pages/WorkflowOrders.tsx`; derive `filteredOrders` by applying both filters to the loaded `orders` array; replace the table's data source with `filteredOrders`; derive `workflowNames` as `[...new Set(orders.map(o => o.workflow_name))]` for the dropdown options (depends on T007)
+- [X] T012 [US2] Add a filter toolbar row above the table in `frontend/src/pages/WorkflowOrders.tsx`: a `<select>` for workflow (options: "All workflows" + each unique name) bound to `workflowFilter`, and a `<select>` for direction (options: All / BUY / SELL) bound to `directionFilter` (depends on T011)
+- [X] T013 [P] [US2] Add `.workflow-orders-filters`, `.filter-select` styles to `frontend/src/pages/WorkflowOrders.css`: flex row layout, consistent select styling matching the existing Workflows filter bar
 
 **Checkpoint**: Both dropdowns visible; filtering by workflow and direction updates the table instantly; "All" / "all" option restores full list.
 
@@ -73,9 +73,9 @@
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T014 [P] Run `poetry run mypy .` and `poetry run flake8` from repo root; fix any new type or lint errors introduced in `model/workflow_api.py`, `api/models/workflow.py`, `client/aws_client.py`, `services/workflow_service.py`, `api/routers/workflow.py`
-- [ ] T015 [P] Run `npm run build` and `npm run lint` in `frontend/`; fix any TypeScript or ESLint errors from new/modified files
-- [ ] T016 Run all acceptance scenarios from `specs/014-workflow-orders-list/quickstart.md` (steps 1–15) manually
+- [X] T014 [P] Run `poetry run mypy .` and `poetry run flake8` from repo root; fix any new type or lint errors introduced in `model/workflow_api.py`, `api/models/workflow.py`, `client/aws_client.py`, `services/workflow_service.py`, `api/routers/workflow.py`
+- [X] T015 [P] Run `npm run build` and `npm run lint` in `frontend/`; fix any TypeScript or ESLint errors from new/modified files
+- [X] T016 Run all acceptance scenarios from `specs/014-workflow-orders-list/quickstart.md` (steps 1–15) manually
 
 ---
 

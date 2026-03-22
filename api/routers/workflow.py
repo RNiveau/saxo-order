@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from api.dependencies import get_workflow_service
 from api.models.workflow import (
+    AllWorkflowOrdersResponse,
     AssetWorkflowsResponse,
     WorkflowCloseInfo,
     WorkflowConditionInfo,
@@ -53,6 +54,29 @@ def _convert_detail_to_info(detail: WorkflowDetail) -> WorkflowInfo:
             quantity=detail.trigger.quantity,
         ),
     )
+
+
+@router.get("/orders", response_model=AllWorkflowOrdersResponse)
+async def get_all_workflow_orders(
+    limit: int = Query(100, ge=1, le=100, description="Max orders to return"),
+    workflow_service: WorkflowService = Depends(get_workflow_service),
+):
+    """
+    Get all orders across all workflows, sorted newest first.
+    """
+    try:
+        orders = workflow_service.get_all_orders(limit=limit)
+        return AllWorkflowOrdersResponse(
+            orders=orders,
+            total_count=len(orders),
+            limit=limit,
+        )
+    except Exception as e:
+        logger.error(f"Error getting all workflow orders: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to retrieve workflow orders",
+        )
 
 
 @router.get("/asset", response_model=AssetWorkflowsResponse)
