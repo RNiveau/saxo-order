@@ -4,6 +4,7 @@ import type { WorkflowListItem } from '../services/api';
 import { workflowService } from '../services/api';
 import WorkflowTable from '../components/WorkflowTable';
 import { WorkflowDetailModal } from '../components/WorkflowDetailModal';
+import { WorkflowCreateModal } from '../components/WorkflowCreateModal';
 import './Workflows.css';
 
 function Workflows() {
@@ -12,6 +13,7 @@ function Workflows() {
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Filter state from URL
   const filterEnabled = searchParams.get('status') || 'all';
@@ -196,9 +198,14 @@ function Workflows() {
     <div className="workflows-container">
       <div className="workflows-header">
         <h1>Workflows</h1>
-        <p className="workflows-count">
-          {sortedWorkflows.length} of {workflows.length} workflow(s)
-        </p>
+        <div className="workflows-header-actions">
+          <p className="workflows-count">
+            {sortedWorkflows.length} of {workflows.length} workflow(s)
+          </p>
+          <button className="btn-new-workflow" onClick={() => setShowCreateModal(true)}>
+            + New Workflow
+          </button>
+        </div>
       </div>
 
       <div className="filters-section">
@@ -265,6 +272,19 @@ function Workflows() {
         <WorkflowDetailModal
           workflowId={selectedWorkflowId}
           onClose={handleCloseModal}
+          onDelete={() => {
+            setSelectedWorkflowId(null);
+            loadWorkflows();
+          }}
+        />
+      )}
+      {showCreateModal && (
+        <WorkflowCreateModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            setShowCreateModal(false);
+            loadWorkflows();
+          }}
         />
       )}
     </div>

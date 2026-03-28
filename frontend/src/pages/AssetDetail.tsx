@@ -12,6 +12,7 @@ import {
 } from '../services/api';
 import { IndicatorCard } from '../components/IndicatorCard';
 import { AlertCard } from '../components/AlertCard';
+import { WorkflowCreateModal } from '../components/WorkflowCreateModal';
 import { processAlerts } from '../utils/alertFilters';
 import './AssetDetail.css';
 
@@ -39,6 +40,7 @@ export function AssetDetail() {
   const [isLongTerm, setIsLongTerm] = useState(false);
   const [isHomepage, setIsHomepage] = useState(false);
   const [updatingLabel, setUpdatingLabel] = useState(false);
+  const [showCreateWorkflow, setShowCreateWorkflow] = useState(false);
 
   // Alerts state
   const [alertsLoading, setAlertsLoading] = useState(false);
@@ -550,6 +552,12 @@ export function AssetDetail() {
         </div>
         <div className="asset-actions">
           <button
+            onClick={() => setShowCreateWorkflow(true)}
+            className="btn-new-workflow"
+          >
+            + Create Workflow
+          </button>
+          <button
             onClick={handleToggleWatchlist}
             disabled={addingToWatchlist || checkingWatchlist}
             className="add-to-watchlist-btn"
@@ -860,6 +868,13 @@ export function AssetDetail() {
             </div>
           )}
         </>
+      )}
+      {showCreateWorkflow && symbol && (
+        <WorkflowCreateModal
+          onClose={() => setShowCreateWorkflow(false)}
+          onSuccess={() => setShowCreateWorkflow(false)}
+          prefill={{ index: symbol.split(':')[0], cfd: symbol.split(':')[0] }}
+        />
       )}
     </div>
   );

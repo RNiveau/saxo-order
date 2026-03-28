@@ -715,6 +715,25 @@ class DynamoDBClient(AwsClient):
 
         self.logger.info(f"Batch inserted {len(workflows)} workflows")
 
+    def put_workflow(self, workflow: Dict[str, Any]) -> None:
+        """Persist a single workflow to DynamoDB."""
+        response = self.dynamodb.Table("workflows").put_item(Item=workflow)
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB put_item error: {response}")
+            raise RuntimeError("Failed to persist workflow")
+
+    def delete_workflow(self, workflow_id: str) -> None:
+        """Delete a workflow from DynamoDB."""
+        response = self.dynamodb.Table("workflows").delete_item(
+            Key={"id": workflow_id}
+        )
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(
+                f"DynamoDB delete_item error for workflow {workflow_id}: "
+                f"{response}"
+            )
+            raise RuntimeError("Failed to delete workflow")
+
     def record_workflow_order(
         self,
         workflow_id: str,

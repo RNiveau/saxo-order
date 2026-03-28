@@ -197,6 +197,44 @@ export interface AllWorkflowOrdersResponse {
   limit: number;
 }
 
+export interface WorkflowIndicatorInput {
+  name: string;
+  ut: string;
+  value: number | null;
+  zone_value: number | null;
+}
+
+export interface WorkflowCloseInput {
+  direction: string;
+  ut: string;
+  spread: number;
+}
+
+export interface WorkflowConditionInput {
+  indicator: WorkflowIndicatorInput;
+  close: WorkflowCloseInput;
+  element: string | null;
+}
+
+export interface WorkflowTriggerInput {
+  ut: string;
+  location: string;
+  order_direction: string;
+  quantity: number;
+}
+
+export interface WorkflowCreateRequest {
+  name: string;
+  index: string;
+  cfd: string;
+  enable: boolean;
+  dry_run: boolean;
+  is_us: boolean;
+  end_date: string | null;
+  conditions: WorkflowConditionInput[];
+  trigger: WorkflowTriggerInput;
+}
+
 export interface OrderHistoryResponse {
   workflow_id: string;
   orders: OrderHistoryItem[];
@@ -262,6 +300,20 @@ export const workflowService = {
     const params: Record<string, number> = { limit };
     const response = await api.get<AllWorkflowOrdersResponse>('/api/workflow/orders', { params });
     return response.data;
+  },
+
+  createWorkflow: async (data: WorkflowCreateRequest): Promise<WorkflowDetail> => {
+    const response = await api.post<WorkflowDetail>('/api/workflow/workflows', data);
+    return response.data;
+  },
+
+  updateWorkflow: async (id: string, data: WorkflowCreateRequest): Promise<WorkflowDetail> => {
+    const response = await api.put<WorkflowDetail>(`/api/workflow/workflows/${id}`, data);
+    return response.data;
+  },
+
+  deleteWorkflow: async (id: string): Promise<void> => {
+    await api.delete(`/api/workflow/workflows/${id}`);
   },
 };
 

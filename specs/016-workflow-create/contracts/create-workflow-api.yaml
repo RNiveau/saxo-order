@@ -1,0 +1,301 @@
+openapi: "3.1.0"
+info:
+  title: Create Workflow API
+  version: "1.0.0"
+
+paths:
+  /api/workflow/workflows:
+    post:
+      summary: Create a new workflow
+      description: |
+        Creates a new workflow and persists it to DynamoDB. The backend generates
+        the workflow ID, timestamps, and hardcodes signal = "breakout".
+        Returns the full WorkflowDetail of the created workflow.
+      operationId: createWorkflow
+      tags:
+        - workflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowCreateRequest'
+            examples:
+              bbb_h1_dax:
+                summary: Buy BBB H1 DAX
+                value:
+                  name: "Buy BBB H1 DAX"
+                  index: "DAX.I"
+                  cfd: "GER40.I"
+                  enable: true
+                  dry_run: true
+                  is_us: false
+                  end_date: null
+                  conditions:
+                    - indicator:
+                        name: "bbb"
+                        ut: "h1"
+                        value: null
+                        zone_value: null
+                      close:
+                        direction: "above"
+                        ut: "h1"
+                        spread: 20.0
+                      element: null
+                  trigger:
+                    ut: "h1"
+                    location: "higher"
+                    order_direction: "buy"
+                    quantity: 0.1
+              pol_daily_cac:
+                summary: Sell POL Daily CAC
+                value:
+                  name: "Sell POL Daily CAC"
+                  index: "CAC40.I"
+                  cfd: "FRA40.I"
+                  enable: true
+                  dry_run: true
+                  is_us: false
+                  end_date: "2026-12-31"
+                  conditions:
+                    - indicator:
+                        name: "polarite"
+                        ut: "daily"
+                        value: 7500.0
+                        zone_value: null
+                      close:
+                        direction: "below"
+                        ut: "h1"
+                        spread: 15.0
+                      element: "close"
+                  trigger:
+                    ut: "h1"
+                    location: "lower"
+                    order_direction: "sell"
+                    quantity: 0.2
+              zone_h4:
+                summary: Buy ZONE H4
+                value:
+                  name: "Buy ZONE H4 DAX"
+                  index: "DAX.I"
+                  cfd: "GER40.I"
+                  enable: true
+                  dry_run: true
+                  is_us: false
+                  end_date: null
+                  conditions:
+                    - indicator:
+                        name: "zone"
+                        ut: "h4"
+                        value: 18000.0
+                        zone_value: 18500.0
+                      close:
+                        direction: "above"
+                        ut: "h1"
+                        spread: 30.0
+                      element: null
+                  trigger:
+                    ut: "h1"
+                    location: "higher"
+                    order_direction: "buy"
+                    quantity: 0.1
+      responses:
+        "201":
+          description: Workflow created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowDetail'
+        "422":
+          description: Validation error (missing fields, invalid values, past end_date)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        "500":
+          description: Internal server error (DynamoDB write failure)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPError'
+
+components:
+  schemas:
+    WorkflowIndicatorInput:
+      type: object
+      required: [name, ut]
+      properties:
+        name:
+          type: string
+          enum: [ma50, combo, bbb, bbh, polarite, zone]
+          description: Indicator type
+        ut:
+          type: string
+          enum: [daily, "15m", h1, h4, weekly, monthly]
+          description: Unit time for indicator calculation
+        value:
+          type: number
+          nullable: true
+          description: |
+            Required when name = "polarite" (pivot level) or name = "zone" (zone lower bound).
+            Null for ma50, combo, bbb, bbh.
+        zone_value:
+          type: number
+          nullable: true
+          description: |
+            Required when name = "zone" (zone upper bound). Must be > value.
+            Null for all other indicator types.
+
+    WorkflowCloseInput:
+      type: object
+      required: [direction, ut, spread]
+      properties:
+        direction:
+          type: string
+          enum: [above, below]
+          description: Whether asset close must be above or below the indicator
+        ut:
+          type: string
+          enum: [daily, "15m", h1, h4, weekly, monthly]
+          description: Unit time for the close candle evaluation
+        spread:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          description: Tolerance in points
+
+    WorkflowConditionInput:
+      type: object
+      required: [indicator, close]
+      properties:
+        indicator:
+          $ref: '#/components/schemas/WorkflowIndicatorInput'
+        close:
+          $ref: '#/components/schemas/WorkflowCloseInput'
+        element:
+          type: string
+          enum: [close, high, low]
+          nullable: true
+          description: Optional specific candle element to evaluate. Null applies default engine logic.
+
+    WorkflowTriggerInput:
+      type: object
+      required: [ut, location, order_direction, quantity]
+      properties:
+        ut:
+          type: string
+          enum: [daily, "15m", h1, h4, weekly, monthly]
+          description: Unit time for the trigger candle
+        location:
+          type: string
+          enum: [higher, lower]
+          description: Where to place the order relative to the indicator
+        order_direction:
+          type: string
+          enum: [buy, sell]
+          description: Order side
+        quantity:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          description: Order quantity
+
+    WorkflowCreateRequest:
+      type: object
+      required: [name, index, cfd, conditions, trigger]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Human-readable workflow name
+        index:
+          type: string
+          minLength: 1
+          description: Underlying index symbol (e.g., DAX.I)
+        cfd:
+          type: string
+          minLength: 1
+          description: Tradeable CFD symbol (e.g., GER40.I)
+        enable:
+          type: boolean
+          default: true
+          description: Whether the workflow is active
+        dry_run:
+          type: boolean
+          default: true
+          description: Whether the workflow is in dry-run mode (no real orders)
+        is_us:
+          type: boolean
+          default: false
+          description: Whether this targets the US market
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Optional expiration date in YYYY-MM-DD format; must be a future date
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowConditionInput'
+          minItems: 1
+          description: List of evaluation conditions (minimum 1)
+        trigger:
+          $ref: '#/components/schemas/WorkflowTriggerInput'
+
+    WorkflowDetail:
+      description: Full workflow detail — see existing GET /api/workflow/workflows/{id} response schema
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        index:
+          type: string
+        cfd:
+          type: string
+        enable:
+          type: boolean
+        dry_run:
+          type: boolean
+        is_us:
+          type: boolean
+        end_date:
+          type: string
+          nullable: true
+        conditions:
+          type: array
+          items:
+            type: object
+        trigger:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ValidationError:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+              msg:
+                type: string
+              type:
+                type: string
+
+    HTTPError:
+      type: object
+      properties:
+        detail:
+          type: string

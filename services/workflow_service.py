@@ -1,16 +1,20 @@
 import logging
+import uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from cachetools import TTLCache, cachedmethod
 from cachetools.keys import hashkey
 
 from client.aws_client import DynamoDBClient
+from model.workflow import IndicatorType, WorkflowSignal
 from model.workflow_api import (
     AllWorkflowOrderItem,
     CloseDetail,
     ConditionDetail,
     IndicatorDetail,
     TriggerDetail,
+    WorkflowCreateRequest,
     WorkflowDetail,
     WorkflowListItem,
     WorkflowListResponse,
@@ -81,6 +85,116 @@ class WorkflowService:
             per_page=total,
             total_pages=1,
         )
+
+    def create_workflow(self, data: WorkflowCreateRequest) -> WorkflowDetail:
+        """Create a new workflow and persist it to DynamoDB."""
+        self._validate_request(data)
+        now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        workflow_dict = self._build_workflow_dict(data, str(uuid.uuid4()), now)
+        converted = self.dynamodb_client._convert_floats_to_decimal(
+            workflow_dict
+        )
+        self.dynamodb_client.put_workflow(converted)
+        return self._convert_to_detail(workflow_dict)
+
+    def _validate_request(self, data: WorkflowCreateRequest) -> None:
+        """Validate end_date and indicator-specific fields."""
+        if data.end_date is not None:
+            try:
+                end_dt = datetime.fromisoformat(data.end_date)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid end_date format: {data.end_date!r}. "
+                    "Expected YYYY-MM-DD."
+                )
+            if end_dt.date() < datetime.utcnow().date():
+                raise ValueError(
+                    f"end_date must be a future date, got {data.end_date!r}"
+                )
+
+        indicator = data.conditions[0].indicator
+        pol_or_zone = (IndicatorType.POL.value, IndicatorType.ZONE.value)
+        if indicator.name in pol_or_zone:
+            if indicator.value is None:
+                raise ValueError(
+                    f"indicator.value is required when indicator name is "
+                    f"{indicator.name!r}"
+                )
+        if indicator.name == IndicatorType.ZONE.value:
+            if indicator.zone_value is None:
+                raise ValueError(
+                    "indicator.zone_value is required when indicator name "
+                    f"is {IndicatorType.ZONE.value!r}"
+                )
+
+    def _build_workflow_dict(
+        self, data: WorkflowCreateRequest, workflow_id: str, created_at: str
+    ) -> Dict[str, Any]:
+        """Build the DynamoDB item dict from a WorkflowCreateRequest."""
+        now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {
+            "id": workflow_id,
+            "name": data.name,
+            "index": data.index,
+            "cfd": data.cfd,
+            "enable": data.enable,
+            "dry_run": data.dry_run,
+            "is_us": data.is_us,
+            "end_date": data.end_date,
+            "conditions": [
+                {
+                    "indicator": {
+                        "name": c.indicator.name,
+                        "ut": c.indicator.ut,
+                        "value": c.indicator.value,
+                        "zone_value": c.indicator.zone_value,
+                    },
+                    "close": {
+                        "direction": c.close.direction,
+                        "ut": c.close.ut,
+                        "spread": c.close.spread,
+                    },
+                    "element": c.element,
+                }
+                for c in data.conditions
+            ],
+            "trigger": {
+                "ut": data.trigger.ut,
+                "signal": WorkflowSignal.BREAKOUT.value,
+                "location": data.trigger.location,
+                "order_direction": data.trigger.order_direction,
+                "quantity": data.trigger.quantity,
+            },
+            "created_at": created_at,
+            "updated_at": now,
+        }
+
+    def update_workflow(
+        self, workflow_id: str, data: WorkflowCreateRequest
+    ) -> WorkflowDetail:
+        """Update an existing workflow in DynamoDB."""
+        existing = self.dynamodb_client.get_workflow_by_id(workflow_id)
+        if existing is None:
+            raise ValueError(f"Workflow not found: {workflow_id!r}")
+
+        self._validate_request(data)
+
+        created_at = str(existing.get("created_at", ""))
+        workflow_dict = self._build_workflow_dict(
+            data, workflow_id, created_at
+        )
+        converted = self.dynamodb_client._convert_floats_to_decimal(
+            workflow_dict
+        )
+        self.dynamodb_client.put_workflow(converted)
+        return self._convert_to_detail(workflow_dict)
+
+    def delete_workflow(self, workflow_id: str) -> None:
+        """Delete a workflow from DynamoDB."""
+        existing = self.dynamodb_client.get_workflow_by_id(workflow_id)
+        if existing is None:
+            raise ValueError(f"Workflow not found: {workflow_id!r}")
+        self.dynamodb_client.delete_workflow(workflow_id)
 
     def get_workflow_by_id(self, workflow_id: str) -> Optional[WorkflowDetail]:
         """
