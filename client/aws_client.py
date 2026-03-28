@@ -722,18 +722,6 @@ class DynamoDBClient(AwsClient):
             self.logger.error(f"DynamoDB put_item error: {response}")
             raise RuntimeError("Failed to persist workflow")
 
-    def update_workflow(
-        self, workflow_id: str, workflow: Dict[str, Any]
-    ) -> None:
-        """Replace an existing workflow in DynamoDB."""
-        response = self.dynamodb.Table("workflows").put_item(Item=workflow)
-        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
-            self.logger.error(
-                f"DynamoDB put_item error for workflow {workflow_id}: "
-                f"{response}"
-            )
-            raise RuntimeError("Failed to update workflow")
-
     def delete_workflow(self, workflow_id: str) -> None:
         """Delete a workflow from DynamoDB."""
         response = self.dynamodb.Table("workflows").delete_item(
