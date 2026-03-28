@@ -7,6 +7,7 @@ from cachetools import TTLCache, cachedmethod
 from cachetools.keys import hashkey
 
 from client.aws_client import DynamoDBClient
+from model.workflow import IndicatorType, WorkflowSignal
 from model.workflow_api import (
     AllWorkflowOrderItem,
     CloseDetail,
@@ -112,17 +113,18 @@ class WorkflowService:
                 )
 
         indicator = data.conditions[0].indicator
-        if indicator.name in ("polarite", "zone"):
+        pol_or_zone = (IndicatorType.POL.value, IndicatorType.ZONE.value)
+        if indicator.name in pol_or_zone:
             if indicator.value is None:
                 raise ValueError(
                     f"indicator.value is required when indicator name is "
                     f"{indicator.name!r}"
                 )
-        if indicator.name == "zone":
+        if indicator.name == IndicatorType.ZONE.value:
             if indicator.zone_value is None:
                 raise ValueError(
                     "indicator.zone_value is required when indicator name "
-                    "is 'zone'"
+                    f"is {IndicatorType.ZONE.value!r}"
                 )
 
     def _build_workflow_dict(
@@ -158,7 +160,7 @@ class WorkflowService:
             ],
             "trigger": {
                 "ut": data.trigger.ut,
-                "signal": "breakout",
+                "signal": WorkflowSignal.BREAKOUT.value,
                 "location": data.trigger.location,
                 "order_direction": data.trigger.order_direction,
                 "quantity": data.trigger.quantity,
