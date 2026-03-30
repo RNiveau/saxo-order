@@ -9,6 +9,7 @@ from engines.workflows import (
     AbstractWorkflow,
     BBWorkflow,
     ComboWorkflow,
+    MA7Workflow,
     MA50Workflow,
     PolariteWorkflow,
     ZoneWorkflow,
@@ -76,6 +77,15 @@ class WorkflowEngine:
                         f"first candle for this indicator is {candles[0]}"
                     )
                 match workflow.conditions[0].indicator.name:
+                    case IndicatorType.MA7:
+                        results.append(
+                            (
+                                workflow,
+                                self._run_workflow(
+                                    workflow, candles, MA7Workflow()
+                                ),
+                            )
+                        )
                     case IndicatorType.MA50:
                         results.append(
                             (
@@ -196,6 +206,8 @@ class WorkflowEngine:
 
         if indicator.ut == UnitTime.W:
             match indicator.name:
+                case IndicatorType.MA7:
+                    nbr_weeks = 12
                 case IndicatorType.MA50:
                     nbr_weeks = 55
                 case IndicatorType.COMBO:
@@ -231,6 +243,8 @@ class WorkflowEngine:
         elif indicator.ut == UnitTime.D:
             multiplicator = 8
         match indicator.name:
+            case IndicatorType.MA7:
+                nbr_hour = 12 * multiplicator
             case IndicatorType.MA50:
                 nbr_hour = 55 * multiplicator
             case IndicatorType.COMBO:

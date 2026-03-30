@@ -161,6 +161,39 @@ class MA50Workflow(AbstractWorkflow):
         return self._is_within_indicator_range_plus_spread(element, spread)
 
 
+class MA7Workflow(AbstractWorkflow):
+
+    logger = Logger.get_logger("ma7-workflow", logging.DEBUG)
+
+    def init_workflow(
+        self, indicator: Indicator, candles: List[Candle]
+    ) -> None:
+        self.indicator_value = mobile_average(candles, 7)
+        super().init_workflow(indicator, candles)
+
+    def below_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        if element is None:
+            return self._is_within_indicator_range_minus_spread(
+                candle.close, spread
+            ) or self._is_within_indicator_range_minus_spread(
+                candle.higher, spread
+            )
+        return self._is_within_indicator_range_minus_spread(element, spread)
+
+    def above_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        if element is None:
+            return self._is_within_indicator_range_plus_spread(
+                candle.close, spread
+            ) or self._is_within_indicator_range_plus_spread(
+                candle.lower, spread
+            )
+        return self._is_within_indicator_range_plus_spread(element, spread)
+
+
 class PolariteWorkflow(AbstractWorkflow):
 
     logger = Logger.get_logger("polarite-workflow", logging.DEBUG)
