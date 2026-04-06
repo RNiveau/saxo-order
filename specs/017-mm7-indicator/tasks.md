@@ -54,11 +54,27 @@
 
 ---
 
-## Phase 4: Polish & Cross-Cutting Concerns
+## Phase 4: User Story 3 — Indicator Types API Endpoint & Frontend Integration (Priority: P2)
+
+**Goal**: The backend exposes `GET /api/workflow/indicator-types` returning all `IndicatorType` members with display labels. The frontend fetches from this endpoint instead of using a hardcoded list.
+
+**Independent Test**: Call `GET /api/workflow/indicator-types` and verify the response includes all indicator types including `mm7`. Open the workflow creation modal and verify the dropdown populates correctly.
+
+### Implementation for User Story 3
+
+- [ ] T009 [US3] Add `INDICATOR_LABELS` mapping and `GET /api/workflow/indicator-types` endpoint in `api/routers/workflow.py` — returns `[{ "value": member.value, "label": label }]` for each `IndicatorType` member (depends on T001)
+- [ ] T010 [P] [US3] Add `getIndicatorTypes()` method to `workflowService` in `frontend/src/services/api.ts` — calls `GET /api/workflow/indicator-types` and returns `{ value: string; label: string }[]`
+- [ ] T011 [US3] Update `WorkflowCreateModal.tsx` — remove hardcoded `INDICATOR_OPTIONS`, fetch from `workflowService.getIndicatorTypes()` on mount, handle loading state (depends on T009, T010)
+
+**Checkpoint**: US3 complete. Dropdown in modal is driven by the API; adding a new `IndicatorType` requires only a backend change.
+
+---
+
+## Phase 5: Polish & Cross-Cutting Concerns
 
 **Purpose**: Quality gates and validation across all stories.
 
-- [ ] T006 [P] Run `poetry run mypy engines/workflows.py engines/workflow_engine.py model/workflow.py` — fix any type errors
+- [ ] T006 [P] Run `poetry run mypy engines/workflows.py engines/workflow_engine.py model/workflow.py api/routers/workflow.py` — fix any type errors
 - [ ] T007 [P] Run `poetry run black . && poetry run isort . && poetry run flake8` — fix any formatting/linting issues
 - [ ] T008 Run full test suite `poetry run pytest --cov` — confirm no regressions and coverage maintained
 
@@ -71,12 +87,14 @@
 - **Foundational (Phase 1)**: No dependencies — start immediately
 - **US1 (Phase 2)**: Depends on T001 — T002 and T003 can run in parallel with each other; T004 depends on T002 + T003
 - **US2 (Phase 3)**: Depends on T001 + T003
-- **Polish (Phase 4)**: Depends on all prior phases
+- **US3 (Phase 4)**: T009 depends on T001; T010 is independent; T011 depends on T009 + T010
+- **Polish (Phase 5)**: Depends on all prior phases
 
 ### User Story Dependencies
 
 - **US1 (P1)**: Unblocked after T001
 - **US2 (P2)**: Unblocked after T001 + T003 (engine dispatch must exist for YAML to route correctly)
+- **US3 (P2)**: T009 unblocked after T001; T010 unblocked immediately; T011 unblocked after T009 + T010
 
 ### Parallel Opportunities
 
@@ -108,11 +126,13 @@ Task T004: "Add MM7 test cases in tests/engines/test_workflow_engine.py"
 3. **STOP and VALIDATE**: `poetry run pytest tests/engines/test_workflow_engine.py -v`
 4. Ship: the core trigger behavior is live
 
-### Full Delivery (US1 + US2 + Polish)
+### Full Delivery (US1 + US2 + US3 + Polish)
 
-1. T001 → T002 ‖ T003 → T004 → T005 → T006 ‖ T007 → T008
+1. T001 → T002 ‖ T003 → T004 → T005
+2. T001 → T009; T010 (parallel, independent) → T011
+3. T006 ‖ T007 → T008
 
-Total: 8 tasks, ~40 lines of production code.
+Total: 11 tasks.
 
 ---
 

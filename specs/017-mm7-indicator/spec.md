@@ -54,6 +54,8 @@ The existing indicator type registry must recognize `mm7` as a valid indicator, 
 - **FR-004**: System MUST evaluate an "above" condition as true when the candle's close or low falls within the spread above the MM7 value.
 - **FR-005**: System MUST support providing a single price element (instead of a full candle) for condition evaluation, consistent with the MM50 behavior.
 - **FR-006**: System MUST return `None` (no signal) when fewer than 7 candles are available, allowing the workflow engine to skip the evaluation cycle without error.
+- **FR-007**: Backend MUST expose a `GET /api/workflow/indicator-types` endpoint returning all `IndicatorType` members as `{ value, label }` objects.
+- **FR-008**: Frontend workflow creation modal MUST fetch indicator types from the API on mount and remove the hardcoded `INDICATOR_OPTIONS` list.
 
 ### Key Entities
 
@@ -68,6 +70,26 @@ The existing indicator type registry must recognize `mm7` as a valid indicator, 
 - **SC-002**: The MM7 below and above conditions produce results consistent with manually computed 7-period moving averages — 100% accuracy on a defined test dataset.
 - **SC-003**: All existing MM50 workflow tests continue to pass after the MM7 indicator is added (no regressions).
 - **SC-004**: A trader can define and execute an MM7-based workflow using the same configuration format as an MM50 workflow, with no additional setup steps.
+- **SC-005**: `GET /api/workflow/indicator-types` returns a list that includes `mm7` with the correct label after the enum is updated.
+- **SC-006**: The workflow creation modal dropdown is populated from the API; removing the hardcoded list from the frontend causes no regression in the UI.
+
+---
+
+### User Story 3 - Indicator types exposed via API and consumed by the frontend (Priority: P2)
+
+The frontend workflow creation modal must fetch available indicator types from the backend rather than maintaining a hardcoded list, so that adding a new indicator type (e.g. MM7) is reflected automatically without frontend changes.
+
+**Why this priority**: The hardcoded list in `WorkflowCreateModal.tsx` is a maintenance hazard — every new indicator requires a coordinated change in two places. Centralising the list in the backend eliminates that drift.
+
+**Independent Test**: Can be tested by calling `GET /api/workflow/indicator-types` and verifying the response contains all `IndicatorType` enum members with their display labels; then verifying the modal dropdown renders them correctly.
+
+**Acceptance Scenarios**:
+
+1. **Given** the backend is running, **When** `GET /api/workflow/indicator-types` is called, **Then** it returns a JSON array of objects with `value` and `label` fields for every member of `IndicatorType`.
+2. **Given** the workflow creation modal is open, **When** the component mounts, **Then** it fetches indicator types from the API and populates the dropdown — no hardcoded list remains in the frontend.
+3. **Given** a new `IndicatorType` member is added to the backend enum, **When** the frontend modal is opened, **Then** the new type appears in the dropdown with no frontend code change required.
+
+---
 
 ## Clarifications
 
