@@ -1,4 +1,7 @@
+from typing import Dict, List
+
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from pydantic import BaseModel
 
 from api.dependencies import get_workflow_service
 from api.models.workflow import (
@@ -11,6 +14,7 @@ from api.models.workflow import (
     WorkflowOrderHistoryResponse,
     WorkflowTriggerInfo,
 )
+from model.workflow import IndicatorType
 from model.workflow_api import (
     WorkflowCreateRequest,
     WorkflowDetail,
@@ -21,6 +25,31 @@ from utils.logger import Logger
 
 router = APIRouter(prefix="/api/workflow", tags=["workflow"])
 logger = Logger.get_logger("workflow_router")
+
+_INDICATOR_LABELS: Dict[IndicatorType, str] = {
+    IndicatorType.MA7: "MM7",
+    IndicatorType.MA50: "MA50",
+    IndicatorType.COMBO: "COMBO",
+    IndicatorType.BBB: "BBB",
+    IndicatorType.BBH: "BBH",
+    IndicatorType.POL: "POL (Polarité)",
+    IndicatorType.ZONE: "ZONE",
+}
+
+
+class IndicatorTypeOption(BaseModel):
+    value: str
+    label: str
+
+
+@router.get("/indicator-types", response_model=List[IndicatorTypeOption])
+def get_indicator_types() -> List[IndicatorTypeOption]:
+    return [
+        IndicatorTypeOption(
+            value=member.value, label=_INDICATOR_LABELS[member]
+        )
+        for member in IndicatorType
+    ]
 
 
 def _convert_detail_to_info(detail: WorkflowDetail) -> WorkflowInfo:

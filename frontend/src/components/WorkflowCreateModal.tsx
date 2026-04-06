@@ -10,15 +10,6 @@ interface WorkflowCreateModalProps {
   workflow?: WorkflowDetail;
 }
 
-const INDICATOR_OPTIONS = [
-  { value: 'bbb', label: 'BBB' },
-  { value: 'bbh', label: 'BBH' },
-  { value: 'ma50', label: 'MA50' },
-  { value: 'combo', label: 'COMBO' },
-  { value: 'polarite', label: 'POL (Polarité)' },
-  { value: 'zone', label: 'ZONE' },
-];
-
 const UT_OPTIONS = [
   { value: '15m', label: '15m' },
   { value: 'h1', label: 'H1' },
@@ -75,9 +66,15 @@ export function WorkflowCreateModal({ onClose, onSuccess, prefill, workflow }: W
   const [orderDirection, setOrderDirection] = useState(workflow?.trigger.order_direction ?? 'buy');
   const [quantity, setQuantity] = useState(workflow?.trigger.quantity != null ? String(workflow.trigger.quantity) : '');
 
+  const [indicatorOptions, setIndicatorOptions] = useState<{ value: string; label: string }[]>([]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    workflowService.getIndicatorTypes().then(setIndicatorOptions).catch(console.error);
+  }, []);
 
   const suggestedName = `${orderDirection.toUpperCase()} ${indicatorName.toUpperCase()} ${indicatorUt.toUpperCase()}${cfd ? ' ' + cfd : ''}`;
 
@@ -249,7 +246,7 @@ export function WorkflowCreateModal({ onClose, onSuccess, prefill, workflow }: W
           <div className="form-row">
             <label>Indicator Type</label>
             <select value={indicatorName} onChange={(e) => setIndicatorName(e.target.value)}>
-              {INDICATOR_OPTIONS.map((o) => (
+              {indicatorOptions.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>

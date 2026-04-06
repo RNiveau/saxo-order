@@ -315,6 +315,11 @@ export const workflowService = {
   deleteWorkflow: async (id: string): Promise<void> => {
     await api.delete(`/api/workflow/workflows/${id}`);
   },
+
+  getIndicatorTypes: async (): Promise<{ value: string; label: string }[]> => {
+    const response = await api.get<{ value: string; label: string }[]>('/api/workflow/indicator-types');
+    return response.data;
+  },
 };
 
 export interface MovingAverageInfo {
