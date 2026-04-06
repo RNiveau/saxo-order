@@ -287,6 +287,15 @@ function Workflows() {
           }}
         />
       )}
+      {showCreateModal && (
+        <WorkflowCreateModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            setShowCreateModal(false);
+            loadWorkflows();
+          }}
+        />
+      )}
     </div>
   );
 }
