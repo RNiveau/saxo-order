@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import os
@@ -17,6 +18,7 @@ from services import congestion_indicator, indicator_service
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.helper import build_daily_candle_from_hours
+from saxo_order.async_utils import create_dynamodb_client
 from utils.logger import Logger
 
 logger = Logger.get_logger("alerting")
@@ -119,8 +121,6 @@ def fetch_french_stocks(saxo_client: SaxoClient) -> List[Dict]:
 )
 @catch_exception(handle=SaxoException)
 def alerting(ctx: Context, code: str, country_code: str) -> None:
-    import asyncio
-
     config = ctx.obj["config"]
     if code is not None and code != "":
         saxo_client = SaxoClient(Configuration(config))
@@ -377,8 +377,6 @@ async def run_alerting(
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
     slack_client = WebClient(token=configuration.slack_token)
-
-    from saxo_order.async_utils import create_dynamodb_client
 
     dynamodb_client, dynamodb_resource = await create_dynamodb_client()
 

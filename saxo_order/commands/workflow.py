@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import click
@@ -8,6 +9,7 @@ from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
 from engines.workflow_engine import WorkflowEngine
 from engines.workflow_loader import load_workflows
+from saxo_order.async_utils import create_dynamodb_client
 from saxo_order.commands import catch_exception
 from services.candles_service import CandlesService
 from utils.configuration import Configuration
@@ -36,8 +38,6 @@ logger = Logger.get_logger("workflow", logging.DEBUG)
 )
 def run(ctx: Context, force_from_disk: str, select_workflow: str):
     """Run workflows."""
-    import asyncio
-
     config = ctx.obj["config"]
     asyncio.run(
         execute_workflow(
@@ -73,8 +73,6 @@ def run(ctx: Context, force_from_disk: str, select_workflow: str):
 @catch_exception(handle=SaxoException)
 def asset(ctx: Context, code: str, country_code: str, force_from_disk: str):
     """List all workflows for a specific asset."""
-    import asyncio
-
     symbol = f"{code}:{country_code}" if country_code else code
     workflows = asyncio.run(
         load_workflows(True if force_from_disk == "y" else False)
@@ -125,8 +123,6 @@ async def execute_workflow(
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
     candles_service = CandlesService(saxo_client)
-
-    from saxo_order.async_utils import create_dynamodb_client
 
     dynamodb_client, dynamodb_resource = await create_dynamodb_client()
     workflows = await load_workflows(force_from_disk)

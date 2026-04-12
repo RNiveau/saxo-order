@@ -17,6 +17,7 @@ from model.workflow import (
     WorkflowElement,
     WorkflowSignal,
 )
+from saxo_order.async_utils import create_dynamodb_client
 from utils.exception import SaxoException
 from utils.logger import Logger
 
@@ -31,8 +32,6 @@ async def _load_from_dynamodb(logger) -> List[Dict[str, Any]]:
     Raises:
         Exception: If DynamoDB query fails
     """
-    from saxo_order.async_utils import create_dynamodb_client
-
     dynamodb_client, dynamodb_resource = await create_dynamodb_client()
     try:
         workflows_data = await dynamodb_client.get_all_workflows()
