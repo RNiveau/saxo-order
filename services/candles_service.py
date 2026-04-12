@@ -234,6 +234,8 @@ class CandlesService:
                     h1_candles, market.open_hour
                 )
                 return daily_candles[0] if daily_candles else None
+            case _:
+                raise SaxoException(f"We don't handle this ut : {ut}")
 
     def _build_h1_from_30m(
         self, data: list, market: Market, ut: UnitTime
