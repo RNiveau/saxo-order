@@ -2,7 +2,7 @@ import os
 from functools import lru_cache
 from typing import Optional, Union
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 
 from api.services.asset_details_service import AssetDetailsService
 from client.aws_client import AwsClient, DynamoDBClient
@@ -28,16 +28,6 @@ def get_configuration() -> Configuration:
 
 @lru_cache()
 def get_saxo_client() -> Union[SaxoClient, MockSaxoClient]:
-    """
-    Get cached SaxoClient instance with configuration.
-    This is a dependency that can be injected into FastAPI endpoints.
-
-    Returns MockSaxoClient if no access token is available.
-    SaxoClient handles its own token refresh strategy.
-
-    The client is cached as a singleton to ensure token refresh state
-    is shared across all requests.
-    """
     config = get_configuration()
 
     if not config.access_token:
@@ -57,50 +47,30 @@ def get_saxo_client() -> Union[SaxoClient, MockSaxoClient]:
 
 @lru_cache()
 def get_candles_service() -> CandlesService:
-    """
-    Get cached CandlesService instance.
-    This is a dependency that can be injected into FastAPI endpoints.
-
-    Uses the same cached saxo_client to ensure consistent token state.
-    """
     saxo_client = get_saxo_client()
     return CandlesService(saxo_client)
 
 
-def get_dynamodb_client() -> DynamoDBClient:
-    """
-    Create DynamoDBClient instance.
-    Validates AWS context before allowing access.
-
-    This is a dependency that can be injected into FastAPI endpoints.
-    """
+def get_dynamodb_client(request: Request) -> DynamoDBClient:
     if not AwsClient.is_aws_context():
         raise HTTPException(
             status_code=403,
             detail="AWS context not available. "
             "Set AWS_PROFILE environment variable.",
         )
-    return DynamoDBClient()
+    dynamodb = getattr(request.app.state, "dynamodb", None)
+    return DynamoDBClient(dynamodb_resource=dynamodb)
 
 
-def get_dynamodb_client_optional() -> Optional[DynamoDBClient]:
-    """
-    Get DynamoDB client if AWS context is available, otherwise None.
-
-    This is a dependency that can be injected into FastAPI endpoints
-    where DynamoDB access is optional.
-    """
+def get_dynamodb_client_optional(request: Request) -> Optional[DynamoDBClient]:
     if AwsClient.is_aws_context():
-        return DynamoDBClient()
+        dynamodb = getattr(request.app.state, "dynamodb", None)
+        return DynamoDBClient(dynamodb_resource=dynamodb)
     return None
 
 
 @lru_cache()
 def get_binance_client() -> BinanceClient:
-    """
-    Get cached BinanceClient instance with authentication.
-    This is a dependency that can be injected into FastAPI endpoints.
-    """
     config = get_configuration()
     logger.debug("Using authenticated BinanceClient")
     return BinanceClient(
@@ -110,13 +80,6 @@ def get_binance_client() -> BinanceClient:
 
 @lru_cache()
 def get_gsheet_client() -> GSheetClient:
-    """
-    Get cached GSheetClient instance.
-    This is a dependency that can be injected into FastAPI endpoints.
-
-    The client is cached as a singleton to reuse the Google Sheets
-    connection across requests.
-    """
     config = get_configuration()
     logger.debug("Using GSheetClient for order logging")
     return GSheetClient(
@@ -128,30 +91,10 @@ def get_gsheet_client() -> GSheetClient:
 def get_asset_details_service(
     dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
 ) -> AssetDetailsService:
-    """
-    Get AssetDetailsService instance.
-    This is a dependency that can be injected into FastAPI endpoints.
-
-    Args:
-        dynamodb_client: DynamoDB client instance
-
-    Returns:
-        AssetDetailsService instance
-    """
     return AssetDetailsService(dynamodb_client)
 
 
 def get_workflow_service(
     dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
 ) -> WorkflowService:
-    """
-    Get WorkflowService instance.
-    This is a dependency that can be injected into FastAPI endpoints.
-
-    Args:
-        dynamodb_client: DynamoDB client instance
-
-    Returns:
-        WorkflowService instance
-    """
     return WorkflowService(dynamodb_client)

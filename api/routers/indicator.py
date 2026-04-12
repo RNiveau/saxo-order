@@ -100,7 +100,7 @@ async def get_asset_indicators(
         indicator_service = IndicatorService(
             saxo_client, binance_client, candles_service, dynamodb_client
         )
-        return indicator_service.get_asset_indicators(
+        return await indicator_service.get_asset_indicators(
             code=code, exchange=ex, country_code=country_code, unit_time=ut
         )
 

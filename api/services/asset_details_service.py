@@ -13,17 +13,8 @@ class AssetDetailsService:
     def __init__(self, dynamodb_client: DynamoDBClient):
         self.dynamodb_client = dynamodb_client
 
-    def get_asset_details(self, asset_id: str) -> AssetDetailResponse:
-        """
-        Get details for a single asset.
-
-        Args:
-            asset_id: Asset identifier
-
-        Returns:
-            AssetDetailResponse with asset details
-        """
-        detail = self.dynamodb_client.get_asset_detail(asset_id)
+    async def get_asset_details(self, asset_id: str) -> AssetDetailResponse:
+        detail = await self.dynamodb_client.get_asset_detail(asset_id)
 
         if not detail:
             logger.info(f"Asset {asset_id} not found in asset_details table")
@@ -36,23 +27,10 @@ class AssetDetailsService:
             is_excluded=detail.get("is_excluded", False),
         )
 
-    def update_exclusion(
+    async def update_exclusion(
         self, asset_id: str, is_excluded: bool
     ) -> AssetDetailResponse:
-        """
-        Update exclusion status for an asset.
-
-        Args:
-            asset_id: Asset identifier
-            is_excluded: True to exclude, False to un-exclude
-
-        Returns:
-            Updated AssetDetailResponse
-
-        Raises:
-            Exception: If update fails
-        """
-        success = self.dynamodb_client.update_asset_exclusion(
+        success = await self.dynamodb_client.update_asset_exclusion(
             asset_id, is_excluded
         )
 
@@ -64,16 +42,10 @@ class AssetDetailsService:
             f"Updated exclusion for {asset_id}: is_excluded={is_excluded}"
         )
 
-        return self.get_asset_details(asset_id)
+        return await self.get_asset_details(asset_id)
 
-    def get_all_excluded_assets(self) -> List[AssetDetailResponse]:
-        """
-        Get all excluded assets.
-
-        Returns:
-            List of excluded AssetDetailResponse objects
-        """
-        all_assets = self.dynamodb_client.get_all_asset_details()
+    async def get_all_excluded_assets(self) -> List[AssetDetailResponse]:
+        all_assets = await self.dynamodb_client.get_all_asset_details()
         excluded = [
             AssetDetailResponse(
                 asset_id=asset["asset_id"],
@@ -88,14 +60,8 @@ class AssetDetailsService:
         logger.info(f"Found {len(excluded)} excluded assets")
         return excluded
 
-    def get_all_assets_with_details(self) -> AssetListResponse:
-        """
-        Get all assets with details and counts.
-
-        Returns:
-            AssetListResponse with all assets and counts
-        """
-        all_assets = self.dynamodb_client.get_all_asset_details()
+    async def get_all_assets_with_details(self) -> AssetListResponse:
+        all_assets = await self.dynamodb_client.get_all_asset_details()
 
         assets = [
             AssetDetailResponse(

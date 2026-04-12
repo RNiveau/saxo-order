@@ -1,16 +1,75 @@
 import datetime
+import functools
 import json
 import logging
 import os
+import time
 import uuid
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
+import aioboto3
 import boto3
+from botocore.exceptions import ClientError
 
 from model import Alert, AlertType
 from utils.json_util import dumps_indicator, hash_indicator
 from utils.logger import Logger
+
+
+class DynamoDBOperationError(Exception):
+    """Raised when a DynamoDB operation fails."""
+
+    def __init__(self, operation: str, message: str):
+        self.operation = operation
+        self.message = message
+        super().__init__(f"DynamoDB '{operation}' failed: {message}")
+
+
+def _dynamo_operation(func):
+    """Decorator for DynamoDB operations with error handling and timing."""
+
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        operation = func.__name__
+        start = time.monotonic()
+        try:
+            result = await func(self, *args, **kwargs)
+            duration_ms = (time.monotonic() - start) * 1000
+            self.logger.debug(
+                f"dynamodb.{operation} completed in {duration_ms:.1f}ms"
+            )
+            DynamoDBClient._request_count += 1
+            DynamoDBClient._total_duration_ms += duration_ms
+            return result
+        except ClientError as e:
+            duration_ms = (time.monotonic() - start) * 1000
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            if error_code == "ResourceNotFoundException":
+                self.logger.error(
+                    f"dynamodb.{operation} table not found "
+                    f"({duration_ms:.1f}ms)"
+                )
+            elif error_code == "ProvisionedThroughputExceededException":
+                self.logger.error(
+                    f"dynamodb.{operation} throughput exceeded "
+                    f"({duration_ms:.1f}ms)"
+                )
+            else:
+                self.logger.error(
+                    f"dynamodb.{operation} ClientError {error_code} "
+                    f"({duration_ms:.1f}ms)"
+                )
+            raise DynamoDBOperationError(operation, error_code) from e
+        except (ConnectionError, OSError) as e:
+            duration_ms = (time.monotonic() - start) * 1000
+            self.logger.error(
+                f"dynamodb.{operation} connection error "
+                f"({duration_ms:.1f}ms): {type(e).__name__}"
+            )
+            raise DynamoDBOperationError(operation, "Connection error") from e
+
+    return wrapper
 
 
 class AwsClient:
@@ -60,21 +119,24 @@ class S3Client(AwsClient):
 
 class DynamoDBClient(AwsClient):
 
-    def __init__(self) -> None:
+    _request_count: int = 0
+    _total_duration_ms: float = 0.0
+
+    def __init__(self, dynamodb_resource: Any = None) -> None:
         self.logger = Logger.get_logger("dynamodb_client", logging.INFO)
-        self.dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
+        self._dynamodb = dynamodb_resource
+        self._session = aioboto3.Session()
+
+    async def _get_table(self, table_name: str) -> Any:
+        if self._dynamodb is None:
+            raise RuntimeError(
+                "DynamoDBClient requires an active dynamodb resource. "
+                "Use it within a FastAPI lifespan or via run_async."
+            )
+        return await self._dynamodb.Table(table_name)
 
     @staticmethod
     def _convert_floats_to_decimal(obj: Any) -> Any:
-        """
-        Recursively convert float values to Decimal for DynamoDB compatibility.
-
-        Args:
-            obj: Object to convert (dict, list, or primitive type)
-
-        Returns:
-            Object with all floats converted to Decimal
-        """
         if isinstance(obj, float):
             return Decimal(str(obj))
         elif isinstance(obj, dict):
@@ -90,21 +152,23 @@ class DynamoDBClient(AwsClient):
 
     @staticmethod
     def _normalize_country_code(country_code: Optional[str]) -> str:
-        """
-        Normalize country code for DynamoDB storage.
-
-        DynamoDB does not support null values in primary keys,
-        so we use "NONE" as a sentinel value for crypto assets.
-
-        Args:
-            country_code: Country code string or None
-
-        Returns:
-            Country code string or "NONE" if None
-        """
         return country_code if country_code else "NONE"
 
-    def store_indicator(
+    @classmethod
+    def get_stats(cls) -> Dict[str, Any]:
+        avg_ms = (
+            cls._total_duration_ms / cls._request_count
+            if cls._request_count > 0
+            else 0.0
+        )
+        return {
+            "total_requests": cls._request_count,
+            "total_duration_ms": round(cls._total_duration_ms, 1),
+            "avg_latency_ms": round(avg_ms, 1),
+        }
+
+    @_dynamo_operation
+    async def store_indicator(
         self,
         code: str,
         date: datetime.datetime,
@@ -113,7 +177,8 @@ class DynamoDBClient(AwsClient):
     ) -> Dict[str, Any]:
         indicator_str = dumps_indicator(indicator)
         md5_hash = hash_indicator(indicator_str)
-        response = self.dynamodb.Table("indicators").put_item(
+        table = await self._get_table("indicators")
+        response = await table.put_item(
             Item={
                 "id": md5_hash,
                 "code": code,
@@ -126,12 +191,12 @@ class DynamoDBClient(AwsClient):
             self.logger.error(f"DynamoDB put_item error: {response}")
         return response
 
-    def get_indicator(self, indicator: Any) -> Optional[Any]:
+    @_dynamo_operation
+    async def get_indicator(self, indicator: Any) -> Optional[Any]:
         indicator_json = dumps_indicator(indicator)
         md5_hash = hash_indicator(indicator_json)
-        response = self.dynamodb.Table("indicators").get_item(
-            Key={"id": md5_hash}
-        )
+        table = await self._get_table("indicators")
+        response = await table.get_item(Key={"id": md5_hash})
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB get_item error: {response}")
             return None
@@ -139,8 +204,10 @@ class DynamoDBClient(AwsClient):
             return None
         return json.loads(response["Item"]["json"])
 
-    def get_indicator_by_id(self, id: str) -> Optional[Any]:
-        response = self.dynamodb.Table("indicators").get_item(Key={"id": id})
+    @_dynamo_operation
+    async def get_indicator_by_id(self, id: str) -> Optional[Any]:
+        table = await self._get_table("indicators")
+        response = await table.get_item(Key={"id": id})
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB get_item error: {response}")
             return None
@@ -148,7 +215,8 @@ class DynamoDBClient(AwsClient):
             return None
         return json.loads(response["Item"]["json"])
 
-    def add_to_watchlist(
+    @_dynamo_operation
+    async def add_to_watchlist(
         self,
         asset_id: str,
         asset_symbol: str,
@@ -159,7 +227,6 @@ class DynamoDBClient(AwsClient):
         labels: Optional[list[str]] = None,
         exchange: str = "saxo",
     ) -> Dict[str, Any]:
-        """Add an asset to the watchlist with cached metadata and labels."""
         item: Dict[str, Any] = {
             "id": asset_id,
             "asset_symbol": asset_symbol,
@@ -172,61 +239,58 @@ class DynamoDBClient(AwsClient):
             "exchange": exchange,
         }
 
-        # Add cached asset metadata if provided
         if asset_identifier is not None:
             item["asset_identifier"] = asset_identifier
         if asset_type is not None:
             item["asset_type"] = asset_type
 
-        response = self.dynamodb.Table("watchlist").put_item(Item=item)
+        table = await self._get_table("watchlist")
+        response = await table.put_item(Item=item)
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB put_item error: {response}")
         return response
 
-    def get_watchlist(self) -> list[Dict[str, Any]]:
-        """Get all assets in the watchlist."""
-        response = self.dynamodb.Table("watchlist").scan()
+    @_dynamo_operation
+    async def get_watchlist(self) -> list[Dict[str, Any]]:
+        table = await self._get_table("watchlist")
+        response = await table.scan()
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB scan error: {response}")
             return []
         return response.get("Items", [])
 
-    def remove_from_watchlist(self, asset_id: str) -> Dict[str, Any]:
-        """Remove an asset from the watchlist."""
-        response = self.dynamodb.Table("watchlist").delete_item(
-            Key={"id": asset_id}
-        )
+    @_dynamo_operation
+    async def remove_from_watchlist(self, asset_id: str) -> Dict[str, Any]:
+        table = await self._get_table("watchlist")
+        response = await table.delete_item(Key={"id": asset_id})
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB delete_item error: {response}")
         return response
 
-    def is_in_watchlist(self, asset_id: str) -> bool:
-        """Check if an asset is in the watchlist."""
-        response = self.dynamodb.Table("watchlist").get_item(
-            Key={"id": asset_id}
-        )
+    @_dynamo_operation
+    async def is_in_watchlist(self, asset_id: str) -> bool:
+        table = await self._get_table("watchlist")
+        response = await table.get_item(Key={"id": asset_id})
         return "Item" in response
 
-    def get_watchlist_item(self, asset_id: str) -> tuple[bool, list[str]]:
-        """Get watchlist item and its labels.
-
-        Returns:
-            Tuple of (in_watchlist: bool, labels: list[str])
-        """
-        response = self.dynamodb.Table("watchlist").get_item(
-            Key={"id": asset_id}
-        )
+    @_dynamo_operation
+    async def get_watchlist_item(
+        self, asset_id: str
+    ) -> tuple[bool, list[str]]:
+        table = await self._get_table("watchlist")
+        response = await table.get_item(Key={"id": asset_id})
         in_watchlist = "Item" in response
         labels = (
             response.get("Item", {}).get("labels", []) if in_watchlist else []
         )
         return in_watchlist, labels
 
-    def update_watchlist_labels(
+    @_dynamo_operation
+    async def update_watchlist_labels(
         self, asset_id: str, labels: list[str]
     ) -> Dict[str, Any]:
-        """Update labels for a watchlist item."""
-        response = self.dynamodb.Table("watchlist").update_item(
+        table = await self._get_table("watchlist")
+        response = await table.update_item(
             Key={"id": asset_id},
             UpdateExpression="SET labels = :labels",
             ExpressionAttributeValues={":labels": labels},
@@ -236,10 +300,10 @@ class DynamoDBClient(AwsClient):
             self.logger.error(f"DynamoDB update_item error: {response}")
         return response
 
-    def set_asset_detail(
+    @_dynamo_operation
+    async def set_asset_detail(
         self, asset_id: str, tradingview_url: str
     ) -> Dict[str, Any]:
-        """Store or update TradingView link for an asset."""
         item = {
             "asset_id": asset_id,
             "tradingview_url": tradingview_url,
@@ -248,38 +312,35 @@ class DynamoDBClient(AwsClient):
             ).isoformat(),
         }
 
-        response = self.dynamodb.Table("asset_details").put_item(Item=item)
+        table = await self._get_table("asset_details")
+        response = await table.put_item(Item=item)
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB put_item error: {response}")
         return response
 
-    def get_asset_detail(self, asset_id: str) -> Optional[Dict[str, Any]]:
-        """Get asset details including TradingView link."""
-        response = self.dynamodb.Table("asset_details").get_item(
-            Key={"asset_id": asset_id}
-        )
+    @_dynamo_operation
+    async def get_asset_detail(
+        self, asset_id: str
+    ) -> Optional[Dict[str, Any]]:
+        table = await self._get_table("asset_details")
+        response = await table.get_item(Key={"asset_id": asset_id})
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB get_item error: {response}")
             return None
         return response.get("Item")
 
-    def get_tradingview_link(self, asset_id: str) -> Optional[str]:
-        """Convenience method to get just the TradingView URL for an asset."""
-        detail = self.get_asset_detail(asset_id)
+    @_dynamo_operation
+    async def get_tradingview_link(self, asset_id: str) -> Optional[str]:
+        detail = await self.get_asset_detail(asset_id)
         if detail:
             return detail.get("tradingview_url")
         return None
 
-    def get_all_tradingview_links(self) -> Dict[str, str]:
-        """
-        Batch fetch all TradingView links from asset_details table.
-
-        Returns:
-            Dictionary mapping asset_id to tradingview_url for all assets
-            that have a tradingview_url set
-        """
+    @_dynamo_operation
+    async def get_all_tradingview_links(self) -> Dict[str, str]:
         try:
-            response = self.dynamodb.Table("asset_details").scan(
+            table = await self._get_table("asset_details")
+            response = await table.scan(
                 ProjectionExpression="asset_id, tradingview_url",
             )
 
@@ -289,15 +350,13 @@ class DynamoDBClient(AwsClient):
 
             items = response.get("Items", [])
 
-            # Handle pagination
             while "LastEvaluatedKey" in response:
-                response = self.dynamodb.Table("asset_details").scan(
+                response = await table.scan(
                     ProjectionExpression="asset_id, tradingview_url",
                     ExclusiveStartKey=response["LastEvaluatedKey"],
                 )
                 items.extend(response.get("Items", []))
 
-            # Build dictionary, only including items with tradingview_url
             links = {
                 item["asset_id"]: item["tradingview_url"]
                 for item in items
@@ -309,19 +368,22 @@ class DynamoDBClient(AwsClient):
             )
             return links
 
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            self.logger.error(
+                f"DynamoDB ClientError fetching TradingView links: "
+                f"{error_code}"
+            )
+            return {}
         except Exception as e:
             self.logger.error(f"Failed to fetch TradingView links: {e}")
             return {}
 
-    def get_excluded_assets(self) -> List[str]:
-        """
-        Get list of asset IDs that are excluded from alerting.
-
-        Returns:
-            List of asset_id strings where is_excluded=true
-        """
+    @_dynamo_operation
+    async def get_excluded_assets(self) -> List[str]:
         try:
-            response = self.dynamodb.Table("asset_details").scan(
+            table = await self._get_table("asset_details")
+            response = await table.scan(
                 FilterExpression="is_excluded = :true_val",
                 ExpressionAttributeValues={":true_val": True},
             )
@@ -332,9 +394,8 @@ class DynamoDBClient(AwsClient):
 
             items = response.get("Items", [])
 
-            # Handle pagination
             while "LastEvaluatedKey" in response:
-                response = self.dynamodb.Table("asset_details").scan(
+                response = await table.scan(
                     FilterExpression="is_excluded = :true_val",
                     ExpressionAttributeValues={":true_val": True},
                     ExclusiveStartKey=response["LastEvaluatedKey"],
@@ -345,29 +406,27 @@ class DynamoDBClient(AwsClient):
             self.logger.info(f"Found {len(excluded_ids)} excluded assets")
             return excluded_ids
 
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            self.logger.error(
+                f"DynamoDB ClientError getting excluded assets: {error_code}"
+            )
+            return []
         except Exception as e:
             self.logger.error(f"Error getting excluded assets: {e}")
             return []
 
-    def update_asset_exclusion(self, asset_id: str, is_excluded: bool) -> bool:
-        """
-        Update exclusion status for an asset.
-
-        Creates the item if it doesn't exist, updates if it does.
-
-        Args:
-            asset_id: Asset identifier
-            is_excluded: True to exclude, False to un-exclude
-
-        Returns:
-            True on success, False on failure
-        """
+    @_dynamo_operation
+    async def update_asset_exclusion(
+        self, asset_id: str, is_excluded: bool
+    ) -> bool:
         try:
             updated_at = datetime.datetime.now(
                 datetime.timezone.utc
             ).isoformat()
 
-            response = self.dynamodb.Table("asset_details").update_item(
+            table = await self._get_table("asset_details")
+            response = await table.update_item(
                 Key={"asset_id": asset_id},
                 UpdateExpression=(
                     "SET is_excluded = :is_excluded, updated_at = :updated_at"
@@ -388,19 +447,22 @@ class DynamoDBClient(AwsClient):
             )
             return True
 
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            self.logger.error(
+                f"DynamoDB ClientError updating exclusion for "
+                f"{asset_id}: {error_code}"
+            )
+            return False
         except Exception as e:
             self.logger.error(f"Error updating exclusion for {asset_id}: {e}")
             return False
 
-    def get_all_asset_details(self) -> List[Dict[str, Any]]:
-        """
-        Get all asset details including exclusion status.
-
-        Returns:
-            List of asset detail dictionaries with all fields
-        """
+    @_dynamo_operation
+    async def get_all_asset_details(self) -> List[Dict[str, Any]]:
         try:
-            response = self.dynamodb.Table("asset_details").scan()
+            table = await self._get_table("asset_details")
+            response = await table.scan()
 
             if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
                 self.logger.error(f"DynamoDB scan error: {response}")
@@ -408,14 +470,12 @@ class DynamoDBClient(AwsClient):
 
             items = response.get("Items", [])
 
-            # Handle pagination
             while "LastEvaluatedKey" in response:
-                response = self.dynamodb.Table("asset_details").scan(
+                response = await table.scan(
                     ExclusiveStartKey=response["LastEvaluatedKey"]
                 )
                 items.extend(response.get("Items", []))
 
-            # Default is_excluded to False for items without the field
             for item in items:
                 if "is_excluded" not in item:
                     item["is_excluded"] = False
@@ -423,30 +483,27 @@ class DynamoDBClient(AwsClient):
             self.logger.info(f"Retrieved {len(items)} asset details")
             return items
 
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            self.logger.error(
+                f"DynamoDB ClientError getting asset details: {error_code}"
+            )
+            return []
         except Exception as e:
             self.logger.error(f"Error getting all asset details: {e}")
             return []
 
-    def store_alerts(
+    @_dynamo_operation
+    async def store_alerts(
         self,
         asset_code: str,
         country_code: Optional[str],
         alerts: list,
     ) -> Dict[str, Any]:
-        """
-        Append new alerts for a given asset with 7-day TTL.
-
-        Deduplicates alerts before storing - alerts with the same
-        asset_code, alert_type, and date (same day) are considered
-        duplicates.
-        """
         country_code_value = self._normalize_country_code(country_code)
 
-        # Get existing alerts to check for duplicates
-        existing_alerts = self.get_alerts(asset_code, country_code)
+        existing_alerts = await self.get_alerts(asset_code, country_code)
 
-        # Create a set of existing alert signatures for fast lookup
-        # Signature: (alert_type, date_day)
         existing_signatures = set()
         for existing in existing_alerts:
             try:
@@ -457,10 +514,8 @@ class DynamoDBClient(AwsClient):
                 )
                 existing_signatures.add(signature)
             except (KeyError, ValueError):
-                # Skip malformed alerts
                 continue
 
-        # Filter out duplicate alerts
         unique_alerts = []
         for alert in alerts:
             signature = (
@@ -471,7 +526,6 @@ class DynamoDBClient(AwsClient):
                 unique_alerts.append(alert)
                 existing_signatures.add(signature)
 
-        # If no unique alerts, return early
         if not unique_alerts:
             self.logger.info(
                 f"No unique alerts to store for {asset_code} "
@@ -509,7 +563,8 @@ class DynamoDBClient(AwsClient):
             ":new_alerts), last_updated = :last_updated, #ttl = :ttl"
         )
 
-        response = self.dynamodb.Table("alerts").update_item(
+        table = await self._get_table("alerts")
+        response = await table.update_item(
             Key={
                 "asset_code": asset_code,
                 "country_code": country_code_value,
@@ -532,11 +587,14 @@ class DynamoDBClient(AwsClient):
 
         return response
 
-    def get_alerts(self, asset_code: str, country_code: Optional[str]) -> list:
-        """Get alerts for a specific asset."""
+    @_dynamo_operation
+    async def get_alerts(
+        self, asset_code: str, country_code: Optional[str]
+    ) -> list:
         country_code_value = self._normalize_country_code(country_code)
 
-        response = self.dynamodb.Table("alerts").get_item(
+        table = await self._get_table("alerts")
+        response = await table.get_item(
             Key={"asset_code": asset_code, "country_code": country_code_value}
         )
 
@@ -549,11 +607,10 @@ class DynamoDBClient(AwsClient):
 
         return response["Item"].get("alerts", [])
 
-    def get_all_alerts(self) -> List[Alert]:
-        """
-        Get all alerts from the alerts table and convert to Alert objects.
-        """
-        response = self.dynamodb.Table("alerts").scan()
+    @_dynamo_operation
+    async def get_all_alerts(self) -> List[Alert]:
+        table = await self._get_table("alerts")
+        response = await table.scan()
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB scan error: {response}")
@@ -562,7 +619,7 @@ class DynamoDBClient(AwsClient):
         items = response.get("Items", [])
 
         while "LastEvaluatedKey" in response:
-            response = self.dynamodb.Table("alerts").scan(
+            response = await table.scan(
                 ExclusiveStartKey=response["LastEvaluatedKey"]
             )
             items.extend(response.get("Items", []))
@@ -590,22 +647,14 @@ class DynamoDBClient(AwsClient):
 
         return all_alerts
 
-    def get_last_run_at(
+    @_dynamo_operation
+    async def get_last_run_at(
         self, asset_code: str, country_code: Optional[str]
     ) -> Optional[datetime.datetime]:
-        """
-        Get the last execution timestamp for on-demand alerts.
-
-        Args:
-            asset_code: Asset identifier
-            country_code: Country code (or None for crypto)
-
-        Returns:
-            Last execution datetime or None if never executed
-        """
         country_code_value = self._normalize_country_code(country_code)
 
-        response = self.dynamodb.Table("alerts").get_item(
+        table = await self._get_table("alerts")
+        response = await table.get_item(
             Key={"asset_code": asset_code, "country_code": country_code_value}
         )
 
@@ -629,20 +678,15 @@ class DynamoDBClient(AwsClient):
             )
             return None
 
-    def update_last_run_at(
+    @_dynamo_operation
+    async def update_last_run_at(
         self, asset_code: str, country_code: Optional[str]
     ) -> None:
-        """
-        Update the last execution timestamp for on-demand alerts.
-
-        Args:
-            asset_code: Asset identifier
-            country_code: Country code (or None for crypto)
-        """
         country_code_value = self._normalize_country_code(country_code)
         now = datetime.datetime.now()
 
-        response = self.dynamodb.Table("alerts").update_item(
+        table = await self._get_table("alerts")
+        response = await table.update_item(
             Key={"asset_code": asset_code, "country_code": country_code_value},
             UpdateExpression="SET last_run_at = :last_run_at",
             ExpressionAttributeValues={":last_run_at": now.isoformat()},
@@ -652,15 +696,11 @@ class DynamoDBClient(AwsClient):
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB update_item error: {response}")
 
-    def get_all_workflows(self) -> List[Dict[str, Any]]:
-        """
-        Retrieve all workflows from DynamoDB.
-
-        Returns:
-            List of workflow dictionaries
-        """
+    @_dynamo_operation
+    async def get_all_workflows(self) -> List[Dict[str, Any]]:
         workflows: List[Dict[str, Any]] = []
-        response = self.dynamodb.Table("workflows").scan()
+        table = await self._get_table("workflows")
+        response = await table.scan()
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB scan error: {response}")
@@ -669,7 +709,7 @@ class DynamoDBClient(AwsClient):
         workflows.extend(response.get("Items", []))
 
         while "LastEvaluatedKey" in response:
-            response = self.dynamodb.Table("workflows").scan(
+            response = await table.scan(
                 ExclusiveStartKey=response["LastEvaluatedKey"]
             )
             if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
@@ -679,19 +719,12 @@ class DynamoDBClient(AwsClient):
 
         return workflows
 
-    def get_workflow_by_id(self, workflow_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Retrieve a single workflow by ID.
-
-        Args:
-            workflow_id: Workflow unique identifier (UUID)
-
-        Returns:
-            Workflow dictionary or None if not found
-        """
-        response = self.dynamodb.Table("workflows").get_item(
-            Key={"id": workflow_id}
-        )
+    @_dynamo_operation
+    async def get_workflow_by_id(
+        self, workflow_id: str
+    ) -> Optional[Dict[str, Any]]:
+        table = await self._get_table("workflows")
+        response = await table.get_item(Key={"id": workflow_id})
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB get_item error: {response}")
@@ -699,34 +732,31 @@ class DynamoDBClient(AwsClient):
 
         return response.get("Item")
 
-    def batch_put_workflows(self, workflows: List[Dict[str, Any]]) -> None:
-        """
-        Batch insert workflows into DynamoDB for migration support.
+    @_dynamo_operation
+    async def batch_put_workflows(
+        self, workflows: List[Dict[str, Any]]
+    ) -> None:
+        table = await self._get_table("workflows")
 
-        Args:
-            workflows: List of workflow dictionaries to insert
-        """
-        table = self.dynamodb.Table("workflows")
-
-        with table.batch_writer() as batch:
+        async with table.batch_writer() as batch:
             for workflow in workflows:
                 converted_workflow = self._convert_floats_to_decimal(workflow)
-                batch.put_item(Item=converted_workflow)
+                await batch.put_item(Item=converted_workflow)
 
         self.logger.info(f"Batch inserted {len(workflows)} workflows")
 
-    def put_workflow(self, workflow: Dict[str, Any]) -> None:
-        """Persist a single workflow to DynamoDB."""
-        response = self.dynamodb.Table("workflows").put_item(Item=workflow)
+    @_dynamo_operation
+    async def put_workflow(self, workflow: Dict[str, Any]) -> None:
+        table = await self._get_table("workflows")
+        response = await table.put_item(Item=workflow)
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB put_item error: {response}")
             raise RuntimeError("Failed to persist workflow")
 
-    def delete_workflow(self, workflow_id: str) -> None:
-        """Delete a workflow from DynamoDB."""
-        response = self.dynamodb.Table("workflows").delete_item(
-            Key={"id": workflow_id}
-        )
+    @_dynamo_operation
+    async def delete_workflow(self, workflow_id: str) -> None:
+        table = await self._get_table("workflows")
+        response = await table.delete_item(Key={"id": workflow_id})
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(
                 f"DynamoDB delete_item error for workflow {workflow_id}: "
@@ -734,19 +764,8 @@ class DynamoDBClient(AwsClient):
             )
             raise RuntimeError("Failed to delete workflow")
 
-    def delete_workflow(self, workflow_id: str) -> None:
-        """Delete a workflow from DynamoDB."""
-        response = self.dynamodb.Table("workflows").delete_item(
-            Key={"id": workflow_id}
-        )
-        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
-            self.logger.error(
-                f"DynamoDB delete_item error for workflow {workflow_id}: "
-                f"{response}"
-            )
-            raise RuntimeError("Failed to delete workflow")
-
-    def record_workflow_order(
+    @_dynamo_operation
+    async def record_workflow_order(
         self,
         workflow_id: str,
         workflow_name: str,
@@ -759,29 +778,8 @@ class DynamoDBClient(AwsClient):
         trigger_close: Optional[float] = None,
         execution_context: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Record a workflow order placement to DynamoDB.
-
-        Args:
-            workflow_id: Workflow UUID
-            workflow_name: Workflow display name
-            order_code: Asset code
-            order_price: Entry price
-            order_quantity: Order size
-            order_direction: BUY or SELL
-            order_type: LIMIT or OPEN_STOP
-            asset_type: Optional asset classification
-            trigger_close: Optional trigger candle close
-            execution_context: Optional Lambda/CLI context
-
-        Returns:
-            DynamoDB put_item response
-        """
         now = datetime.datetime.now(datetime.timezone.utc)
         placed_at = int(now.timestamp())
-        # TTL set to 7 days from placement
-        # (7 days * 24 hours * 60 minutes * 60 seconds = 604800 seconds)
-        # DynamoDB will automatically delete this record after the TTL expires
         ttl = placed_at + (7 * 24 * 60 * 60)
 
         item = {
@@ -806,28 +804,21 @@ class DynamoDBClient(AwsClient):
 
         item = self._convert_floats_to_decimal(item)
 
-        response = self.dynamodb.Table("workflow_orders").put_item(Item=item)
+        table = await self._get_table("workflow_orders")
+        response = await table.put_item(Item=item)
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB put_item error: {response}")
 
         return response
 
-    def get_all_workflow_orders(
+    @_dynamo_operation
+    async def get_all_workflow_orders(
         self, limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:
-        """
-        Retrieve all orders from the workflow_orders table across all
-        workflows.
-
-        Args:
-            limit: Optional max orders to return (applied after sort)
-
-        Returns:
-            List of order dictionaries sorted by placed_at descending
-        """
         orders: List[Dict[str, Any]] = []
-        response = self.dynamodb.Table("workflow_orders").scan()
+        table = await self._get_table("workflow_orders")
+        response = await table.scan()
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB scan error: {response}")
@@ -836,7 +827,7 @@ class DynamoDBClient(AwsClient):
         orders.extend(response.get("Items", []))
 
         while "LastEvaluatedKey" in response:
-            response = self.dynamodb.Table("workflow_orders").scan(
+            response = await table.scan(
                 ExclusiveStartKey=response["LastEvaluatedKey"]
             )
             if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
@@ -851,19 +842,10 @@ class DynamoDBClient(AwsClient):
 
         return orders
 
-    def get_workflow_orders(
+    @_dynamo_operation
+    async def get_workflow_orders(
         self, workflow_id: str, limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:
-        """
-        Get order history for a workflow, sorted newest first.
-
-        Args:
-            workflow_id: Workflow UUID
-            limit: Optional max orders to return
-
-        Returns:
-            List of order dictionaries
-        """
         try:
             query_params = {
                 "KeyConditionExpression": "workflow_id = :wf_id",
@@ -874,9 +856,8 @@ class DynamoDBClient(AwsClient):
             if limit:
                 query_params["Limit"] = limit
 
-            response = self.dynamodb.Table("workflow_orders").query(
-                **query_params
-            )
+            table = await self._get_table("workflow_orders")
+            response = await table.query(**query_params)
 
             if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
                 self.logger.error(f"DynamoDB query error: {response}")
@@ -888,13 +869,18 @@ class DynamoDBClient(AwsClient):
                 query_params["ExclusiveStartKey"] = response[
                     "LastEvaluatedKey"
                 ]
-                response = self.dynamodb.Table("workflow_orders").query(
-                    **query_params
-                )
+                response = await table.query(**query_params)
                 items.extend(response.get("Items", []))
 
             return items
 
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            self.logger.error(
+                f"DynamoDB ClientError querying orders for "
+                f"workflow {workflow_id}: {error_code}"
+            )
+            return []
         except Exception as e:
             self.logger.error(
                 f"Error querying orders for workflow {workflow_id}: {e}"

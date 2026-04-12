@@ -36,11 +36,15 @@ logger = Logger.get_logger("workflow", logging.DEBUG)
 )
 def run(ctx: Context, force_from_disk: str, select_workflow: str):
     """Run workflows."""
+    import asyncio
+
     config = ctx.obj["config"]
-    execute_workflow(
-        config,
-        True if force_from_disk == "y" else False,
-        True if select_workflow == "y" else False,
+    asyncio.run(
+        execute_workflow(
+            config,
+            True if force_from_disk == "y" else False,
+            True if select_workflow == "y" else False,
+        )
     )
 
 
@@ -69,8 +73,12 @@ def run(ctx: Context, force_from_disk: str, select_workflow: str):
 @catch_exception(handle=SaxoException)
 def asset(ctx: Context, code: str, country_code: str, force_from_disk: str):
     """List all workflows for a specific asset."""
+    import asyncio
+
     symbol = f"{code}:{country_code}" if country_code else code
-    workflows = load_workflows(True if force_from_disk == "y" else False)
+    workflows = asyncio.run(
+        load_workflows(True if force_from_disk == "y" else False)
+    )
 
     matching_workflows = [
         w
@@ -111,14 +119,17 @@ def asset(ctx: Context, code: str, country_code: str, force_from_disk: str):
     print(f"Total: {len(matching_workflows)} workflow(s)")
 
 
-def execute_workflow(
+async def execute_workflow(
     config: str, force_from_disk: bool = False, select_workflow: bool = False
 ) -> None:
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
     candles_service = CandlesService(saxo_client)
-    dynamodb_client = DynamoDBClient()
-    workflows = load_workflows(force_from_disk)
+
+    from saxo_order.async_utils import create_dynamodb_client
+
+    dynamodb_client, dynamodb_resource = await create_dynamodb_client()
+    workflows = await load_workflows(force_from_disk)
 
     if select_workflow is True:
         workflows_select = list(filter(lambda x: x.enable, workflows))

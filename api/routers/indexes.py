@@ -44,7 +44,7 @@ async def get_indexes(
         WatchlistResponse with index data
     """
     try:
-        return watchlist_service.get_indexes()
+        return await watchlist_service.get_indexes()
     except Exception as e:
         logger.error(f"Unexpected error getting indexes: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

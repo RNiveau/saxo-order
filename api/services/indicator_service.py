@@ -159,7 +159,7 @@ class IndicatorService:
 
         return current_price, variation_pct
 
-    def get_asset_indicators(
+    async def get_asset_indicators(
         self,
         code: str,
         exchange: Exchange = Exchange.SAXO,
@@ -186,13 +186,13 @@ class IndicatorService:
             SaxoException: If asset not found or insufficient data
         """
         if exchange == Exchange.BINANCE:
-            return self._get_binance_asset_indicators(code, unit_time)
+            return await self._get_binance_asset_indicators(code, unit_time)
         else:
-            return self._get_saxo_asset_indicators(
+            return await self._get_saxo_asset_indicators(
                 code, country_code, unit_time
             )
 
-    def _get_saxo_asset_indicators(
+    async def _get_saxo_asset_indicators(
         self,
         code: str,
         country_code: Optional[str],
@@ -268,8 +268,8 @@ class IndicatorService:
         tradingview_url = None
         if self.dynamodb_client:
             try:
-                tradingview_url = self.dynamodb_client.get_tradingview_link(
-                    code
+                tradingview_url = (
+                    await self.dynamodb_client.get_tradingview_link(code)
                 )
             except Exception as e:
                 logger.warning(
@@ -287,7 +287,7 @@ class IndicatorService:
             tradingview_url=tradingview_url,
         )
 
-    def _get_binance_asset_indicators(
+    async def _get_binance_asset_indicators(
         self,
         symbol: str,
         unit_time: UnitTime,

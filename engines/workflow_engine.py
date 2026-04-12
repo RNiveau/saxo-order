@@ -54,7 +54,7 @@ class WorkflowEngine:
         self.saxo_client = saxo_client
         self.dynamodb_client = dynamodb_client
 
-    def run(self) -> None:
+    async def run(self) -> None:
         results = []
         for workflow in self.workflows:
             if workflow.enable and (
@@ -171,7 +171,7 @@ class WorkflowEngine:
                             f"Workflow {order[0].name} missing id"
                         )
                         continue
-                    self.dynamodb_client.record_workflow_order(
+                    await self.dynamodb_client.record_workflow_order(
                         workflow_id=order[0].id,
                         workflow_name=order[0].name,
                         order_code=order_obj.code,
