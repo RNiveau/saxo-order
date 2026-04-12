@@ -5,7 +5,6 @@ import click
 from click.core import Context
 from slack_sdk import WebClient
 
-from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
 from engines.workflow_engine import WorkflowEngine
 from engines.workflow_loader import load_workflows
@@ -147,4 +146,4 @@ async def execute_workflow(
         saxo_client=saxo_client,
         dynamodb_client=dynamodb_client,
     )
-    engine.run()
+    await engine.run()
