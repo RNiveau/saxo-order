@@ -76,68 +76,35 @@ class WorkflowEngine:
                     self.logger.debug(
                         f"first candle for this indicator is {candles[0]}"
                     )
-                match workflow.conditions[0].indicator.name:
-                    case IndicatorType.MA7:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, MA7Workflow()
-                                ),
-                            )
+                workflow_map = {
+                    IndicatorType.MA7: MA7Workflow,
+                    IndicatorType.MA50: MA50Workflow,
+                    IndicatorType.COMBO: ComboWorkflow,
+                    IndicatorType.BBB: BBWorkflow,
+                    IndicatorType.BBH: BBWorkflow,
+                    IndicatorType.POL: PolariteWorkflow,
+                    IndicatorType.ZONE: ZoneWorkflow,
+                }
+                indicator_name = workflow.conditions[0].indicator.name
+                workflow_class = workflow_map.get(indicator_name)
+                if workflow_class is None:
+                    self.logger.error(
+                        f"indicator {indicator_name} is not handle"
+                    )
+                    continue
+                try:
+                    results.append(
+                        (
+                            workflow,
+                            self._run_workflow(
+                                workflow, candles, workflow_class()
+                            ),
                         )
-                    case IndicatorType.MA50:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, MA50Workflow()
-                                ),
-                            )
-                        )
-                    case IndicatorType.COMBO:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, ComboWorkflow()
-                                ),
-                            )
-                        )
-                    case IndicatorType.BBB | IndicatorType.BBH:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, BBWorkflow()
-                                ),
-                            )
-                        )
-                    case IndicatorType.POL:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, PolariteWorkflow()
-                                ),
-                            )
-                        )
-                    case IndicatorType.ZONE:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, ZoneWorkflow()
-                                ),
-                            )
-                        )
-                    case _:
-                        self.logger.error(
-                            "indicator "
-                            f"{workflow.conditions[0].indicator.name}"
-                            " is not handle"
-                        )
-                        raise SaxoException()
+                    )
+                except SaxoException as e:
+                    self.logger.warning(
+                        f"Skipping workflow {workflow.name}: {e}"
+                    )
             else:
                 self.logger.info(f"Workflow {workflow.name} will not run")
 
