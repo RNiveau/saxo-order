@@ -69,7 +69,7 @@ async def get_alerts(
         f"Getting alerts with filters: asset_code={asset_code}, "
         f"alert_type={alert_type}, country_code={country_code}"
     )
-    return service.get_all_alerts(asset_code, alert_type, country_code)
+    return await service.get_all_alerts(asset_code, alert_type, country_code)
 
 
 @router.post("/run", response_model=RunAlertsResponse)
@@ -107,7 +107,7 @@ async def run_alerts(
     )
 
     try:
-        response = service.run_on_demand_detection(request, saxo_client)
+        response = await service.run_on_demand_detection(request, saxo_client)
 
         # Log based on response status
         match response.status:

@@ -62,10 +62,8 @@ class BinanceClient:
         if trade["isBuyer"] is True:
             commission = float(trade["commission"])
             if trade["commissionAsset"] != order.name and commission > 0:
-                print(
-                    f"Can't calculate commision for the trade: {order.name}:\
-                    {trade['price']}$"
-                )
+                print(f"Can't calculate commision for the trade: {order.name}:\
+                    {trade['price']}$")
                 print(trade)
                 return
             order.quantity -= commission

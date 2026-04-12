@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,9 +10,9 @@ client = TestClient(app)
 
 @pytest.fixture
 def mock_dynamodb_client():
-    """Mock DynamoDBClient."""
+    """Mock DynamoDBClient with async methods."""
     with patch("api.dependencies.DynamoDBClient") as mock_class:
-        mock_instance = MagicMock()
+        mock_instance = AsyncMock()
         mock_class.return_value = mock_instance
         yield mock_instance
 

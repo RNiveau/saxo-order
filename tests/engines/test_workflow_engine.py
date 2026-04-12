@@ -1,6 +1,6 @@
 import datetime
 import logging
-from unittest.mock import call
+from unittest.mock import AsyncMock, call
 
 import pytest
 
@@ -25,7 +25,7 @@ from model.enum import AssetType
 
 class TestWorkflowEngine:
 
-    def test_run_not_running_workflow(self, caplog, mocker):
+    async def test_run_not_running_workflow(self, caplog, mocker):
         with caplog.at_level(logging.INFO):
             workflows = [
                 Workflow(
@@ -41,7 +41,7 @@ class TestWorkflowEngine:
                 )
             ]
             slack_client = mocker.Mock()
-            dynamodb_client = mocker.Mock()
+            dynamodb_client = AsyncMock()
             mocker.patch.object(slack_client, "chat_postMessage")
             workflow_engine = WorkflowEngine(
                 workflows,
@@ -50,7 +50,7 @@ class TestWorkflowEngine:
                 mocker.Mock(),
                 dynamodb_client,
             )
-            workflow_engine.run()
+            await workflow_engine.run()
             assert slack_client.chat_postMessage.call_count == 0
             assert (
                 "Workflow Test will not run" == caplog.records[0].getMessage()
@@ -59,7 +59,7 @@ class TestWorkflowEngine:
             workflows[0].name = "Test 2"
             workflows[0].enable = False
             workflows[0].end_date = datetime.datetime.now().date()
-            workflow_engine.run()
+            await workflow_engine.run()
             assert (
                 "Workflow Test 2 will not run"
                 == caplog.records[0].getMessage()
@@ -139,7 +139,7 @@ class TestWorkflowEngine:
             ),
         ],
     )
-    def test_run_ma_50_workflow(
+    async def test_run_ma_50_workflow(
         self,
         workflow: Workflow,
         ma: float,
@@ -151,7 +151,7 @@ class TestWorkflowEngine:
         slack_client = mocker.Mock()
         candles_service = mocker.Mock()
         saxo_client = mocker.Mock()
-        dynamodb_client = mocker.Mock()
+        dynamodb_client = AsyncMock()
         mocker.patch.object(slack_client, "chat_postMessage")
         mocker.patch.object(
             candles_service, "build_hour_candles", return_value=[]
@@ -177,7 +177,7 @@ class TestWorkflowEngine:
             saxo_client,
             dynamodb_client,
         )
-        workflow_engine.run()
+        await workflow_engine.run()
         assert candles_service.build_hour_candles.call_count == 1
         assert candles_service.get_candle_per_hour.call_count == 2
         assert slack_client.chat_postMessage.call_count == slack_call
@@ -186,7 +186,7 @@ class TestWorkflowEngine:
                 channel="#workflows-stock", text=slack_message
             )
 
-    def test_run_ma_7_workflow_below(self, mocker):
+    async def test_run_ma_7_workflow_below(self, mocker):
         workflow = Workflow(
             name="Test",
             index="CAC40.I",
@@ -216,7 +216,7 @@ class TestWorkflowEngine:
         slack_client = mocker.Mock()
         candles_service = mocker.Mock()
         saxo_client = mocker.Mock()
-        dynamodb_client = mocker.Mock()
+        dynamodb_client = AsyncMock()
         mocker.patch.object(slack_client, "chat_postMessage")
         mocker.patch.object(
             candles_service, "build_hour_candles", return_value=[]
@@ -242,7 +242,7 @@ class TestWorkflowEngine:
             saxo_client,
             dynamodb_client,
         )
-        workflow_engine.run()
+        await workflow_engine.run()
         assert candles_service.build_hour_candles.call_count == 1
         assert candles_service.get_candle_per_hour.call_count == 2
         assert slack_client.chat_postMessage.call_count == 1
@@ -252,7 +252,7 @@ class TestWorkflowEngine:
             " for 9 FRA40.I at 8: last price 10.6",
         )
 
-    def test_run_ma_7_workflow_above(self, mocker):
+    async def test_run_ma_7_workflow_above(self, mocker):
         workflow = Workflow(
             name="Test",
             index="CAC40.I",
@@ -282,7 +282,7 @@ class TestWorkflowEngine:
         slack_client = mocker.Mock()
         candles_service = mocker.Mock()
         saxo_client = mocker.Mock()
-        dynamodb_client = mocker.Mock()
+        dynamodb_client = AsyncMock()
         mocker.patch.object(slack_client, "chat_postMessage")
         mocker.patch.object(
             candles_service, "build_hour_candles", return_value=[]
@@ -308,7 +308,7 @@ class TestWorkflowEngine:
             saxo_client,
             dynamodb_client,
         )
-        workflow_engine.run()
+        await workflow_engine.run()
         assert candles_service.build_hour_candles.call_count == 1
         assert candles_service.get_candle_per_hour.call_count == 2
         assert slack_client.chat_postMessage.call_count == 1

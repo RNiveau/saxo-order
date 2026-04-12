@@ -1,7 +1,10 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import aioboto3
+from botocore.config import Config
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from api.routers import (
     alerting,
@@ -17,6 +20,7 @@ from api.routers import (
     watchlist,
     workflow,
 )
+from client.aws_client import DynamoDBClient, DynamoDBOperationError
 from utils.logger import Logger
 
 logger = Logger.get_logger("api_main")
@@ -24,9 +28,30 @@ logger = Logger.get_logger("api_main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifecycle."""
+    """Manage application lifecycle with async DynamoDB resource."""
     logger.info("Starting saxo-order API...")
-    yield
+
+    session = aioboto3.Session()
+    config = Config(
+        max_pool_connections=10,
+        connect_timeout=10,
+        read_timeout=10,
+        tcp_keepalive=True,
+        retries={"mode": "standard", "total_max_attempts": 3},
+    )
+
+    async with session.resource(
+        "dynamodb", region_name="eu-west-1", config=config
+    ) as dynamodb:
+        app.state.dynamodb = dynamodb
+        yield
+
+    stats = DynamoDBClient.get_stats()
+    logger.info(
+        f"DynamoDB stats on shutdown: "
+        f"total_requests={stats['total_requests']}, "
+        f"avg_latency={stats['avg_latency_ms']}ms"
+    )
     logger.info("Shutting down saxo-order API...")
 
 
@@ -50,6 +75,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(DynamoDBOperationError)
+async def dynamodb_error_handler(
+    request: Request, exc: DynamoDBOperationError
+):
+    """Return HTTP 503 for DynamoDB failures without exposing internals."""
+    logger.error(f"DynamoDB error on {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "Service temporarily unavailable. Please try again later."
+        },
+    )
+
 
 # Include routers
 app.include_router(alerting.router)

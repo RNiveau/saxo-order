@@ -24,7 +24,7 @@ async def list_excluded_assets(
         AssetListResponse with only excluded assets
     """
     try:
-        excluded = service.get_all_excluded_assets()
+        excluded = await service.get_all_excluded_assets()
         return AssetListResponse(
             assets=excluded,
             count=len(excluded),
@@ -47,7 +47,7 @@ async def list_all_assets(
         AssetListResponse with all assets and counts
     """
     try:
-        return service.get_all_assets_with_details()
+        return await service.get_all_assets_with_details()
     except Exception as e:
         logger.error(f"Unexpected error getting all assets: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -68,7 +68,7 @@ async def get_asset_details(
         AssetDetailResponse with asset details
     """
     try:
-        return service.get_asset_details(asset_id)
+        return await service.get_asset_details(asset_id)
     except Exception as e:
         logger.error(f"Unexpected error getting asset details {asset_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -91,7 +91,7 @@ async def update_asset_exclusion(
         Updated AssetDetailResponse
     """
     try:
-        return service.update_exclusion(asset_id, request.is_excluded)
+        return await service.update_exclusion(asset_id, request.is_excluded)
     except Exception as e:
         logger.error(
             f"Unexpected error updating exclusion for {asset_id}: {e}"

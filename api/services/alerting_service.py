@@ -1,4 +1,4 @@
-import threading
+import asyncio
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -26,29 +26,17 @@ class AlertingService:
     def __init__(self, dynamodb_client: DynamoDBClient):
         self.dynamodb_client = dynamodb_client
         self._alerts_cache: TTLCache = TTLCache(maxsize=1, ttl=3600)
-        self._cache_lock = threading.RLock()
+        self._cache_lock = asyncio.Lock()
 
-    def get_all_alerts(
+    async def get_all_alerts(
         self,
         asset_code: Optional[str] = None,
         alert_type: Optional[str] = None,
         country_code: Optional[str] = None,
     ) -> AlertsResponse:
-        """
-        Get all alerts from DynamoDB with optional filtering.
-        Results are cached for 1 hour to improve performance.
-
-        Args:
-            asset_code: Optional filter by asset code
-            alert_type: Optional filter by alert type
-            country_code: Optional filter by country code
-
-        Returns:
-            AlertsResponse with filtered alerts and available filter options
-        """
         cache_key = "alerts_base_data"
 
-        with self._cache_lock:
+        async with self._cache_lock:
             if cache_key in self._alerts_cache:
                 logger.debug("Using cached alerts data")
                 cached_data = self._alerts_cache[cache_key]
@@ -56,8 +44,10 @@ class AlertingService:
                 tradingview_links = cached_data["tradingview_links"]
             else:
                 logger.info("Cache miss - fetching alerts from DynamoDB")
-                all_alerts = self.dynamodb_client.get_all_alerts()
-                excluded_asset_ids = self.dynamodb_client.get_excluded_assets()
+                all_alerts = await self.dynamodb_client.get_all_alerts()
+                excluded_asset_ids = (
+                    await self.dynamodb_client.get_excluded_assets()
+                )
                 original_count = len(all_alerts)
                 all_alerts = [
                     alert
@@ -78,7 +68,7 @@ class AlertingService:
                     )
 
                 tradingview_links = (
-                    self.dynamodb_client.get_all_tradingview_links()
+                    await self.dynamodb_client.get_all_tradingview_links()
                 )
 
                 self._alerts_cache[cache_key] = {
@@ -90,7 +80,6 @@ class AlertingService:
                     f"{len(tradingview_links)} TradingView links"
                 )
 
-        # Apply user-provided filters
         filtered_alerts = all_alerts
         if asset_code:
             filtered_alerts = [
@@ -111,10 +100,8 @@ class AlertingService:
                 if alert.country_code == country_code
             ]
 
-        # Sort by date descending (newest first)
         filtered_alerts.sort(key=lambda a: a.date, reverse=True)
 
-        # Transform to response models with TradingView links
         alert_items = []
         for alert in filtered_alerts:
             asset_id = (
@@ -125,7 +112,6 @@ class AlertingService:
             tradingview_url = tradingview_links.get(asset_id)
             alert_items.append(self._to_response(alert, tradingview_url))
 
-        # Calculate available filters from ALL alerts (not filtered)
         filters = self._calculate_filters(all_alerts)
 
         return AlertsResponse(
@@ -137,16 +123,6 @@ class AlertingService:
     def _to_response(
         self, alert: Alert, tradingview_url: Optional[str] = None
     ) -> AlertItemResponse:
-        """
-        Transform Alert domain model to AlertItemResponse API model.
-
-        Args:
-            alert: Alert domain model
-            tradingview_url: Optional custom TradingView URL for this asset
-
-        Returns:
-            AlertItemResponse with calculated age_hours and tradingview_url
-        """
         age = datetime.now() - alert.date
 
         return AlertItemResponse(
@@ -163,16 +139,6 @@ class AlertingService:
         )
 
     def _calculate_filters(self, alerts: List[Alert]) -> Dict[str, List[str]]:
-        """
-        Calculate available filter values from alerts.
-
-        Args:
-            alerts: List of alerts to extract filter values from
-
-        Returns:
-            Dictionary with available asset_codes, alert_types,
-            and country_codes
-        """
         asset_codes = sorted(set(alert.asset_code for alert in alerts))
         alert_types = sorted(set(alert.alert_type.value for alert in alerts))
         country_codes = sorted(
@@ -186,27 +152,13 @@ class AlertingService:
         }
 
     def invalidate_cache(self) -> None:
-        """Invalidate the alerts cache to force fresh data on next request."""
-        with self._cache_lock:
-            self._alerts_cache.clear()
-            logger.info("Alerts cache invalidated")
+        self._alerts_cache.clear()
+        logger.info("Alerts cache invalidated")
 
-    def _is_cooldown_active(
+    async def _is_cooldown_active(
         self, asset_code: str, country_code: Optional[str]
     ) -> tuple[bool, Optional[datetime]]:
-        """
-        Check if cooldown period is active for an asset.
-
-        Args:
-            asset_code: Asset identifier
-            country_code: Country code (or None for crypto)
-
-        Returns:
-            Tuple of (is_active, next_allowed_at)
-            - is_active: True if within 5-minute cooldown
-            - next_allowed_at: When next execution is allowed (or None)
-        """
-        last_run_at = self.dynamodb_client.get_last_run_at(
+        last_run_at = await self.dynamodb_client.get_last_run_at(
             asset_code, country_code
         )
 
@@ -220,25 +172,14 @@ class AlertingService:
         is_active = now < next_allowed_at
         return is_active, next_allowed_at if is_active else None
 
-    def run_on_demand_detection(
+    async def run_on_demand_detection(
         self,
         request: RunAlertsRequest,
         saxo_client: SaxoClient,
     ) -> RunAlertsResponse:
-        """
-        Execute on-demand alert detection with cooldown enforcement.
-
-        Args:
-            request: RunAlertsRequest with asset_code, country_code, exchange
-            saxo_client: SaxoClient for data fetching
-
-        Returns:
-            RunAlertsResponse with execution results and cooldown info
-        """
         start_time = time.time()
 
-        # Check cooldown
-        is_cooldown, next_allowed_at = self._is_cooldown_active(
+        is_cooldown, next_allowed_at = await self._is_cooldown_active(
             request.asset_code, request.country_code
         )
 
@@ -261,7 +202,6 @@ class AlertingService:
                 next_allowed_at=next_allowed_at,
             )
 
-        # Get asset description from Saxo API
         try:
             asset_info = saxo_client.get_asset(
                 request.asset_code, request.country_code
@@ -284,9 +224,8 @@ class AlertingService:
                 next_allowed_at=datetime.now() + timedelta(minutes=5),
             )
 
-        # Run detection algorithms
         try:
-            detected_alerts = run_detection_for_asset(
+            detected_alerts = await run_detection_for_asset(
                 asset_code=request.asset_code,
                 country_code=request.country_code,
                 exchange=request.exchange,
@@ -310,22 +249,18 @@ class AlertingService:
                 next_allowed_at=datetime.now() + timedelta(minutes=5),
             )
 
-        # Invalidate cache since new alerts may have been stored
         if detected_alerts:
             self.invalidate_cache()
 
-        # Update last_run_at timestamp
-        self.dynamodb_client.update_last_run_at(
+        await self.dynamodb_client.update_last_run_at(
             request.asset_code, request.country_code
         )
 
-        # Calculate next allowed execution time
         next_allowed_at = datetime.now() + timedelta(minutes=5)
 
-        # Fetch TradingView link for this asset
         tradingview_url = None
         try:
-            tradingview_url = self.dynamodb_client.get_tradingview_link(
+            tradingview_url = await self.dynamodb_client.get_tradingview_link(
                 request.asset_code
             )
         except Exception as e:
@@ -333,7 +268,6 @@ class AlertingService:
                 f"Failed to get TradingView link for {request.asset_code}: {e}"
             )
 
-        # Transform alerts to response format
         alert_responses = [
             self._to_response(alert, tradingview_url)
             for alert in detected_alerts
