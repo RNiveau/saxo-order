@@ -326,40 +326,14 @@ class CandlesService:
             )
             if len(data) == 0 or data_cfd[0]["Time"] > data[0]["Time"]:
                 data.insert(0, data_cfd[0])
-        if (
-            data[0]["Time"].minute == open_minutes
-        ):  # it means we don't have the last 30 minutes of the current hour
+        if data[0]["Time"].minute == open_minutes:
             data = data[1:]
-        i = 0
-        candles = []
-        while i < len(data):
-            open_hour_ok = data[i]["Time"].hour >= open_hour_utc0
-            close_hour_ok = (
-                data[i]["Time"].hour <= close_hour_utc0
-                if open_minutes == 0
-                else data[i]["Time"].hour <= close_hour_utc0 + 1
-            )
-            minutes_ok = (
-                data[i]["Time"].minute == 30
-                if open_minutes == 0
-                else data[i]["Time"].minute == 0
-            )
-            if open_hour_ok and close_hour_ok and minutes_ok:
-                if i + 1 < len(data):
-                    last = map_data_to_candle(data[i], ut)
-                    first = map_data_to_candle(data[i + 1], ut)
-                    last.open = first.open
-                    last.date = first.date
-                    if first.lower < last.lower:
-                        last.lower = first.lower
-                    if first.higher > last.higher:
-                        last.higher = first.higher
-                    candles.append(last)
-                    i += 2
-                    continue
-                else:
-                    break
-            i += 1
+        market = Market(
+            open_hour=open_hour_utc0,
+            close_hour=close_hour_utc0,
+            open_minutes=open_minutes,
+        )
+        candles = self._build_h1_from_30m(data, market, ut)
         if ut == UnitTime.H4:
             return build_h4_candles_from_h1(candles, open_hour_utc0)
         elif ut == UnitTime.D:
