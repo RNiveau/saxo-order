@@ -123,6 +123,8 @@ Examples:
 - AWS DynamoDB `workflow_orders` table — existing, unchanged (014-workflow-orders-list)
 - Python 3.11 + existing `mobile_average()` in `services/indicator_service.py`; `AbstractWorkflow` in `engines/workflows.py` (017-mm7-indicator)
 - N/A — no persistence changes (017-mm7-indicator)
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend API), Click (CLI), React Router DOM v7+, Vite 7+, Axios (frontend) (512-inclined-line-indicator)
+- AWS DynamoDB (workflow persistence via existing `workflow_service.py`) (512-inclined-line-indicator)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)
