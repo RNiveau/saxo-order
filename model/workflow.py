@@ -77,8 +77,8 @@ class Indicator:
             IndicatorType.get_value(name) if isinstance(name, str) else name
         )
         self.ut = UnitTime.get_value(ut) if isinstance(ut, str) else ut
-        self.value = value
-        self.zone_value = zone_value
+        self.value = float(value) if value is not None else None
+        self.zone_value = float(zone_value) if zone_value is not None else None
 
     def __repr__(self) -> str:
         repr = f"{self.name} {self.ut}"
@@ -102,7 +102,7 @@ class Close:
             else direction
         )
         self.ut = UnitTime.get_value(ut) if isinstance(ut, str) else ut
-        self.spread = spread
+        self.spread = float(spread)
 
 
 @dataclass
