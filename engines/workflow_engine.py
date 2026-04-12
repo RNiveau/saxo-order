@@ -290,9 +290,13 @@ class WorkflowEngine:
         self, workflow: Workflow, candles: List[Candle], run: AbstractWorkflow
     ) -> Optional[tuple[Candle, Order]]:
         run.init_workflow(workflow.conditions[0].indicator, candles)
+        market = EUMarket() if workflow.is_us is False else USMarket()
 
         close_candle = self.candles_service.get_candle_per_hour(
-            workflow.cfd, workflow.conditions[0].close.ut, get_date_utc0()
+            workflow.cfd,
+            workflow.conditions[0].close.ut,
+            get_date_utc0(),
+            market,
         )
         if close_candle is None:
             self.logger.error(
@@ -365,8 +369,9 @@ class WorkflowEngine:
         self.logger.debug(
             f"get trigger candle for {workflow.cfd} {workflow.trigger.ut}"
         )
+        market = EUMarket() if workflow.is_us is False else USMarket()
         trigger_candle = self.candles_service.get_candle_per_hour(
-            workflow.cfd, workflow.trigger.ut, get_date_utc0()
+            workflow.cfd, workflow.trigger.ut, get_date_utc0(), market
         )
         if trigger_candle is None:
             self.logger.error(

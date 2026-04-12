@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 from client.client_helper import map_data_to_candle, map_data_to_candles
 from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
-from model import Candle, UnitTime
+from model import Candle, Market, UnitTime
 from utils.exception import SaxoException
 from utils.helper import (
     build_current_weekly_candle_from_daily,
@@ -194,27 +194,83 @@ class CandlesService:
         return candles
 
     def get_candle_per_hour(
-        self, code: str, ut: UnitTime, date: datetime.datetime
+        self, code: str, ut: UnitTime, date: datetime.datetime, market: Market
     ) -> Optional[Candle]:
-        """Return last h1 or h4 candle"""
-        self.logger.debug(f"get_candle_per_hour {code}")
+        """Return last h1, h4 or daily candle built from 30m data"""
+        self.logger.debug(f"get_candle_per_hour {code} {ut}")
         asset = self.saxo_client.get_asset(code)
         self.logger.debug(asset)
+        match ut:
+            case UnitTime.H1:
+                count = 4
+            case UnitTime.H4:
+                count = 16
+            case UnitTime.D:
+                count = 40
+            case _:
+                raise SaxoException(f"We don't handle this ut : {ut}")
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
-            horizon=60,
-            count=5,
+            horizon=30,
+            count=count,
             date=date,
         )
+        if data[0]["Time"].minute == market.open_minutes:
+            data = data[1:]
+        h1_candles = self._build_h1_from_30m(data, market, ut)
+        if not h1_candles:
+            return None
         match ut:
             case UnitTime.H1:
-                return map_data_to_candle(data[0], ut)
-            case _:
-                self.logger.error(
-                    f"get_candle_per_hour: We don't handle this ut : {ut}"
+                return h1_candles[0]
+            case UnitTime.H4:
+                h4_candles = build_h4_candles_from_h1(
+                    h1_candles, market.open_hour
                 )
+                return h4_candles[0] if h4_candles else None
+            case UnitTime.D:
+                daily_candles = build_daily_candles_from_h1(
+                    h1_candles, market.open_hour
+                )
+                return daily_candles[0] if daily_candles else None
+            case _:
                 raise SaxoException(f"We don't handle this ut : {ut}")
+
+    def _build_h1_from_30m(
+        self, data: list, market: Market, ut: UnitTime
+    ) -> List[Candle]:
+        candles = []
+        i = 0
+        while i < len(data):
+            open_hour_ok = data[i]["Time"].hour >= market.open_hour
+            close_hour_ok = (
+                data[i]["Time"].hour <= market.close_hour
+                if market.open_minutes == 0
+                else data[i]["Time"].hour <= market.close_hour + 1
+            )
+            minutes_ok = (
+                data[i]["Time"].minute == 30
+                if market.open_minutes == 0
+                else data[i]["Time"].minute == 0
+            )
+            if open_hour_ok and close_hour_ok and minutes_ok:
+                if i + 1 < len(data):
+                    last = map_data_to_candle(data[i], ut)
+                    first = map_data_to_candle(data[i + 1], ut)
+                    last.open = first.open
+                    last.date = first.date
+                    if first.lower < last.lower:
+                        last.lower = first.lower
+                    if first.higher > last.higher:
+                        last.higher = first.higher
+                    candles.append(last)
+                    i += 2
+                    continue
+                else:
+                    break
+            i += 1
+        return candles
 
     def build_hour_candles(
         self,
@@ -272,40 +328,14 @@ class CandlesService:
             )
             if len(data) == 0 or data_cfd[0]["Time"] > data[0]["Time"]:
                 data.insert(0, data_cfd[0])
-        if (
-            data[0]["Time"].minute == open_minutes
-        ):  # it means we don't have the last 30 minutes of the current hour
+        if data[0]["Time"].minute == open_minutes:
             data = data[1:]
-        i = 0
-        candles = []
-        while i < len(data):
-            open_hour_ok = data[i]["Time"].hour >= open_hour_utc0
-            close_hour_ok = (
-                data[i]["Time"].hour <= close_hour_utc0
-                if open_minutes == 0
-                else data[i]["Time"].hour <= close_hour_utc0 + 1
-            )
-            minutes_ok = (
-                data[i]["Time"].minute == 30
-                if open_minutes == 0
-                else data[i]["Time"].minute == 0
-            )
-            if open_hour_ok and close_hour_ok and minutes_ok:
-                if i + 1 < len(data):
-                    last = map_data_to_candle(data[i], ut)
-                    first = map_data_to_candle(data[i + 1], ut)
-                    last.open = first.open
-                    last.date = first.date
-                    if first.lower < last.lower:
-                        last.lower = first.lower
-                    if first.higher > last.higher:
-                        last.higher = first.higher
-                    candles.append(last)
-                    i += 2
-                    continue
-                else:
-                    break
-            i += 1
+        market = Market(
+            open_hour=open_hour_utc0,
+            close_hour=close_hour_utc0,
+            open_minutes=open_minutes,
+        )
+        candles = self._build_h1_from_30m(data, market, ut)
         if ut == UnitTime.H4:
             return build_h4_candles_from_h1(candles, open_hour_utc0)
         elif ut == UnitTime.D:
