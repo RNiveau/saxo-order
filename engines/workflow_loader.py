@@ -186,6 +186,7 @@ async def load_workflows(force_from_disk: bool = False) -> List[Workflow]:
                 trigger=trigger,
                 dry_run=dry_run,
                 is_us=is_us,
+                id=workflow_data.get("id"),
             )
         )
     return workflows
