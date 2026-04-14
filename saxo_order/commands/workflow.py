@@ -124,26 +124,29 @@ async def execute_workflow(
     candles_service = CandlesService(saxo_client)
 
     dynamodb_client, dynamodb_resource = await create_dynamodb_client()
-    workflows = await load_workflows(force_from_disk)
+    try:
+        workflows = await load_workflows(force_from_disk)
 
-    if select_workflow is True:
-        workflows_select = list(filter(lambda x: x.enable, workflows))
-        if len(workflows_select) > 1:
-            prompt = "Select the workflow to run:\n"
-            for index, workflow in enumerate(workflows_select):
-                prompt += f"[{index + 1}] {workflow.name}\n"
-            id = input(prompt)
-        else:
-            id = "1"
-        if int(id) < 1 or int(id) > len(workflows):
-            raise SaxoException("Wrong account selection")
-        workflows = [workflows_select[int(id) - 1]]
+        if select_workflow is True:
+            workflows_select = list(filter(lambda x: x.enable, workflows))
+            if len(workflows_select) > 1:
+                prompt = "Select the workflow to run:\n"
+                for index, workflow in enumerate(workflows_select):
+                    prompt += f"[{index + 1}] {workflow.name}\n"
+                id = input(prompt)
+            else:
+                id = "1"
+            if int(id) < 1 or int(id) > len(workflows):
+                raise SaxoException("Wrong account selection")
+            workflows = [workflows_select[int(id) - 1]]
 
-    engine = WorkflowEngine(
-        workflows=workflows,
-        slack_client=WebClient(token=configuration.slack_token),
-        candles_service=candles_service,
-        saxo_client=saxo_client,
-        dynamodb_client=dynamodb_client,
-    )
-    await engine.run()
+        engine = WorkflowEngine(
+            workflows=workflows,
+            slack_client=WebClient(token=configuration.slack_token),
+            candles_service=candles_service,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+        await engine.run()
+    finally:
+        await dynamodb_resource.__aexit__(None, None, None)
