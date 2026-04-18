@@ -1002,6 +1002,85 @@ class TestHelper:
             (
                 [
                     Candle(
+                        lower=54.0,
+                        higher=55.5,
+                        open=54.5,
+                        close=55.0,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 8, 20, 20, 30),
+                    ),
+                    Candle(
+                        lower=53.5,
+                        higher=55.0,
+                        open=54.0,
+                        close=54.5,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 8, 20, 19, 30),
+                    ),
+                    Candle(
+                        lower=53.0,
+                        higher=54.5,
+                        open=53.5,
+                        close=54.0,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 8, 20, 18, 30),
+                    ),
+                    Candle(
+                        lower=52.5,
+                        higher=54.0,
+                        open=53.0,
+                        close=53.5,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 8, 20, 17, 30),
+                    ),
+                    Candle(
+                        lower=52.0,
+                        higher=53.5,
+                        open=52.5,
+                        close=53.0,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 8, 20, 16, 30),
+                    ),
+                    Candle(
+                        lower=51.5,
+                        higher=53.0,
+                        open=52.0,
+                        close=52.5,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 8, 20, 15, 30),
+                    ),
+                    Candle(
+                        lower=51.0,
+                        higher=52.5,
+                        open=51.5,
+                        close=52.0,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 8, 20, 14, 30),
+                    ),
+                    Candle(
+                        lower=50.0,
+                        higher=52.0,
+                        open=50.5,
+                        close=51.5,
+                        ut=UnitTime.H1,
+                        date=datetime.datetime(2024, 8, 20, 13, 30),
+                    ),
+                ],
+                13,
+                [
+                    Candle(
+                        lower=50.0,
+                        higher=55.5,
+                        open=50.5,
+                        close=55.0,
+                        ut=UnitTime.D,
+                        date=datetime.datetime(2024, 8, 20, 13, 30),
+                    )
+                ],
+            ),
+            (
+                [
+                    Candle(
                         lower=7481.67,
                         higher=7491.62,
                         open=7491.62,

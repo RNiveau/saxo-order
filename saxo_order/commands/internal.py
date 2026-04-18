@@ -10,10 +10,13 @@ from client.aws_client import S3Client
 from client.client_helper import map_data_to_candles
 from client.saxo_client import SaxoClient
 from engines.workflow_loader import load_workflows
-from model import AssetType, UnitTime
+from model import AssetType, UnitTime, USMarket
 from saxo_order.commands import catch_exception
+from services.candles_service import CandlesService
+from services.indicator_service import mobile_average
 from utils.configuration import Configuration
 from utils.exception import SaxoException
+from utils.helper import get_date_utc0
 from utils.json_util import dumps_indicator
 from utils.logger import Logger
 
@@ -225,6 +228,39 @@ Here is the data:
 {dumps_indicator(candles)}
 """
     print(prompt)
+
+
+@click.command()
+@click.pass_context
+@catch_exception(handle=SaxoException)
+def mm7_daily(ctx: Context):
+    configuration = Configuration(ctx.obj["config"])
+    saxo_client = SaxoClient(configuration)
+    candles_service = CandlesService(saxo_client)
+    market = USMarket()
+    code = "NKE:xnys"
+
+    asset = saxo_client.get_asset(code)
+    historical = saxo_client.get_historical_data(
+        asset_type=asset["AssetType"],
+        saxo_uic=asset["Identifier"],
+        horizon=1440,
+        count=7,
+    )
+    candles = map_data_to_candles(historical, ut=UnitTime.D)
+
+    today_candle = candles_service.get_candle_per_hour(
+        code, UnitTime.D, get_date_utc0(), market
+    )
+    if today_candle is not None:
+        candles.insert(0, today_candle)
+        candles = candles[:7]
+
+    for candle in candles:
+        print(candle)
+
+    mm7 = mobile_average(candles, 7)
+    print(f"MM7 daily for {code}: {mm7:.4f}")
 
 
 @click.command()

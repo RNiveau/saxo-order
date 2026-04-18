@@ -197,13 +197,13 @@ def build_daily_candles_from_h1(
             candle_date = candles[i].date
             if candle_date is None:
                 i += 1
-            elif candle_date.hour == 19:
-                if i + 6 >= len(candles):
+            elif candle_date.hour == 20:
+                if i + 7 >= len(candles):
                     break
                 candles_daily.append(
-                    _internal_build_candle(candles, i, 6, UnitTime.D)
+                    _internal_build_candle(candles, i, 7, UnitTime.D)
                 )
-                i += 7
+                i += 8
             else:
                 Logger.get_logger("build_daily_candles_from_h1").debug(
                     f"Not a daily ending {candles[i].date}"

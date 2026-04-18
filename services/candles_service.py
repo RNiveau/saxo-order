@@ -269,6 +269,15 @@ class CandlesService:
                     continue
                 else:
                     break
+            elif (
+                ut == UnitTime.D
+                and market.open_minutes != 0
+                and open_hour_ok
+                and data[i]["Time"].hour == market.close_hour - 1
+                and data[i]["Time"].minute == market.open_minutes
+            ):
+                candle = map_data_to_candle(data[i], ut)
+                candles.append(candle)
             i += 1
         return candles
 
