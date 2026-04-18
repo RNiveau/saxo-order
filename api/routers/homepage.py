@@ -42,7 +42,7 @@ async def get_homepage(
         HomepageResponse with homepage items including MA50 data
     """
     try:
-        all_items = dynamodb_client.get_watchlist()
+        all_items = await dynamodb_client.get_watchlist()
         homepage_items = [
             item
             for item in all_items
@@ -63,7 +63,7 @@ async def get_homepage(
                     else Exchange.SAXO
                 )
 
-                indicators = indicator_service.get_asset_indicators(
+                indicators = await indicator_service.get_asset_indicators(
                     code, exchange, country_code, UnitTime.D
                 )
 
@@ -78,8 +78,8 @@ async def get_homepage(
 
                 tradingview_url = None
                 try:
-                    tradingview_url = dynamodb_client.get_tradingview_link(
-                        code
+                    tradingview_url = (
+                        await dynamodb_client.get_tradingview_link(code)
                     )
                 except Exception as e:
                     logger.warning(

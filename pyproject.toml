@@ -16,7 +16,7 @@ binance-connector = "^3.7.0"
 beautifulsoup4 = "^4.14.2"
 slack-sdk = "^3.37.0"
 numpy = "^2.3.5"
-boto3 = "^1.40.69"
+aioboto3 = "^13.0.0"
 pulumi = {version = "^3.206.0", extras = ["pulumi"]}
 pulumi-aws = {version = "^7.11.1", extras = ["pulumi"]}
 prettytable = "^3.12.0"
@@ -31,6 +31,7 @@ pytest = "^9.0.0"
 pytest-cov = "^7.0.0"
 mypy = "^1.18.2"
 pytest-mock = "^3.15.1"
+pytest-asyncio = "^1.0.0"
 mock = "^5.1.0"
 google-api-python-client-stubs = "^1.24.0"
 google-auth-stubs = "^0.3.0"
@@ -58,6 +59,7 @@ line_length = 79
 
 [tool.pytest.ini_options]
 mock_use_standalone_module = "true"
+asyncio_mode = "auto"
 
 [tool.black]
 line-length = 79

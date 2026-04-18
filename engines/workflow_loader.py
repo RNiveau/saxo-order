@@ -17,11 +17,12 @@ from model.workflow import (
     WorkflowElement,
     WorkflowSignal,
 )
+from saxo_order.async_utils import create_dynamodb_client
 from utils.exception import SaxoException
 from utils.logger import Logger
 
 
-def _load_from_dynamodb(logger) -> List[Dict[str, Any]]:
+async def _load_from_dynamodb(logger) -> List[Dict[str, Any]]:
     """
     Load workflows from DynamoDB.
 
@@ -31,14 +32,19 @@ def _load_from_dynamodb(logger) -> List[Dict[str, Any]]:
     Raises:
         Exception: If DynamoDB query fails
     """
-    dynamodb_client = DynamoDBClient()
-    workflows_data = dynamodb_client.get_all_workflows()
+    dynamodb_client, dynamodb_resource = await create_dynamodb_client()
+    try:
+        workflows_data = await dynamodb_client.get_all_workflows()
 
-    enabled_workflows = [w for w in workflows_data if w.get("enable", False)]
-    logger.info(
-        f"Loaded {len(enabled_workflows)} enabled workflows from DynamoDB"
-    )
-    return enabled_workflows
+        enabled_workflows = [
+            w for w in workflows_data if w.get("enable", False)
+        ]
+        logger.info(
+            f"Loaded {len(enabled_workflows)} enabled workflows from DynamoDB"
+        )
+        return enabled_workflows
+    finally:
+        await dynamodb_resource.__aexit__(None, None, None)
 
 
 def _load_from_yaml(logger, force_from_disk: bool) -> List[Dict[str, Any]]:
@@ -70,13 +76,13 @@ def _load_from_yaml(logger, force_from_disk: bool) -> List[Dict[str, Any]]:
     return workflows_data
 
 
-def load_workflows(force_from_disk: bool = False) -> List[Workflow]:
+async def load_workflows(force_from_disk: bool = False) -> List[Workflow]:
     logger = Logger.get_logger("workflow_loader", logging.DEBUG)
 
     if S3Client.is_aws_context() and force_from_disk is False:
         try:
             logger.info("Attempting to load workflows from DynamoDB")
-            workflows_data = _load_from_dynamodb(logger)
+            workflows_data = await _load_from_dynamodb(logger)
             if workflows_data:
                 logger.info(
                     "Using DynamoDB as workflow source"
@@ -180,6 +186,7 @@ def load_workflows(force_from_disk: bool = False) -> List[Workflow]:
                 trigger=trigger,
                 dry_run=dry_run,
                 is_us=is_us,
+                id=workflow_data.get("id"),
             )
         )
     return workflows

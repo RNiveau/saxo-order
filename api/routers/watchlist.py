@@ -60,7 +60,9 @@ async def check_watchlist(
         CheckWatchlistResponse with in_watchlist boolean and labels
     """
     try:
-        in_watchlist, labels = dynamodb_client.get_watchlist_item(asset_id)
+        in_watchlist, labels = await dynamodb_client.get_watchlist_item(
+            asset_id
+        )
 
         return CheckWatchlistResponse(
             in_watchlist=in_watchlist,
@@ -83,7 +85,7 @@ async def get_watchlist(
         WatchlistResponse with watchlist items excluding long-term
     """
     try:
-        return watchlist_service.get_watchlist()
+        return await watchlist_service.get_watchlist()
     except Exception as e:
         logger.error(f"Unexpected error getting watchlist: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -100,7 +102,7 @@ async def get_all_watchlist(
         WatchlistResponse with all watchlist items
     """
     try:
-        return watchlist_service.get_all_watchlist()
+        return await watchlist_service.get_all_watchlist()
     except Exception as e:
         logger.error(f"Unexpected error getting all watchlist: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -117,7 +119,7 @@ async def get_long_term_positions(
         WatchlistResponse with long-term positions enriched with current prices
     """
     try:
-        return watchlist_service.get_long_term_positions()
+        return await watchlist_service.get_long_term_positions()
     except Exception as e:
         logger.error(f"Unexpected error getting long-term positions: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -170,7 +172,7 @@ async def add_to_watchlist(
         ):
             labels.append(WatchlistTag.CRYPTO.value)
 
-        dynamodb_client.add_to_watchlist(
+        await dynamodb_client.add_to_watchlist(
             request.asset_id,
             request.asset_symbol,
             description,
@@ -208,7 +210,7 @@ async def remove_from_watchlist(
         RemoveFromWatchlistResponse with success message
     """
     try:
-        dynamodb_client.remove_from_watchlist(asset_id)
+        await dynamodb_client.remove_from_watchlist(asset_id)
 
         return RemoveFromWatchlistResponse(
             message="Asset removed from watchlist",
@@ -240,14 +242,14 @@ async def update_watchlist_labels(
     """
     try:
         # Check if asset exists in watchlist
-        if not dynamodb_client.is_in_watchlist(asset_id):
+        if not await dynamodb_client.is_in_watchlist(asset_id):
             raise HTTPException(
                 status_code=404, detail="Asset not found in watchlist"
             )
 
         # Enforce 6-asset limit for homepage tag
         if WatchlistTag.HOMEPAGE.value in request.labels:
-            all_items = dynamodb_client.get_watchlist()
+            all_items = await dynamodb_client.get_watchlist()
             homepage_count = sum(
                 1
                 for item in all_items
@@ -268,7 +270,7 @@ async def update_watchlist_labels(
             request.labels.copy()
         )
 
-        dynamodb_client.update_watchlist_labels(asset_id, labels)
+        await dynamodb_client.update_watchlist_labels(asset_id, labels)
 
         return UpdateLabelsResponse(
             message="Labels updated successfully",

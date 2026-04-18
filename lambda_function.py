@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 from slack_sdk import WebClient
@@ -20,9 +21,9 @@ def handler(event, _):
                 configuration.save_tokens(access_token, refresh_token)
                 return {"result": "ok", "message": "token has been refreshed"}
             case "alerting":
-                run_alerting(os.getenv("SAXO_CONFIG"))
+                asyncio.run(run_alerting(os.getenv("SAXO_CONFIG")))
             case "workflows":
-                execute_workflow(os.getenv("SAXO_CONFIG"))
+                asyncio.run(execute_workflow(os.getenv("SAXO_CONFIG")))
             case "snapshot":
                 execute_snapshot(os.getenv("SAXO_CONFIG"))
             case _:

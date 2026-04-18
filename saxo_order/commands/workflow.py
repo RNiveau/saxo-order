@@ -1,13 +1,14 @@
+import asyncio
 import logging
 
 import click
 from click.core import Context
 from slack_sdk import WebClient
 
-from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
 from engines.workflow_engine import WorkflowEngine
 from engines.workflow_loader import load_workflows
+from saxo_order.async_utils import create_dynamodb_client
 from saxo_order.commands import catch_exception
 from services.candles_service import CandlesService
 from utils.configuration import Configuration
@@ -37,10 +38,12 @@ logger = Logger.get_logger("workflow", logging.DEBUG)
 def run(ctx: Context, force_from_disk: str, select_workflow: str):
     """Run workflows."""
     config = ctx.obj["config"]
-    execute_workflow(
-        config,
-        True if force_from_disk == "y" else False,
-        True if select_workflow == "y" else False,
+    asyncio.run(
+        execute_workflow(
+            config,
+            True if force_from_disk == "y" else False,
+            True if select_workflow == "y" else False,
+        )
     )
 
 
@@ -70,7 +73,9 @@ def run(ctx: Context, force_from_disk: str, select_workflow: str):
 def asset(ctx: Context, code: str, country_code: str, force_from_disk: str):
     """List all workflows for a specific asset."""
     symbol = f"{code}:{country_code}" if country_code else code
-    workflows = load_workflows(True if force_from_disk == "y" else False)
+    workflows = asyncio.run(
+        load_workflows(True if force_from_disk == "y" else False)
+    )
 
     matching_workflows = [
         w
@@ -111,33 +116,37 @@ def asset(ctx: Context, code: str, country_code: str, force_from_disk: str):
     print(f"Total: {len(matching_workflows)} workflow(s)")
 
 
-def execute_workflow(
+async def execute_workflow(
     config: str, force_from_disk: bool = False, select_workflow: bool = False
 ) -> None:
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
     candles_service = CandlesService(saxo_client)
-    dynamodb_client = DynamoDBClient()
-    workflows = load_workflows(force_from_disk)
 
-    if select_workflow is True:
-        workflows_select = list(filter(lambda x: x.enable, workflows))
-        if len(workflows_select) > 1:
-            prompt = "Select the workflow to run:\n"
-            for index, workflow in enumerate(workflows_select):
-                prompt += f"[{index + 1}] {workflow.name}\n"
-            id = input(prompt)
-        else:
-            id = "1"
-        if int(id) < 1 or int(id) > len(workflows):
-            raise SaxoException("Wrong account selection")
-        workflows = [workflows_select[int(id) - 1]]
+    dynamodb_client, dynamodb_resource = await create_dynamodb_client()
+    try:
+        workflows = await load_workflows(force_from_disk)
 
-    engine = WorkflowEngine(
-        workflows=workflows,
-        slack_client=WebClient(token=configuration.slack_token),
-        candles_service=candles_service,
-        saxo_client=saxo_client,
-        dynamodb_client=dynamodb_client,
-    )
-    engine.run()
+        if select_workflow is True:
+            workflows_select = list(filter(lambda x: x.enable, workflows))
+            if len(workflows_select) > 1:
+                prompt = "Select the workflow to run:\n"
+                for index, workflow in enumerate(workflows_select):
+                    prompt += f"[{index + 1}] {workflow.name}\n"
+                id = input(prompt)
+            else:
+                id = "1"
+            if int(id) < 1 or int(id) > len(workflows):
+                raise SaxoException("Wrong account selection")
+            workflows = [workflows_select[int(id) - 1]]
+
+        engine = WorkflowEngine(
+            workflows=workflows,
+            slack_client=WebClient(token=configuration.slack_token),
+            candles_service=candles_service,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+        await engine.run()
+    finally:
+        await dynamodb_resource.__aexit__(None, None, None)

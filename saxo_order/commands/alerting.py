@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import os
@@ -17,6 +18,7 @@ from services import congestion_indicator, indicator_service
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.helper import build_daily_candle_from_hours
+from saxo_order.async_utils import create_dynamodb_client
 from utils.logger import Logger
 
 logger = Logger.get_logger("alerting")
@@ -123,21 +125,23 @@ def alerting(ctx: Context, code: str, country_code: str) -> None:
     if code is not None and code != "":
         saxo_client = SaxoClient(Configuration(config))
         asset = saxo_client.get_asset(code, country_code)
-        run_alerting(
-            config,
-            [
-                {
-                    "name": asset["Description"],
-                    "code": asset["Symbol"],
-                    "saxo_uic": asset["Identifier"],
-                }
-            ],
+        asyncio.run(
+            run_alerting(
+                config,
+                [
+                    {
+                        "name": asset["Description"],
+                        "code": asset["Symbol"],
+                        "saxo_uic": asset["Identifier"],
+                    }
+                ],
+            )
         )
     else:
-        run_alerting(config)
+        asyncio.run(run_alerting(config))
 
 
-def run_detection_for_asset(
+async def run_detection_for_asset(
     asset_code: str,
     country_code: Optional[str],
     exchange: str,
@@ -354,7 +358,7 @@ def run_detection_for_asset(
 
         # Store alerts in DynamoDB if any were detected
         if len(asset_alerts) > 0:
-            dynamodb_client.store_alerts(
+            await dynamodb_client.store_alerts(
                 asset_code,
                 country_code,
                 asset_alerts,
@@ -366,12 +370,15 @@ def run_detection_for_asset(
     return asset_alerts
 
 
-def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
+async def run_alerting(
+    config: str, assets: Optional[List[Dict]] = None
+) -> None:
 
     configuration = Configuration(config)
     saxo_client = SaxoClient(configuration)
     slack_client = WebClient(token=configuration.slack_token)
-    dynamodb_client = DynamoDBClient()
+
+    dynamodb_client, dynamodb_resource = await create_dynamodb_client()
 
     if assets is None:
         # Fetch French stocks from API with fallback to JSON
@@ -433,7 +440,7 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
         assets = unique_stocks
 
     # Filter out excluded assets
-    excluded_asset_ids = dynamodb_client.get_excluded_assets()
+    excluded_asset_ids = await dynamodb_client.get_excluded_assets()
     logger.info(f"Excluded assets: {excluded_asset_ids}")
 
     original_count = len(assets)
@@ -491,7 +498,7 @@ def run_alerting(config: str, assets: Optional[List[Dict]] = None) -> None:
         final_country_code = asset.get("country_code") or parsed_country_code
 
         # Call extracted detection function
-        asset_alerts = run_detection_for_asset(
+        asset_alerts = await run_detection_for_asset(
             asset_code=parsed_asset_code,
             country_code=final_country_code,
             exchange="saxo",

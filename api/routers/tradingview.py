@@ -32,7 +32,9 @@ async def set_tradingview_link(
         SetTradingViewLinkResponse with success message
     """
     try:
-        dynamodb_client.set_asset_detail(asset_id, request.tradingview_url)
+        await dynamodb_client.set_asset_detail(
+            asset_id, request.tradingview_url
+        )
 
         return SetTradingViewLinkResponse(
             message=f"TradingView URL updated for {asset_id}",

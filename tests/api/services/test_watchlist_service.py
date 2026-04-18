@@ -1,16 +1,18 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from api.models.indicator import AssetIndicatorsResponse
 from api.models.watchlist import WatchlistTag
 from api.services.watchlist_service import WatchlistService
 from client.aws_client import DynamoDBClient
+from model import Currency
 
 
 @pytest.fixture
 def mock_dynamodb_client():
-    """Mock DynamoDBClient."""
-    return MagicMock(spec=DynamoDBClient)
+    """Mock DynamoDBClient with async methods."""
+    return AsyncMock(spec=DynamoDBClient)
 
 
 @pytest.fixture
@@ -24,6 +26,18 @@ def mock_indicator_service():
         "Description": "Test Asset",
         "CurrencyCode": "EUR",
     }
+    # Mock get_asset_indicators as async with proper return value
+    mock_service.get_asset_indicators = AsyncMock(
+        return_value=AssetIndicatorsResponse(
+            asset_symbol="TEST",
+            description="Test",
+            current_price=100.0,
+            variation_pct=5.0,
+            currency=Currency.USD,
+            unit_time="daily",
+            moving_averages=[],
+        )
+    )
     return mock_service
 
 
@@ -34,7 +48,7 @@ def watchlist_service(mock_dynamodb_client, mock_indicator_service):
 
 
 class TestWatchlistServiceFiltering:
-    def test_get_watchlist_excludes_long_term(
+    async def test_get_watchlist_excludes_long_term(
         self, watchlist_service, mock_dynamodb_client
     ):
         """Test that get_watchlist filters out long-term tagged assets."""
@@ -85,7 +99,7 @@ class TestWatchlistServiceFiltering:
         mock_dynamodb_client.get_tradingview_link.return_value = None
 
         # Execute: Call get_watchlist
-        result = watchlist_service.get_watchlist()
+        result = await watchlist_service.get_watchlist()
 
         # Assert: Only items without long-term tag are returned
         assert result.total == 2
@@ -100,7 +114,7 @@ class TestWatchlistServiceFiltering:
         # Items with BOTH tags should be excluded (long-term takes precedence)
         assert "both1" not in returned_ids
 
-    def test_get_all_watchlist_includes_all_items(
+    async def test_get_all_watchlist_includes_all_items(
         self, watchlist_service, mock_dynamodb_client
     ):
         """Test that get_all_watchlist returns all items."""
@@ -151,7 +165,7 @@ class TestWatchlistServiceFiltering:
         mock_dynamodb_client.get_tradingview_link.return_value = None
 
         # Execute: Call get_all_watchlist
-        result = watchlist_service.get_all_watchlist()
+        result = await watchlist_service.get_all_watchlist()
 
         # Assert: ALL items are returned
         assert result.total == 4
@@ -163,7 +177,7 @@ class TestWatchlistServiceFiltering:
         assert "both1" in returned_ids
         assert "none1" in returned_ids
 
-    def test_filtering_uses_enum_value(
+    async def test_filtering_uses_enum_value(
         self, watchlist_service, mock_dynamodb_client
     ):
         """Test that filtering uses WatchlistTag enum value."""
@@ -184,13 +198,13 @@ class TestWatchlistServiceFiltering:
         mock_dynamodb_client.get_tradingview_link.return_value = None
 
         # Execute
-        result = watchlist_service.get_watchlist()
+        result = await watchlist_service.get_watchlist()
 
         # Assert: Item is filtered out
         assert result.total == 0
         assert len(result.items) == 0
 
-    def test_get_watchlist_excludes_crypto_without_short_term(
+    async def test_get_watchlist_excludes_crypto_without_short_term(
         self, watchlist_service, mock_dynamodb_client
     ):
         """Test crypto assets without short-term tag excluded from sidebar."""
@@ -232,7 +246,7 @@ class TestWatchlistServiceFiltering:
 
         mock_dynamodb_client.get_tradingview_link.return_value = None
 
-        result = watchlist_service.get_watchlist()
+        result = await watchlist_service.get_watchlist()
 
         assert result.total == 2
         returned_ids = {item.id for item in result.items}
@@ -240,7 +254,7 @@ class TestWatchlistServiceFiltering:
         assert "saxo1" in returned_ids
         assert "crypto1" not in returned_ids
 
-    def test_get_all_watchlist_includes_crypto_assets(
+    async def test_get_all_watchlist_includes_crypto_assets(
         self, watchlist_service, mock_dynamodb_client
     ):
         """Test that get_all_watchlist includes all crypto assets."""
@@ -271,14 +285,14 @@ class TestWatchlistServiceFiltering:
 
         mock_dynamodb_client.get_tradingview_link.return_value = None
 
-        result = watchlist_service.get_all_watchlist()
+        result = await watchlist_service.get_all_watchlist()
 
         assert result.total == 2
         returned_ids = {item.id for item in result.items}
         assert "crypto1" in returned_ids
         assert "crypto_short" in returned_ids
 
-    def test_get_long_term_positions_filters_correctly(
+    async def test_get_long_term_positions_filters_correctly(
         self, watchlist_service, mock_dynamodb_client
     ):
         """Test that get_long_term_positions returns only long-term
@@ -334,7 +348,7 @@ class TestWatchlistServiceFiltering:
         mock_dynamodb_client.get_tradingview_link.return_value = None
 
         # Execute: Call get_long_term_positions
-        result = watchlist_service.get_long_term_positions()
+        result = await watchlist_service.get_long_term_positions()
 
         # Assert: Only items with long-term tag are returned
         assert result.total == 2
@@ -346,7 +360,7 @@ class TestWatchlistServiceFiltering:
         assert "short1" not in returned_ids
         assert "none1" not in returned_ids
 
-    def test_get_long_term_positions_empty_when_no_items(
+    async def test_get_long_term_positions_empty_when_no_items(
         self, watchlist_service, mock_dynamodb_client
     ):
         """Test that get_long_term_positions returns empty when no
@@ -369,13 +383,13 @@ class TestWatchlistServiceFiltering:
         mock_dynamodb_client.get_tradingview_link.return_value = None
 
         # Execute
-        result = watchlist_service.get_long_term_positions()
+        result = await watchlist_service.get_long_term_positions()
 
         # Assert: Empty result
         assert result.total == 0
         assert len(result.items) == 0
 
-    def test_get_long_term_positions_enriches_prices(
+    async def test_get_long_term_positions_enriches_prices(
         self, watchlist_service, mock_dynamodb_client, mock_indicator_service
     ):
         """Test that get_long_term_positions enriches items with prices."""
@@ -397,7 +411,7 @@ class TestWatchlistServiceFiltering:
         mock_dynamodb_client.get_tradingview_link.return_value = None
 
         # Execute
-        result = watchlist_service.get_long_term_positions()
+        result = await watchlist_service.get_long_term_positions()
 
         # Assert: Item is enriched with price data
         assert result.total == 1

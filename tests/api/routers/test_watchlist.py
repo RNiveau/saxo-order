@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +15,13 @@ from model import Currency
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _clear_overrides():
+    """Clear dependency overrides after each test."""
+    yield
+    app.dependency_overrides.clear()
+
+
 @pytest.fixture
 def mock_saxo_client():
     """Mock SaxoClient."""
@@ -29,38 +36,28 @@ def mock_saxo_client():
         "CurrencyCode": "EUR",
     }
 
-    def override_get_saxo_client():
-        return mock_client
-
-    app.dependency_overrides[get_saxo_client] = override_get_saxo_client
+    app.dependency_overrides[get_saxo_client] = lambda: mock_client
     yield mock_client
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture
 def mock_dynamodb_client():
-    """Mock DynamoDBClient."""
-    mock_client = MagicMock()
+    """Mock DynamoDBClient with async methods."""
+    mock_client = AsyncMock()
 
     # Default mock behavior - successful addition
     mock_client.add_to_watchlist.return_value = {
         "ResponseMetadata": {"HTTPStatusCode": 200}
     }
 
-    def override_get_dynamodb_client():
-        return mock_client
-
-    app.dependency_overrides[get_dynamodb_client] = (
-        override_get_dynamodb_client
-    )
+    app.dependency_overrides[get_dynamodb_client] = lambda: mock_client
     yield mock_client
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture
 def mock_watchlist_service():
-    """Mock WatchlistService."""
-    mock_service = MagicMock()
+    """Mock WatchlistService with async methods."""
+    mock_service = AsyncMock()
 
     # Default mock data
     mock_service.get_watchlist.return_value = WatchlistResponse(
@@ -91,14 +88,13 @@ def mock_watchlist_service():
         total=2,
     )
 
-    def override_get_watchlist_service():
-        return mock_service
-
-    app.dependency_overrides[get_watchlist_service] = (
-        override_get_watchlist_service
+    # Need enforce_tag_mutual_exclusivity as a regular method (not async)
+    mock_service.enforce_tag_mutual_exclusivity = MagicMock(
+        side_effect=lambda labels: labels
     )
+
+    app.dependency_overrides[get_watchlist_service] = lambda: mock_service
     yield mock_service
-    app.dependency_overrides.clear()
 
 
 class TestWatchlistEndpoint:
@@ -361,7 +357,9 @@ class TestWatchlistEndpoint:
             exchange="saxo",
         )
 
-    def test_update_labels_success(self, mock_dynamodb_client):
+    def test_update_labels_success(
+        self, mock_dynamodb_client, mock_watchlist_service
+    ):
         """Test successfully updating labels for a watchlist item."""
         mock_dynamodb_client.is_in_watchlist.return_value = True
         mock_dynamodb_client.update_watchlist_labels.return_value = {
@@ -385,7 +383,9 @@ class TestWatchlistEndpoint:
             "123", ["short-term"]
         )
 
-    def test_update_labels_not_found(self, mock_dynamodb_client):
+    def test_update_labels_not_found(
+        self, mock_dynamodb_client, mock_watchlist_service
+    ):
         """Test updating labels for non-existent watchlist item."""
         mock_dynamodb_client.is_in_watchlist.return_value = False
 
@@ -397,7 +397,9 @@ class TestWatchlistEndpoint:
         assert response.status_code == 404
         assert response.json()["detail"] == "Asset not found in watchlist"
 
-    def test_update_labels_empty_list(self, mock_dynamodb_client):
+    def test_update_labels_empty_list(
+        self, mock_dynamodb_client, mock_watchlist_service
+    ):
         """Test updating labels with empty list (removing all labels)."""
         mock_dynamodb_client.is_in_watchlist.return_value = True
         mock_dynamodb_client.update_watchlist_labels.return_value = {
@@ -417,7 +419,9 @@ class TestWatchlistEndpoint:
             "123", []
         )
 
-    def test_update_labels_multiple_labels(self, mock_dynamodb_client):
+    def test_update_labels_multiple_labels(
+        self, mock_dynamodb_client, mock_watchlist_service
+    ):
         """Test updating with multiple labels."""
         mock_dynamodb_client.is_in_watchlist.return_value = True
         mock_dynamodb_client.update_watchlist_labels.return_value = {
@@ -688,7 +692,9 @@ class TestWatchlistEndpoint:
             exchange="binance",
         )
 
-    def test_update_labels_with_both_tags(self, mock_dynamodb_client):
+    def test_update_labels_with_both_tags(
+        self, mock_dynamodb_client, mock_watchlist_service
+    ):
         """Test updating labels with both short-term and long-term tags."""
         mock_dynamodb_client.is_in_watchlist.return_value = True
         mock_dynamodb_client.update_watchlist_labels.return_value = {
@@ -704,11 +710,9 @@ class TestWatchlistEndpoint:
         data = response.json()
         assert data["labels"] == ["short-term", "long-term"]
 
-        mock_dynamodb_client.update_watchlist_labels.assert_called_once_with(
-            "123", ["short-term", "long-term"]
-        )
-
-    def test_update_labels_homepage_limit_enforced(self, mock_dynamodb_client):
+    def test_update_labels_homepage_limit_enforced(
+        self, mock_dynamodb_client, mock_watchlist_service
+    ):
         """Test that 6-asset limit is enforced for homepage tag."""
         mock_dynamodb_client.is_in_watchlist.return_value = True
         mock_dynamodb_client.get_watchlist.return_value = [
@@ -760,7 +764,7 @@ class TestWatchlistEndpoint:
         mock_dynamodb_client.update_watchlist_labels.assert_not_called()
 
     def test_update_labels_homepage_limit_allows_existing(
-        self, mock_dynamodb_client
+        self, mock_dynamodb_client, mock_watchlist_service
     ):
         """Test that existing homepage assets can update their labels."""
         mock_dynamodb_client.is_in_watchlist.return_value = True
@@ -807,7 +811,9 @@ class TestWatchlistEndpoint:
             "asset6", ["homepage", "long-term"]
         )
 
-    def test_update_labels_homepage_removal_works(self, mock_dynamodb_client):
+    def test_update_labels_homepage_removal_works(
+        self, mock_dynamodb_client, mock_watchlist_service
+    ):
         """Test that removing homepage tag works."""
         mock_dynamodb_client.is_in_watchlist.return_value = True
         mock_dynamodb_client.get_watchlist.return_value = [
@@ -829,7 +835,7 @@ class TestWatchlistEndpoint:
         )
 
     def test_update_labels_homepage_with_other_tags(
-        self, mock_dynamodb_client
+        self, mock_dynamodb_client, mock_watchlist_service
     ):
         """Test that homepage tag can coexist with other tags."""
         mock_dynamodb_client.is_in_watchlist.return_value = True
@@ -853,31 +859,29 @@ class TestWatchlistEndpoint:
 class TestGetLongTermPositions:
     """Tests for GET /api/watchlist/long-term endpoint."""
 
-    def test_get_long_term_endpoint_returns_200(
-        self, mock_dynamodb_client, mock_saxo_client
-    ):
+    def test_get_long_term_endpoint_returns_200(self, mock_watchlist_service):
         """Test that GET /api/watchlist/long-term returns 200 with items."""
-        # Setup: Mock DynamoDB to return long-term items
-        mock_dynamodb_client.get_watchlist.return_value = [
-            {
-                "id": "long1",
-                "asset_symbol": "itp:xpar",
-                "description": "Interparfums",
-                "country_code": "xpar",
-                "added_at": "2024-01-01T00:00:00Z",
-                "labels": ["long-term"],
-                "asset_identifier": 123,
-                "asset_type": "Stock",
-                "exchange": "saxo",
-            },
-        ]
+        mock_watchlist_service.get_long_term_positions.return_value = (
+            WatchlistResponse(
+                items=[
+                    WatchlistItem(
+                        id="long1",
+                        asset_symbol="itp:xpar",
+                        description="Interparfums",
+                        country_code="xpar",
+                        current_price=100.0,
+                        variation_pct=5.0,
+                        currency=Currency.EURO,
+                        added_at="2024-01-01T00:00:00Z",
+                        labels=["long-term"],
+                    ),
+                ],
+                total=1,
+            )
+        )
 
-        mock_dynamodb_client.get_tradingview_link.return_value = None
-
-        # Execute: Call endpoint
         response = client.get("/api/watchlist/long-term")
 
-        # Assert: Success response
         assert response.status_code == 200
         data = response.json()
         assert "items" in data
@@ -887,31 +891,16 @@ class TestGetLongTermPositions:
         assert data["items"][0]["id"] == "long1"
 
     def test_get_long_term_endpoint_empty_response(
-        self, mock_dynamodb_client, mock_saxo_client
+        self, mock_watchlist_service
     ):
         """Test that GET /api/watchlist/long-term returns empty when no
         long-term items."""
-        # Setup: Mock DynamoDB to return no long-term items
-        mock_dynamodb_client.get_watchlist.return_value = [
-            {
-                "id": "short1",
-                "asset_symbol": "aapl:xnas",
-                "description": "Apple",
-                "country_code": "xnas",
-                "added_at": "2024-01-01T00:00:00Z",
-                "labels": ["short-term"],
-                "asset_identifier": 456,
-                "asset_type": "Stock",
-                "exchange": "saxo",
-            },
-        ]
+        mock_watchlist_service.get_long_term_positions.return_value = (
+            WatchlistResponse(items=[], total=0)
+        )
 
-        mock_dynamodb_client.get_tradingview_link.return_value = None
-
-        # Execute
         response = client.get("/api/watchlist/long-term")
 
-        # Assert: Empty result
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 0

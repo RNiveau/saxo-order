@@ -23,19 +23,9 @@ class WatchlistService:
         self.indicator_service = indicator_service
 
     def enforce_tag_mutual_exclusivity(self, labels: List[str]) -> List[str]:
-        """
-        Enforce mutual exclusivity between SLWIN and SHORT_TERM tags.
-
-        Args:
-            labels: Requested labels array
-
-        Returns:
-            Filtered labels array with only one of SLWIN or SHORT_TERM
-        """
         has_slwin = WatchlistTag.SLWIN.value in labels
         has_short_term = WatchlistTag.SHORT_TERM.value in labels
 
-        # If both present, remove short-term (SLWIN takes precedence)
         if has_slwin and has_short_term:
             labels = [
                 label
@@ -45,7 +35,7 @@ class WatchlistService:
 
         return labels
 
-    def _enrich_asset(
+    async def _enrich_asset(
         self,
         asset_symbol: str,
         country_code: str,
@@ -57,36 +47,16 @@ class WatchlistService:
         asset_type: Optional[str] = None,
         exchange: str = "saxo",
     ) -> WatchlistItem:
-        """
-        Enrich an asset with current price, variation, and currency.
-
-        Args:
-            asset_symbol: Asset symbol (e.g., 'itp:xpar')
-            country_code: Country code (e.g., 'xpar', or empty string)
-            item_id: Unique identifier for the item
-            description: Asset description/name
-            added_at: ISO timestamp when added
-            labels: Labels for the asset
-            asset_identifier: Optional cached Saxo UIC
-            asset_type: Optional cached asset type
-            exchange: Exchange (saxo or binance)
-
-        Returns:
-            WatchlistItem with enriched data
-        """
         if labels is None:
             labels = []
 
-        # Extract code from symbol (e.g., "itp:xpar" -> "itp")
         if ":" in asset_symbol:
             code = asset_symbol.split(":")[0]
         else:
             code = asset_symbol
 
-        # Handle Binance assets differently
         if exchange == "binance":
-            # For Binance, get price from indicator service
-            indicators = self.indicator_service.get_asset_indicators(
+            indicators = await self.indicator_service.get_asset_indicators(
                 code=code,
                 exchange=Exchange.BINANCE,
                 country_code="",
@@ -97,7 +67,6 @@ class WatchlistService:
             currency = Currency.USD
             final_description = description
         else:
-            # For Saxo assets, get asset info to retrieve currency
             asset_info = self.indicator_service.saxo_client.get_asset(
                 code, country_code
             )
@@ -105,7 +74,6 @@ class WatchlistService:
                 asset_info.get("CurrencyCode", "EUR")
             )
 
-            # Get current price and variation using IndicatorService
             current_price, variation_pct = (
                 self.indicator_service.get_price_and_variation(
                     code=code,
@@ -119,10 +87,11 @@ class WatchlistService:
                 "Description", ""
             )
 
-        # Get TradingView URL if available
         tradingview_url = None
         try:
-            tradingview_url = self.dynamodb_client.get_tradingview_link(code)
+            tradingview_url = await self.dynamodb_client.get_tradingview_link(
+                code
+            )
         except Exception as e:
             logger.warning(f"Failed to get TradingView link for {code}: {e}")
 
@@ -140,23 +109,13 @@ class WatchlistService:
             exchange=exchange,
         )
 
-    def _enrich_and_sort_watchlist(
+    async def _enrich_and_sort_watchlist(
         self, watchlist_items: List[dict]
     ) -> WatchlistResponse:
-        """
-        Enrich watchlist items with prices and sort them.
-
-        Args:
-            watchlist_items: Raw watchlist items from DynamoDB
-
-        Returns:
-            WatchlistResponse with enriched and sorted data
-        """
-        # Enrich with current prices and variations
         enriched_items: List[WatchlistItem] = []
         for item in watchlist_items:
             try:
-                enriched_item = self._enrich_asset(
+                enriched_item = await self._enrich_asset(
                     asset_symbol=item["asset_symbol"],
                     country_code=item.get("country_code", "xpar"),
                     item_id=item["id"],
@@ -192,14 +151,11 @@ class WatchlistService:
                     f"{item.get('asset_symbol', 'unknown')}: {e}"
                 )
 
-        # Sort items: short-term positions first, SLWIN second,
-        # then other items (all alphabetically)
         def sort_key(item: WatchlistItem) -> tuple:
             has_short_term = WatchlistTag.SHORT_TERM.value in item.labels
             has_slwin = WatchlistTag.SLWIN.value in item.labels
             description = item.description.lower() if item.description else ""
 
-            # Priority: 0=short-term, 1=slwin, 2=other
             if has_short_term:
                 priority = 0
             elif has_slwin:
@@ -213,31 +169,16 @@ class WatchlistService:
 
         return WatchlistResponse(items=sorted_items, total=len(sorted_items))
 
-    def get_watchlist(self) -> WatchlistResponse:
-        """
-        Get watchlist items for sidebar display with current prices.
-        Excludes items with 'long-term' tag.
-        Excludes crypto assets UNLESS they also have 'short-term' tag.
-        Items are sorted with short-term labeled items first,
-        then other items (alphabetically).
+    async def get_watchlist(self) -> WatchlistResponse:
+        watchlist_items = await self.dynamodb_client.get_watchlist()
 
-        Returns:
-            WatchlistResponse with enriched and sorted watchlist data
-            (excluding long-term and crypto without short-term)
-        """
-        # Get watchlist from DynamoDB
-        watchlist_items = self.dynamodb_client.get_watchlist()
-
-        # Filter out long-term assets and crypto assets without short-term tag
         filtered_items = []
         for item in watchlist_items:
             labels = item.get("labels", [])
 
-            # Exclude long-term assets
             if WatchlistTag.LONG_TERM.value in labels:
                 continue
 
-            # Exclude crypto assets WITHOUT short-term OR slwin tag
             has_crypto = WatchlistTag.CRYPTO.value in labels
             has_short_term = WatchlistTag.SHORT_TERM.value in labels
             has_slwin = WatchlistTag.SLWIN.value in labels
@@ -246,50 +187,24 @@ class WatchlistService:
 
             filtered_items.append(item)
 
-        return self._enrich_and_sort_watchlist(filtered_items)
+        return await self._enrich_and_sort_watchlist(filtered_items)
 
-    def get_all_watchlist(self) -> WatchlistResponse:
-        """
-        Get ALL watchlist items including long-term assets.
-        Items are sorted with short-term labeled items first,
-        then other items (alphabetically).
+    async def get_all_watchlist(self) -> WatchlistResponse:
+        watchlist_items = await self.dynamodb_client.get_watchlist()
+        return await self._enrich_and_sort_watchlist(watchlist_items)
 
-        Returns:
-            WatchlistResponse with all enriched and sorted watchlist data
-        """
-        # Get watchlist from DynamoDB
-        watchlist_items = self.dynamodb_client.get_watchlist()
+    async def get_long_term_positions(self) -> WatchlistResponse:
+        watchlist_items = await self.dynamodb_client.get_watchlist()
 
-        return self._enrich_and_sort_watchlist(watchlist_items)
-
-    def get_long_term_positions(self) -> WatchlistResponse:
-        """
-        Get long-term tagged positions for the dedicated menu.
-        Filters for items with 'long-term' label and enriches with
-        current prices.
-
-        Returns:
-            WatchlistResponse with items that have 'long-term' label
-        """
-        watchlist_items = self.dynamodb_client.get_watchlist()
-
-        # Filter for ONLY long-term items
         filtered_items = []
         for item in watchlist_items:
             labels = item.get("labels", [])
             if WatchlistTag.LONG_TERM.value in labels:
                 filtered_items.append(item)
 
-        return self._enrich_and_sort_watchlist(filtered_items)
+        return await self._enrich_and_sort_watchlist(filtered_items)
 
-    def get_indexes(self) -> WatchlistResponse:
-        """
-        Get main market indexes with current prices and variations.
-
-        Returns:
-            WatchlistResponse with index data
-        """
-        # Define the indexes to track (order matters)
+    async def get_indexes(self) -> WatchlistResponse:
         indexes = [
             {"symbol": "FRA40.I", "name": "CAC40"},
             {"symbol": "GER40.I", "name": "DAX"},
@@ -300,7 +215,7 @@ class WatchlistService:
         enriched_items: List[WatchlistItem] = []
         for index in indexes:
             try:
-                enriched_item = self._enrich_asset(
+                enriched_item = await self._enrich_asset(
                     asset_symbol=index["symbol"],
                     country_code="",
                     item_id=index["symbol"],

@@ -54,7 +54,7 @@ class WorkflowEngine:
         self.saxo_client = saxo_client
         self.dynamodb_client = dynamodb_client
 
-    def run(self) -> None:
+    async def run(self) -> None:
         results = []
         for workflow in self.workflows:
             if workflow.enable and (
@@ -76,68 +76,35 @@ class WorkflowEngine:
                     self.logger.debug(
                         f"first candle for this indicator is {candles[0]}"
                     )
-                match workflow.conditions[0].indicator.name:
-                    case IndicatorType.MA7:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, MA7Workflow()
-                                ),
-                            )
+                workflow_map = {
+                    IndicatorType.MA7: MA7Workflow,
+                    IndicatorType.MA50: MA50Workflow,
+                    IndicatorType.COMBO: ComboWorkflow,
+                    IndicatorType.BBB: BBWorkflow,
+                    IndicatorType.BBH: BBWorkflow,
+                    IndicatorType.POL: PolariteWorkflow,
+                    IndicatorType.ZONE: ZoneWorkflow,
+                }
+                indicator_name = workflow.conditions[0].indicator.name
+                workflow_class = workflow_map.get(indicator_name)
+                if workflow_class is None:
+                    self.logger.error(
+                        f"indicator {indicator_name} is not handle"
+                    )
+                    continue
+                try:
+                    results.append(
+                        (
+                            workflow,
+                            self._run_workflow(
+                                workflow, candles, workflow_class()
+                            ),
                         )
-                    case IndicatorType.MA50:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, MA50Workflow()
-                                ),
-                            )
-                        )
-                    case IndicatorType.COMBO:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, ComboWorkflow()
-                                ),
-                            )
-                        )
-                    case IndicatorType.BBB | IndicatorType.BBH:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, BBWorkflow()
-                                ),
-                            )
-                        )
-                    case IndicatorType.POL:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, PolariteWorkflow()
-                                ),
-                            )
-                        )
-                    case IndicatorType.ZONE:
-                        results.append(
-                            (
-                                workflow,
-                                self._run_workflow(
-                                    workflow, candles, ZoneWorkflow()
-                                ),
-                            )
-                        )
-                    case _:
-                        self.logger.error(
-                            "indicator "
-                            f"{workflow.conditions[0].indicator.name}"
-                            " is not handle"
-                        )
-                        raise SaxoException()
+                    )
+                except SaxoException as e:
+                    self.logger.warning(
+                        f"Skipping workflow {workflow.name}: {e}"
+                    )
             else:
                 self.logger.info(f"Workflow {workflow.name} will not run")
 
@@ -171,7 +138,7 @@ class WorkflowEngine:
                             f"Workflow {order[0].name} missing id"
                         )
                         continue
-                    self.dynamodb_client.record_workflow_order(
+                    await self.dynamodb_client.record_workflow_order(
                         workflow_id=order[0].id,
                         workflow_name=order[0].name,
                         order_code=order_obj.code,
@@ -180,7 +147,7 @@ class WorkflowEngine:
                         order_direction=order_obj.direction.name,
                         order_type=order_obj.type.name,
                         asset_type=(
-                            asset["AssetType"].name
+                            asset["AssetType"]
                             if asset.get("AssetType")
                             else None
                         ),
@@ -290,9 +257,13 @@ class WorkflowEngine:
         self, workflow: Workflow, candles: List[Candle], run: AbstractWorkflow
     ) -> Optional[tuple[Candle, Order]]:
         run.init_workflow(workflow.conditions[0].indicator, candles)
+        market = EUMarket() if workflow.is_us is False else USMarket()
 
         close_candle = self.candles_service.get_candle_per_hour(
-            workflow.cfd, workflow.conditions[0].close.ut, get_date_utc0()
+            workflow.cfd,
+            workflow.conditions[0].close.ut,
+            get_date_utc0(),
+            market,
         )
         if close_candle is None:
             self.logger.error(
@@ -365,8 +336,9 @@ class WorkflowEngine:
         self.logger.debug(
             f"get trigger candle for {workflow.cfd} {workflow.trigger.ut}"
         )
+        market = EUMarket() if workflow.is_us is False else USMarket()
         trigger_candle = self.candles_service.get_candle_per_hour(
-            workflow.cfd, workflow.trigger.ut, get_date_utc0()
+            workflow.cfd, workflow.trigger.ut, get_date_utc0(), market
         )
         if trigger_candle is None:
             self.logger.error(

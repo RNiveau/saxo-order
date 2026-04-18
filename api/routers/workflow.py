@@ -98,7 +98,7 @@ async def get_all_workflow_orders(
     Get all orders across all workflows, sorted newest first.
     """
     try:
-        orders = workflow_service.get_all_orders(limit=limit)
+        orders = await workflow_service.get_all_orders(limit=limit)
         return AllWorkflowOrdersResponse(
             orders=orders,
             total_count=len(orders),
@@ -133,7 +133,7 @@ async def get_asset_workflows(
     Uses the same 10-minute cache as the workflows list endpoint.
     """
     try:
-        workflow_details = workflow_service.get_workflows_by_asset(
+        workflow_details = await workflow_service.get_workflows_by_asset(
             code=code, country_code=country_code
         )
 
@@ -161,7 +161,7 @@ async def create_workflow(
 ):
     """Create a new workflow."""
     try:
-        return workflow_service.create_workflow(data)
+        return await workflow_service.create_workflow(data)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -181,7 +181,7 @@ async def update_workflow(
 ):
     """Update an existing workflow."""
     try:
-        return workflow_service.update_workflow(workflow_id, data)
+        return await workflow_service.update_workflow(workflow_id, data)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -198,7 +198,7 @@ async def delete_workflow(
 ):
     """Delete a workflow."""
     try:
-        workflow_service.delete_workflow(workflow_id)
+        await workflow_service.delete_workflow(workflow_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -220,7 +220,7 @@ async def list_workflows(
     Results are cached for 10 minutes to improve performance.
     """
     try:
-        return workflow_service.list_workflows()
+        return await workflow_service.list_workflows()
 
     except Exception as e:
         logger.error(f"Error listing workflows: {e}")
@@ -241,7 +241,7 @@ async def get_workflow_by_id(
     trigger parameters, and metadata.
     """
     try:
-        workflow = workflow_service.get_workflow_by_id(workflow_id)
+        workflow = await workflow_service.get_workflow_by_id(workflow_id)
 
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
@@ -280,7 +280,7 @@ async def get_workflow_order_history(
     """
     try:
         # Verify workflow exists before querying orders
-        workflow = workflow_service.get_workflow_by_id(workflow_id)
+        workflow = await workflow_service.get_workflow_by_id(workflow_id)
 
         if not workflow:
             raise HTTPException(
@@ -289,7 +289,7 @@ async def get_workflow_order_history(
             )
 
         # Get order history from DynamoDB
-        orders = workflow_service.get_workflow_order_history(
+        orders = await workflow_service.get_workflow_order_history(
             workflow_id=workflow_id, limit=limit
         )
 
