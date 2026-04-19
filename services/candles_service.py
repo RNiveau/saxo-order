@@ -193,50 +193,6 @@ class CandlesService:
             candles.pop()
         return candles
 
-    def get_candle_per_hour(
-        self, code: str, ut: UnitTime, date: datetime.datetime, market: Market
-    ) -> Optional[Candle]:
-        """Return last h1, h4 or daily candle built from 30m data"""
-        self.logger.debug(f"get_candle_per_hour {code} {ut}")
-        asset = self.saxo_client.get_asset(code)
-        self.logger.debug(asset)
-        match ut:
-            case UnitTime.H1:
-                count = 4
-            case UnitTime.H4:
-                count = 16
-            case UnitTime.D:
-                count = 40
-            case _:
-                raise SaxoException(f"We don't handle this ut : {ut}")
-        data = self.saxo_client.get_historical_data(
-            saxo_uic=asset["Identifier"],
-            asset_type=asset["AssetType"],
-            horizon=30,
-            count=count,
-            date=date,
-        )
-        if data[0]["Time"].minute == market.open_minutes:
-            data = data[1:]
-        h1_candles = self._build_h1_from_30m(data, market, ut)
-        if not h1_candles:
-            return None
-        match ut:
-            case UnitTime.H1:
-                return h1_candles[0]
-            case UnitTime.H4:
-                h4_candles = build_h4_candles_from_h1(
-                    h1_candles, market.open_hour
-                )
-                return h4_candles[0] if h4_candles else None
-            case UnitTime.D:
-                daily_candles = build_daily_candles_from_h1(
-                    h1_candles, market.open_hour
-                )
-                return daily_candles[0] if daily_candles else None
-            case _:
-                raise SaxoException(f"We don't handle this ut : {ut}")
-
     def _build_h1_from_30m(
         self, data: list, market: Market, ut: UnitTime
     ) -> List[Candle]:
@@ -272,84 +228,64 @@ class CandlesService:
             i += 1
         return candles
 
-    def build_hour_candles(
+    def build_candles(
         self,
         code: str,
-        cfd_code: str,
         ut: UnitTime,
-        open_hour_utc0: int,
-        close_hour_utc0: int,
-        nbr_hours: int,
-        open_minutes: int,
+        market: Market,
+        count: int,
         date: datetime.datetime,
     ) -> List[Candle]:
-        """Build hour candles (or > UT) from a code and take
-        in account open and close hour and world wide asset"""
+        """Build candles of any UT (H1, H4, D) from 30m Saxo API data.
+
+        Args:
+            code: Asset code (e.g., 'DAX.I')
+            ut: Target unit time (H1, H4, D)
+            market: Market definition with hours and h4_blocks
+            count: Number of target-UT candles to produce
+            date: Reference date
+        """
         self.logger.info(f"Build candles for {code}, ut: {ut}, date: {date}")
-        if open_minutes not in [0, 30]:
+        if market.open_minutes not in [0, 30]:
             raise SaxoException(
-                f"Wrong parameter {open_minutes}, we handle only 0 and 30"
+                f"Wrong parameter {market.open_minutes}, we handle only 0 and 30"
             )
-        nbr_hours *= 2
+        nbr_30m = count * 2 * 3
+        if ut == UnitTime.H4:
+            nbr_30m = count * 8 * 3
+        elif ut == UnitTime.D:
+            num_h1 = (
+                market.close_hour
+                - market.open_hour
+                + (1 if market.open_minutes == 0 else 0)
+            )
+            nbr_30m = count * num_h1 * 2 * 3
         asset = self.saxo_client.get_asset(code)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
             horizon=30,
-            count=nbr_hours,
+            count=nbr_30m,
             date=date,
         )
-        if len(data) < nbr_hours:
+        if len(data) == 0:
             raise SaxoException(
-                f"We should got {nbr_hours} elements but we get {len(data)}"
+                f"No data returned for {code}"
             )
-        delta = get_date_utc0() - data[0]["Time"].replace(
-            tzinfo=datetime.timezone.utc
-        )
-        if (
-            (
-                delta.total_seconds() > 30 * 60
-                and delta.total_seconds() < 45 * 60
-            )
-            or (
-                delta.total_seconds() > 60 * 60
-                and delta.total_seconds() < 75 * 60
-            )
-            and code != cfd_code
-        ):
-            self.logger.debug(f"Need to get the last cfd candles {cfd_code}")
-            cfd = self.saxo_client.get_asset(cfd_code)
-            data_cfd = self.saxo_client.get_historical_data(
-                saxo_uic=cfd["Identifier"],
-                asset_type=cfd["AssetType"],
-                horizon=30,
-                count=1,
-                date=date,
-            )
-            if len(data) == 0 or data_cfd[0]["Time"] > data[0]["Time"]:
-                data.insert(0, data_cfd[0])
-        if data[0]["Time"].minute == open_minutes:
+        if data[0]["Time"].minute == market.open_minutes:
             data = data[1:]
-        market = Market(
-            open_hour=open_hour_utc0,
-            close_hour=close_hour_utc0,
-            open_minutes=open_minutes,
-        )
         candles = self._build_h1_from_30m(data, market, ut)
         if ut == UnitTime.H4:
-            return build_h4_candles_from_h1(candles, open_hour_utc0)
+            return build_h4_candles_from_h1(candles, market)
         elif ut == UnitTime.D:
-            return build_daily_candles_from_h1(candles, open_hour_utc0)
+            return build_daily_candles_from_h1(candles, market)
         return candles
 
     def build_weekly_candles(
         self,
         code: str,
-        cfd_code: str,
+        market: Market,
         nbr_weeks: int,
-        open_hour_utc0: int,
-        close_hour_utc0: int,
-        open_minutes: int,
         date: datetime.datetime,
     ) -> List[Candle]:
         """
@@ -360,11 +296,8 @@ class CandlesService:
 
         Args:
             code: Asset code (e.g., 'DAX.I')
-            cfd_code: CFD code for fallback if needed
+            market: Market definition
             nbr_weeks: Number of weekly candles needed
-            open_hour_utc0: Market open hour in UTC
-            close_hour_utc0: Market close hour in UTC
-            open_minutes: Market open minutes (0 or 30)
             date: Reference date
 
         Returns:
@@ -392,14 +325,11 @@ class CandlesService:
             != weekly_candles[0].date.isocalendar()[:2]
             and today.weekday() < 5
         ):
-            daily_candles = self.build_hour_candles(
+            daily_candles = self.build_candles(
                 code=code,
-                cfd_code=cfd_code,
                 ut=UnitTime.D,
-                open_hour_utc0=open_hour_utc0,
-                close_hour_utc0=close_hour_utc0,
-                nbr_hours=5 * 8,
-                open_minutes=open_minutes,
+                market=market,
+                count=5,
                 date=date,
             )
             current_weekly = build_current_weekly_candle_from_daily(

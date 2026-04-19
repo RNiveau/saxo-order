@@ -208,47 +208,38 @@ class WorkflowEngine:
 
             return self.candles_service.build_weekly_candles(
                 code=workflow.index,
-                cfd_code=workflow.cfd,
+                market=market,
                 nbr_weeks=nbr_weeks,
-                open_hour_utc0=market.open_hour,
-                close_hour_utc0=market.close_hour,
-                open_minutes=market.open_minutes,
                 date=get_date_utc0(),
             )
 
-        multiplicator = 1
-        if indicator.ut == UnitTime.H4:
-            multiplicator = 4
-        elif indicator.ut == UnitTime.D:
-            multiplicator = 8
         match indicator.name:
             case IndicatorType.MA7:
-                nbr_hour = 12 * multiplicator
+                count = 12
             case IndicatorType.MA50:
-                nbr_hour = 55 * multiplicator
+                count = 55
             case IndicatorType.COMBO:
-                nbr_hour = 750 * multiplicator
+                count = 750
             case IndicatorType.BBH | IndicatorType.BBB:
-                nbr_hour = 21 * multiplicator
+                count = 21
             case (
-                IndicatorType.POL | IndicatorType.ZONE | IndicatorType.INCLINED
+                IndicatorType.POL
+                | IndicatorType.ZONE
+                | IndicatorType.INCLINED
             ):
-                nbr_hour = 1
+                count = 1
             case _:
                 self.logger.error(f"indicator {indicator.name} isn't managed")
                 return []
         self.logger.debug(
             f"get candles for {indicator.name} {indicator.ut}, "
-            f"we need {nbr_hour} candles"
+            f"we need {count} candles"
         )
-        return self.candles_service.build_hour_candles(
+        return self.candles_service.build_candles(
             code=workflow.index,
-            cfd_code=workflow.cfd,
             ut=indicator.ut,
-            open_hour_utc0=market.open_hour,
-            close_hour_utc0=market.close_hour,
-            nbr_hours=nbr_hour * 3,
-            open_minutes=market.open_minutes,
+            market=market,
+            count=count,
             date=get_date_utc0(),
         )
 
@@ -273,18 +264,20 @@ class WorkflowEngine:
         run.init_workflow(workflow.conditions[0].indicator, candles)
         market = EUMarket() if workflow.is_us is False else USMarket()
 
-        close_candle = self.candles_service.get_candle_per_hour(
-            workflow.cfd,
-            workflow.conditions[0].close.ut,
-            get_date_utc0(),
-            market,
+        close_candles = self.candles_service.build_candles(
+            code=workflow.cfd,
+            ut=workflow.conditions[0].close.ut,
+            market=market,
+            count=1,
+            date=get_date_utc0(),
         )
-        if close_candle is None:
+        if not close_candles:
             self.logger.error(
                 f"can't retrive close candle for {workflow.cfd} "
                 f"{workflow.name}"
             )
             raise SaxoException("Can't retrive candle")
+        close_candle = close_candles[0]
 
         element = self._get_price_from_element(
             close_candle, workflow.conditions[0].element
@@ -351,12 +344,16 @@ class WorkflowEngine:
             f"get trigger candle for {workflow.cfd} {workflow.trigger.ut}"
         )
         market = EUMarket() if workflow.is_us is False else USMarket()
-        trigger_candle = self.candles_service.get_candle_per_hour(
-            workflow.cfd, workflow.trigger.ut, get_date_utc0(), market
+        trigger_candles = self.candles_service.build_candles(
+            code=workflow.cfd,
+            ut=workflow.trigger.ut,
+            market=market,
+            count=1,
+            date=get_date_utc0(),
         )
-        if trigger_candle is None:
+        if not trigger_candles:
             self.logger.error(
                 f"can't retrive trigger candle for {workflow.cfd}"
             )
             raise SaxoException("Can't retrive candle")
-        return trigger_candle
+        return trigger_candles[0]

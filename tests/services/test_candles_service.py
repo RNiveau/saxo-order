@@ -3,7 +3,7 @@ from typing import List
 
 import pytest
 
-from model import Candle, UnitTime
+from model import Candle, EUMarket, Market, UnitTime, USMarket
 from services.candles_service import CandlesService
 
 
@@ -113,15 +113,11 @@ class TestCandlesService:
         assert len(candles) == expected_len
 
     @pytest.mark.parametrize(
-        "file_index, file_cfd, open_hour, close_hour,"
-        " open_minutes, ut, date, expected",
+        "file_index, market, ut, date, expected",
         [
             (
                 "cac_30min.obj",
-                "",
-                7,
-                15,
-                0,
+                EUMarket(),
                 UnitTime.H1,
                 datetime.datetime(2024, 6, 20, 14, 45),
                 [
@@ -153,21 +149,10 @@ class TestCandlesService:
             ),
             (
                 "cac_30min.obj",
-                "cac_cfd_30min.obj",
-                7,
-                15,
-                0,
+                EUMarket(),
                 UnitTime.H1,
                 datetime.datetime(2024, 6, 20, 15, 14),
                 [
-                    Candle(
-                        lower=7646.33,
-                        open=7662.12,
-                        close=7680.14,
-                        higher=7681.68,
-                        ut=UnitTime.H1,
-                        date=datetime.datetime(2024, 6, 20, 14, 0),
-                    ),
                     Candle(
                         lower=7626.04,
                         open=7630.49,
@@ -196,10 +181,7 @@ class TestCandlesService:
             ),
             (
                 "cac_30min_end_of_day.obj",
-                "",
-                7,
-                15,
-                0,
+                EUMarket(),
                 UnitTime.H1,
                 datetime.datetime(2024, 6, 19, 18, 1),
                 [
@@ -231,10 +213,7 @@ class TestCandlesService:
             ),
             (
                 "sp500_cfd.obj",
-                "",
-                13,
-                20,
-                30,
+                USMarket(),
                 UnitTime.H1,
                 datetime.datetime(
                     2024,
@@ -263,10 +242,7 @@ class TestCandlesService:
             ),
             (
                 "bug_switch_day_sp500.obj",
-                "",
-                13,
-                19,
-                30,
+                USMarket(),
                 UnitTime.H1,
                 datetime.datetime(
                     2024,
@@ -303,10 +279,7 @@ class TestCandlesService:
             ),
             (
                 "bug_h4_dax.obj",
-                "bug_h4_dax_cfd.obj",
-                7,
-                15,
-                0,
+                EUMarket(),
                 UnitTime.H4,
                 datetime.datetime(2024, 7, 2, 15, 2),
                 [
@@ -322,13 +295,10 @@ class TestCandlesService:
             ),
         ],
     )
-    def test_build_hour_candles(
+    def test_build_candles(
         self,
         file_index: str,
-        file_cfd: str,
-        open_hour: int,
-        close_hour: int,
-        open_minutes: int,
+        market: Market,
         ut: UnitTime,
         date: datetime.datetime,
         expected: List[Candle],
@@ -345,22 +315,16 @@ class TestCandlesService:
                 "CurrencyCode": "EUR",
             },
         )
-        side_effet = []
         with open(f"tests/services/files/{file_index}", "r") as f:
-            side_effet.append(eval(f.read(), {"datetime": datetime}))
-        if file_cfd != "":
-            with open(f"tests/services/files/{file_cfd}", "r") as f:
-                side_effet.append(eval(f.read(), {"datetime": datetime}))
+            data = eval(f.read(), {"datetime": datetime})
         mocker.patch.object(
-            saxo_client, "get_historical_data", side_effect=side_effet
+            saxo_client, "get_historical_data", return_value=data
         )
         mocker.patch(
             "services.candles_service.get_date_utc0",
             return_value=date.replace(tzinfo=datetime.timezone.utc),
         )
-        worfklow_service = CandlesService(saxo_client)
-        candles = worfklow_service.build_hour_candles(
-            "code", "", ut, open_hour, close_hour, 50, open_minutes, date
-        )
+        candles_service = CandlesService(saxo_client)
+        candles = candles_service.build_candles("code", ut, market, 50, date)
         for i in range(0, len(expected)):
             assert expected[i] == candles[i]

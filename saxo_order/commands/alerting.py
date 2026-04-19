@@ -12,13 +12,13 @@ from slack_sdk import WebClient
 from client import client_helper
 from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
-from model import Alert, AlertType, AssetType, Candle, UnitTime
+from model import Alert, AlertType, AssetType, Candle, EUMarket, UnitTime
+from saxo_order.async_utils import create_dynamodb_client
 from saxo_order.commands import catch_exception
 from services import congestion_indicator, indicator_service
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from utils.helper import build_daily_candle_from_hours
-from saxo_order.async_utils import create_dynamodb_client
+from utils.helper import build_daily_candles_from_h1
 from utils.logger import Logger
 
 logger = Logger.get_logger("alerting")
@@ -660,9 +660,9 @@ def _build_candles(saxo_client: SaxoClient, asset: Dict) -> List[Candle]:
         hour_candles = client_helper.map_data_to_candles(
             hour_data, ut=UnitTime.H1
         )
-        hour_candle = build_daily_candle_from_hours(hour_candles, today.day)
-        if hour_candle is not None:
-            candles.insert(0, hour_candle)
+        daily_candles = build_daily_candles_from_h1(hour_candles, EUMarket())
+        if daily_candles:
+            candles.insert(0, daily_candles[0])
     return candles
 
 

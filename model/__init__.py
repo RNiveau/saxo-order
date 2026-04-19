@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from model.enum import (  # noqa: F401
     AlertType,
@@ -170,13 +170,18 @@ class Market:
     open_hour: int
     open_minutes: int
     close_hour: int
+    h4_blocks: List[int] = None  # type: ignore[assignment]
 
 
 class USMarket(Market):
     def __init__(self) -> None:
-        super().__init__(open_hour=13, close_hour=21, open_minutes=30)
+        super().__init__(
+            open_hour=13, close_hour=20, open_minutes=30, h4_blocks=[4, 3]
+        )
 
 
 class EUMarket(Market):
     def __init__(self) -> None:
-        super().__init__(open_hour=7, close_hour=17, open_minutes=0)
+        super().__init__(
+            open_hour=7, close_hour=15, open_minutes=0, h4_blocks=[3, 4, 2]
+        )

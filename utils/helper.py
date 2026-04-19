@@ -1,51 +1,8 @@
 import datetime
 from typing import List, Optional
 
-from model import Candle, UnitTime
+from model import Candle, Market, UnitTime
 from utils.logger import Logger
-
-
-def build_daily_candle_from_hours(
-    candles: List[Candle], day: int
-) -> Optional[Candle]:
-    daily_candle = Candle(-1, -1, -1, -1, UnitTime.D, datetime.datetime.now())
-    open_candle: List[Candle] = list(
-        filter(
-            lambda x: x.date is not None
-            and x.date.day == day
-            and x.date.hour == 7,
-            candles,
-        )
-    )
-    if len(open_candle) == 1:
-        daily_candle.open = open_candle[0].open
-    close_candle: List[Candle] = list(
-        filter(
-            lambda x: x.date is not None
-            and x.date.day == day
-            and x.date.hour == 15,
-            candles,
-        )
-    )
-    if len(close_candle) == 1:
-        daily_candle.close = close_candle[0].close
-    for candle in candles:
-        if candle.date is not None and candle.date.day == day:
-            if candle.lower < daily_candle.lower or daily_candle.lower == -1:
-                daily_candle.lower = candle.lower
-            if (
-                candle.higher > daily_candle.higher
-                or daily_candle.higher == -1
-            ):
-                daily_candle.higher = candle.higher
-    if (
-        daily_candle.open == -1
-        or daily_candle.close == -1
-        or daily_candle.higher == -1
-        or daily_candle.lower == -1
-    ):
-        return None
-    return daily_candle
 
 
 def build_current_weekly_candle_from_daily(
@@ -106,109 +63,65 @@ def get_date_utc0() -> datetime.datetime:
 
 
 def build_h4_candles_from_h1(
-    candles: List[Candle], open_hour_utc0: int
+    candles: List[Candle], market: Market
 ) -> List[Candle]:
+    ending_hours = {}
+    cumulative = 0
+    for block_size in market.h4_blocks:
+        cumulative += block_size
+        ending_hour = market.open_hour + cumulative - 1
+        ending_hours[ending_hour] = block_size
+
     candles_h4 = []
-    if open_hour_utc0 == 7:
-        i = 0
-        while i < len(candles):
-            candle_date = candles[i].date
-            if candle_date is None:
-                i += 1
-            elif candle_date.hour == 15:  # included 17h utc+2
-                if i + 1 >= len(candles):
-                    break
-                candles_h4.append(
-                    _internal_build_candle(candles, i, 1, UnitTime.H4)
-                )
-                i += 2
-            elif candle_date.hour == 13:  # included 15h utc+2
-                if i + 3 >= len(candles):
-                    break
-                candles_h4.append(
-                    _internal_build_candle(candles, i, 3, UnitTime.H4)
-                )
-                i += 4
-            elif candle_date.hour == 9:  # included 11h utc+2
-                if i + 2 >= len(candles):
-                    break
-                candles_h4.append(
-                    _internal_build_candle(candles, i, 2, UnitTime.H4)
-                )
-                i += 3
-            else:
-                Logger.get_logger("build_h4_candles_from_h1").debug(
-                    f"Not a h4 ending {candles[i].date}"
-                )
-                i += 1
-    elif open_hour_utc0 == 13:
-        i = 0
-        while i < len(candles):
-            candle_date = candles[i].date
-            if candle_date is None:
-                i += 1
-            elif candle_date.hour == 16:
-                if i + 3 >= len(candles):
-                    break
-                candles_h4.append(
-                    _internal_build_candle(candles, i, 3, UnitTime.H4)
-                )
-                i += 4
-            elif candle_date.hour == 19:
-                if i + 2 >= len(candles):
-                    break
-                candles_h4.append(
-                    _internal_build_candle(candles, i, 2, UnitTime.H4)
-                )
-                i += 3
-            else:
-                Logger.get_logger("build_h4_candles_from_h1").debug(
-                    f"Not a h4 ending {candles[i].date}"
-                )
-                i += 1
+    i = 0
+    while i < len(candles):
+        candle_date = candles[i].date
+        if candle_date is None:
+            i += 1
+        elif candle_date.hour in ending_hours:
+            block_size = ending_hours[candle_date.hour]
+            if i + block_size - 1 >= len(candles):
+                break
+            candles_h4.append(
+                _internal_build_candle(candles, i, block_size - 1, UnitTime.H4)
+            )
+            i += block_size
+        else:
+            Logger.get_logger("build_h4_candles_from_h1").debug(
+                f"Not a h4 ending {candles[i].date}"
+            )
+            i += 1
     return candles_h4
 
 
 def build_daily_candles_from_h1(
-    candles: List[Candle], open_hour_utc0: int
+    candles: List[Candle], market: Market
 ) -> List[Candle]:
+    ending_hour = market.close_hour - (1 if market.open_minutes == 30 else 0)
+    num_h1 = (
+        market.close_hour
+        - market.open_hour
+        + (1 if market.open_minutes == 0 else 0)
+    )
+
     candles_daily = []
-    if open_hour_utc0 == 7:
-        i = 0
-        while i < len(candles):
-            candle_date = candles[i].date
-            if candle_date is None:
-                i += 1
-            elif candle_date.hour == 15:  # included 17h utc+2
-                if i + 7 >= len(candles):
-                    break
-                candles_daily.append(
-                    _internal_build_candle(candles, i, 8, UnitTime.D)
-                )
-                i += 9
-            else:
-                Logger.get_logger("build_daily_candles_from_h1").debug(
-                    f"Not a daily ending {candles[i].date}"
-                )
-                i += 1
-    elif open_hour_utc0 == 13:
-        i = 0
-        while i < len(candles):
-            candle_date = candles[i].date
-            if candle_date is None:
-                i += 1
-            elif candle_date.hour == 19:
-                if i + 6 >= len(candles):
-                    break
-                candles_daily.append(
-                    _internal_build_candle(candles, i, 6, UnitTime.D)
-                )
-                i += 7
-            else:
-                Logger.get_logger("build_daily_candles_from_h1").debug(
-                    f"Not a daily ending {candles[i].date}"
-                )
-                i += 1
+    i = 0
+    while i < len(candles):
+        candle_date = candles[i].date
+        if candle_date is None:
+            i += 1
+        elif candle_date.hour == ending_hour:
+            if i + num_h1 - 1 >= len(candles):
+                break
+            candles_daily.append(
+                _internal_build_candle(candles, i, num_h1 - 1, UnitTime.D)
+            )
+            i += num_h1
+        else:
+            Logger.get_logger("build_daily_candles_from_h1").debug(
+                f"Not a daily ending {candles[i].date}"
+            )
+            i += 1
     return candles_daily
 
 

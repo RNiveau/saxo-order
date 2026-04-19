@@ -38,34 +38,25 @@ def execute_snapshot(config: str):
     # Define columns
     for index in indexes:
         # asset = saxo_client.get_asset(code=index)
-        candles_h1 = candles_service.build_hour_candles(
+        candles_h1 = candles_service.build_candles(
             code=index,
-            cfd_code=index,
             ut=UnitTime.H1,
-            open_hour_utc0=eu_market.open_hour,
-            close_hour_utc0=eu_market.close_hour,
-            nbr_hours=160 * 3,
-            open_minutes=eu_market.open_minutes,
+            market=eu_market,
+            count=160,
             date=get_date_utc0(),
         )
-        candles_h4 = candles_service.build_hour_candles(
+        candles_h4 = candles_service.build_candles(
             code=index,
-            cfd_code=index,
             ut=UnitTime.H4,
-            open_hour_utc0=eu_market.open_hour,
-            close_hour_utc0=eu_market.close_hour,
-            nbr_hours=160 * 3 * 4,
-            open_minutes=eu_market.open_minutes,
+            market=eu_market,
+            count=160,
             date=get_date_utc0(),
         )
-        candles_daily = candles_service.build_hour_candles(
+        candles_daily = candles_service.build_candles(
             code=index,
-            cfd_code=index,
             ut=UnitTime.D,
-            open_hour_utc0=eu_market.open_hour,
-            close_hour_utc0=eu_market.close_hour,
-            nbr_hours=160 * 3 * 8,
-            open_minutes=eu_market.open_minutes,
+            market=eu_market,
+            count=160,
             date=get_date_utc0(),
         )
         table = PrettyTable()

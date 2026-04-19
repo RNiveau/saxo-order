@@ -153,15 +153,13 @@ class TestWorkflowEngine:
         saxo_client = mocker.Mock()
         dynamodb_client = AsyncMock()
         mocker.patch.object(slack_client, "chat_postMessage")
-        mocker.patch.object(
-            candles_service, "build_hour_candles", return_value=[]
+        candle = Candle(
+            close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
         )
         mocker.patch.object(
             candles_service,
-            "get_candle_per_hour",
-            return_value=Candle(
-                close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
-            ),
+            "build_candles",
+            side_effect=[[], [candle], [candle]],
         )
         mocker.patch.object(
             saxo_client,
@@ -178,8 +176,7 @@ class TestWorkflowEngine:
             dynamodb_client,
         )
         await workflow_engine.run()
-        assert candles_service.build_hour_candles.call_count == 1
-        assert candles_service.get_candle_per_hour.call_count == 2
+        assert candles_service.build_candles.call_count == 3
         assert slack_client.chat_postMessage.call_count == slack_call
         if slack_call > 0:
             assert slack_client.chat_postMessage.call_args_list[0] == call(
@@ -218,15 +215,13 @@ class TestWorkflowEngine:
         saxo_client = mocker.Mock()
         dynamodb_client = AsyncMock()
         mocker.patch.object(slack_client, "chat_postMessage")
-        mocker.patch.object(
-            candles_service, "build_hour_candles", return_value=[]
+        candle = Candle(
+            close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
         )
         mocker.patch.object(
             candles_service,
-            "get_candle_per_hour",
-            return_value=Candle(
-                close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
-            ),
+            "build_candles",
+            side_effect=[[], [candle], [candle]],
         )
         mocker.patch.object(
             saxo_client,
@@ -243,8 +238,7 @@ class TestWorkflowEngine:
             dynamodb_client,
         )
         await workflow_engine.run()
-        assert candles_service.build_hour_candles.call_count == 1
-        assert candles_service.get_candle_per_hour.call_count == 2
+        assert candles_service.build_candles.call_count == 3
         assert slack_client.chat_postMessage.call_count == 1
         assert slack_client.chat_postMessage.call_args_list[0] == call(
             channel="#workflows-stock",
@@ -284,15 +278,13 @@ class TestWorkflowEngine:
         saxo_client = mocker.Mock()
         dynamodb_client = AsyncMock()
         mocker.patch.object(slack_client, "chat_postMessage")
-        mocker.patch.object(
-            candles_service, "build_hour_candles", return_value=[]
+        candle = Candle(
+            close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
         )
         mocker.patch.object(
             candles_service,
-            "get_candle_per_hour",
-            return_value=Candle(
-                close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
-            ),
+            "build_candles",
+            side_effect=[[], [candle], [candle]],
         )
         mocker.patch.object(
             saxo_client,
@@ -309,8 +301,7 @@ class TestWorkflowEngine:
             dynamodb_client,
         )
         await workflow_engine.run()
-        assert candles_service.build_hour_candles.call_count == 1
-        assert candles_service.get_candle_per_hour.call_count == 2
+        assert candles_service.build_candles.call_count == 3
         assert slack_client.chat_postMessage.call_count == 1
         assert slack_client.chat_postMessage.call_args_list[0] == call(
             channel="#workflows-stock",
