@@ -13,7 +13,7 @@ from utils.exception import SaxoException
 client = TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_saxo_client():
     """Mock SaxoClient for testing."""
     mock_client = MagicMock()
@@ -26,7 +26,7 @@ def mock_saxo_client():
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_binance_client():
     """Mock BinanceClient for testing."""
     mock_client = MagicMock()
@@ -37,7 +37,6 @@ def mock_binance_client():
 
     app.dependency_overrides[get_binance_client] = override_get_binance_client
     yield mock_client
-    app.dependency_overrides.clear()
 
 
 class TestSearchEndpoint:
