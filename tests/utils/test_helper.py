@@ -992,9 +992,9 @@ class TestHelper:
                 [
                     Candle(
                         lower=5455.0,
-                        higher=5486.31,
+                        higher=5480.69,
                         open=5460.0,
-                        close=5478.35,
+                        close=5475.56,
                         ut=UnitTime.D,
                         date=datetime.datetime(2024, 6, 18, 13, 0),
                     ),

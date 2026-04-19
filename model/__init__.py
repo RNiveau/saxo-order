@@ -176,7 +176,7 @@ class Market:
 class USMarket(Market):
     def __init__(self) -> None:
         super().__init__(
-            open_hour=13, close_hour=20, open_minutes=30, h4_blocks=[4, 3]
+            open_hour=13, close_hour=19, open_minutes=30, h4_blocks=[4, 3]
         )
 
 

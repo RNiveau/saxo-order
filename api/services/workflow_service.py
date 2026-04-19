@@ -18,7 +18,7 @@ class WorkflowService:
     def __init__(self, force_from_disk: bool = False):
         self.force_from_disk = force_from_disk
 
-    def get_workflows_by_asset(
+    async def get_workflows_by_asset(
         self, code: str, country_code: str = "xpar"
     ) -> List[WorkflowInfo]:
         """
@@ -35,7 +35,7 @@ class WorkflowService:
         symbol = f"{code}:{country_code}" if country_code else code
 
         # Load workflows
-        workflows = load_workflows(self.force_from_disk)
+        workflows = await load_workflows(self.force_from_disk)
 
         # Filter workflows by index matching the asset
         matching_workflows = [

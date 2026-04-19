@@ -1,5 +1,6 @@
 # flake8: noqa: W291
 
+import asyncio
 import json
 
 import click
@@ -154,18 +155,18 @@ def refresh_stocks_list(ctx: Context):
         if len(results) > 1:
             results = list(
                 filter(
-                    lambda x: "xpar" in x["Symbol"]
-                    or "xams" in x["Symbol"]
-                    or "xnas" in x["Symbol"],
+                    lambda x: "xpar" in x.symbol
+                    or "xams" in x.symbol
+                    or "xnas" in x.symbol,
                     results,
                 )
             )
         if len(results) >= 1:
             records.append(
                 {
-                    "name": results[0]["Description"],
-                    "code": results[0]["Symbol"],
-                    "saxo_uic": results[0]["Identifier"],
+                    "name": results[0].description,
+                    "code": results[0].symbol,
+                    "saxo_uic": results[0].identifier,
                 }
             )
         else:
@@ -253,14 +254,15 @@ def technical(ctx: Context):
     #     datetime.datetime(2024, 7, 29, 14),
     # )
     # print(candles)
-    asset = saxo_client.get_asset("ri", "xpar")
+    asset = saxo_client.get_asset("nke", "xnys")
     candles = saxo_client.get_historical_data(
         asset_type=asset["AssetType"],
         saxo_uic=asset["Identifier"],
-        horizon=1440,
+        horizon=30,
         count=40,
     )
-    print(dumps_indicator(candles))
+    print(candles)
+    # print(dumps_indicator(candles))
     # with open("tests/services/files/candles_viridien.obj", "w") as f:
     #     f.write(str(candles))
     # should return 03/03 and 06/03
@@ -328,7 +330,7 @@ def sync_workflows(ctx: Context, direction: str):
             aws_client.save_workflows(file.read())
 
     configuration = Configuration(ctx.obj["config"])
-    workflows = load_workflows()
+    workflows = asyncio.run(load_workflows())
     slack_client = WebClient(token=configuration.slack_token)
     slack_message = "Workflows currently active:\n```"
     for workflow in workflows:
