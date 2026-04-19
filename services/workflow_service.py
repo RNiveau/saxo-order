@@ -13,6 +13,7 @@ from model.workflow_api import (
     TriggerDetail,
     WorkflowCreateRequest,
     WorkflowDetail,
+    WorkflowIndicatorInput,
     WorkflowListItem,
     WorkflowListResponse,
     WorkflowOrderListItem,
@@ -99,6 +100,35 @@ class WorkflowService:
                     "indicator.zone_value is required when indicator name "
                     f"is {IndicatorType.ZONE.value!r}"
                 )
+        if indicator.name == IndicatorType.INCLINED.value:
+            if indicator.x1 is None or indicator.x2 is None:
+                raise ValueError(
+                    "indicator.x1 and indicator.x2 are required when "
+                    "indicator name is 'inclined'"
+                )
+            if indicator.x1.date == indicator.x2.date:
+                raise ValueError("x1.date and x2.date must be different")
+
+    def _build_indicator_dict(
+        self, indicator: WorkflowIndicatorInput
+    ) -> Dict[str, Any]:
+        result: Dict[str, Any] = {
+            "name": indicator.name,
+            "ut": indicator.ut,
+            "value": indicator.value,
+            "zone_value": indicator.zone_value,
+        }
+        if indicator.x1 is not None:
+            result["x1"] = {
+                "x": indicator.x1.date,
+                "y": indicator.x1.price,
+            }
+        if indicator.x2 is not None:
+            result["x2"] = {
+                "x": indicator.x2.date,
+                "y": indicator.x2.price,
+            }
+        return result
 
     def _build_workflow_dict(
         self, data: WorkflowCreateRequest, workflow_id: str, created_at: str
@@ -115,12 +145,7 @@ class WorkflowService:
             "end_date": data.end_date,
             "conditions": [
                 {
-                    "indicator": {
-                        "name": c.indicator.name,
-                        "ut": c.indicator.ut,
-                        "value": c.indicator.value,
-                        "zone_value": c.indicator.zone_value,
-                    },
+                    "indicator": self._build_indicator_dict(c.indicator),
                     "close": {
                         "direction": c.close.direction,
                         "ut": c.close.ut,
@@ -230,6 +255,8 @@ class WorkflowService:
 
         for cond_data in conditions_data:
             indicator_data = cond_data.get("indicator", {})
+            x1_data = indicator_data.get("x1")
+            x2_data = indicator_data.get("x2")
             indicator = IndicatorDetail(
                 name=indicator_data.get("name"),
                 ut=indicator_data.get("ut"),
@@ -243,6 +270,10 @@ class WorkflowService:
                     if indicator_data.get("zone_value")
                     else None
                 ),
+                x1_date=x1_data.get("x") if x1_data else None,
+                x1_price=(float(x1_data["y"]) if x1_data else None),
+                x2_date=x2_data.get("x") if x2_data else None,
+                x2_price=(float(x2_data["y"]) if x2_data else None),
             )
 
             close_data = cond_data.get("close", {})

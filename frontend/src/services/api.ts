@@ -133,6 +133,10 @@ export interface IndicatorDetail {
   ut: string;
   value: number | null;
   zone_value: number | null;
+  x1_date?: string | null;
+  x1_price?: number | null;
+  x2_date?: string | null;
+  x2_price?: number | null;
 }
 
 export interface CloseDetail {
@@ -197,11 +201,18 @@ export interface AllWorkflowOrdersResponse {
   limit: number;
 }
 
+export interface PointInput {
+  date: string;
+  price: number;
+}
+
 export interface WorkflowIndicatorInput {
   name: string;
   ut: string;
   value: number | null;
   zone_value: number | null;
+  x1?: PointInput;
+  x2?: PointInput;
 }
 
 export interface WorkflowCloseInput {

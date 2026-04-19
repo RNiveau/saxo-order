@@ -57,6 +57,10 @@ export function WorkflowCreateModal({ onClose, onSuccess, prefill, workflow }: W
   const [indicatorUt, setIndicatorUt] = useState(cond?.indicator.ut ?? 'h1');
   const [indicatorValue, setIndicatorValue] = useState(cond?.indicator.value != null ? String(cond.indicator.value) : '');
   const [indicatorZoneValue, setIndicatorZoneValue] = useState(cond?.indicator.zone_value != null ? String(cond.indicator.zone_value) : '');
+  const [x1Date, setX1Date] = useState(cond?.indicator.x1_date ?? '');
+  const [x1Price, setX1Price] = useState(cond?.indicator.x1_price != null ? String(cond.indicator.x1_price) : '');
+  const [x2Date, setX2Date] = useState(cond?.indicator.x2_date ?? '');
+  const [x2Price, setX2Price] = useState(cond?.indicator.x2_price != null ? String(cond.indicator.x2_price) : '');
   const [closeDirection, setCloseDirection] = useState(cond?.close.direction ?? 'above');
   const [closeUt, setCloseUt] = useState(cond?.close.ut ?? 'h1');
   const [spread, setSpread] = useState(cond?.close.spread != null ? String(cond.close.spread) : '');
@@ -91,6 +95,7 @@ export function WorkflowCreateModal({ onClose, onSuccess, prefill, workflow }: W
 
   const needsValue = indicatorName === 'polarite' || indicatorName === 'zone';
   const needsZoneValue = indicatorName === 'zone';
+  const needsPoints = indicatorName === 'inclined';
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -103,6 +108,13 @@ export function WorkflowCreateModal({ onClose, onSuccess, prefill, workflow }: W
 
     if (needsValue && !indicatorValue) errs.indicatorValue = 'Value is required for this indicator';
     if (needsZoneValue && !indicatorZoneValue) errs.indicatorZoneValue = 'Zone value is required';
+    if (needsPoints) {
+      if (!x1Date) errs.x1Date = 'Point 1 date is required';
+      if (!x1Price || parseFloat(x1Price) <= 0) errs.x1Price = 'Point 1 price must be positive';
+      if (!x2Date) errs.x2Date = 'Point 2 date is required';
+      if (!x2Price || parseFloat(x2Price) <= 0) errs.x2Price = 'Point 2 price must be positive';
+      if (x1Date && x2Date && x1Date === x2Date) errs.x2Date = 'Point 2 date must differ from Point 1';
+    }
 
     if (endDate) {
       const d = new Date(endDate);
@@ -141,6 +153,8 @@ export function WorkflowCreateModal({ onClose, onSuccess, prefill, workflow }: W
             ut: indicatorUt,
             value: needsValue && indicatorValue ? parseFloat(indicatorValue) : null,
             zone_value: needsZoneValue && indicatorZoneValue ? parseFloat(indicatorZoneValue) : null,
+            ...(needsPoints && x1Date && x1Price ? { x1: { date: x1Date, price: parseFloat(x1Price) } } : {}),
+            ...(needsPoints && x2Date && x2Price ? { x2: { date: x2Date, price: parseFloat(x2Price) } } : {}),
           },
           close: {
             direction: closeDirection,
@@ -285,6 +299,51 @@ export function WorkflowCreateModal({ onClose, onSuccess, prefill, workflow }: W
               />
               {errors.indicatorZoneValue && <span className="form-error">{errors.indicatorZoneValue}</span>}
             </div>
+          )}
+
+          {needsPoints && (
+            <>
+              <div className="form-row">
+                <label>Point 1 Date</label>
+                <input
+                  type="date"
+                  value={x1Date}
+                  onChange={(e) => setX1Date(e.target.value)}
+                />
+                {errors.x1Date && <span className="form-error">{errors.x1Date}</span>}
+              </div>
+              <div className="form-row">
+                <label>Point 1 Price</label>
+                <input
+                  type="number"
+                  value={x1Price}
+                  onChange={(e) => setX1Price(e.target.value)}
+                  step="any"
+                  min="0"
+                />
+                {errors.x1Price && <span className="form-error">{errors.x1Price}</span>}
+              </div>
+              <div className="form-row">
+                <label>Point 2 Date</label>
+                <input
+                  type="date"
+                  value={x2Date}
+                  onChange={(e) => setX2Date(e.target.value)}
+                />
+                {errors.x2Date && <span className="form-error">{errors.x2Date}</span>}
+              </div>
+              <div className="form-row">
+                <label>Point 2 Price</label>
+                <input
+                  type="number"
+                  value={x2Price}
+                  onChange={(e) => setX2Price(e.target.value)}
+                  step="any"
+                  min="0"
+                />
+                {errors.x2Price && <span className="form-error">{errors.x2Price}</span>}
+              </div>
+            </>
           )}
 
           <div className="form-section-title">Close Condition</div>
