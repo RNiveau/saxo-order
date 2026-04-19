@@ -250,16 +250,16 @@ class CandlesService:
             raise SaxoException(
                 f"Wrong parameter {market.open_minutes}, we handle only 0 and 30"
             )
-        nbr_30m = count * 2
+        nbr_30m = count * 2 * 3
         if ut == UnitTime.H4:
-            nbr_30m = count * 8
+            nbr_30m = count * 8 * 3
         elif ut == UnitTime.D:
             num_h1 = (
                 market.close_hour
                 - market.open_hour
                 + (1 if market.open_minutes == 0 else 0)
             )
-            nbr_30m = count * num_h1 * 2
+            nbr_30m = count * num_h1 * 2 * 3
         asset = self.saxo_client.get_asset(code)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
@@ -268,9 +268,9 @@ class CandlesService:
             count=nbr_30m,
             date=date,
         )
-        if len(data) < nbr_30m:
+        if len(data) == 0:
             raise SaxoException(
-                f"We should got {nbr_30m} elements but we get {len(data)}"
+                f"No data returned for {code}"
             )
         if data[0]["Time"].minute == market.open_minutes:
             data = data[1:]
