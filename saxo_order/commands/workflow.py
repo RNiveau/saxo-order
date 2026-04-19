@@ -123,8 +123,7 @@ async def execute_workflow(
     saxo_client = SaxoClient(configuration)
     candles_service = CandlesService(saxo_client)
 
-    dynamodb_client, dynamodb_resource = await create_dynamodb_client()
-    try:
+    async with create_dynamodb_client() as dynamodb_client:
         workflows = await load_workflows(force_from_disk)
 
         if select_workflow is True:
@@ -148,5 +147,3 @@ async def execute_workflow(
             dynamodb_client=dynamodb_client,
         )
         await engine.run()
-    finally:
-        await dynamodb_resource.__aexit__(None, None, None)

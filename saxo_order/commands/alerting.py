@@ -378,8 +378,19 @@ async def run_alerting(
     saxo_client = SaxoClient(configuration)
     slack_client = WebClient(token=configuration.slack_token)
 
-    dynamodb_client, dynamodb_resource = await create_dynamodb_client()
+    async with create_dynamodb_client() as dynamodb_client:
+        await _run_alerting_with_client(
+            config, assets, saxo_client, slack_client, dynamodb_client
+        )
 
+
+async def _run_alerting_with_client(
+    config: str,
+    assets: Optional[List[Dict]],
+    saxo_client: SaxoClient,
+    slack_client: WebClient,
+    dynamodb_client,
+) -> None:
     if assets is None:
         # Fetch French stocks from API with fallback to JSON
         try:
