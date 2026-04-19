@@ -13,11 +13,11 @@ As a trader, I want to see my most important assets at a glance on the homepage 
 
 **Why this priority**: Homepage is the first touchpoint - critical for daily workflow
 
-**Independent Test**: Navigate to homepage, verify 6 tagged assets display with live prices
+**Independent Test**: Navigate to homepage, verify 12 tagged assets display with live prices
 
 **Acceptance Scenarios**:
 
-1. **Given** I have assets tagged with "homepage" in my watchlist, **When** I load the homepage, **Then** I see up to 6 assets displayed
+1. **Given** I have assets tagged with "homepage" in my watchlist, **When** I load the homepage, **Then** I see up to 12 assets displayed
 2. **Given** assets are displayed on homepage, **When** prices update, **Then** I see current price and variation percentage
 3. **Given** assets with TradingView links, **When** I click an asset, **Then** I navigate to asset detail page
 
@@ -40,7 +40,7 @@ As a trader, I want to see MA50 (50-period moving average) for each homepage ass
 
 ### Edge Cases
 
-- What happens when user has fewer than 6 assets tagged as "homepage"? (Display all available)
+- What happens when user has fewer than 12 assets tagged as "homepage"? (Display all available)
 - What happens when user has no assets tagged? (Empty state message)
 - What happens when price data is unavailable? (Show last known price or "N/A")
 - What happens when MA50 cannot be calculated? (Insufficient historical data - show "N/A")
@@ -51,7 +51,7 @@ As a trader, I want to see MA50 (50-period moving average) for each homepage ass
 
 - **FR-001**: System MUST fetch watchlist items from DynamoDB
 - **FR-002**: System MUST filter items by "homepage" tag
-- **FR-003**: System MUST limit display to maximum 6 assets
+- **FR-003**: System MUST limit display to maximum 12 assets
 - **FR-004**: System MUST retrieve current price and variation % for each asset
 - **FR-005**: System MUST calculate MA50 indicator (daily timeframe)
 - **FR-006**: System MUST determine if current price is above/below MA50
