@@ -149,6 +149,63 @@ class TestInclinedWorkflow:
                 x2=Point(x=same_date, y=200),
             )
 
+    def test_real_data_inclined_line(self, mocker):
+        saxo_client = mocker.Mock()
+        saxo_client.get_asset.return_value = {
+            "Identifier": "123",
+            "AssetType": "Stock",
+        }
+        saxo_client.is_day_open.return_value = True
+
+        workflow = InclinedWorkflow(saxo_client, "test")
+
+        x1_date = datetime.datetime(2026, 1, 29)
+        x2_date = datetime.datetime(2026, 2, 12)
+        indicator = self._make_indicator(x1_date, 131.8, x2_date, 129.7)
+
+        now = datetime.datetime(2026, 2, 27)
+        mocker.patch("engines.workflows.get_date_utc0", return_value=now)
+
+        candles = [
+            Candle(lower=125, higher=130, open=127, close=128, ut=UnitTime.H1)
+        ]
+
+        workflow.init_workflow(indicator, candles)
+
+        assert workflow.indicator_value == pytest.approx(127.39, abs=0.01)
+
+    def test_real_data_ascending_line(self, mocker):
+        saxo_client = mocker.Mock()
+        saxo_client.get_asset.return_value = {
+            "Identifier": "456",
+            "AssetType": "Stock",
+        }
+        closed_dates = {
+            datetime.datetime(2026, 4, 3),
+            datetime.datetime(2026, 4, 6),
+            datetime.datetime(2026, 5, 1),
+        }
+        saxo_client.is_day_open.side_effect = (
+            lambda saxo_uic, asset_type, date: date not in closed_dates
+        )
+
+        workflow = InclinedWorkflow(saxo_client, "test")
+
+        x1_date = datetime.datetime(2026, 3, 9)
+        x2_date = datetime.datetime(2026, 4, 7)
+        indicator = self._make_indicator(x1_date, 39.21, x2_date, 48.55)
+
+        now = datetime.datetime(2026, 5, 21)
+        mocker.patch("engines.workflows.get_date_utc0", return_value=now)
+
+        candles = [
+            Candle(lower=60, higher=65, open=62, close=63, ut=UnitTime.H1)
+        ]
+
+        workflow.init_workflow(indicator, candles)
+
+        assert workflow.indicator_value == pytest.approx(63.79, abs=0.01)
+
     def test_descending_line(self, mocker):
         saxo_client = mocker.Mock()
         saxo_client.get_asset.return_value = {
