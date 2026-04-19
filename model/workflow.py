@@ -11,6 +11,7 @@ class UnitTime(EnumWithGetValue):
 
     D = "daily"
     M15 = "15m"
+    M30 = "30m"
     H1 = "h1"
     H4 = "h4"
     W = "weekly"
