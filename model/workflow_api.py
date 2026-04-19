@@ -49,6 +49,18 @@ class IndicatorDetail(BaseModel):
     zone_value: Optional[float] = Field(
         None, description="Zone upper bound (for zone indicator)"
     )
+    x1_date: Optional[str] = Field(
+        None, description="First reference point date (for inclined)"
+    )
+    x1_price: Optional[float] = Field(
+        None, description="First reference point price (for inclined)"
+    )
+    x2_date: Optional[str] = Field(
+        None, description="Second reference point date (for inclined)"
+    )
+    x2_price: Optional[float] = Field(
+        None, description="Second reference point price (for inclined)"
+    )
 
 
 class CloseDetail(BaseModel):
@@ -135,11 +147,18 @@ class AllWorkflowOrderItem(BaseModel):
     order_direction: str = Field(..., description="BUY or SELL")
 
 
+class PointInput(BaseModel):
+    date: str
+    price: float = Field(..., gt=0)
+
+
 class WorkflowIndicatorInput(BaseModel):
     name: str
     ut: str
     value: Optional[float] = None
     zone_value: Optional[float] = None
+    x1: Optional[PointInput] = None
+    x2: Optional[PointInput] = None
 
 
 class WorkflowCloseInput(BaseModel):
