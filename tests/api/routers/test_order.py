@@ -1,8 +1,30 @@
+from unittest.mock import MagicMock
+
+import pytest
 from fastapi.testclient import TestClient
 
+from api.dependencies import (
+    get_configuration,
+    get_gsheet_client,
+    get_saxo_client,
+)
 from api.main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def mock_dependencies():
+    """Mock order endpoint dependencies."""
+    mock_saxo = MagicMock()
+    mock_config = MagicMock()
+    mock_gsheet = MagicMock()
+
+    app.dependency_overrides[get_saxo_client] = lambda: mock_saxo
+    app.dependency_overrides[get_configuration] = lambda: mock_config
+    app.dependency_overrides[get_gsheet_client] = lambda: mock_gsheet
+    yield
+    app.dependency_overrides.clear()
 
 
 class TestOrderEndpoint:
