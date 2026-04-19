@@ -34,8 +34,7 @@ async def _load_from_dynamodb(logger) -> List[Dict[str, Any]]:
     Raises:
         Exception: If DynamoDB query fails
     """
-    dynamodb_client, dynamodb_resource = await create_dynamodb_client()
-    try:
+    async with create_dynamodb_client() as dynamodb_client:
         workflows_data = await dynamodb_client.get_all_workflows()
 
         enabled_workflows = [
@@ -45,8 +44,6 @@ async def _load_from_dynamodb(logger) -> List[Dict[str, Any]]:
             f"Loaded {len(enabled_workflows)} enabled workflows from DynamoDB"
         )
         return enabled_workflows
-    finally:
-        await dynamodb_resource.__aexit__(None, None, None)
 
 
 def _load_from_yaml(logger, force_from_disk: bool) -> List[Dict[str, Any]]:

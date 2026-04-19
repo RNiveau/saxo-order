@@ -1,5 +1,6 @@
 import asyncio
 import functools
+from contextlib import asynccontextmanager
 
 import aioboto3
 
@@ -14,12 +15,13 @@ def run_async(func):
     return wrapper
 
 
+@asynccontextmanager
 async def create_dynamodb_client():
     """Create an async DynamoDBClient with managed resource for CLI use."""
     from client.aws_client import DynamoDBClient
 
     session = aioboto3.Session()
-    resource = await session.resource(
+    async with session.resource(
         "dynamodb", region_name="eu-west-1"
-    ).__aenter__()
-    return DynamoDBClient(dynamodb_resource=resource), resource
+    ) as resource:
+        yield DynamoDBClient(dynamodb_resource=resource)
