@@ -713,54 +713,31 @@ class TestWatchlistEndpoint:
     def test_update_labels_homepage_limit_enforced(
         self, mock_dynamodb_client, mock_watchlist_service
     ):
-        """Test that 6-asset limit is enforced for homepage tag."""
+        """Test that 12-asset limit is enforced for homepage tag."""
         mock_dynamodb_client.is_in_watchlist.return_value = True
         mock_dynamodb_client.get_watchlist.return_value = [
             {
-                "id": "asset1",
-                "asset_symbol": "asset1:xpar",
+                "id": f"asset{i}",
+                "asset_symbol": f"asset{i}:xpar",
                 "labels": ["homepage"],
-            },
+            }
+            for i in range(1, 13)
+        ] + [
             {
-                "id": "asset2",
-                "asset_symbol": "asset2:xpar",
-                "labels": ["homepage"],
-            },
-            {
-                "id": "asset3",
-                "asset_symbol": "asset3:xpar",
-                "labels": ["homepage"],
-            },
-            {
-                "id": "asset4",
-                "asset_symbol": "asset4:xpar",
-                "labels": ["homepage"],
-            },
-            {
-                "id": "asset5",
-                "asset_symbol": "asset5:xpar",
-                "labels": ["homepage"],
-            },
-            {
-                "id": "asset6",
-                "asset_symbol": "asset6:xpar",
-                "labels": ["homepage"],
-            },
-            {
-                "id": "asset7",
-                "asset_symbol": "asset7:xpar",
+                "id": "asset13",
+                "asset_symbol": "asset13:xpar",
                 "labels": ["short-term"],
             },
         ]
 
         response = client.patch(
-            "/api/watchlist/asset7/labels",
+            "/api/watchlist/asset13/labels",
             json={"labels": ["homepage", "short-term"]},
         )
 
         assert response.status_code == 400
         data = response.json()
-        assert "maximum of 6 assets allowed" in data["detail"].lower()
+        assert "maximum of 12 assets allowed" in data["detail"].lower()
         mock_dynamodb_client.update_watchlist_labels.assert_not_called()
 
     def test_update_labels_homepage_limit_allows_existing(
@@ -770,45 +747,27 @@ class TestWatchlistEndpoint:
         mock_dynamodb_client.is_in_watchlist.return_value = True
         mock_dynamodb_client.get_watchlist.return_value = [
             {
-                "id": "asset1",
-                "asset_symbol": "asset1:xpar",
+                "id": f"asset{i}",
+                "asset_symbol": f"asset{i}:xpar",
                 "labels": ["homepage"],
-            },
+            }
+            for i in range(1, 12)
+        ] + [
             {
-                "id": "asset2",
-                "asset_symbol": "asset2:xpar",
-                "labels": ["homepage"],
-            },
-            {
-                "id": "asset3",
-                "asset_symbol": "asset3:xpar",
-                "labels": ["homepage"],
-            },
-            {
-                "id": "asset4",
-                "asset_symbol": "asset4:xpar",
-                "labels": ["homepage"],
-            },
-            {
-                "id": "asset5",
-                "asset_symbol": "asset5:xpar",
-                "labels": ["homepage"],
-            },
-            {
-                "id": "asset6",
-                "asset_symbol": "asset6:xpar",
+                "id": "asset12",
+                "asset_symbol": "asset12:xpar",
                 "labels": ["homepage", "short-term"],
             },
         ]
 
         response = client.patch(
-            "/api/watchlist/asset6/labels",
+            "/api/watchlist/asset12/labels",
             json={"labels": ["homepage", "long-term"]},
         )
 
         assert response.status_code == 200
         mock_dynamodb_client.update_watchlist_labels.assert_called_once_with(
-            "asset6", ["homepage", "long-term"]
+            "asset12", ["homepage", "long-term"]
         )
 
     def test_update_labels_homepage_removal_works(
