@@ -332,6 +332,17 @@ class InclinedWorkflow(AbstractWorkflow):
         if self.indicator_value is None:
             return False
         if element is not None:
+            return self._is_within_indicator_range_plus_spread(element, spread)
+        return self._is_within_indicator_range_plus_spread(
+            candle.close, spread
+        ) or self._is_within_indicator_range_plus_spread(candle.lower, spread)
+
+    def above_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        if self.indicator_value is None:
+            return False
+        if element is not None:
             return self._is_within_indicator_range_minus_spread(
                 element, spread
             )
@@ -340,14 +351,3 @@ class InclinedWorkflow(AbstractWorkflow):
         ) or self._is_within_indicator_range_minus_spread(
             candle.higher, spread
         )
-
-    def above_condition(
-        self, candle: Candle, spread: float, element: Optional[float] = None
-    ) -> bool:
-        if self.indicator_value is None:
-            return False
-        if element is not None:
-            return self._is_within_indicator_range_plus_spread(element, spread)
-        return self._is_within_indicator_range_plus_spread(
-            candle.close, spread
-        ) or self._is_within_indicator_range_plus_spread(candle.lower, spread)

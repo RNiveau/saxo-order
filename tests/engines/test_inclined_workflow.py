@@ -79,10 +79,10 @@ class TestInclinedWorkflow:
             lower=100, higher=110, open=103, close=104, ut=UnitTime.H1
         )
 
-        assert workflow.below_condition(candle, spread=1.0, element=104.5)
+        assert workflow.below_condition(candle, spread=1.0, element=105.5)
         assert workflow.below_condition(candle, spread=1.0, element=105.0)
-        assert not workflow.below_condition(candle, spread=1.0, element=103.5)
-        assert not workflow.below_condition(candle, spread=1.0, element=106.0)
+        assert not workflow.below_condition(candle, spread=1.0, element=106.5)
+        assert not workflow.below_condition(candle, spread=1.0, element=104.0)
 
     def test_below_condition_with_candle(self, mocker):
         saxo_client = mocker.Mock()
@@ -90,12 +90,12 @@ class TestInclinedWorkflow:
         workflow.indicator_value = 105.0
 
         candle = Candle(
-            lower=100, higher=104.5, open=103, close=104.2, ut=UnitTime.H1
+            lower=105.5, higher=110, open=106, close=105.3, ut=UnitTime.H1
         )
         assert workflow.below_condition(candle, spread=1.0)
 
         candle_far = Candle(
-            lower=100, higher=102, open=101, close=101.5, ut=UnitTime.H1
+            lower=108, higher=110, open=109, close=109, ut=UnitTime.H1
         )
         assert not workflow.below_condition(candle_far, spread=1.0)
 
@@ -105,13 +105,13 @@ class TestInclinedWorkflow:
         workflow.indicator_value = 105.0
 
         candle = Candle(
-            lower=105.5, higher=110, open=106, close=107, ut=UnitTime.H1
+            lower=100, higher=110, open=103, close=104, ut=UnitTime.H1
         )
 
-        assert workflow.above_condition(candle, spread=1.0, element=105.5)
+        assert workflow.above_condition(candle, spread=1.0, element=104.5)
         assert workflow.above_condition(candle, spread=1.0, element=105.0)
-        assert not workflow.above_condition(candle, spread=1.0, element=106.5)
-        assert not workflow.above_condition(candle, spread=1.0, element=104.0)
+        assert not workflow.above_condition(candle, spread=1.0, element=103.5)
+        assert not workflow.above_condition(candle, spread=1.0, element=106.0)
 
     def test_above_condition_with_candle(self, mocker):
         saxo_client = mocker.Mock()
@@ -119,12 +119,12 @@ class TestInclinedWorkflow:
         workflow.indicator_value = 105.0
 
         candle = Candle(
-            lower=105.5, higher=110, open=106, close=106, ut=UnitTime.H1
+            lower=100, higher=104.5, open=103, close=104.2, ut=UnitTime.H1
         )
         assert workflow.above_condition(candle, spread=1.0)
 
         candle_far = Candle(
-            lower=108, higher=110, open=109, close=109, ut=UnitTime.H1
+            lower=100, higher=102, open=101, close=101.5, ut=UnitTime.H1
         )
         assert not workflow.above_condition(candle_far, spread=1.0)
 
