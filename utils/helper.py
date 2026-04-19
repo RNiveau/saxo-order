@@ -197,18 +197,25 @@ def build_daily_candles_from_h1(
             candle_date = candles[i].date
             if candle_date is None:
                 i += 1
-            elif candle_date.hour == 20:
-                if i + 7 >= len(candles):
-                    break
+                continue
+            day = candle_date.date()
+            j = i + 1
+            while (
+                j < len(candles)
+                and candles[j].date is not None
+                and candles[j].date.date() == day
+            ):
+                j += 1
+            nbr = j - i
+            if nbr >= 7:
                 candles_daily.append(
-                    _internal_build_candle(candles, i, 7, UnitTime.D)
+                    _internal_build_candle(candles, i, nbr - 1, UnitTime.D)
                 )
-                i += 8
             else:
                 Logger.get_logger("build_daily_candles_from_h1").debug(
-                    f"Not a daily ending {candles[i].date}"
+                    f"Incomplete day {day} with {nbr} candles, skipping"
                 )
-                i += 1
+            i = j
     return candles_daily
 
 

@@ -273,11 +273,18 @@ class CandlesService:
                 ut == UnitTime.D
                 and market.open_minutes != 0
                 and open_hour_ok
-                and data[i]["Time"].hour == market.close_hour - 1
+                and close_hour_ok
                 and data[i]["Time"].minute == market.open_minutes
             ):
-                candle = map_data_to_candle(data[i], ut)
-                candles.append(candle)
+                is_orphan = i == 0
+                if not is_orphan:
+                    gap = (
+                        data[i - 1]["Time"] - data[i]["Time"]
+                    ).total_seconds()
+                    is_orphan = gap > 30 * 60
+                if is_orphan:
+                    candle = map_data_to_candle(data[i], ut)
+                    candles.append(candle)
             i += 1
         return candles
 

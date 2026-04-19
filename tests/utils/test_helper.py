@@ -1002,14 +1002,6 @@ class TestHelper:
             (
                 [
                     Candle(
-                        lower=54.0,
-                        higher=55.5,
-                        open=54.5,
-                        close=55.0,
-                        ut=UnitTime.H1,
-                        date=datetime.datetime(2024, 8, 20, 20, 30),
-                    ),
-                    Candle(
                         lower=53.5,
                         higher=55.0,
                         open=54.0,
@@ -1070,9 +1062,9 @@ class TestHelper:
                 [
                     Candle(
                         lower=50.0,
-                        higher=55.5,
+                        higher=55.0,
                         open=50.5,
-                        close=55.0,
+                        close=54.5,
                         ut=UnitTime.D,
                         date=datetime.datetime(2024, 8, 20, 13, 30),
                     )
