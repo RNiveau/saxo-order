@@ -36,7 +36,7 @@ async def get_homepage(
 ):
     """
     Get homepage assets with MA50 data.
-    Returns assets tagged with 'homepage' (maximum 6).
+    Returns assets tagged with 'homepage' (maximum 12).
 
     Returns:
         HomepageResponse with homepage items including MA50 data
