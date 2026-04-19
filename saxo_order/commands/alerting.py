@@ -379,213 +379,224 @@ async def run_alerting(
     slack_client = WebClient(token=configuration.slack_token)
 
     async with create_dynamodb_client() as dynamodb_client:
-        await _run_alerting_with_client(
-            config, assets, saxo_client, slack_client, dynamodb_client
-        )
-
-
-async def _run_alerting_with_client(
-    config: str,
-    assets: Optional[List[Dict]],
-    saxo_client: SaxoClient,
-    slack_client: WebClient,
-    dynamodb_client,
-) -> None:
-    if assets is None:
-        # Fetch French stocks from API with fallback to JSON
-        try:
-            start_time = time.time()
-            french_stocks = fetch_french_stocks(saxo_client)
-            fetch_duration = time.time() - start_time
-            logger.info(f"API fetch completed in {fetch_duration:.2f}s")
-        except Exception as e:
-            logger.error(f"Failed to fetch French stocks from API: {e}")
-            # Fallback to JSON
+        if assets is None:
+            # Fetch French stocks from API with fallback to JSON
             try:
-                with open("stocks.json") as f:
-                    french_stocks = json.load(f)
-                logger.info(
-                    f"Loaded {len(french_stocks)} stocks from stocks.json "
-                    "(fallback)"
-                )
-                # Notify error channel
-                slack_client.chat_postMessage(
-                    channel="#errors",
-                    text=(
-                        "Alert system failed to fetch French stocks "
-                        f"from API. Using fallback to stocks.json. "
-                        f"Error: {str(e)}"
-                    ),
-                )
+                start_time = time.time()
+                french_stocks = fetch_french_stocks(saxo_client)
+                fetch_duration = time.time() - start_time
+                logger.info(f"API fetch completed in {fetch_duration:.2f}s")
+            except Exception as e:
+                logger.error(f"Failed to fetch French stocks from API: {e}")
+                # Fallback to JSON
+                try:
+                    with open("stocks.json") as f:
+                        french_stocks = json.load(f)
+                    logger.info(
+                        f"Loaded {len(french_stocks)} stocks from stocks.json "
+                        "(fallback)"
+                    )
+                    # Notify error channel
+                    slack_client.chat_postMessage(
+                        channel="#errors",
+                        text=(
+                            "Alert system failed to fetch French stocks "
+                            f"from API. Using fallback to stocks.json. "
+                            f"Error: {str(e)}"
+                        ),
+                    )
+                except FileNotFoundError:
+                    logger.error("stocks.json file not found, cannot proceed")
+                    raise click.Abort()
+
+            # Load followup stocks (non-French, manual additions)
+            try:
+                with open("followup-stocks.json") as f:
+                    followup_stocks = json.load(f)
+                logger.debug("Followup stocks file loaded")
             except FileNotFoundError:
-                logger.error("stocks.json file not found, cannot proceed")
-                raise click.Abort()
+                logger.warning(
+                    "followup-stocks.json not found, "
+                    "using only French stocks"
+                )
+                followup_stocks = []
 
-        # Load followup stocks (non-French, manual additions)
-        try:
-            with open("followup-stocks.json") as f:
-                followup_stocks = json.load(f)
-            logger.debug("Followup stocks file loaded")
-        except FileNotFoundError:
-            logger.warning(
-                "followup-stocks.json not found, " "using only French stocks"
+            # Combine API stocks + followup stocks
+            all_stocks = french_stocks + followup_stocks
+
+            # Deduplicate by code (API takes precedence)
+            seen = set()
+            unique_stocks = []
+            for stock in all_stocks:
+                if stock["code"] not in seen:
+                    unique_stocks.append(stock)
+                    seen.add(stock["code"])
+
+            logger.info(
+                f"Processing {len(unique_stocks)} total stocks "
+                f"({len(french_stocks)} French + "
+                f"{len(followup_stocks)} followup)"
             )
-            followup_stocks = []
 
-        # Combine API stocks + followup stocks
-        all_stocks = french_stocks + followup_stocks
+            assets = unique_stocks
 
-        # Deduplicate by code (API takes precedence)
-        seen = set()
-        unique_stocks = []
-        for stock in all_stocks:
-            if stock["code"] not in seen:
-                unique_stocks.append(stock)
-                seen.add(stock["code"])
+        # Filter out excluded assets
+        excluded_asset_ids = await dynamodb_client.get_excluded_assets()
+        logger.info(f"Excluded assets: {excluded_asset_ids}")
 
-        logger.info(
-            f"Processing {len(unique_stocks)} total stocks "
-            f"({len(french_stocks)} French + {len(followup_stocks)} followup)"
-        )
+        original_count = len(assets)
 
-        assets = unique_stocks
+        # Filter assets by constructing full asset_id for exclusion check
+        filtered_assets = []
+        for asset in assets:
+            # Parse asset code to separate asset_code and country_code
+            parsed_asset_code, parsed_country_code = _parse_asset_code(
+                asset["code"]
+            )
+            # Prefer explicit country_code from asset dict, fallback to parsed
+            final_country_code = (
+                asset.get("country_code") or parsed_country_code
+            )
 
-    # Filter out excluded assets
-    excluded_asset_ids = await dynamodb_client.get_excluded_assets()
-    logger.info(f"Excluded assets: {excluded_asset_ids}")
+            # Construct full asset_id for exclusion check
+            asset_id = (
+                f"{parsed_asset_code}:{final_country_code}"
+                if final_country_code
+                else parsed_asset_code
+            )
 
-    original_count = len(assets)
+            if asset_id not in excluded_asset_ids:
+                filtered_assets.append(asset)
 
-    # Filter assets by constructing full asset_id for exclusion check
-    filtered_assets = []
-    for asset in assets:
-        # Parse asset code to separate asset_code and country_code
-        parsed_asset_code, parsed_country_code = _parse_asset_code(
-            asset["code"]
-        )
-        # Prefer explicit country_code from asset dict, fallback to parsed
-        final_country_code = asset.get("country_code") or parsed_country_code
+        assets = filtered_assets
+        filtered_count = original_count - len(assets)
 
-        # Construct full asset_id for exclusion check
-        asset_id = (
-            f"{parsed_asset_code}:{final_country_code}"
-            if final_country_code
-            else parsed_asset_code
-        )
+        logger.info(f"Assets after exclusion filtering: {len(assets)}")
+        logger.info(f"Filtered out {filtered_count} excluded assets")
 
-        if asset_id not in excluded_asset_ids:
-            filtered_assets.append(asset)
+        if len(assets) == 0:
+            logger.warning(
+                "All assets are excluded. No alerts will be generated."
+            )
+            slack_client.chat_postMessage(
+                channel="#stock",
+                text="No alerts for today (all assets excluded).",
+            )
+            return
 
-    assets = filtered_assets
-    filtered_count = original_count - len(assets)
+        slack_messages: Dict[str, List[str]] = {
+            "double_top": [],
+            "container_candle": [],
+            "combo": [],
+            "double_inside_bar": [],
+            "congestion": [],
+        }
+        has_message = False
+        for asset in assets:
+            logger.debug(f"scan {asset['name']}")
 
-    logger.info(f"Assets after exclusion filtering: {len(assets)}")
-    logger.info(f"Filtered out {filtered_count} excluded assets")
+            # Parse asset code to separate asset_code and country_code
+            parsed_asset_code, parsed_country_code = _parse_asset_code(
+                asset["code"]
+            )
+            # Prefer explicit country_code from asset dict, fallback to parsed
+            final_country_code = (
+                asset.get("country_code") or parsed_country_code
+            )
 
-    if len(assets) == 0:
-        logger.warning("All assets are excluded. No alerts will be generated.")
-        slack_client.chat_postMessage(
-            channel="#stock",
-            text="No alerts for today (all assets excluded).",
-        )
-        return
+            # Call extracted detection function
+            asset_alerts = await run_detection_for_asset(
+                asset_code=parsed_asset_code,
+                country_code=final_country_code,
+                exchange="saxo",
+                asset_description=asset["name"],
+                saxo_uic=asset.get("saxo_uic"),
+                saxo_client=saxo_client,
+                dynamodb_client=dynamodb_client,
+            )
 
-    slack_messages: Dict[str, List[str]] = {
-        "double_top": [],
-        "container_candle": [],
-        "combo": [],
-        "double_inside_bar": [],
-        "congestion": [],
-    }
-    has_message = False
-    for asset in assets:
-        logger.debug(f"scan {asset['name']}")
-
-        # Parse asset code to separate asset_code and country_code
-        parsed_asset_code, parsed_country_code = _parse_asset_code(
-            asset["code"]
-        )
-        # Prefer explicit country_code from asset dict, fallback to parsed
-        final_country_code = asset.get("country_code") or parsed_country_code
-
-        # Call extracted detection function
-        asset_alerts = await run_detection_for_asset(
-            asset_code=parsed_asset_code,
-            country_code=final_country_code,
-            exchange="saxo",
-            asset_description=asset["name"],
-            saxo_uic=asset.get("saxo_uic"),
-            saxo_client=saxo_client,
-            dynamodb_client=dynamodb_client,
-        )
-
-        # Build Slack messages from detected alerts
-        for alert in asset_alerts:
-            has_message = True
-            if alert.alert_type == AlertType.CONGESTION20:
-                date = datetime.datetime.now().strftime("%Y-%m-%d")
-                touch_points = alert.data.get("touch_points", [])
-                slack_messages["congestion"].append(
-                    f"{asset['name']}: Congestion detected on {date}\n"
-                    + "Touch points:\n"
-                    + "\n".join(touch_points)
-                )
-            elif alert.alert_type == AlertType.CONGESTION100:
-                date = datetime.datetime.now().strftime("%Y-%m-%d")
-                touch_points = alert.data.get("touch_points", [])
-                slack_messages["congestion"].append(
-                    f"{asset['name']}: Congestion detected on {date}\n"
-                    + "Touch points:\n"
-                    + "\n".join(touch_points)
-                )
-            elif alert.alert_type == AlertType.DOUBLE_TOP:
-                date = alert.date.strftime("%Y-%m-%d") if alert.date else ""
-                slack_messages["double_top"].append(
-                    f"{asset['name']}: {date} at {alert.data.get('close')}"
-                )
-            elif alert.alert_type == AlertType.CONTAINING_CANDLE:
-                date = alert.date.strftime("%Y-%m-%d") if alert.date else ""
-                slack_messages["container_candle"].append(
-                    f"{asset['name']}: {date} at {alert.data.get('close')}"
-                )
-            elif alert.alert_type == AlertType.DOUBLE_INSIDE_BAR:
-                date = alert.date.strftime("%Y-%m-%d") if alert.date else ""
-                slack_messages["double_inside_bar"].append(
-                    f"{asset['name']}: {date} at {alert.data.get('close')}"
-                )
-            elif alert.alert_type == AlertType.COMBO:
-                date = datetime.datetime.now().strftime("%Y-%m-%d")
-                direction = alert.data.get("direction")
-                strength = alert.data.get("strength")
-                price = alert.data.get("price")
-                triggered = alert.data.get("has_been_triggered")
-                slack_messages["combo"].append(
-                    f"{asset['name']}: combo {direction} "
-                    f"{strength} {date} at {price} "
-                    f"(has been triggered ? {triggered})"
-                )
-    if has_message is False and len(assets) > 1:
-        slack_client.chat_postMessage(
-            channel="#stock",
-            text="No alert for today",
-        )
-    else:
-        for indicator in slack_messages.keys():
-            if len(slack_messages[indicator]) > 0:
-                message = f"Indicator {indicator} \n```"
-                for index, slack in enumerate(slack_messages[indicator]):
-                    if index % 10 == 0 and index != 0:
-                        slack_client.chat_postMessage(
-                            channel="#stock",
-                            text=f"{message}\n```",
-                        )
-                        message = f"Indicator {indicator} \n```"
-                    message += f"{slack}\n"
-                message += "```"
-                slack_client.chat_postMessage(
-                    channel="#stock",
-                    text=message,
-                )
+            # Build Slack messages from detected alerts
+            for alert in asset_alerts:
+                has_message = True
+                if alert.alert_type == AlertType.CONGESTION20:
+                    date = datetime.datetime.now().strftime("%Y-%m-%d")
+                    touch_points = alert.data.get("touch_points", [])
+                    slack_messages["congestion"].append(
+                        f"{asset['name']}: Congestion detected on {date}\n"
+                        + "Touch points:\n"
+                        + "\n".join(touch_points)
+                    )
+                elif alert.alert_type == AlertType.CONGESTION100:
+                    date = datetime.datetime.now().strftime("%Y-%m-%d")
+                    touch_points = alert.data.get("touch_points", [])
+                    slack_messages["congestion"].append(
+                        f"{asset['name']}: Congestion detected on {date}\n"
+                        + "Touch points:\n"
+                        + "\n".join(touch_points)
+                    )
+                elif alert.alert_type == AlertType.DOUBLE_TOP:
+                    date = (
+                        alert.date.strftime("%Y-%m-%d")
+                        if alert.date
+                        else ""
+                    )
+                    slack_messages["double_top"].append(
+                        f"{asset['name']}: {date} at "
+                        f"{alert.data.get('close')}"
+                    )
+                elif alert.alert_type == AlertType.CONTAINING_CANDLE:
+                    date = (
+                        alert.date.strftime("%Y-%m-%d")
+                        if alert.date
+                        else ""
+                    )
+                    slack_messages["container_candle"].append(
+                        f"{asset['name']}: {date} at "
+                        f"{alert.data.get('close')}"
+                    )
+                elif alert.alert_type == AlertType.DOUBLE_INSIDE_BAR:
+                    date = (
+                        alert.date.strftime("%Y-%m-%d")
+                        if alert.date
+                        else ""
+                    )
+                    slack_messages["double_inside_bar"].append(
+                        f"{asset['name']}: {date} at "
+                        f"{alert.data.get('close')}"
+                    )
+                elif alert.alert_type == AlertType.COMBO:
+                    date = datetime.datetime.now().strftime("%Y-%m-%d")
+                    direction = alert.data.get("direction")
+                    strength = alert.data.get("strength")
+                    price = alert.data.get("price")
+                    triggered = alert.data.get("has_been_triggered")
+                    slack_messages["combo"].append(
+                        f"{asset['name']}: combo {direction} "
+                        f"{strength} {date} at {price} "
+                        f"(has been triggered ? {triggered})"
+                    )
+        if has_message is False and len(assets) > 1:
+            slack_client.chat_postMessage(
+                channel="#stock",
+                text="No alert for today",
+            )
+        else:
+            for indicator in slack_messages.keys():
+                if len(slack_messages[indicator]) > 0:
+                    message = f"Indicator {indicator} \n```"
+                    for index, slack in enumerate(slack_messages[indicator]):
+                        if index % 10 == 0 and index != 0:
+                            slack_client.chat_postMessage(
+                                channel="#stock",
+                                text=f"{message}\n```",
+                            )
+                            message = f"Indicator {indicator} \n```"
+                        message += f"{slack}\n"
+                    message += "```"
+                    slack_client.chat_postMessage(
+                        channel="#stock",
+                        text=message,
+                    )
 
 
 def _run_double_inside_bar(

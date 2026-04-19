@@ -21,7 +21,15 @@ async def create_dynamodb_client():
     from client.aws_client import DynamoDBClient
 
     session = aioboto3.Session()
-    async with session.resource(
+    resource = await session.resource(
         "dynamodb", region_name="eu-west-1"
-    ) as resource:
+    ).__aenter__()
+    try:
         yield DynamoDBClient(dynamodb_resource=resource)
+    finally:
+        try:
+            await asyncio.wait_for(
+                resource.__aexit__(None, None, None), timeout=5.0
+            )
+        except asyncio.TimeoutError:
+            pass
