@@ -34,6 +34,7 @@ _INDICATOR_LABELS: Dict[IndicatorType, str] = {
     IndicatorType.BBH: "BBH",
     IndicatorType.POL: "POL (Polarité)",
     IndicatorType.ZONE: "ZONE",
+    IndicatorType.INCLINED: "Inclined (ROB/SOH)",
 }
 
 

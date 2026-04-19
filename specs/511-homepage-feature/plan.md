@@ -7,7 +7,7 @@
 
 ## Summary
 
-Implement homepage dashboard displaying up to 6 watchlist assets tagged as "homepage", showing real-time prices, variation %, MA50 indicator, and TradingView chart links. Backend fetches from DynamoDB watchlist table with "homepage" label filter. Frontend displays in responsive grid with navigation to asset detail pages.
+Implement homepage dashboard displaying up to 12 watchlist assets tagged as "homepage", showing real-time prices, variation %, MA50 indicator, and TradingView chart links. Backend fetches from DynamoDB watchlist table with "homepage" label filter. Frontend displays in responsive grid with navigation to asset detail pages.
 
 ## Technical Context
 
@@ -18,7 +18,7 @@ Implement homepage dashboard displaying up to 6 watchlist assets tagged as "home
 **Target Platform**: Web application (FastAPI + React/Vite)
 **Project Type**: Full-stack web application
 **Performance Goals**: <2s page load, real-time price updates
-**Constraints**: Maximum 6 assets, DynamoDB query limit
+**Constraints**: Maximum 12 assets, DynamoDB query limit
 **Scale/Scope**: Single page feature, ~500 LOC total
 
 ## Constitution Check
@@ -101,7 +101,7 @@ frontend/src/components/HomepageCard.css # Card styles
 
 **Key Design Decisions**:
 - Reused existing watchlist infrastructure (no new tables)
-- Limited to 6 assets via slice operation
+- Limited to 12 assets via validation on label update
 - MA50 calculated on-demand using existing CandlesService
 - Supported both Saxo and Binance exchanges
 

@@ -1,9 +1,18 @@
 import logging
 from typing import Any, List, Optional
 
+from client.saxo_client import SaxoClient
 from model import Candle, ComboSignal, Direction, Indicator, IndicatorType
-from services.indicator_service import bollinger_bands, combo, mobile_average
+from model.workflow import IndicatorInclined
+from services.indicator_service import (
+    apply_linear_function,
+    bollinger_bands,
+    combo,
+    mobile_average,
+    number_of_day_between_dates,
+)
 from utils.exception import SaxoException
+from utils.helper import get_date_utc0
 from utils.logger import Logger
 
 
@@ -83,7 +92,7 @@ class ZoneWorkflow(AbstractWorkflow):
     ) -> None:
         if indicator.value is None or indicator.zone_value is None:
             self.logger.error(
-                "can't run polarite workflow with None value or zone_value"
+                "can't run zone workflow with None value or zone_value"
             )
             raise SaxoException("indicator has none value or zone_value")
         value = indicator.value
@@ -274,4 +283,71 @@ class ComboWorkflow(AbstractWorkflow):
         return (
             self.indicator_value is not None
             and self.indicator_value.direction == Direction.BUY
+        )
+
+
+class InclinedWorkflow(AbstractWorkflow):
+
+    logger = Logger.get_logger("inclined-workflow", logging.DEBUG)
+
+    def __init__(self, saxo_client: SaxoClient, index_code: str):
+        self.saxo_client = saxo_client
+        self.index_code = index_code
+
+    def init_workflow(
+        self, indicator: Indicator, candles: List[Candle]
+    ) -> None:
+        if not isinstance(indicator, IndicatorInclined):
+            raise SaxoException("indicator must be IndicatorInclined")
+        if indicator.x1 is None or indicator.x2 is None:
+            raise SaxoException("inclined indicator requires x1 and x2")
+
+        asset = self.saxo_client.get_asset(self.index_code)
+        saxo_uic = asset["Identifier"]
+        asset_type = asset["AssetType"]
+
+        x1_to_x2 = number_of_day_between_dates(
+            self.saxo_client,
+            saxo_uic,
+            asset_type,
+            indicator.x1.x,
+            indicator.x2.x,
+        )
+        x1_to_now = number_of_day_between_dates(
+            self.saxo_client,
+            saxo_uic,
+            asset_type,
+            indicator.x1.x,
+            get_date_utc0(),
+        )
+
+        self.indicator_value = apply_linear_function(
+            0, indicator.x1.y, x1_to_x2, indicator.x2.y, x1_to_now
+        )
+        super().init_workflow(indicator, candles)
+
+    def below_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        if self.indicator_value is None:
+            return False
+        if element is not None:
+            return self._is_within_indicator_range_plus_spread(element, spread)
+        return self._is_within_indicator_range_plus_spread(
+            candle.close, spread
+        ) or self._is_within_indicator_range_plus_spread(candle.lower, spread)
+
+    def above_condition(
+        self, candle: Candle, spread: float, element: Optional[float] = None
+    ) -> bool:
+        if self.indicator_value is None:
+            return False
+        if element is not None:
+            return self._is_within_indicator_range_minus_spread(
+                element, spread
+            )
+        return self._is_within_indicator_range_minus_spread(
+            candle.close, spread
+        ) or self._is_within_indicator_range_minus_spread(
+            candle.higher, spread
         )

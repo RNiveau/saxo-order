@@ -50,6 +50,13 @@ class IndicatorType(EnumWithGetValue):
     BBH = "bbh"
     POL = "polarite"
     ZONE = "zone"
+    INCLINED = "inclined"
+
+
+@dataclass
+class Point:
+    x: datetime.datetime
+    y: float
 
 
 class WorkflowElement(EnumWithGetValue):
@@ -88,6 +95,25 @@ class Indicator:
         if self.zone_value is not None:
             repr += f" {self.zone_value}"
         return repr
+
+
+class IndicatorInclined(Indicator):
+    def __init__(
+        self,
+        name: Union[str | IndicatorType],
+        ut: Union[str | UnitTime],
+        value: Optional[float] = None,
+        zone_value: Optional[float] = None,
+        x1: Optional[Point] = None,
+        x2: Optional[Point] = None,
+    ):
+        super().__init__(name, ut, value, zone_value)
+        if x1 is not None and x2 is not None and x1.x == x2.x:
+            raise ValueError(
+                "x1 and x2 must have different dates to define a line"
+            )
+        self.x1 = x1
+        self.x2 = x2
 
 
 class Close:

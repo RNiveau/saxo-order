@@ -5,11 +5,13 @@ from typing import Any, Dict, List
 
 import yaml
 
-from client.aws_client import DynamoDBClient, S3Client
+from client.aws_client import S3Client
 from model.workflow import (
     Close,
     Condition,
     Indicator,
+    IndicatorInclined,
+    Point,
     Trigger,
     UnitTime,
     Workflow,
@@ -126,12 +128,34 @@ async def load_workflows(force_from_disk: bool = False) -> List[Workflow]:
         conditions = []
         for condition_data in conditions_data:
             indicator_data = condition_data["indicator"]
-            indicator = Indicator(
-                indicator_data["name"],
-                indicator_data["ut"],
-                indicator_data.get("value"),
-                indicator_data.get("zone_value"),
-            )
+            if indicator_data["name"] == "inclined":
+                x1 = Point(
+                    x=datetime.datetime.strptime(
+                        indicator_data["x1"]["x"], "%Y-%m-%d"
+                    ),
+                    y=indicator_data["x1"]["y"],
+                )
+                x2 = Point(
+                    x=datetime.datetime.strptime(
+                        indicator_data["x2"]["x"], "%Y-%m-%d"
+                    ),
+                    y=indicator_data["x2"]["y"],
+                )
+                indicator: Indicator = IndicatorInclined(
+                    indicator_data["name"],
+                    indicator_data["ut"],
+                    None,
+                    None,
+                    x1,
+                    x2,
+                )
+            else:
+                indicator = Indicator(
+                    indicator_data["name"],
+                    indicator_data["ut"],
+                    indicator_data.get("value"),
+                    indicator_data.get("zone_value"),
+                )
             close_data = condition_data["close"]
             close = Close(
                 close_data["direction"],

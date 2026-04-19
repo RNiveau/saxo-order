@@ -9,6 +9,7 @@ from engines.workflows import (
     AbstractWorkflow,
     BBWorkflow,
     ComboWorkflow,
+    InclinedWorkflow,
     MA7Workflow,
     MA50Workflow,
     PolariteWorkflow,
@@ -86,18 +87,25 @@ class WorkflowEngine:
                     IndicatorType.ZONE: ZoneWorkflow,
                 }
                 indicator_name = workflow.conditions[0].indicator.name
-                workflow_class = workflow_map.get(indicator_name)
-                if workflow_class is None:
-                    self.logger.error(
-                        f"indicator {indicator_name} is not handle"
+                workflow_instance: AbstractWorkflow
+                if indicator_name == IndicatorType.INCLINED:
+                    workflow_instance = InclinedWorkflow(
+                        self.saxo_client, workflow.index
                     )
-                    continue
+                else:
+                    workflow_class = workflow_map.get(indicator_name)
+                    if workflow_class is None:
+                        self.logger.error(
+                            f"indicator {indicator_name} is not handle"
+                        )
+                        continue
+                    workflow_instance = workflow_class()
                 try:
                     results.append(
                         (
                             workflow,
                             self._run_workflow(
-                                workflow, candles, workflow_class()
+                                workflow, candles, workflow_instance
                             ),
                         )
                     )
@@ -181,7 +189,11 @@ class WorkflowEngine:
                     nbr_weeks = 750
                 case IndicatorType.BBH | IndicatorType.BBB:
                     nbr_weeks = 21
-                case IndicatorType.POL | IndicatorType.ZONE:
+                case (
+                    IndicatorType.POL
+                    | IndicatorType.ZONE
+                    | IndicatorType.INCLINED
+                ):
                     nbr_weeks = 1
                 case _:
                     self.logger.error(
@@ -210,7 +222,11 @@ class WorkflowEngine:
                 count = 750
             case IndicatorType.BBH | IndicatorType.BBB:
                 count = 21
-            case IndicatorType.POL | IndicatorType.ZONE:
+            case (
+                IndicatorType.POL
+                | IndicatorType.ZONE
+                | IndicatorType.INCLINED
+            ):
                 count = 1
             case _:
                 self.logger.error(f"indicator {indicator.name} isn't managed")

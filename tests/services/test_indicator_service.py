@@ -12,12 +12,14 @@ from model import (
     UnitTime,
 )
 from services.indicator_service import (
+    apply_linear_function,
     average_true_range,
     bollinger_bands,
     combo,
     containing_candle,
     double_top,
     exponentiel_mobile_average,
+    find_linear_function,
     macd0lag,
     number_of_day_between_dates,
     slope_percentage,
@@ -508,3 +510,26 @@ class TestIndicatorService:
             )
             == 47
         )
+
+    def test_find_linear_function(self):
+        a, b = find_linear_function(0, 100, 5, 110)
+        assert a == 2.0
+        assert b == 100.0
+
+        a, b = find_linear_function(0, 110, 5, 100)
+        assert a == -2.0
+        assert b == 110.0
+
+    def test_apply_linear_function(self):
+        result = apply_linear_function(0, 100, 5, 110, 10)
+        assert result == 120.0
+
+        result = apply_linear_function(0, 100, 5, 110, 0)
+        assert result == 100.0
+
+        result = apply_linear_function(0, 100, 5, 110, 5)
+        assert result == 110.0
+
+    def test_apply_linear_function_descending(self):
+        result = apply_linear_function(0, 110, 5, 100, 10)
+        assert result == 90.0
