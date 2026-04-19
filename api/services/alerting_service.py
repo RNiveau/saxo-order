@@ -134,7 +134,7 @@ class AlertingService:
             country_code=alert.country_code,
             date=alert.date,
             data=alert.data,
-            age_hours=int(age.total_seconds() / 3600),
+            age_hours=max(0, int(age.total_seconds() / 3600)),
             tradingview_url=tradingview_url,
         )
 
