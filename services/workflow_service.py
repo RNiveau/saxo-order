@@ -327,12 +327,21 @@ class WorkflowService:
     async def get_all_orders(
         self, limit: int = 100
     ) -> List[AllWorkflowOrderItem]:
-        orders_data = await self.dynamodb_client.get_all_workflow_orders(
-            limit=limit
-        )
-        return [
-            self._convert_all_order_to_item(order) for order in orders_data
-        ]
+        orders_data = await self.dynamodb_client.get_all_workflow_orders()
+        latest_by_workflow: Dict[str, Dict[str, Any]] = {}
+        for order in orders_data:
+            workflow_id = order["workflow_id"]
+            existing = latest_by_workflow.get(workflow_id)
+            if existing is None or int(order["placed_at"]) > int(
+                existing["placed_at"]
+            ):
+                latest_by_workflow[workflow_id] = order
+        deduped = sorted(
+            latest_by_workflow.values(),
+            key=lambda o: int(o["placed_at"]),
+            reverse=True,
+        )[:limit]
+        return [self._convert_all_order_to_item(order) for order in deduped]
 
     def _convert_all_order_to_item(
         self, order_data: Dict[str, Any]
