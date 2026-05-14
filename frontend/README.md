@@ -47,6 +47,14 @@ docker-compose up
 docker-compose up --build
 ```
 
+After changing `package.json` or `package-lock.json`, rebuild the image so the container's `node_modules` matches the lockfile:
+
+```bash
+docker-compose build --no-cache frontend
+```
+
+A stale image will surface as an esbuild host/binary version mismatch (e.g. `Host version "0.25.10" does not match binary version "0.27.7"`) because the platform-specific `@esbuild/*` packages are reinstalled at runtime while the cached top-level `esbuild` lib is not.
+
 The services will be available at:
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:8000
