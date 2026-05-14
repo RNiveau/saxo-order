@@ -63,6 +63,23 @@
 
 ---
 
+## Decision 6: Where to deduplicate to one order per workflow
+
+**Decision**: Deduplicate server-side in `services/workflow_service.get_all_orders()`. Group the scanned rows by `workflow_id` and keep the row with the largest `placed_at` per group, then sort and truncate.
+
+**Rationale**:
+- Keeps the contract honest: the API returns what the frontend renders — no client-side dedup needed.
+- Truncation must happen **after** dedup so the `limit` always represents distinct workflows, not raw orders. Truncating first could discard a workflow's most recent order entirely.
+- Same layer that already converts dicts to `AllWorkflowOrderItem`, so adding a single dict-collapse step there has minimal code surface.
+- Single in-memory pass over the scan result is trivially cheap at the expected scale (≤ a few hundred orders).
+
+**Alternatives considered**:
+- **Client-side dedup in React** — rejected: contract becomes misleading (`total_count` would not match the visible row count), and every consumer of the endpoint would have to repeat the logic.
+- **DynamoDB-side query per workflow** — rejected: requires fetching the workflow ID list first (extra round trip) then N queries. Slower and more complex than one scan + dict collapse for the bounded dataset.
+- **Dedup in the client layer (`aws_client.get_all_workflow_orders`)** — rejected: that layer is responsible for raw external-API access. Deduplication is a business rule that belongs in the service layer per the constitution's Layered Architecture Discipline.
+
+---
+
 ## Confirmed unchanged files
 
 - `pulumi/` — no infrastructure changes

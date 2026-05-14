@@ -24,13 +24,14 @@ insert records into the `workflow_orders` DynamoDB table for testing.
 
 ## Manual test checklist
 
-### US1 — View all workflow orders
+### US1 — View the latest order per workflow
 
 1. Navigate to `http://localhost:5173/workflow-orders` (or click "Workflow Orders" in the sidebar)
 2. Verify the page title shows "Workflow Orders"
-3. Verify orders from multiple workflows appear in a single flat list, newest first
+3. Verify exactly **one row appears per workflow** — that workflow's most recent order — sorted by timestamp newest first
 4. Verify each row shows: timestamp (human-readable), workflow name, asset code, direction badge (BUY/SELL), price, quantity
 5. With no orders in DynamoDB (cleared or fresh), verify an empty state message is shown
+5a. **Dedup check** — seed two orders for the same `workflow_id` (e.g., one 2 hours ago, one yesterday). Reload the page and verify only the 2-hours-ago row is shown; the older one is suppressed.
 
 ### US2 — Filter by workflow or direction
 
@@ -45,11 +46,16 @@ insert records into the `workflow_orders` DynamoDB table for testing.
 ### API smoke test
 
 ```bash
-# Should return all orders across all workflows
+# Should return at most one entry per workflow (each entry = that workflow's latest order)
 curl http://localhost:8000/api/workflow/orders
 
-# With limit
+# With limit (caps the number of distinct workflows, not raw orders)
 curl "http://localhost:8000/api/workflow/orders?limit=10"
+
+# Quick dedup assertion (jq): expect each workflow_id to appear exactly once
+curl -s http://localhost:8000/api/workflow/orders \
+  | jq '.orders | group_by(.workflow_id) | map(length) | unique'
+# → [1]
 ```
 
 ### Sidebar and routing

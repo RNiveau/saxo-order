@@ -5,10 +5,10 @@
 
 ## Summary
 
-Add a dedicated "Workflow Orders" page that shows all orders placed by all workflows in a flat, filterable list. The `workflow_orders` DynamoDB table already exists (spec 010) and stores `workflow_name` per item. This feature adds:
+Add a dedicated "Workflow Orders" page that shows, for each workflow, its **single most recent order** in a filterable list (one row per workflow). The `workflow_orders` DynamoDB table already exists (spec 010) and stores `workflow_name` per item. This feature adds:
 
-1. **Backend**: a scan-based method to retrieve orders across all workflows + a new `GET /api/workflow/orders` endpoint
-2. **Frontend**: a new page with workflow-name and direction filters (client-side), a new route, and a sidebar nav link
+1. **Backend**: a scan-based method to retrieve all orders across workflows + a server-side dedup step that keeps, for each `workflow_id`, the row with the largest `placed_at` + a new `GET /api/workflow/orders` endpoint
+2. **Frontend**: a new page with workflow-name and direction filters (client-side, applied to the already-deduplicated response), a new route, and a sidebar nav link
 
 No infrastructure changes. No new DynamoDB tables. No new packages.
 
@@ -31,7 +31,7 @@ No infrastructure changes. No new DynamoDB tables. No new packages.
 | # | Principle | Status | Notes |
 |---|-----------|--------|-------|
 | I | Layered Architecture | ✅ PASS | Router → Service → Client chain preserved. New `get_all_workflow_orders` on client; new `get_all_orders` on service; new route on router. Frontend API calls go through `workflowService` in `services/api.ts`. |
-| II | Clean Code First | ✅ PASS | Scan + Python sort reuses existing pattern (identical to `workflows` table scan). No new abstractions. |
+| II | Clean Code First | ✅ PASS | Scan + Python sort + dict-based dedup reuses existing patterns. No new abstractions. |
 | III | Configuration-Driven | ✅ PASS | No new env vars or config keys required. |
 | IV | Safe Deployment | ✅ PASS | No infrastructure changes. DynamoDB table and IAM policies already exist. |
 | V | Domain Model Integrity | ✅ PASS | `workflow_name` is already stored in every DynamoDB item by `record_workflow_order`. New model `AllWorkflowOrderItem` extends the domain cleanly. |
@@ -109,18 +109,33 @@ def get_all_workflow_orders(self, limit: Optional[int] = None) -> List[Dict[str,
     # Apply limit after sort
 ```
 
+> The client returns ALL rows from the scan (deduplication is the service's responsibility, see below). The optional `limit` here is a safety cap; the service will pass no limit so it can dedupe before truncation.
+
 **`model/workflow_api.py`** — new model:
 ```python
 class AllWorkflowOrderItem(BaseModel):
     # All fields from WorkflowOrderListItem + workflow_name: str
 ```
 
-**`services/workflow_service.py`** — new method:
+**`services/workflow_service.py`** — new method (deduplicates by `workflow_id`, keeping the row with the largest `placed_at`):
 ```python
 def get_all_orders(self, limit: int = 100) -> List[AllWorkflowOrderItem]:
-    orders_data = self.dynamodb_client.get_all_workflow_orders(limit=limit)
-    return [self._convert_all_order_to_item(order) for order in orders_data]
+    orders_data = self.dynamodb_client.get_all_workflow_orders()  # no limit yet
+    latest_by_workflow: Dict[str, Dict[str, Any]] = {}
+    for order in orders_data:
+        workflow_id = order["workflow_id"]
+        existing = latest_by_workflow.get(workflow_id)
+        if existing is None or order["placed_at"] > existing["placed_at"]:
+            latest_by_workflow[workflow_id] = order
+    deduped = sorted(
+        latest_by_workflow.values(),
+        key=lambda o: o["placed_at"],
+        reverse=True,
+    )[:limit]
+    return [self._convert_all_order_to_item(order) for order in deduped]
 ```
+
+> Limit is applied **after** deduplication so the user always sees the top-N most-recent workflows, never N rows from a single noisy workflow.
 
 **`api/models/workflow.py`** — new response model:
 ```python

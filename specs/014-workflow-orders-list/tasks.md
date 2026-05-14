@@ -71,11 +71,31 @@
 
 ---
 
+## Phase 4b: Latest-Order-Per-Workflow Deduplication (Spec amendment)
+
+**Goal**: Adjust the existing implementation so the page shows exactly **one row per workflow** — that workflow's most recent order — instead of every order from the past 7 days. See spec.md FR-010 and the updated research.md Decision 6.
+
+**Independent Test**: With ≥ 2 orders for the same workflow seeded in DynamoDB, hit `GET /api/workflow/orders` and confirm the response contains a single entry for that workflow whose `placed_at` matches the largest seeded value.
+
+### Implementation
+
+- [ ] T017 [US1] Update `get_all_orders()` in `services/workflow_service.py` to deduplicate by `workflow_id` before truncating: call `self.dynamodb_client.get_all_workflow_orders()` with no limit; build a `Dict[str, Dict[str, Any]]` keyed by `workflow_id` keeping the row with the largest `placed_at`; sort the values by `placed_at` descending; apply the `limit` slice; then map to `AllWorkflowOrderItem`. Keep the method signature unchanged.
+- [ ] T018 [US1] In `client/aws_client.py`, leave `get_all_workflow_orders` as-is (it remains the raw scan; the optional `limit` parameter is now a safety cap that the service no longer passes). No code change required — verify this in code review.
+- [ ] T019 [P] [US1] Update the page header/subtitle copy and empty-state text in `frontend/src/pages/WorkflowOrders.tsx` so the user understands they are seeing one row per workflow (e.g., subtitle "Latest order per workflow — last 7 days"). No filter or data-handling changes required, since the API now returns the deduplicated set directly.
+- [ ] T020 [P] [US1] Add a pytest in `tests/services/test_workflow_service.py` covering `get_all_orders` deduplication: fixture returning three rows for two workflows (workflow A has two orders; workflow B has one); assert the result has length 2, that workflow A's returned row is the one with the larger `placed_at`, and that the list is sorted by `placed_at` descending.
+
+**Checkpoint**: With seeded data containing duplicates for the same workflow, the page renders one row per workflow.
+
+---
+
 ## Phase 5: Polish & Cross-Cutting Concerns
 
 - [X] T014 [P] Run `poetry run mypy .` and `poetry run flake8` from repo root; fix any new type or lint errors introduced in `model/workflow_api.py`, `api/models/workflow.py`, `client/aws_client.py`, `services/workflow_service.py`, `api/routers/workflow.py`
 - [X] T015 [P] Run `npm run build` and `npm run lint` in `frontend/`; fix any TypeScript or ESLint errors from new/modified files
 - [X] T016 Run all acceptance scenarios from `specs/014-workflow-orders-list/quickstart.md` (steps 1–15) manually
+- [ ] T021 [P] After T017/T020, re-run `poetry run mypy .`, `poetry run flake8`, and `poetry run pytest` from repo root; fix any new failures
+- [ ] T022 [P] After T019, re-run `npm run build` and `npm run lint` in `frontend/`
+- [ ] T023 Re-run the manual checklist from quickstart.md focusing on the new dedup behavior (one row per workflow, even when a workflow has multiple recent orders)
 
 ---
 

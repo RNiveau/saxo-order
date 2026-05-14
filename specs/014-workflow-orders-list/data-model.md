@@ -27,7 +27,7 @@ No new DynamoDB tables or schema changes. All data is read from the existing `wo
 | `execution_context` | String (optional) | Lambda event ID or CLI user |
 | `ttl` | Number | Unix epoch — auto-deleted 7 days after `placed_at` |
 
-**Access pattern (new)**: Full table scan → sort by `placed_at` descending → apply limit
+**Access pattern (new)**: Full table scan → group rows by `workflow_id`, keep only the row with the largest `placed_at` per workflow → sort the resulting one-row-per-workflow set by `placed_at` descending → apply limit
 
 ---
 
@@ -58,8 +58,8 @@ Location: `api/models/workflow.py`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `orders` | `List[AllWorkflowOrderItem]` | Flat list of all orders, sorted newest first |
-| `total_count` | int | Number of orders returned |
+| `orders` | `List[AllWorkflowOrderItem]` | One entry per workflow — the workflow's most recent order — sorted newest first |
+| `total_count` | int | Number of rows returned (equals the number of distinct workflows with orders, capped by `limit`) |
 | `limit` | int | Requested limit (echoed back) |
 
 ---
