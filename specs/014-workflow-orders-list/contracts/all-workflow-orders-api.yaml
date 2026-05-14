@@ -17,11 +17,13 @@ paths:
     get:
       tags:
         - Workflow Orders
-      summary: Get all workflow orders (cross-workflow)
+      summary: Get the latest order per workflow (cross-workflow)
       description: |
-        Returns all orders placed by all workflows within the past 7 days,
-        sorted by placement timestamp descending (newest first).
-        Dataset is bounded by the 7-day DynamoDB TTL on the workflow_orders table.
+        Returns the most recent order per workflow (deduplicated by `workflow_id`,
+        keeping the row with the largest `placed_at`), considering only orders
+        placed within the past 7 days. Results are sorted by `placed_at`
+        descending (newest first). Dataset is bounded by the 7-day DynamoDB TTL
+        on the workflow_orders table.
       operationId: getAllWorkflowOrders
       parameters:
         - name: limit
@@ -44,7 +46,7 @@ paths:
                 $ref: '#/components/schemas/AllWorkflowOrdersResponse'
               examples:
                 withOrders:
-                  summary: Multiple workflows with orders
+                  summary: Two workflows — the latest order of each is returned (one row per workflow)
                   value:
                     orders:
                       - id: "a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8"
@@ -156,14 +158,18 @@ components:
       properties:
         orders:
           type: array
-          description: Orders sorted by placed_at descending (newest first)
+          description: |
+            At most one entry per `workflow_id` — the workflow's most recent
+            order. Sorted by `placed_at` descending (newest first).
           items:
             $ref: '#/components/schemas/AllWorkflowOrderItem'
 
         total_count:
           type: integer
           minimum: 0
-          description: Number of orders returned
+          description: |
+            Number of rows returned. Equals the number of distinct workflows
+            with at least one order in the 7-day window, capped by `limit`.
           example: 2
 
         limit:

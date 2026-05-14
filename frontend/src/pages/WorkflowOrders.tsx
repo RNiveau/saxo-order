@@ -78,8 +78,9 @@ function WorkflowOrders() {
     <div className="workflow-orders-container">
       <div className="workflow-orders-header">
         <h1>Workflow Orders</h1>
+        <p className="orders-subtitle">Latest order per workflow — last 7 days</p>
         <p className="orders-count">
-          {filteredOrders.length} of {orders.length} order(s)
+          {filteredOrders.length} of {orders.length} workflow(s)
         </p>
       </div>
 
