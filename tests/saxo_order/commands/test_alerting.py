@@ -1,3 +1,152 @@
+import datetime
+from typing import List
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from model import AlertType, Candle, UnitTime
+from saxo_order.commands.alerting import run_detection_for_asset
+
+
+def _make_candles(closes: List[float]) -> List[Candle]:
+    base_date = datetime.datetime(2026, 1, 1)
+    return [
+        Candle(
+            lower=c,
+            higher=c,
+            open=c,
+            close=c,
+            ut=UnitTime.D,
+            date=base_date - datetime.timedelta(days=i),
+        )
+        for i, c in enumerate(closes)
+    ]
+
+
+def _mm50_touch_candles() -> List[Candle]:
+    # close=100.5 → ~0.5% above ma50_last≈100, slope≈5
+    return _make_candles([100.5] + [102.1666666667] * 9 + [99.5] * 50)
+
+
+@pytest.fixture
+def patched_alerting(mocker):
+    mocker.patch(
+        "saxo_order.commands.alerting._run_double_top", return_value=None
+    )
+    mocker.patch(
+        "saxo_order.commands.alerting._run_containing_candle",
+        return_value=None,
+    )
+    mocker.patch(
+        "saxo_order.commands.alerting._run_double_inside_bar",
+        return_value=None,
+    )
+    mocker.patch(
+        "saxo_order.commands.alerting._run_congestion_indicator",
+        return_value=None,
+    )
+    mocker.patch(
+        "saxo_order.commands.alerting.indicator_service.combo",
+        return_value=None,
+    )
+    return mocker
+
+
+class TestRunDetectionForAssetMM50Touch:
+
+    async def test_emits_mm50_touch_when_conditions_met(
+        self, patched_alerting
+    ):
+        candles = _mm50_touch_candles()
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        saxo_client = MagicMock()
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock()
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        mm50_alerts = [
+            a for a in alerts if a.alert_type == AlertType.MM50_TOUCH
+        ]
+        assert len(mm50_alerts) == 1
+        data = mm50_alerts[0].data
+        assert "close" in data
+        assert "ma50" in data
+        assert "distance_pct" in data
+        assert "slope" in data
+        assert "ma50_slope" in data
+        assert data["slope"] == data["ma50_slope"]
+        assert mm50_alerts[0].asset_code == "TST"
+        assert mm50_alerts[0].country_code == "xpar"
+        assert mm50_alerts[0].exchange == "saxo"
+        dynamodb_client.store_alerts.assert_awaited_once()
+
+    async def test_no_mm50_touch_when_conditions_not_met(
+        self, patched_alerting
+    ):
+        # Flat MA50 (slope ≈ 0) → no MM50_TOUCH
+        candles = _make_candles([100.0] * 60)
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        saxo_client = MagicMock()
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock()
+
+        alerts = await run_detection_for_asset(
+            asset_code="FLAT",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Flat Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        assert all(a.alert_type != AlertType.MM50_TOUCH for a in alerts)
+
+    async def test_emits_mm50_touch_for_binance_asset_without_country_code(
+        self, patched_alerting
+    ):
+        candles = _mm50_touch_candles()
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        saxo_client = MagicMock()
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock()
+
+        alerts = await run_detection_for_asset(
+            asset_code="BTCUSDT",
+            country_code=None,
+            exchange="binance",
+            asset_description="Bitcoin",
+            saxo_uic=99999,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        mm50_alerts = [
+            a for a in alerts if a.alert_type == AlertType.MM50_TOUCH
+        ]
+        assert len(mm50_alerts) == 1
+        assert mm50_alerts[0].country_code is None
+        assert mm50_alerts[0].exchange == "binance"
+
+
 class TestStockDeduplication:
     """Test deduplication logic for combining API and manual stocks."""
 

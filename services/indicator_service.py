@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import numpy
 
@@ -67,6 +67,29 @@ def mobile_average(candles: List[Candle], period: int) -> float:
         )
         raise SaxoException("Missing candles to calcule the ma")
     return sum(map(lambda x: x.close, candles[:period])) / period
+
+
+MM50_TOUCH_PROXIMITY = 0.01
+MM50_TOUCH_SLOPE_MIN = 3.0
+
+
+def mm50_touch(candles: List[Candle]) -> Optional[Dict[str, float]]:
+    if len(candles) < 60:
+        return None
+    ma50_last = mobile_average(candles, 50)
+    ma50_first = mobile_average(candles[10:], 50)
+    slope = slope_percentage(0, ma50_first, 10, ma50_last)
+    close = candles[0].close
+    if abs(close - ma50_last) / ma50_last > MM50_TOUCH_PROXIMITY:
+        return None
+    if slope < MM50_TOUCH_SLOPE_MIN:
+        return None
+    return {
+        "close": close,
+        "ma50": ma50_last,
+        "distance_pct": (close - ma50_last) / ma50_last * 100,
+        "slope": slope,
+    }
 
 
 def containing_candle(candles: List[Candle]) -> Optional[Candle]:

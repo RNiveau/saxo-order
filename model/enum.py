@@ -110,6 +110,7 @@ class AlertType(EnumWithGetValue):
     DOUBLE_TOP = "double_top"
     DOUBLE_INSIDE_BAR = "double_inside_bar"
     CONTAINING_CANDLE = "containing_candle"
+    MM50_TOUCH = "mm50_touch"
 
 
 class Exchange(EnumWithGetValue):
