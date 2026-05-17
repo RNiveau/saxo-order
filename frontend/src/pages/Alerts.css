@@ -146,6 +146,26 @@
   box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
 }
 
+.toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e6edf3;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  align-self: flex-end;
+  padding: 8px 0;
+  white-space: nowrap;
+}
+
+.toggle-group input[type='checkbox'] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #2a5298;
+}
+
 .clear-filters-button {
   background: #da3633;
   color: #ffffff;

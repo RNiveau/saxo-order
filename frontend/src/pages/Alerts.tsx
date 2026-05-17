@@ -3,8 +3,11 @@ import { Link } from 'react-router-dom';
 import type { AlertItem } from '../services/api';
 import { alertService } from '../services/api';
 import { AlertCard } from '../components/AlertCard';
-import { processAlerts } from '../utils/alertFilters';
+import { AlertGroup } from '../components/AlertGroup';
+import { groupAlertsByAsset, processAlerts } from '../utils/alertFilters';
 import './Alerts.css';
+
+const ALERTS_GROUP_BY_ASSET_KEY = 'alerts_group_by_asset';
 
 // Alert type display name mapping
 const ALERT_TYPE_LABELS: Record<string, string> = {
@@ -31,6 +34,15 @@ export function Alerts() {
 
   // Sort state - default to MA50 slope (descending)
   const [sortBy, setSortBy] = useState<'ma50_slope' | 'date'>('ma50_slope');
+
+  // Group-by-asset toggle, persisted in localStorage
+  const [groupByAsset, setGroupByAsset] = useState<boolean>(
+    () => localStorage.getItem(ALERTS_GROUP_BY_ASSET_KEY) === 'true'
+  );
+
+  useEffect(() => {
+    localStorage.setItem(ALERTS_GROUP_BY_ASSET_KEY, String(groupByAsset));
+  }, [groupByAsset]);
 
   // Available filter options from API
   const [availableFilters, setAvailableFilters] = useState<{
@@ -177,6 +189,15 @@ export function Alerts() {
           </select>
         </div>
 
+        <label className="toggle-group">
+          <input
+            type="checkbox"
+            checked={groupByAsset}
+            onChange={(e) => setGroupByAsset(e.target.checked)}
+          />
+          Group by asset
+        </label>
+
         {hasActiveFilters && (
           <button
             className="clear-filters-button"
@@ -211,13 +232,21 @@ export function Alerts() {
             {filteredAlerts.length} alert{filteredAlerts.length !== 1 ? 's' : ''}
             {hasActiveFilters && ` (filtered from ${alerts.length} total)`}
           </div>
-          {filteredAlerts.map((alert) => (
-            <AlertCard
-              key={`${alert.asset_code}_${alert.alert_type}_${alert.date}`}
-              alert={alert}
-              onExclude={loadAlerts}
-            />
-          ))}
+          {groupByAsset
+            ? groupAlertsByAsset(filteredAlerts).map((group) => (
+                <AlertGroup
+                  key={group.key}
+                  group={group}
+                  onAlertExcluded={loadAlerts}
+                />
+              ))
+            : filteredAlerts.map((alert) => (
+                <AlertCard
+                  key={`${alert.asset_code}_${alert.alert_type}_${alert.date}`}
+                  alert={alert}
+                  onExclude={loadAlerts}
+                />
+              ))}
         </div>
       )}
     </div>

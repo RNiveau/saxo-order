@@ -46,3 +46,34 @@ export const processAlerts = (alerts: AlertItem[]): AlertItem[] => {
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 };
+
+export interface AssetAlertGroup {
+  key: string;
+  asset_code: string;
+  country_code: string | null;
+  asset_description: string;
+  alerts: AlertItem[];
+}
+
+export const groupAlertsByAsset = (alerts: AlertItem[]): AssetAlertGroup[] => {
+  const groups = new Map<string, AssetAlertGroup>();
+
+  for (const alert of alerts) {
+    const key = `${alert.asset_code}__${alert.country_code ?? ''}`;
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.alerts.push(alert);
+    } else {
+      groups.set(key, {
+        key,
+        asset_code: alert.asset_code,
+        country_code: alert.country_code,
+        asset_description: alert.asset_description,
+        alerts: [alert],
+      });
+    }
+  }
+
+  return Array.from(groups.values());
+};
