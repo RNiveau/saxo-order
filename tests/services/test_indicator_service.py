@@ -21,9 +21,37 @@ from services.indicator_service import (
     exponentiel_mobile_average,
     find_linear_function,
     macd0lag,
+    mm50_touch,
     number_of_day_between_dates,
     slope_percentage,
 )
+
+
+def _make_candles(closes: List[float]) -> List[Candle]:
+    base_date = datetime.datetime(2026, 1, 1)
+    return [
+        Candle(
+            lower=c,
+            higher=c,
+            open=c,
+            close=c,
+            ut=UnitTime.D,
+            date=base_date - datetime.timedelta(days=i),
+        )
+        for i, c in enumerate(closes)
+    ]
+
+
+def _build_mm50_touch_candles(
+    close: float, head_value: float, tail_value: float
+) -> List[Candle]:
+    """
+    Build a 60-candle list where:
+      - candles[0].close = close
+      - candles[1..9].close = head_value (9 candles)
+      - candles[10..59].close = tail_value (50 candles, sets ma50_first)
+    """
+    return _make_candles([close] + [head_value] * 9 + [tail_value] * 50)
 
 
 class TestIndicatorService:
@@ -533,3 +561,70 @@ class TestIndicatorService:
     def test_apply_linear_function_descending(self):
         result = apply_linear_function(0, 110, 5, 100, 10)
         assert result == 90.0
+
+    def test_mm50_touch_match_within_proximity_with_high_slope(self):
+        # close=100.5, ma50_last≈100, distance≈0.5%, slope≈5
+        candles = _build_mm50_touch_candles(
+            close=100.5, head_value=102.1666666667, tail_value=99.5
+        )
+        result = mm50_touch(candles)
+        assert result is not None
+        assert result["close"] == 100.5
+        assert result["ma50"] == pytest.approx(100.0, abs=1e-6)
+        assert result["distance_pct"] == pytest.approx(0.5, abs=1e-3)
+        assert result["slope"] == pytest.approx(5.0, abs=1e-3)
+
+    def test_mm50_touch_match_just_inside_proximity_limit(self):
+        # close=100.99 → ~0.99% above ma50_last≈100, slope≈5
+        candles = _build_mm50_touch_candles(
+            close=100.99, head_value=102.1122222222, tail_value=99.5
+        )
+        result = mm50_touch(candles)
+        assert result is not None
+        assert result["distance_pct"] == pytest.approx(0.99, abs=1e-2)
+
+    def test_mm50_touch_match_at_slope_boundary(self):
+        # slope == 3 exactly, distance=0.5%
+        candles = _build_mm50_touch_candles(
+            close=100.5, head_value=101.2777777778, tail_value=99.7
+        )
+        result = mm50_touch(candles)
+        assert result is not None
+        assert result["slope"] == pytest.approx(3.0, abs=1e-3)
+
+    def test_mm50_touch_match_at_zero_distance(self):
+        # close == ma50_last exactly → distance_pct = 0.0
+        candles = _build_mm50_touch_candles(
+            close=100.0, head_value=102.2222222222, tail_value=99.5
+        )
+        result = mm50_touch(candles)
+        assert result is not None
+        assert result["distance_pct"] == pytest.approx(0.0, abs=1e-3)
+
+    def test_mm50_touch_match_when_close_below_ma50(self):
+        # close=99.5 → 0.5% below ma50_last=100, slope≈5
+        candles = _build_mm50_touch_candles(
+            close=99.5, head_value=102.2777777778, tail_value=99.5
+        )
+        result = mm50_touch(candles)
+        assert result is not None
+        assert result["distance_pct"] == pytest.approx(-0.5, abs=1e-3)
+        assert result["slope"] == pytest.approx(5.0, abs=1e-3)
+
+    def test_mm50_touch_no_match_when_distance_above_one_percent(self):
+        # close=101.5 → 1.5% above ma50_last=100, slope still ~5
+        candles = _build_mm50_touch_candles(
+            close=101.5, head_value=102.0555555556, tail_value=99.5
+        )
+        assert mm50_touch(candles) is None
+
+    def test_mm50_touch_no_match_when_slope_below_three(self):
+        # slope ~2.9, distance 0.5% — proximity OK, slope fails
+        candles = _build_mm50_touch_candles(
+            close=100.5, head_value=101.2333333333, tail_value=99.71
+        )
+        assert mm50_touch(candles) is None
+
+    def test_mm50_touch_returns_none_when_fewer_than_sixty_candles(self):
+        candles = _make_candles([100.0] * 59)
+        assert mm50_touch(candles) is None

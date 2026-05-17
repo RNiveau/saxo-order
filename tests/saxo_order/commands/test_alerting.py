@@ -1,3 +1,245 @@
+import datetime
+from typing import List
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from model import Alert, AlertType, Candle, UnitTime
+from saxo_order.commands.alerting import run_alerting, run_detection_for_asset
+
+
+def _make_candles(closes: List[float]) -> List[Candle]:
+    base_date = datetime.datetime(2026, 1, 1)
+    return [
+        Candle(
+            lower=c,
+            higher=c,
+            open=c,
+            close=c,
+            ut=UnitTime.D,
+            date=base_date - datetime.timedelta(days=i),
+        )
+        for i, c in enumerate(closes)
+    ]
+
+
+def _mm50_touch_candles() -> List[Candle]:
+    # close=100.5 → ~0.5% above ma50_last≈100, slope≈5
+    return _make_candles([100.5] + [102.1666666667] * 9 + [99.5] * 50)
+
+
+@pytest.fixture
+def patched_alerting(mocker):
+    mocker.patch(
+        "saxo_order.commands.alerting._run_double_top", return_value=None
+    )
+    mocker.patch(
+        "saxo_order.commands.alerting._run_containing_candle",
+        return_value=None,
+    )
+    mocker.patch(
+        "saxo_order.commands.alerting._run_double_inside_bar",
+        return_value=None,
+    )
+    mocker.patch(
+        "saxo_order.commands.alerting._run_congestion_indicator",
+        return_value=None,
+    )
+    mocker.patch(
+        "saxo_order.commands.alerting.indicator_service.combo",
+        return_value=None,
+    )
+    return mocker
+
+
+class TestRunDetectionForAssetMM50Touch:
+
+    async def test_emits_mm50_touch_when_conditions_met(
+        self, patched_alerting
+    ):
+        candles = _mm50_touch_candles()
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        saxo_client = MagicMock()
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock()
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        mm50_alerts = [
+            a for a in alerts if a.alert_type == AlertType.MM50_TOUCH
+        ]
+        assert len(mm50_alerts) == 1
+        data = mm50_alerts[0].data
+        assert "close" in data
+        assert "ma50" in data
+        assert "distance_pct" in data
+        assert "slope" in data
+        assert "ma50_slope" in data
+        assert data["slope"] == data["ma50_slope"]
+        assert mm50_alerts[0].asset_code == "TST"
+        assert mm50_alerts[0].country_code == "xpar"
+        assert mm50_alerts[0].exchange == "saxo"
+        dynamodb_client.store_alerts.assert_awaited_once()
+
+    async def test_no_mm50_touch_when_conditions_not_met(
+        self, patched_alerting
+    ):
+        # Flat MA50 (slope ≈ 0) → no MM50_TOUCH
+        candles = _make_candles([100.0] * 60)
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        saxo_client = MagicMock()
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock()
+
+        alerts = await run_detection_for_asset(
+            asset_code="FLAT",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Flat Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        assert all(a.alert_type != AlertType.MM50_TOUCH for a in alerts)
+
+    async def test_no_mm50_touch_when_fewer_than_sixty_candles(
+        self, patched_alerting
+    ):
+        candles = _make_candles([100.0] * 59)
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        saxo_client = MagicMock()
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock()
+
+        alerts = await run_detection_for_asset(
+            asset_code="SHORT",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Short History Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        assert all(a.alert_type != AlertType.MM50_TOUCH for a in alerts)
+
+    async def test_emits_mm50_touch_for_binance_asset_without_country_code(
+        self, patched_alerting
+    ):
+        candles = _mm50_touch_candles()
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        saxo_client = MagicMock()
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock()
+
+        alerts = await run_detection_for_asset(
+            asset_code="BTCUSDT",
+            country_code=None,
+            exchange="binance",
+            asset_description="Bitcoin",
+            saxo_uic=99999,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        mm50_alerts = [
+            a for a in alerts if a.alert_type == AlertType.MM50_TOUCH
+        ]
+        assert len(mm50_alerts) == 1
+        assert mm50_alerts[0].country_code is None
+        assert mm50_alerts[0].exchange == "binance"
+
+
+class TestRunAlertingSlackRendering:
+
+    async def test_slack_message_includes_mm50_touch_block(self, mocker):
+        mock_alert = Alert(
+            alert_type=AlertType.MM50_TOUCH,
+            date=datetime.datetime(2026, 5, 17),
+            data={
+                "close": 100.5,
+                "ma50": 100.0,
+                "distance_pct": 0.5,
+                "slope": 5.0,
+                "ma50_slope": 5.0,
+            },
+            asset_code="TST",
+            asset_description="Test Asset",
+            exchange="saxo",
+            country_code="xpar",
+        )
+
+        mocker.patch("saxo_order.commands.alerting.Configuration")
+        mocker.patch("saxo_order.commands.alerting.SaxoClient")
+        slack_web_client = MagicMock()
+        slack_web_client_class = mocker.patch(
+            "saxo_order.commands.alerting.WebClient",
+            return_value=slack_web_client,
+        )
+        del slack_web_client_class
+
+        dynamodb_client = MagicMock()
+        dynamodb_client.get_excluded_assets = AsyncMock(return_value=[])
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=dynamodb_client)
+        ctx.__aexit__ = AsyncMock(return_value=None)
+        mocker.patch(
+            "saxo_order.commands.alerting.create_dynamodb_client",
+            return_value=ctx,
+        )
+        mocker.patch(
+            "saxo_order.commands.alerting.run_detection_for_asset",
+            AsyncMock(return_value=[mock_alert]),
+        )
+
+        await run_alerting(
+            "config.yml",
+            assets=[
+                {
+                    "name": "Test Asset",
+                    "code": "TST:xpar",
+                    "saxo_uic": 12345,
+                }
+            ],
+        )
+
+        posted_texts = [
+            call.kwargs.get("text", "")
+            for call in slack_web_client.chat_postMessage.call_args_list
+        ]
+        mm50_messages = [
+            text for text in posted_texts if "Indicator mm50_touch" in text
+        ]
+        assert len(mm50_messages) == 1
+        body = mm50_messages[0]
+        assert "Test Asset" in body
+        assert "close=100.5" in body
+        assert "ma50=100.0" in body
+        assert "dist=0.50%" in body
+        assert "slope=5.00%" in body
+
+
 class TestStockDeduplication:
     """Test deduplication logic for combining API and manual stocks."""
 

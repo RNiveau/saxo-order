@@ -356,6 +356,23 @@ async def run_detection_for_asset(
                 )
             )
 
+        mm50_touch_result = indicator_service.mm50_touch(candles)
+        if mm50_touch_result is not None:
+            asset_alerts.append(
+                Alert(
+                    alert_type=AlertType.MM50_TOUCH,
+                    date=datetime.datetime.now(),
+                    data={
+                        **mm50_touch_result,
+                        "ma50_slope": ma50_slope,
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
+
         # Store alerts in DynamoDB if any were detected
         if len(asset_alerts) > 0:
             await dynamodb_client.store_alerts(
@@ -490,6 +507,7 @@ async def run_alerting(
             "combo": [],
             "double_inside_bar": [],
             "congestion": [],
+            "mm50_touch": [],
         }
         has_message = False
         for asset in assets:
@@ -536,9 +554,7 @@ async def run_alerting(
                     )
                 elif alert.alert_type == AlertType.DOUBLE_TOP:
                     date = (
-                        alert.date.strftime("%Y-%m-%d")
-                        if alert.date
-                        else ""
+                        alert.date.strftime("%Y-%m-%d") if alert.date else ""
                     )
                     slack_messages["double_top"].append(
                         f"{asset['name']}: {date} at "
@@ -546,9 +562,7 @@ async def run_alerting(
                     )
                 elif alert.alert_type == AlertType.CONTAINING_CANDLE:
                     date = (
-                        alert.date.strftime("%Y-%m-%d")
-                        if alert.date
-                        else ""
+                        alert.date.strftime("%Y-%m-%d") if alert.date else ""
                     )
                     slack_messages["container_candle"].append(
                         f"{asset['name']}: {date} at "
@@ -556,9 +570,7 @@ async def run_alerting(
                     )
                 elif alert.alert_type == AlertType.DOUBLE_INSIDE_BAR:
                     date = (
-                        alert.date.strftime("%Y-%m-%d")
-                        if alert.date
-                        else ""
+                        alert.date.strftime("%Y-%m-%d") if alert.date else ""
                     )
                     slack_messages["double_inside_bar"].append(
                         f"{asset['name']}: {date} at "
@@ -574,6 +586,16 @@ async def run_alerting(
                         f"{asset['name']}: combo {direction} "
                         f"{strength} {date} at {price} "
                         f"(has been triggered ? {triggered})"
+                    )
+                elif alert.alert_type == AlertType.MM50_TOUCH:
+                    date = datetime.datetime.now().strftime("%Y-%m-%d")
+                    close = alert.data.get("close")
+                    ma50 = alert.data.get("ma50")
+                    dist = alert.data.get("distance_pct")
+                    slope = alert.data.get("slope")
+                    slack_messages["mm50_touch"].append(
+                        f"{asset['name']}: {date} close={close} "
+                        f"ma50={ma50} dist={dist:.2f}% slope={slope:.2f}%"
                     )
         if has_message is False and len(assets) > 1:
             slack_client.chat_postMessage(
