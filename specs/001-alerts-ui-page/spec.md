@@ -13,7 +13,7 @@
 | **US2**: Filter and Search Alerts | P2 | ✅ Complete | See plan.md |
 | **US3**: Sort Alerts by MA50 Slope | P2 | ✅ Complete | See plan.md |
 | **US4**: Exclude Assets from Alerting | P2 | ✅ Complete | [`user-story-4-asset-exclusion/`](./user-story-4-asset-exclusion/) |
-| **US5**: Group Alerts by Asset (Toggle) | P2 | 🆕 Pending | See requirements below |
+| **US5**: Group Alerts by Asset (Collapsible Groups) | P2 | 🆕 Pending | See requirements below |
 
 **Overall Feature Status**: US1–US4 complete; US5 newly specified and pending implementation.
 
@@ -102,24 +102,26 @@ As a trader, I want to exclude specific assets from alert processing so I can pr
 
 ---
 
-### User Story 5 - Group Alerts by Asset (Priority: P2)
+### User Story 5 - Group Alerts by Asset, Collapsible per Group (Priority: P2)
 
-As a trader monitoring multiple assets, I want to toggle a "Group by asset" view so I can see all alerts for the same asset clustered together instead of an interleaved chronological list, making it faster to assess each asset's full signal context.
+As a trader monitoring multiple assets, I want all alerts on the Alerts page to be grouped by asset, with each group showing a small expand/collapse arrow so I can focus on one asset at a time without losing the others.
 
-**Why this priority**: Traders often want to evaluate an asset holistically (multiple alert types, latest signals) rather than scan a flat timeline. A grouped view reduces visual scanning and helps decision-making, but the flat list remains useful for time-based monitoring — hence a toggle rather than replacing the default view.
+**Why this priority**: Alerts for the same asset are best evaluated together (multiple alert types, latest signals). Grouping is therefore the default presentation — not an optional view. A per-group expand/collapse arrow lets traders hide assets they have already reviewed while keeping the rest visible.
 
-**Independent Test**: Generate alerts for at least 3 different assets, with multiple alerts per asset. Enable the "Group by asset" toggle and verify that alerts are visually clustered under their asset, with the existing sort order preserved within each group. Disable the toggle and verify the flat list view returns.
+**Independent Test**: Load the Alerts page with alerts for at least 3 different assets, each with multiple alert types. Verify alerts are grouped by asset, every group displays an expand/collapse arrow and an alert count, and every group is expanded by default. Click one group's arrow and verify only that group collapses — the others remain expanded.
 
 **Acceptance Scenarios**:
 
-1. **Given** the Alerts page is loaded with alerts for multiple assets, **When** I activate the "Group by asset" toggle, **Then** alerts are reorganized so that all alerts for the same asset are visually grouped together
-2. **Given** grouping is active, **When** I view the page, **Then** each asset group displays the asset identifier and the count of alerts within that group
-3. **Given** grouping is active, **When** alerts within a group are displayed, **Then** they follow the currently active sort order (MA50 slope or Recent) within their group
-4. **Given** grouping is active, **When** I apply an asset or type filter, **Then** only groups (and alerts within them) matching the filter are displayed
-5. **Given** grouping is active, **When** I deactivate the toggle, **Then** the alerts return to the flat list view using the current sort order
-6. **Given** I previously toggled grouping on, **When** I refresh the page or navigate away and back, **Then** my toggle preference is preserved
-7. **Given** grouping is active and an asset has only one alert, **When** I view the page, **Then** that asset is shown as a group with one alert (consistent presentation)
-8. **Given** grouping is active, **When** asset groups are ordered, **Then** groups are sorted by the highest-priority alert within them according to the current sort (e.g., highest MA50 slope or most recent timestamp)
+1. **Given** alerts exist for multiple assets, **When** I load the Alerts page, **Then** alerts are rendered grouped by asset (no flat interleaved list option exists)
+2. **Given** the page is loaded, **When** any asset group renders, **Then** it displays the asset identifier, the count of alerts in the group, and a collapse arrow indicating the current state
+3. **Given** the page is loaded, **When** any asset group renders, **Then** it starts in the expanded state (all its alerts visible)
+4. **Given** a group is expanded, **When** I click its arrow (or header), **Then** that group collapses, hiding its alerts and updating the arrow indicator, without affecting other groups
+5. **Given** a group is collapsed, **When** I click its arrow (or header), **Then** the group expands, its alerts become visible again, and the arrow indicator updates
+6. **Given** alerts within a group are visible, **When** the active sort changes (MA50 slope or Recent), **Then** alerts inside each group reorder according to the new sort
+7. **Given** the active sort changes, **When** groups render, **Then** groups themselves are ordered by the position of their top-ranked alert under the active sort
+8. **Given** an asset or type filter is applied, **When** the page renders, **Then** only groups containing matching alerts are shown — empty groups are never rendered
+9. **Given** an asset has a single alert, **When** the page renders, **Then** the asset is still shown as a group with one alert (consistent presentation)
+10. **Given** I have collapsed some groups, **When** I refresh the page, **Then** all groups return to the default expanded state (collapse state is not persisted)
 
 ---
 
@@ -141,10 +143,12 @@ As a trader monitoring multiple assets, I want to toggle a "Group by asset" view
 - What happens when trying to exclude an asset that doesn't exist in the watchlist? (System accepts the exclusion and will skip it if encountered in future)
 - What happens when all assets in the watchlist are excluded? (Batch run completes quickly with "No alerts for today" message, no processing occurs)
 - What happens when an excluded asset is removed from the exclusion list mid-batch run? (Change takes effect on next batch run, current run continues with original exclusion list)
-- What happens when grouping is enabled but no alerts exist? (Show the same empty-state message as the flat view, no group headers rendered)
-- What happens when grouping is enabled and only one asset has alerts? (Render a single group containing all its alerts)
-- What happens to pagination when grouping is enabled? (Pagination applies to asset groups, not individual alerts — a page contains up to a fixed number of groups, with all alerts of each group on the same page)
-- What happens when grouping is toggled while a filter is active? (Toggle preserves the filter; only filtered alerts are grouped/ungrouped)
+- What happens when no alerts exist? (Show the same empty-state message; no group headers rendered)
+- What happens when only one asset has alerts? (Render a single group containing all its alerts, with its own expand/collapse arrow)
+- What happens to pagination when groups are used? (Pagination applies to asset groups, not individual alerts — a page contains up to a fixed number of groups, with all alerts of each group on the same page; collapsing a group does not affect pagination)
+- What happens when a filter is applied? (Filters apply before grouping, so only groups containing matching alerts render)
+- What happens when the user wants to exclude an alert from a collapsed group? (The user must expand the group first; the exclude action lives on each alert card, which is hidden while collapsed)
+- What happens to a group's collapsed state when the user changes the sort? (The sort reorders alerts inside each group and reorders the groups themselves, but each group's expand/collapse state is preserved across sort changes)
 
 ## Requirements *(mandatory)*
 
@@ -192,16 +196,18 @@ As a trader monitoring multiple assets, I want to toggle a "Group by asset" view
 - **FR-029**: Exclusion MUST apply to both automatic batch runs and manual single-asset alerting commands
 - **FR-030**: System MUST log when assets are skipped due to exclusion for debugging purposes
 
-**Group by Asset (Priority P2):**
-- **FR-031**: System MUST provide a toggle control on the Alerts page to switch between "flat list" and "grouped by asset" views
-- **FR-032**: When the toggle is active, System MUST cluster all alerts of the same asset together under a single group header
-- **FR-033**: Each asset group MUST display the asset identifier and the number of alerts in that group
-- **FR-034**: When grouping is active, System MUST preserve the currently selected sort order (MA50 slope or Recent) for alerts within each group
-- **FR-035**: When grouping is active, System MUST order asset groups by the highest-priority alert in each group according to the active sort (e.g., for MA50 slope sort: group with the highest slope alert appears first)
-- **FR-036**: System MUST apply active filters (asset, type) before grouping, so empty groups are not displayed
-- **FR-037**: System MUST persist the user's toggle preference across page refreshes and navigation (e.g., via local storage)
-- **FR-038**: Toggling between grouped and flat views MUST NOT trigger a new data fetch — reorganization happens client-side using already-loaded alerts
-- **FR-039**: When grouping is active, pagination MUST operate on asset groups rather than individual alerts, keeping all alerts of a group together on the same page
+**Group by Asset, Collapsible per Group (Priority P2):**
+- **FR-031**: System MUST always render alerts on the Alerts page grouped by asset (no flat-list option exists)
+- **FR-032**: Each asset group MUST cluster all alerts of the same asset under a single group header
+- **FR-033**: Each group header MUST display the asset identifier, the number of alerts in the group, and a collapse/expand arrow indicator
+- **FR-034**: Each group MUST start in the expanded state on every page load (alerts visible by default)
+- **FR-035**: Clicking the arrow (or header) MUST toggle the expand/collapse state of that group only, leaving other groups unchanged
+- **FR-036**: System MUST preserve the currently selected sort order (MA50 slope or Recent) for alerts within each group
+- **FR-037**: System MUST order asset groups by the position of their top-ranked alert under the active sort (e.g., for MA50 slope sort: the group containing the highest-slope alert appears first)
+- **FR-038**: System MUST apply active filters (asset, type) before grouping, so empty groups are never displayed
+- **FR-039**: Grouping and sorting MUST NOT trigger a new data fetch — they are client-side transforms of the already-loaded alerts
+- **FR-040**: A group's expand/collapse state MUST be preserved when the user changes the sort or applies/removes filters within the same page session
+- **FR-041**: Pagination (when present) MUST operate on asset groups rather than individual alerts, keeping all alerts of a group together on the same page (out of scope for initial US5 delivery — see Out of Scope)
 
 ### Key Entities
 
@@ -220,12 +226,12 @@ As a trader monitoring multiple assets, I want to toggle a "Group by asset" view
 - **AlertFilter**: Represents user's filter preferences
   - Asset filter: Selected asset or "all"
   - Type filter: Selected alert type or "all"
-  - Group by asset: Boolean toggle indicating whether the list is grouped per asset
 
-- **AssetAlertGroup**: A view-layer aggregation produced when grouping is enabled
+- **AssetAlertGroup**: A view-layer aggregation built on every render
   - Asset identifier: The asset that owns this group
   - Alert count: Number of alerts contained in the group
   - Alerts: The ordered list of alerts for the asset (ordered by the active sort)
+  - Expanded state: Per-session boolean, defaulting to `true`, controlling whether the group's alerts are visible
 
 - **ExcludedAsset**: Represents an asset that should be excluded from alert processing
   - Asset Code: The unique identifier of the asset (e.g., "SAN", "AAPL")
@@ -252,9 +258,9 @@ As a trader monitoring multiple assets, I want to toggle a "Group by asset" view
 - **SC-013**: Excluded assets are never processed during batch runs, reducing total processing time proportionally to the number of excluded assets
 - **SC-014**: Alerts for excluded assets never appear in the UI, even if they exist in storage from before exclusion
 - **SC-015**: Adding or removing an asset from the exclusion list takes effect on the next batch run (within 24 hours maximum)
-- **SC-016**: Toggling between flat and grouped views completes visually within 200ms for up to 500 alerts (no perceptible lag)
-- **SC-017**: When grouped, 100% of alerts belonging to the same asset appear under a single group header (no duplicate or orphan alerts)
-- **SC-018**: User's grouping preference is restored on the next visit in at least 95% of cases (allowing for cleared browser storage)
+- **SC-016**: Expanding or collapsing a group completes visually within 100ms (no perceptible lag) for up to 500 alerts
+- **SC-017**: 100% of alerts belonging to the same asset appear under a single group header (no duplicate or orphan alerts)
+- **SC-018**: Expanding or collapsing one group never affects the expand state of any other group on the page
 
 ### Assumptions
 
@@ -274,8 +280,9 @@ As a trader monitoring multiple assets, I want to toggle a "Group by asset" view
 - Asset exclusion list can be stored in a configuration file, DynamoDB table, or similar persistent storage
 - Exclusion list is read at the start of each batch run (no runtime updates during processing)
 - Excluded assets remain in their original data sources (e.g., Saxo API, followup-stocks.json) but are filtered out during watchlist construction
-- Grouping by asset is a view-layer transformation only — alerts are not re-fetched when the toggle changes
-- The flat list (toggle off) remains the default view for new users; only an explicit user action enables grouping
+- Grouping by asset is a view-layer transformation only — alerts are not re-fetched when sort, filter, or group state changes
+- Grouping is the default and only presentation; there is no setting to fall back to a flat list
+- A group's expand/collapse state is per-session (local component state) and not persisted across page refreshes
 - Asset identity for grouping purposes is the combination of asset code and country code (matching how alerts are keyed elsewhere)
 
 ## Technical Constraints
