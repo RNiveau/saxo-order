@@ -127,6 +127,8 @@ Examples:
 - AWS DynamoDB (6 tables: indicators, watchlist, asset_details, alerts, workflows, workflow_orders) (011-async-dynamodb-operations)
 - Python 3.11 + Saxo API client (existing), pytest, unittest.mock (018-candle-builder)
 - N/A (no persistence changes) (018-candle-builder)
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend — no changes required) + existing — `services/indicator_service.py` (`mobile_average`, `slope_percentage`), `saxo_order/commands/alerting.py` (`run_detection_for_asset`, `_build_candles`), `model.Alert`, `model.AlertType`, `client/aws_client.py` (`DynamoDBClient.store_alerts`), `slack_sdk.WebClient` (019-mm50-slope-alert)
+- AWS DynamoDB `alerts` table (existing, schema unchanged — `data` is a free-form `Dict[str, Any]`, alert_type is appended to the existing alerts list with same-type-same-date dedup) (019-mm50-slope-alert)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)
