@@ -3,6 +3,7 @@ from model.enum_with_get_value import EnumWithGetValue
 
 class Strategy(EnumWithGetValue):
     IMP = "Bougie impulsive"
+    B9H = "Bougie de 9h"
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
     CRANGE = "Cassure de range"
@@ -19,6 +20,7 @@ class Strategy(EnumWithGetValue):
     R20 = "Rebond mm20"
     R50 = "Rebond mm50"
     R200 = "Rebond mm200"
+    PPBBH1 = "Ping pong BBH 1"
     RES = "Résultat d'entreprise"
     REVERSE = "Revere"
     ROULEMENT = "Roulement"
@@ -37,6 +39,7 @@ class Strategy(EnumWithGetValue):
 class Signal(EnumWithGetValue):
     BBB = "BBH"
     BBH = "BBB"
+    BO5M = "Breakout 5m"
     BO15M = "Breakout 15m"
     BOH1 = "Breakout h1"
     BOH4 = "Breakout h4"
