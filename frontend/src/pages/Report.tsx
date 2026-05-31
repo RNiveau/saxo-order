@@ -10,6 +10,12 @@ import {
 } from '../services/api';
 import './Report.css';
 
+const STRATEGY_DEFAULT_SIGNAL: Record<string, string> = {
+  B9H: 'BO5M',
+  INTRA: 'BOH1',
+  CONG: 'BHD',
+};
+
 const getTodayDate = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -378,6 +384,14 @@ function OrderModal({
     }
   };
 
+  const handleStrategyChange = (value: string) => {
+    setStrategy(value);
+    const defaultSignal = STRATEGY_DEFAULT_SIGNAL[value];
+    if (defaultSignal) {
+      setSignal(defaultSignal);
+    }
+  };
+
   const calculateRiskReward = () => {
     const stopNum = parseFloat(stop);
     const objectiveNum = parseFloat(objective);
@@ -575,7 +589,7 @@ function OrderModal({
                 <label>Strategy: <span className="required">*</span></label>
                 <select
                   value={strategy}
-                  onChange={(e) => setStrategy(e.target.value)}
+                  onChange={(e) => handleStrategyChange(e.target.value)}
                   required
                 >
                   {strategies.map((s) => (
@@ -673,7 +687,7 @@ function OrderModal({
                     <label>Strategy:</label>
                     <select
                       value={strategy}
-                      onChange={(e) => setStrategy(e.target.value)}
+                      onChange={(e) => handleStrategyChange(e.target.value)}
                     >
                       {strategies.map((s) => (
                         <option key={s.value} value={s.value}>

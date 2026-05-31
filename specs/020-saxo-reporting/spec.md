@@ -2,8 +2,9 @@
 
 **Feature Branch**: `020-saxo-reporting`
 **Created**: 2026-05-31 (retroactive documentation)
-**Status**: Implemented
-**Input**: User description: "we need a retro spec about the saxo reporting feature, (backend + UI)"
+**Updated**: 2026-05-31 (added US5 — auto-suggest signal from selected strategy)
+**Status**: Implemented (US1–US4, US6); US5 pending
+**Input**: User description: "we need a retro spec about the saxo reporting feature, (backend + UI)"; update: "auto-select the canonical signal when the user picks a strategy in the create-journal form (Bougie de 9h → Breakout 5m, Intraday → Breakout h1, Congestion → Breakout daily)"
 
 ## Overview
 
@@ -78,7 +79,26 @@ As a trader, while reviewing the report I want to see aggregated statistics for 
 
 ---
 
-### User Story 5 - CLI parity for power users (Priority: P3)
+### User Story 5 - Auto-suggest the default signal for a chosen strategy (Priority: P2)
+
+As a trader filling in the "create journal entry" form, when I pick a strategy that has a canonical entry signal, I want the signal field to be pre-filled with that canonical signal so I don't have to re-select it every time, while still being free to override it if my actual entry differed.
+
+**Why this priority**: Several strategies in the trader's playbook have a one-to-one canonical signal (e.g. the 9h-candle strategy is by definition entered on a 5-minute breakout). Auto-filling the matching signal removes a redundant manual step on the most common case, reduces mis-clicks on the long signal list, and keeps the journal more consistent across entries; it is a quality-of-life improvement on top of the already-working create flow (US2), not a correctness requirement.
+
+**Independent Test**: Open the create-journal form, pick each of the three strategies below, and verify the signal dropdown is pre-selected to the mapped value; pick any other strategy and verify the signal field stays at its current value (or empty). For each auto-filled case, change the signal manually and confirm the form keeps the manual choice and submits it.
+
+**Acceptance Scenarios**:
+
+1. **Given** the create-journal form is open with no signal yet chosen, **When** the trader selects strategy "Bougie de 9h", **Then** the signal field is automatically set to "Breakout 5m".
+2. **Given** the create-journal form is open with no signal yet chosen, **When** the trader selects strategy "Intraday", **Then** the signal field is automatically set to "Breakout h1".
+3. **Given** the create-journal form is open with no signal yet chosen, **When** the trader selects strategy "Congestion", **Then** the signal field is automatically set to "Breakout daily".
+4. **Given** a strategy with an auto-filled signal has been selected, **When** the trader manually changes the signal to a different value, **Then** the manual choice is preserved and submitted as the journal entry's signal.
+5. **Given** the trader selects a strategy that has no canonical signal mapping (any strategy other than the three above), **When** the strategy changes, **Then** the signal field is not modified by the system.
+6. **Given** a strategy with an auto-filled signal has been selected, **When** the trader switches to another strategy that also has an auto-filled signal, **Then** the signal field is updated to the new strategy's canonical signal.
+
+---
+
+### User Story 6 - CLI parity for power users (Priority: P3)
 
 As a power user / script author, I want the same reporting and journaling capabilities available from a CLI command so I can run the workflow from a terminal and keep my pre-existing scripts working.
 
@@ -126,6 +146,9 @@ As a power user / script author, I want the same reporting and journaling capabi
 - **FR-014**: System MUST route reporting requests to the Saxo backend for Saxo account identifiers and to the Binance backend for Binance account identifiers (shared report surface, see `specs/471-binance-reporting/spec.md`).
 - **FR-015**: System MUST clearly surface failures from the broker API or Google Sheets to the user without corrupting the journal or the in-memory report.
 - **FR-016**: System MUST require the user to confirm the journal row number to update; it MUST NOT try to auto-detect which journal row corresponds to which order.
+- **FR-017**: System MUST, in the web UI create-journal form, pre-fill the signal field when the user selects a strategy that has a canonical entry signal, using the following mappings: "Bougie de 9h" → "Breakout 5m"; "Intraday" → "Breakout h1"; "Congestion" → "Breakout daily".
+- **FR-018**: System MUST treat the auto-filled signal as a default only: the user MUST be able to override it manually before submitting, and the manually chosen value MUST be the one persisted to the journal.
+- **FR-019**: System MUST NOT modify the signal field when the user selects a strategy that is not in the canonical mapping; the existing signal value (chosen or empty) is preserved.
 
 ### Key Entities
 
@@ -147,6 +170,7 @@ As a power user / script author, I want the same reporting and journaling capabi
 - **SC-005**: The aggregated summary (counts, EUR volumes, fees) is consistent with the per-row data within ±0.01 EUR.
 - **SC-006**: The CLI and the UI produce equivalent results for the same input (same account, same start date) — same orders, same EUR conversions, same journal rows.
 - **SC-007**: An empty result set and a broker/Sheets failure are each surfaced with a clear, distinct user-facing message (no silent failures).
+- **SC-008**: For each of the three strategies "Bougie de 9h", "Intraday", and "Congestion", selecting the strategy in the create-journal form pre-fills the signal with its canonical value ("Breakout 5m", "Breakout h1", "Breakout daily" respectively) in 100% of attempts, and the manually overridden signal is the one persisted when the user changes it before submitting.
 
 ## Assumptions
 

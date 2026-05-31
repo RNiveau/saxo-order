@@ -74,7 +74,21 @@ This file captures the design decisions that shaped the Saxo reporting feature. 
 
 ---
 
+## Decision 9 — Strategy→Signal auto-fill is a frontend constant in `Report.tsx` (US5)
+
+- **Decision**: Define `STRATEGY_DEFAULT_SIGNAL: Record<string, string>` at module scope in `frontend/src/pages/Report.tsx`, keyed by `Strategy.name` (`B9H`, `INTRA`, `CONG`) and valued with `Signal.name` (`BO5M`, `BOH1`, `BHD`). On the strategy `<select>`'s `onChange`, if the new value is a key of the map, also call `setSignal(map[value])`. Otherwise leave the signal state alone.
+- **Rationale**:
+  - The mapping is product behaviour (canonical entry timeframe for the strategy), not deployment configuration — constitution §III is satisfied by colocating it with the only component that uses it.
+  - The dropdown values are already the Python enum *names* (`api/routers/report.py:34-35`), so the map uses those keys directly — no string duplication of the human-readable French labels (constitution §II, enum-driven).
+  - Component-local: avoids spreading the rule across a hook + a service when the OrderModal already owns the relevant state.
+- **Alternatives considered**:
+  - *Return the mapping from `GET /report/config`.* Rejected for now — the mapping is small, static, and only consumed by one UI control; round-tripping it through the API adds a backend change for zero current benefit. Easy to lift if a second consumer appears.
+  - *Encode the rule as a `selectedStrategy.defaultSignal` field on the enum payload.* Rejected — would change the existing TS `EnumOption` shape and the backend serializer for one feature.
+  - *Auto-fill only when signal is empty (preserve a manually-chosen signal).* Rejected — conflicts with AC #6 ("switching to another mapped strategy updates the signal"); also makes the behaviour less predictable. Manual override still wins because the user can change the signal *after* the strategy change (FR-018).
+  - *Apply only to the create form, not the update form.* Rejected — the update form shares the same `<select>` controls and is also used to add a missing strategy/signal to an existing row (US3 AC #1). Applying to both keeps behaviour consistent.
+
 ## Open Items (follow-ups, not blocking)
 
 - No `tests/api/services/test_report_service.py` exists yet. The Binance variant added 12 unit tests as a template; an equivalent Saxo suite is the obvious next step.
 - The CLI's interactive update flow and the UI's `OrderModal` have diverged in micro-details (prompt wording, default values). Reconciling them would tighten parity but is cosmetic.
+- The CLI does not implement the strategy→signal auto-fill (it prompts independently for both). Adding it CLI-side is out of scope for US5 (which is explicitly a UI affordance); if the trader requests parity later, the mapping can be lifted to a shared backend module.
