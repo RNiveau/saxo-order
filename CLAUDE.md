@@ -129,6 +129,8 @@ Examples:
 - N/A (no persistence changes) (018-candle-builder)
 - Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend — no changes required) + existing — `services/indicator_service.py` (`mobile_average`, `slope_percentage`), `saxo_order/commands/alerting.py` (`run_detection_for_asset`, `_build_candles`), `model.Alert`, `model.AlertType`, `client/aws_client.py` (`DynamoDBClient.store_alerts`), `slack_sdk.WebClient` (019-mm50-slope-alert)
 - AWS DynamoDB `alerts` table (existing, schema unchanged — `data` is a free-form `Dict[str, Any]`, alert_type is appended to the existing alerts list with same-type-same-date dedup) (019-mm50-slope-alert)
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI, Click, `cachetools` (TTLCache), Pydantic v2, Axios, React Router DOM v7+, Vite 7+ (020-saxo-reporting)
+- Google Sheets (persisted trading journal); in-memory `TTLCache` for report fetches (5 min TTL); no database for this feature (020-saxo-reporting)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)
