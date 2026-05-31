@@ -141,3 +141,17 @@ A trade flows through these states from the journal's point of view:
 | `_account_cache` | `account_identifier` | `Account` | 300 s |
 
 The frontend has no knowledge of the cache — staleness is bounded by the TTL.
+
+---
+
+## US5 — Strategy → Signal default mapping (frontend constant)
+
+No persisted entity. The auto-suggest behaviour added by US5 is implemented as a module-level constant in `frontend/src/pages/Report.tsx`:
+
+| Strategy key (`Strategy.name`) | Strategy label (`Strategy.value`) | Default Signal key (`Signal.name`) | Default Signal label (`Signal.value`) |
+|---|---|---|---|
+| `B9H` | Bougie de 9h | `BO5M` | Breakout 5m |
+| `INTRA` | Intraday | `BOH1` | Breakout h1 |
+| `CONG` | Congestion | `BHD` | Breakout daily |
+
+The keys are the same `value` strings that the backend returns from `GET /report/config` (`api/routers/report.py:34-35`), so the constant lives entirely in the frontend without backend involvement. See `plan.md` §Phase 1 and `research.md` Decision 9 for rationale.

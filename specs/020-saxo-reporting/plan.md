@@ -1,57 +1,39 @@
-# Implementation Plan: Saxo Order Reporting
+# Implementation Plan: Auto-suggest signal from selected strategy (Saxo Reporting US5)
 
-**Branch**: `020-saxo-reporting` | **Date**: 2026-05-31 (retroactive documentation) | **Spec**: [spec.md](./spec.md)
-**Input**: Reverse-engineered from the existing CLI command, API router, service, client integrations, and React page
+**Branch**: `RNiveau/auto-select-signal` (against spec `020-saxo-reporting`) | **Date**: 2026-05-31 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/020-saxo-reporting/spec.md` (User Story 5, FR-017/018/019, SC-008)
 
 ## Summary
 
-Expose the trader's executed Saxo orders for a chosen period through two equivalent surfaces — an interactive Click CLI and a FastAPI + React web UI — and let the trader create or update positions in a Google Sheets trading journal with risk-management metadata (stop, objective, strategy, signal, comment, closure flags).
+When the user picks a strategy in the create-journal modal of the Report page, the signal field MUST be pre-filled with the canonical signal for three mapped strategies (Bougie de 9h → Breakout 5m; Intraday → Breakout h1; Congestion → Breakout daily). The auto-fill is a default only: a manual change wins, and selecting a strategy outside the mapping leaves the signal field untouched. This is a pure frontend change inside `frontend/src/pages/Report.tsx` — no backend, API, or persistence changes.
 
-The implementation introduces a single `ReportService` in the API layer that orchestrates `SaxoClient`, `GSheetClient`, and currency/tax helpers. The same service is reused by the API router for HTTP traffic and (later, in the Binance backport) became the template that `BinanceReportService` mirrored. The frontend is platform-agnostic and selects the backend via an `account_id` (Saxo account key, or the `binance_*` pseudo-account). The CLI command (`k-order get-report`) predates the API and remains as a power-user surface; it shares the underlying `SaxoClient.get_report` and `GSheetClient` integrations.
+**Technical approach**: extend the existing `onChange` handler of the strategy `<select>` (lines 578 and 676) to also call `setSignal(...)` when the chosen strategy is one of the three mapped enum keys. Mapping defined as a module-level `const STRATEGY_DEFAULT_SIGNAL: Record<string, string>` keyed by `Strategy` enum names (`B9H`, `INTRA`, `CONG`) and valued with `Signal` enum names (`BO5M`, `BOH1`, `BHD`) — the same `value` fields the backend already returns from `GET /report/config` (see `api/routers/report.py:34-35`).
 
 ## Technical Context
 
-**Language/Version**: Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend)
-**Primary Dependencies**: FastAPI, Click, `cachetools` (TTLCache), Pydantic v2, Axios, React Router DOM v7+, Vite 7+
-**Storage**: Google Sheets (persisted trading journal); in-memory `TTLCache` for report fetches (5 min TTL); no database for this feature
-**Testing**: `pytest` with `unittest.mock` for backend; no frontend test framework yet (per constitution §Testing Standards)
-**Target Platform**: Web app (React SPA + FastAPI behind uvicorn locally / Lambda in production) + CLI tool (`k-order`)
-**Project Type**: Full-stack web application + CLI (matches Option 2 from the template)
-**Performance Goals**: <3 s for a typical month of orders on first fetch; <500 ms on cache hits; aggregated summary recomputed inline from the order list
-**Constraints**: CLI must remain functional and produce equivalent results to the UI; Google Sheets writes are append/update only (no delete); regulatory taxes apply to stocks only; conversion rates come from configuration
-**Scale/Scope**: Single-trader use; up to ~hundreds of orders per period; one trading journal (single spreadsheet); two brokers covered by the shared report surface (Saxo here, Binance in spec 471)
+**Language/Version**: TypeScript 5+ / React 19+
+**Primary Dependencies**: React (`useState`), existing `reportConfigService` from `frontend/src/services/api.ts` (already loaded — no new dependency)
+**Storage**: N/A — purely in-memory component state (`strategy`, `signal`)
+**Testing**: Manual smoke test in `npm run dev` (no frontend test framework configured — see constitution §Testing Standards, "Frontend Testing: TBD")
+**Target Platform**: Web (Vite dev server on :5173, production build on Lambda-hosted dist)
+**Project Type**: Web application (existing FastAPI backend + React frontend) — only the frontend module changes
+**Performance Goals**: N/A — adds a constant-time lookup on a `<select>` change event
+**Constraints**: Must not break the existing US2/US3 create/update flow; manual override of the auto-filled signal MUST be preserved (FR-018)
+**Scale/Scope**: One file modified (`frontend/src/pages/Report.tsx`), two `<select onChange>` handlers updated, one module-level constant added. ~10 LOC.
 
 ## Constitution Check
 
-*GATE: Passes for both Phase 0 and post-Phase 1 design.*
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-✅ **I. Layered Architecture Discipline**:
-- CLI (`saxo_order/commands/get_report.py`) → orchestrates `SaxoClient` + `GSheetClient` + helpers; no business logic.
-- API router (`api/routers/report.py`) → thin orchestration of `ReportService`.
-- Service (`api/services/report_service.py`) → owns business logic (period fetch, EUR conversion, summary, journal writes); receives clients via constructor (DI).
-- Clients (`client/saxo_client.py`, `client/gsheet_client.py`) → external integrations only; return domain models (`ReportOrder`, `Order`).
-- Models (`model/__init__.py`, `model/enum.py`) → no external dependencies; `Strategy` / `Signal` / `Currency` / `Direction` / `AssetType` are enums.
-- Frontend: `Report.tsx` (page) → `reportService` in `frontend/src/services/api.ts` for all HTTP calls. `OrderModal` is a sub-component receiving data via props.
+| Principle | Applies? | Verdict |
+|-----------|----------|---------|
+| I. Layered Architecture Discipline | Yes (frontend layer) | PASS — change stays inside the Page component; no inline axios calls added; `reportConfigService` (services layer) continues to be the sole API surface. |
+| II. Clean Code First | Yes | PASS — one named `Record<string, string>` constant; no comments needed; uses the enum-key values already produced by the backend (no hardcoded strings duplicating the enum). |
+| III. Configuration-Driven Design | Partial | PASS — the mapping is product behaviour (three canonical strategy→signal defaults) defined by the spec, not deployment configuration; lives next to the component that consumes it. No new env vars, no `VITE_*` change. |
+| IV. Safe Deployment Practices | Yes | PASS — no infra change; ships as part of the frontend build; commit follows conventional commits (`feat:`). |
+| V. Domain Model Integrity | Yes | PASS — uses backend-provided `Strategy.name` / `Signal.name` values; does not introduce new domain models; does not bypass the existing enum boundary. |
 
-✅ **II. Clean Code First**:
-- Self-documenting Click options and Pydantic fields.
-- Enum-driven (`Strategy`, `Signal`, `Currency`, `Direction`, `AssetType`).
-- No inline `// what this does` comments in the affected files.
-
-✅ **III. Configuration-Driven Design**:
-- Currency conversion rates, Google Sheets credentials path, spreadsheet id, and Saxo credentials all come from `config.yml` / `secrets.yml` via `Configuration`.
-- Frontend uses `import.meta.env.VITE_API_URL` (no hardcoded API URL).
-
-✅ **IV. Safe Deployment Practices**:
-- Conventional commits (this feature is delivered as `docs:` because the code already shipped).
-- Backend deploys via the standard Lambda/ECR/Pulumi pipeline; no infra change required for this feature.
-
-✅ **V. Domain Model Integrity**:
-- `ReportOrder` extends `Order` with journaling fields; both live in `model/`.
-- `Account` is a dataclass in `model/__init__.py` (not a Pydantic model leak across the API boundary — the API exposes its own `AccountInfo`).
-- Account routing is prefix-based (`binance_*` → Binance, otherwise Saxo); does NOT infer broker from `country_code` (matches the constitution's explicit prohibition).
-
-✅ **No constitution violations identified.** "Complexity Tracking" therefore has nothing to justify.
+**Initial Constitution Check: PASS** — no violations, Complexity Tracking not required.
 
 ## Project Structure
 
@@ -59,88 +41,70 @@ The implementation introduces a single `ReportService` in the API layer that orc
 
 ```text
 specs/020-saxo-reporting/
-├── spec.md                      # User stories & requirements (already written)
-├── plan.md                      # This file
-├── research.md                  # Phase 0: architectural decisions (retroactive)
-├── data-model.md                # Phase 1: entities & relationships (retroactive)
-├── quickstart.md                # Phase 1: how to exercise the feature locally
-├── contracts/
-│   └── report-api.md            # Phase 1: HTTP endpoints & payload shapes
-└── checklists/
-    └── requirements.md          # Already written
+├── plan.md              # This file
+├── spec.md              # Updated with US5 / FR-017–019 / SC-008
+├── research.md          # Phase 0 — see ./research.md (US5 section appended)
+├── data-model.md        # Phase 1 — unchanged; no entities added (see note in file)
+├── quickstart.md        # Phase 1 — US5 section appended with manual verification steps
+├── contracts/           # Unchanged — no API contract change for US5
+└── tasks.md             # NOT created by /speckit.plan
 ```
 
-### Source Code (already implemented in the repo)
+### Source Code (repository root)
 
 ```text
-# Backend
-api/
-├── routers/report.py                       # FastAPI routes (5 endpoints)
-├── services/report_service.py              # ReportService — business logic
-├── models/report.py                        # Pydantic request/response models
-└── dependencies.py                         # get_saxo_client / get_binance_client / get_configuration
-
-client/
-├── saxo_client.py                          # get_report(account, from_date) -> List[ReportOrder]
-└── gsheet_client.py                        # create_order / update_order
-
-saxo_order/
-├── commands/get_report.py                  # Click CLI: k-order get-report
-└── service.py                              # calculate_currency / calculate_taxes (shared helpers)
-
-model/
-├── __init__.py                             # Order, ReportOrder, Account (dataclass), Taxes
-└── enum.py                                 # Strategy, Signal, Currency, Direction, AssetType
-
-# Frontend
-frontend/src/
-├── pages/Report.tsx                        # Report page + OrderModal sub-component
-├── services/api.ts                         # reportService + reportConfigService
-└── (styles colocated, e.g. Report.css)
-
-# Tests
-tests/
-└── client/test_gsheet_client.py            # GSheet client unit tests
-# Note: no dedicated tests for ReportService (Saxo side) — the Binance variant
-#       in spec 471 added 12 tests for BinanceReportService; an equivalent suite
-#       for ReportService is a follow-up.
+frontend/
+└── src/
+    └── pages/
+        └── Report.tsx          # ONLY file modified
+            - add module-level STRATEGY_DEFAULT_SIGNAL constant
+            - extend strategy <select> onChange at line 578 (create flow)
+            - extend strategy <select> onChange at line 676 (update flow)
 ```
 
-**Structure Decision**: Full-stack web application + CLI tool. The web stack mirrors the layered architecture mandated by the constitution; the CLI sits beside `api/` and shares clients and helpers but does NOT depend on FastAPI. The frontend is generic — it talks to `account_id` rather than to a "Saxo report" endpoint — which is what later allowed Binance to be added without frontend changes (see `specs/471-binance-reporting`).
+**Structure Decision**: Single-file frontend change. The existing `OrderModal` component (`Report.tsx:344`) already owns both the `strategy` and `signal` state and renders both `<select>` elements (create form at lines 575–599, update form at lines 673–697). The auto-fill behaviour belongs to the same component because (a) it operates on local component state, (b) both selects already share the same `strategies` / `signals` lists loaded from `reportConfigService`, and (c) factoring out a hook would be premature for ~10 LOC (Constitution §II: no over-engineering).
 
-## Phase 0 — Research (retroactive)
+## Phase 0 — Outline & Research
 
-The detailed decision log lives in [research.md](./research.md). Headline decisions:
+No NEEDS CLARIFICATION markers in the spec. Two micro-questions worth recording in `research.md`:
 
-1. **Single report endpoint with prefix-based account routing.** Saxo account keys go to `ReportService`; `binance_*` ids go to `BinanceReportService` (added later). One frontend, one URL space.
-2. **`ReportService` as the seam between CLI and API.** Business logic (period fetch, EUR conversion, summary, journal writes) lives in one class; the CLI uses the same client and helpers, the API delegates to the service.
-3. **5-minute TTL cache on report fetches** via `cachetools.TTLCache`, keyed by `(account_id, from_date)`. Trading-journal use does not need real-time freshness.
-4. **Conversion rates are configuration-driven, not live.** Acceptable because the journal records entry/exit prices, not mark-to-market.
-5. **Strategy/Signal are enums shipped via `/api/report/config`** so the UI picks from a controlled vocabulary instead of free-text input.
-6. **Google Sheets row targeting is manual.** The user supplies the row number; the system never auto-matches an order to an existing journal row.
+1. **Which form(s) should auto-fill apply to** — create only, or also update? Both forms share `strategy`/`signal` state and render the same `<select>`s, so resolving this is a behavioural decision, not an architectural one. **Decision recorded in research.md**: apply to both (the user expects consistency; the update form is also used to add stop/objective/strategy/signal to an existing row, per US3 acceptance scenario #1).
+2. **Should auto-fill overwrite a signal the user has already chosen** — or only fill when empty? Spec FR-019 says "the existing signal value (chosen or empty) is preserved" only for non-mapped strategies; for mapped strategies the spec is silent on a previously-set signal. **Decision recorded in research.md**: always overwrite on strategy-change for the three mapped strategies (this matches AC #6 "switching to another strategy that also has an auto-filled signal updates the field" and makes the behaviour predictable). The user remains free to manually change the signal afterwards (FR-018).
 
-## Phase 1 — Design Artefacts (retroactive)
+## Phase 1 — Design & Contracts
 
-- [data-model.md](./data-model.md) — entities: `ReportOrder`, `Order`, `Account`, `Taxes`, controlled vocabularies (`Strategy`, `Signal`, `Currency`, `Direction`, `AssetType`), and the Google Sheets journal row layout.
-- [contracts/report-api.md](./contracts/report-api.md) — HTTP contract for `/api/report/*`: `GET /config`, `GET /orders`, `GET /summary`, `POST /gsheet/create`, `POST /gsheet/update`.
-- [quickstart.md](./quickstart.md) — how to run the CLI and the UI flow end-to-end, plus the smoke-test checklist.
+### Data model
+
+No new entities or persisted fields. The mapping is a frontend constant. `data-model.md` does not need US5-specific changes; a one-line note will be added pointing back to this plan.
+
+**Mapping (frontend constant)**:
+
+```ts
+const STRATEGY_DEFAULT_SIGNAL: Record<string, string> = {
+  B9H: 'BO5M',     // Bougie de 9h → Breakout 5m
+  INTRA: 'BOH1',   // Intraday      → Breakout h1
+  CONG: 'BHD',     // Congestion    → Breakout daily
+};
+```
+
+Keys/values use the same `value` field already produced by `GET /report/config` (the Python `Enum.name`), so no transformation is required at the `<select>` boundary.
+
+### API contracts
+
+No change. The mapping is client-side; the backend already exposes `strategies` and `signals` through `GET /report/config` (`api/routers/report.py:30-36`). The `POST` create/update endpoints continue to receive and persist whatever signal value the user finally submits (auto-filled or manually changed), so server contracts and validation stay intact.
+
+### Quickstart additions
+
+Append a "Verify US5 auto-suggest signal" section to `quickstart.md` with the manual steps that match AC #1–6.
+
+### Agent context update
+
+Run `.specify/scripts/bash/update-agent-context.sh claude` to refresh `CLAUDE.md` with the spec 020 update. No new technologies — only the spec entry is renewed.
+
+## Post-Design Constitution Check
+
+Re-evaluated after producing the design above. Still PASS — the design adds zero new dependencies, no new files, no new API surfaces, and stays inside the Page component that already owns the relevant state. No items required for "Complexity Tracking".
 
 ## Complexity Tracking
 
-> No constitution violations — section intentionally empty.
-
-Noteworthy design choices that *avoided* complexity:
-
-| Decision | Rationale | Simpler Alternative Rejected Because |
-|----------|-----------|--------------------------------------|
-| Prefix-based account routing in the API | Single endpoint set covers all brokers | Per-broker URL space (`/api/saxo-report/*`) would force frontend changes for every new broker |
-| Manual row-number for journal updates | The user already knows which row maps to which trade; auto-match would need a second source of truth | Auto-detection of the journal row via heuristics would silently overwrite the wrong row when ambiguous |
-| In-memory `TTLCache` instead of a database for report results | Reports are derived data, not state; staleness is bounded by TTL | A persistent cache would add infra cost and migrations for no user-visible benefit |
-| `ReportOrder` as a subtype of `Order` rather than a new model | Journaling fields (`stopped`, `be_stopped`, `open_position`) are additive | A separate `JournalEntry` model would duplicate every order field and force conversions at every boundary |
-| Strategy/Signal as enums served by `/api/report/config` | Single source of truth for the UI dropdowns; values change in one place | Hardcoding the lists in the frontend would drift from the backend's validation |
-
-## Retroactive Verification Notes
-
-- **Behaviour parity CLI ↔ UI**: both call `SaxoClient.get_report` and write through `GSheetClient`; the CLI prompts interactively whereas the UI uses the `OrderModal` form. Same outputs for identical inputs.
-- **CORS**: `api/main.py` allows `localhost:3000` and `localhost:5173` per the constitution.
-- **Open follow-up**: no dedicated `tests/api/services/test_report_service.py` yet — the Binance variant added 12 tests in `tests/api/services/test_binance_report_service.py`; an equivalent suite for the Saxo service is a sensible next step but is out of scope for this retro-documentation effort.
+> Constitution Check passed without violations; this section intentionally empty.

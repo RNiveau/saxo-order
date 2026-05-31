@@ -75,6 +75,20 @@ Run both surfaces against the same account and start date:
 
 Any divergence is a bug — both surfaces share `SaxoClient.get_report`, `calculate_currency`, `calculate_taxes`, and `GSheetClient`.
 
+## Verify US5 — strategy → signal auto-fill (frontend)
+
+Manual smoke test in `npm run dev` (port 5173):
+
+1. Open the Report page, fetch orders for an account, click an opening order to open the create modal.
+2. **Mapped strategies fire the default**:
+   - Select strategy "Bougie de 9h" → signal becomes "Breakout 5m".
+   - Select strategy "Intraday" → signal becomes "Breakout h1".
+   - Select strategy "Congestion" → signal becomes "Breakout daily".
+3. **Manual override is preserved**: after step 2 with any mapped strategy, change the signal to a different value (e.g. "Polarité"); submit the form; verify the journal row in Google Sheets carries the manually chosen signal, not the default.
+4. **Non-mapped strategy leaves signal alone**: pre-select a signal manually, then change the strategy to one *not* in the map (e.g. "Bougie impulsive"); verify the signal field keeps the previously chosen value.
+5. **Switching between mapped strategies updates the default**: select "Bougie de 9h" → signal = "Breakout 5m"; without touching the signal, switch to "Intraday" → signal becomes "Breakout h1".
+6. **Update flow has the same behaviour**: switch the modal to "update" mode, repeat step 2 on the update form's strategy `<select>`; same defaults fire.
+
 ## Troubleshooting
 
 - **"Account not found"**: the supplied `account_id` is not on the Saxo profile that the API is authenticated against. Re-run the OAuth flow.

@@ -131,6 +131,8 @@ Examples:
 - AWS DynamoDB `alerts` table (existing, schema unchanged — `data` is a free-form `Dict[str, Any]`, alert_type is appended to the existing alerts list with same-type-same-date dedup) (019-mm50-slope-alert)
 - Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI, Click, `cachetools` (TTLCache), Pydantic v2, Axios, React Router DOM v7+, Vite 7+ (020-saxo-reporting)
 - Google Sheets (persisted trading journal); in-memory `TTLCache` for report fetches (5 min TTL); no database for this feature (020-saxo-reporting)
+- TypeScript 5+ / React 19+ + React (`useState`), existing `reportConfigService` from `frontend/src/services/api.ts` (already loaded — no new dependency) (020-saxo-reporting)
+- N/A — purely in-memory component state (`strategy`, `signal`) (020-saxo-reporting)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)
