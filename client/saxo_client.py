@@ -528,9 +528,14 @@ class SaxoClient:
             self._check_response(response)
             tmp_data = response.json()["Data"]
             for d in tmp_data:
-                d["Time"] = datetime.strptime(
-                    d["Time"], "%Y-%m-%dT%H:%M:%S.%fZ"
-                )
+                try:
+                    d["Time"] = datetime.strptime(
+                        d["Time"], "%Y-%m-%dT%H:%M:%S.%fZ"
+                    )
+                except ValueError:
+                    d["Time"] = datetime.strptime(
+                        d["Time"], "%Y-%m-%dT%H:%M:%SZ"
+                    )
             data += sorted(tmp_data, key=lambda x: x["Time"], reverse=True)
             offset += real_count
             real_count = (
