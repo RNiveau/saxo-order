@@ -81,3 +81,95 @@ async def test_get_all_orders_applies_limit_after_dedup():
 
     assert len(result) == 2
     assert [item.workflow_id for item in result] == ["wf-4", "wf-3"]
+
+
+def _make_workflow_data(workflow_id: str, index: str) -> dict:
+    return {
+        "id": workflow_id,
+        "name": "Test Workflow",
+        "index": index,
+        "cfd": index,
+        "enable": True,
+        "dry_run": False,
+        "is_us": False,
+        "end_date": None,
+        "conditions": [
+            {
+                "indicator": {
+                    "name": "ma7",
+                    "ut": "daily",
+                    "value": None,
+                    "zone_value": None,
+                },
+                "close": {
+                    "direction": "above",
+                    "ut": "daily",
+                    "spread": 0.5,
+                },
+                "element": None,
+            }
+        ],
+        "trigger": {
+            "ut": "daily",
+            "signal": "breakout",
+            "location": "higher",
+            "order_direction": "buy",
+            "quantity": 1.0,
+        },
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_by_id_uses_custom_tradingview_url_from_db():
+    dynamodb_client = AsyncMock()
+    dynamodb_client.get_workflow_by_id.return_value = _make_workflow_data(
+        "wf-1", "NKE:xnys"
+    )
+    dynamodb_client.get_tradingview_link.return_value = (
+        "https://www.tradingview.com/chart/custom"
+    )
+
+    service = WorkflowService(dynamodb_client=dynamodb_client)
+    result = await service.get_workflow_by_id("wf-1")
+
+    assert result is not None
+    assert result.tradingview_url == "https://www.tradingview.com/chart/custom"
+    dynamodb_client.get_tradingview_link.assert_awaited_once_with("NKE")
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_by_id_builds_default_tradingview_url():
+    dynamodb_client = AsyncMock()
+    dynamodb_client.get_workflow_by_id.return_value = _make_workflow_data(
+        "wf-2", "NKE:xnys"
+    )
+    dynamodb_client.get_tradingview_link.return_value = None
+
+    service = WorkflowService(dynamodb_client=dynamodb_client)
+    result = await service.get_workflow_by_id("wf-2")
+
+    assert result is not None
+    assert (
+        result.tradingview_url
+        == "https://www.tradingview.com/chart/?symbol=NYSE:NKE"
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_by_id_handles_dynamodb_failure():
+    dynamodb_client = AsyncMock()
+    dynamodb_client.get_workflow_by_id.return_value = _make_workflow_data(
+        "wf-3", "MC:xpar"
+    )
+    dynamodb_client.get_tradingview_link.side_effect = RuntimeError("boom")
+
+    service = WorkflowService(dynamodb_client=dynamodb_client)
+    result = await service.get_workflow_by_id("wf-3")
+
+    assert result is not None
+    assert (
+        result.tradingview_url
+        == "https://www.tradingview.com/chart/?symbol=EURONEXT:MC"
+    )

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { WorkflowDetail, OrderHistoryItem } from '../services/api';
 import { workflowService } from '../services/api';
 import { WorkflowCreateModal } from './WorkflowCreateModal';
@@ -11,6 +12,7 @@ interface WorkflowDetailModalProps {
 }
 
 export function WorkflowDetailModal({ workflowId, onClose, onDelete }: WorkflowDetailModalProps) {
+  const navigate = useNavigate();
   const [workflow, setWorkflow] = useState<WorkflowDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +78,15 @@ export function WorkflowDetailModal({ workflowId, onClose, onDelete }: WorkflowD
     if (e.target === e.currentTarget) {
       onClose();
     }
+  };
+
+  const handleAssetDetailClick = () => {
+    if (!workflow) return;
+    navigate(
+      `/asset/${encodeURIComponent(workflow.index)}?exchange=saxo`,
+      { state: { description: workflow.name } }
+    );
+    onClose();
   };
 
   return (
@@ -151,6 +162,27 @@ export function WorkflowDetailModal({ workflowId, onClose, onDelete }: WorkflowD
           <div className="modal-body">
             <section className="detail-section">
               <h3>Basic Information</h3>
+              <div className="workflow-links">
+                {workflow.tradingview_url && (
+                  <a
+                    href={workflow.tradingview_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="workflow-link"
+                    title="View on TradingView"
+                  >
+                    📊 TradingView
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className="workflow-link"
+                  onClick={handleAssetDetailClick}
+                  title="Open asset detail page"
+                >
+                  📈 Asset Details
+                </button>
+              </div>
               <div className="detail-grid">
                 <div className="detail-item">
                   <span className="detail-label">Name:</span>

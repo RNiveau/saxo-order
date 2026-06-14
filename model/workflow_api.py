@@ -116,6 +116,13 @@ class WorkflowDetail(BaseModel):
     trigger: TriggerDetail = Field(
         ..., description="Order generation parameters"
     )
+    tradingview_url: Optional[str] = Field(
+        None,
+        description=(
+            "Resolved TradingView chart URL: custom URL from asset_details "
+            "if set, otherwise a default URL built from the index symbol."
+        ),
+    )
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
