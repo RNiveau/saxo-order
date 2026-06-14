@@ -27,18 +27,6 @@ class WorkflowIndicatorInfo(BaseModel):
     zone_value: Optional[float] = Field(
         None, description="Zone value if applicable"
     )
-    x1_date: Optional[str] = Field(
-        None, description="First reference point date (for inclined)"
-    )
-    x1_price: Optional[float] = Field(
-        None, description="First reference point price (for inclined)"
-    )
-    x2_date: Optional[str] = Field(
-        None, description="Second reference point date (for inclined)"
-    )
-    x2_price: Optional[float] = Field(
-        None, description="Second reference point price (for inclined)"
-    )
     current_value: Optional[float] = Field(
         None,
         description=(

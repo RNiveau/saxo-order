@@ -270,8 +270,6 @@ class TestInclinedWorkflowCurrentValue:
         data = response.json()
         indicator = data["workflows"][0]["conditions"][0]["indicator"]
         assert indicator["name"] == "inclined"
-        assert indicator["x1_date"] == "2024-01-01"
-        assert indicator["x2_date"] == "2024-01-05"
         assert indicator["current_value"] == pytest.approx(110.0)
 
     def test_inclined_current_value_handles_saxo_error(
@@ -292,7 +290,6 @@ class TestInclinedWorkflowCurrentValue:
         data = response.json()
         indicator = data["workflows"][0]["conditions"][0]["indicator"]
         assert indicator["current_value"] is None
-        assert indicator["x1_date"] == "2024-01-01"
 
     def test_non_inclined_indicator_has_no_current_value(
         self, mock_dynamodb_client, mock_saxo
@@ -308,6 +305,4 @@ class TestInclinedWorkflowCurrentValue:
             "indicator"
         ]
         assert indicator["current_value"] is None
-        assert indicator["x1_date"] is None
-        # Saxo client should not have been touched for non-inclined indicators
         mock_saxo.get_asset.assert_not_called()

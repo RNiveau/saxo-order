@@ -133,10 +133,6 @@ def _build_indicator_info(
         unit_time=indicator.ut,
         value=indicator.value,
         zone_value=indicator.zone_value,
-        x1_date=indicator.x1_date,
-        x1_price=indicator.x1_price,
-        x2_date=indicator.x2_date,
-        x2_price=indicator.x2_price,
         current_value=current_value,
     )
 

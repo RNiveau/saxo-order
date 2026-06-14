@@ -801,73 +801,57 @@ export function AssetDetail() {
                     <div className="workflow-section">
                       <h5>Conditions</h5>
                       <div className="conditions-list">
-                        {workflow.conditions.map((condition, condIndex) => {
-                          const isInclined =
-                            condition.indicator.name === 'inclined';
-                          return (
-                            <div key={condIndex} className="condition-item">
-                              <div className="condition-text">
-                                <span className="indicator-name">
-                                  {condition.indicator.name}
-                                </span>
-                                <span className="indicator-ut">
-                                  {condition.indicator.unit_time}
-                                </span>
-                                {condition.indicator.value !== undefined &&
-                                  condition.indicator.value !== null && (
-                                    <span className="indicator-value">
-                                      = {condition.indicator.value}
-                                    </span>
-                                  )}
-                                {condition.indicator.zone_value !== undefined &&
-                                  condition.indicator.zone_value !== null && (
-                                    <span className="indicator-zone">
-                                      (zone: {condition.indicator.zone_value})
-                                    </span>
-                                  )}
-                                {isInclined &&
-                                  condition.indicator.current_value !==
-                                    undefined &&
-                                  condition.indicator.current_value !==
-                                    null && (
-                                    <span className="indicator-value">
-                                      today:{' '}
-                                      {condition.indicator.current_value.toFixed(
-                                        2,
-                                      )}
-                                    </span>
-                                  )}
-                                <span className="direction">
-                                  {condition.close.direction}
-                                </span>
-                                <span className="close-label">close</span>
-                                <span className="close-ut">
-                                  {condition.close.unit_time}
-                                </span>
-                                {condition.close.value !== undefined && (
-                                  <span className="close-value">
-                                    ({condition.close.value})
+                        {workflow.conditions.map((condition, condIndex) => (
+                          <div key={condIndex} className="condition-item">
+                            <div className="condition-text">
+                              <span className="indicator-name">
+                                {condition.indicator.name}
+                              </span>
+                              <span className="indicator-ut">
+                                {condition.indicator.unit_time}
+                              </span>
+                              {condition.indicator.value !== undefined &&
+                                condition.indicator.value !== null && (
+                                  <span className="indicator-value">
+                                    = {condition.indicator.value}
                                   </span>
                                 )}
-                                {condition.element && (
-                                  <span className="element">
-                                    [{condition.element}]
+                              {condition.indicator.zone_value !== undefined &&
+                                condition.indicator.zone_value !== null && (
+                                  <span className="indicator-zone">
+                                    (zone: {condition.indicator.zone_value})
                                   </span>
                                 )}
-                              </div>
-                              {isInclined &&
-                                condition.indicator.x1_date &&
-                                condition.indicator.x2_date && (
-                                  <div className="condition-subtext">
-                                    line: ({condition.indicator.x1_date},{' '}
-                                    {condition.indicator.x1_price}) → (
-                                    {condition.indicator.x2_date},{' '}
-                                    {condition.indicator.x2_price})
-                                  </div>
+                              {condition.indicator.current_value !==
+                                undefined &&
+                                condition.indicator.current_value !== null && (
+                                  <span className="indicator-value">
+                                    today:{' '}
+                                    {condition.indicator.current_value.toFixed(
+                                      2,
+                                    )}
+                                  </span>
                                 )}
+                              <span className="direction">
+                                {condition.close.direction}
+                              </span>
+                              <span className="close-label">close</span>
+                              <span className="close-ut">
+                                {condition.close.unit_time}
+                              </span>
+                              {condition.close.value !== undefined && (
+                                <span className="close-value">
+                                  ({condition.close.value})
+                                </span>
+                              )}
+                              {condition.element && (
+                                <span className="element">
+                                  [{condition.element}]
+                                </span>
+                              )}
                             </div>
-                          );
-                        })}
+                          </div>
+                        ))}
                       </div>
                     </div>
 
