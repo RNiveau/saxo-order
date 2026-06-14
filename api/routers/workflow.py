@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List, Optional, Union, cast
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel
@@ -15,7 +15,6 @@ from api.models.workflow import (
     WorkflowOrderHistoryResponse,
     WorkflowTriggerInfo,
 )
-from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from model.workflow import IndicatorType
 from model.workflow_api import (
@@ -116,13 +115,13 @@ def _compute_inclined_current_value(
 def _build_indicator_info(
     indicator: IndicatorDetail,
     index_code: str,
-    saxo_client: Union[SaxoClient, MockSaxoClient],
+    saxo_client: SaxoClient,
 ) -> WorkflowIndicatorInfo:
     current_value: Optional[float] = None
     if indicator.name == IndicatorType.INCLINED.value:
         try:
             current_value = _compute_inclined_current_value(
-                cast(SaxoClient, saxo_client), index_code, indicator
+                saxo_client, index_code, indicator
             )
         except Exception as exc:
             logger.warning(
@@ -144,7 +143,7 @@ def _build_indicator_info(
 
 def _convert_detail_to_info(
     detail: WorkflowDetail,
-    saxo_client: Union[SaxoClient, MockSaxoClient],
+    saxo_client: SaxoClient,
 ) -> WorkflowInfo:
     """Convert WorkflowDetail to WorkflowInfo format."""
     return WorkflowInfo(
@@ -214,7 +213,7 @@ async def get_asset_workflows(
         description="Country code of the asset (e.g., 'xpar')",
     ),
     workflow_service: WorkflowService = Depends(get_workflow_service),
-    saxo_client: Union[SaxoClient, MockSaxoClient] = Depends(get_saxo_client),
+    saxo_client: SaxoClient = Depends(get_saxo_client),
 ):
     """
     Get all workflows associated with a specific asset from DynamoDB.
