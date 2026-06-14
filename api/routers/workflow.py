@@ -1,9 +1,10 @@
-from typing import Dict, List
+import datetime
+from typing import Dict, List, Optional, Union, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel
 
-from api.dependencies import get_workflow_service
+from api.dependencies import get_saxo_client, get_workflow_service
 from api.models.workflow import (
     AllWorkflowOrdersResponse,
     AssetWorkflowsResponse,
@@ -14,13 +15,21 @@ from api.models.workflow import (
     WorkflowOrderHistoryResponse,
     WorkflowTriggerInfo,
 )
+from client.mock_saxo_client import MockSaxoClient
+from client.saxo_client import SaxoClient
 from model.workflow import IndicatorType
 from model.workflow_api import (
+    IndicatorDetail,
     WorkflowCreateRequest,
     WorkflowDetail,
     WorkflowListResponse,
 )
+from services.indicator_service import (
+    apply_linear_function,
+    number_of_day_between_dates,
+)
 from services.workflow_service import WorkflowService
+from utils.helper import get_date_utc0
 from utils.logger import Logger
 
 router = APIRouter(prefix="/api/workflow", tags=["workflow"])
@@ -53,7 +62,90 @@ def get_indicator_types() -> List[IndicatorTypeOption]:
     ]
 
 
-def _convert_detail_to_info(detail: WorkflowDetail) -> WorkflowInfo:
+def _compute_inclined_current_value(
+    saxo_client: SaxoClient,
+    index_code: str,
+    indicator: IndicatorDetail,
+) -> Optional[float]:
+    """Compute the inclined indicator value projected onto today.
+
+    Mirrors engines.workflows.InclinedWorkflow.init_workflow but returns
+    only the line value at today's business-day offset from x1.
+    """
+    if (
+        indicator.x1_date is None
+        or indicator.x1_price is None
+        or indicator.x2_date is None
+        or indicator.x2_price is None
+    ):
+        return None
+
+    try:
+        x1_date = datetime.datetime.strptime(indicator.x1_date, "%Y-%m-%d")
+        x2_date = datetime.datetime.strptime(indicator.x2_date, "%Y-%m-%d")
+    except ValueError as exc:
+        logger.warning(
+            f"Invalid inclined date(s) on {index_code}: "
+            f"{indicator.x1_date}, {indicator.x2_date} ({exc})"
+        )
+        return None
+
+    asset = saxo_client.get_asset(index_code)
+    saxo_uic = asset["Identifier"]
+    asset_type = asset["AssetType"]
+
+    x1_to_x2 = number_of_day_between_dates(
+        saxo_client, saxo_uic, asset_type, x1_date, x2_date
+    )
+    if x1_to_x2 == 0:
+        return None
+
+    x1_to_now = number_of_day_between_dates(
+        saxo_client, saxo_uic, asset_type, x1_date, get_date_utc0()
+    )
+
+    return apply_linear_function(
+        0,
+        indicator.x1_price,
+        x1_to_x2,
+        indicator.x2_price,
+        x1_to_now,
+    )
+
+
+def _build_indicator_info(
+    indicator: IndicatorDetail,
+    index_code: str,
+    saxo_client: Union[SaxoClient, MockSaxoClient],
+) -> WorkflowIndicatorInfo:
+    current_value: Optional[float] = None
+    if indicator.name == IndicatorType.INCLINED.value:
+        try:
+            current_value = _compute_inclined_current_value(
+                cast(SaxoClient, saxo_client), index_code, indicator
+            )
+        except Exception as exc:
+            logger.warning(
+                f"Failed to compute inclined value for {index_code}: {exc}"
+            )
+
+    return WorkflowIndicatorInfo(
+        name=indicator.name,
+        unit_time=indicator.ut,
+        value=indicator.value,
+        zone_value=indicator.zone_value,
+        x1_date=indicator.x1_date,
+        x1_price=indicator.x1_price,
+        x2_date=indicator.x2_date,
+        x2_price=indicator.x2_price,
+        current_value=current_value,
+    )
+
+
+def _convert_detail_to_info(
+    detail: WorkflowDetail,
+    saxo_client: Union[SaxoClient, MockSaxoClient],
+) -> WorkflowInfo:
     """Convert WorkflowDetail to WorkflowInfo format."""
     return WorkflowInfo(
         name=detail.name,
@@ -65,11 +157,8 @@ def _convert_detail_to_info(detail: WorkflowDetail) -> WorkflowInfo:
         is_us=detail.is_us,
         conditions=[
             WorkflowConditionInfo(
-                indicator=WorkflowIndicatorInfo(
-                    name=cond.indicator.name,
-                    unit_time=cond.indicator.ut,
-                    value=cond.indicator.value,
-                    zone_value=cond.indicator.zone_value,
+                indicator=_build_indicator_info(
+                    cond.indicator, detail.index, saxo_client
                 ),
                 close=WorkflowCloseInfo(
                     direction=cond.close.direction,
@@ -125,12 +214,15 @@ async def get_asset_workflows(
         description="Country code of the asset (e.g., 'xpar')",
     ),
     workflow_service: WorkflowService = Depends(get_workflow_service),
+    saxo_client: Union[SaxoClient, MockSaxoClient] = Depends(get_saxo_client),
 ):
     """
     Get all workflows associated with a specific asset from DynamoDB.
 
     Returns workflows matching the asset code, including their
     configuration, conditions, and trigger settings.
+    For inclined indicators, the line value projected onto today is
+    computed and returned alongside the stored reference points.
     Uses the same 10-minute cache as the workflows list endpoint.
     """
     try:
@@ -141,7 +233,8 @@ async def get_asset_workflows(
         symbol = f"{code}:{country_code}" if country_code else code
 
         workflows_info = [
-            _convert_detail_to_info(detail) for detail in workflow_details
+            _convert_detail_to_info(detail, saxo_client)
+            for detail in workflow_details
         ]
 
         return AssetWorkflowsResponse(

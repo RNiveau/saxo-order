@@ -1,8 +1,9 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from api.dependencies import get_saxo_client
 from api.main import app
 
 client = TestClient(app)
@@ -186,3 +187,127 @@ class TestWorkflowEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 1
+
+
+class TestInclinedWorkflowCurrentValue:
+    """Tests for inclined indicator current_value computation."""
+
+    def _inclined_workflow_data(
+        self,
+        x1_date: str,
+        x1_price: float,
+        x2_date: str,
+        x2_price: float,
+    ) -> dict:
+        return {
+            "id": "1",
+            "name": "inclined wf",
+            "index": "DAX.I",
+            "cfd": "GER40.I",
+            "enable": True,
+            "dry_run": False,
+            "is_us": False,
+            "end_date": None,
+            "conditions": [
+                {
+                    "indicator": {
+                        "name": "inclined",
+                        "ut": "h1",
+                        "value": None,
+                        "zone_value": None,
+                        "x1": {"x": x1_date, "y": x1_price},
+                        "x2": {"x": x2_date, "y": x2_price},
+                    },
+                    "close": {
+                        "direction": "below",
+                        "ut": "h1",
+                        "spread": 20,
+                    },
+                    "element": None,
+                }
+            ],
+            "trigger": {
+                "ut": "h1",
+                "signal": "breakout",
+                "location": "lower",
+                "order_direction": "sell",
+                "quantity": 0.1,
+            },
+            "created_at": "2024-01-01T00:00:00",
+            "updated_at": "2024-01-01T00:00:00",
+        }
+
+    @pytest.fixture
+    def mock_saxo(self):
+        mock = MagicMock()
+        mock.get_asset.return_value = {
+            "Identifier": 123,
+            "AssetType": "Stock",
+        }
+        mock.is_day_open.return_value = True
+        app.dependency_overrides[get_saxo_client] = lambda: mock
+        yield mock
+        app.dependency_overrides.pop(get_saxo_client, None)
+
+    def test_inclined_current_value_computed(
+        self, mock_dynamodb_client, mock_saxo
+    ):
+        """A linear line from (Mon, 100) to (Fri, 108) is +2/day.
+        On the following Monday (3 business days later) the value is 110."""
+        mock_dynamodb_client.get_all_workflows.return_value = [
+            self._inclined_workflow_data(
+                "2024-01-01", 100.0, "2024-01-05", 108.0
+            )
+        ]
+
+        with patch(
+            "api.routers.workflow.get_date_utc0",
+            return_value=__import__("datetime").datetime(2024, 1, 8),
+        ):
+            response = client.get("/api/workflow/asset?code=DAX.I")
+
+        assert response.status_code == 200
+        data = response.json()
+        indicator = data["workflows"][0]["conditions"][0]["indicator"]
+        assert indicator["name"] == "inclined"
+        assert indicator["x1_date"] == "2024-01-01"
+        assert indicator["x2_date"] == "2024-01-05"
+        assert indicator["current_value"] == pytest.approx(110.0)
+
+    def test_inclined_current_value_handles_saxo_error(
+        self, mock_dynamodb_client, mock_saxo
+    ):
+        """If the Saxo lookup fails, current_value is None but the request
+        still succeeds."""
+        mock_saxo.get_asset.side_effect = RuntimeError("boom")
+        mock_dynamodb_client.get_all_workflows.return_value = [
+            self._inclined_workflow_data(
+                "2024-01-01", 100.0, "2024-01-05", 108.0
+            )
+        ]
+
+        response = client.get("/api/workflow/asset?code=DAX.I")
+
+        assert response.status_code == 200
+        data = response.json()
+        indicator = data["workflows"][0]["conditions"][0]["indicator"]
+        assert indicator["current_value"] is None
+        assert indicator["x1_date"] == "2024-01-01"
+
+    def test_non_inclined_indicator_has_no_current_value(
+        self, mock_dynamodb_client, mock_saxo
+    ):
+        mock_dynamodb_client.get_all_workflows.return_value = [
+            create_workflow_data("1", "bbb wf", "DAX.I", "GER40.I")
+        ]
+
+        response = client.get("/api/workflow/asset?code=DAX.I")
+
+        assert response.status_code == 200
+        indicator = response.json()["workflows"][0]["conditions"][0][
+            "indicator"
+        ]
+        assert indicator["current_value"] is None
+        assert indicator["x1_date"] is None
+        # Saxo client should not have been touched for non-inclined indicators
+        mock_saxo.get_asset.assert_not_called()

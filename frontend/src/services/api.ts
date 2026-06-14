@@ -61,6 +61,11 @@ export interface WorkflowIndicatorInfo {
   unit_time: string;
   value?: number;
   zone_value?: number;
+  x1_date?: string | null;
+  x1_price?: number | null;
+  x2_date?: string | null;
+  x2_price?: number | null;
+  current_value?: number | null;
 }
 
 export interface WorkflowCloseInfo {
