@@ -27,6 +27,12 @@ class WorkflowIndicatorInfo(BaseModel):
     zone_value: Optional[float] = Field(
         None, description="Zone value if applicable"
     )
+    current_value: Optional[float] = Field(
+        None,
+        description=(
+            "Indicator value computed for today (only set for inclined)"
+        ),
+    )
 
 
 class WorkflowCloseInfo(BaseModel):

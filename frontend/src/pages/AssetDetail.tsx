@@ -810,16 +810,28 @@ export function AssetDetail() {
                               <span className="indicator-ut">
                                 {condition.indicator.unit_time}
                               </span>
-                              {condition.indicator.value !== undefined && (
-                                <span className="indicator-value">
-                                  = {condition.indicator.value}
-                                </span>
-                              )}
-                              {condition.indicator.zone_value !== undefined && (
-                                <span className="indicator-zone">
-                                  (zone: {condition.indicator.zone_value})
-                                </span>
-                              )}
+                              {condition.indicator.value !== undefined &&
+                                condition.indicator.value !== null && (
+                                  <span className="indicator-value">
+                                    = {condition.indicator.value}
+                                  </span>
+                                )}
+                              {condition.indicator.zone_value !== undefined &&
+                                condition.indicator.zone_value !== null && (
+                                  <span className="indicator-zone">
+                                    (zone: {condition.indicator.zone_value})
+                                  </span>
+                                )}
+                              {condition.indicator.current_value !==
+                                undefined &&
+                                condition.indicator.current_value !== null && (
+                                  <span className="indicator-value">
+                                    today:{' '}
+                                    {condition.indicator.current_value.toFixed(
+                                      2,
+                                    )}
+                                  </span>
+                                )}
                               <span className="direction">
                                 {condition.close.direction}
                               </span>
