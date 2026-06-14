@@ -19,6 +19,7 @@ from model.workflow_api import (
     WorkflowOrderListItem,
 )
 from utils.logger import Logger
+from utils.tradingview import build_tradingview_url_from_symbol
 
 
 class WorkflowService:
@@ -70,7 +71,11 @@ class WorkflowService:
             workflow_dict
         )
         await self.dynamodb_client.put_workflow(converted)
-        return self._convert_to_detail(workflow_dict)
+        detail = self._convert_to_detail(workflow_dict)
+        detail.tradingview_url = await self._resolve_tradingview_url(
+            detail.index
+        )
+        return detail
 
     def _validate_request(self, data: WorkflowCreateRequest) -> None:
         if data.end_date is not None:
@@ -183,7 +188,11 @@ class WorkflowService:
             workflow_dict
         )
         await self.dynamodb_client.put_workflow(converted)
-        return self._convert_to_detail(workflow_dict)
+        detail = self._convert_to_detail(workflow_dict)
+        detail.tradingview_url = await self._resolve_tradingview_url(
+            detail.index
+        )
+        return detail
 
     async def delete_workflow(self, workflow_id: str) -> None:
         existing = await self.dynamodb_client.get_workflow_by_id(workflow_id)
@@ -199,7 +208,24 @@ class WorkflowService:
         )
         if not workflow_data:
             return None
-        return self._convert_to_detail(workflow_data)
+        detail = self._convert_to_detail(workflow_data)
+        detail.tradingview_url = await self._resolve_tradingview_url(
+            detail.index
+        )
+        return detail
+
+    async def _resolve_tradingview_url(self, index: str) -> str:
+        code = index.split(":", 1)[0] if ":" in index else index
+        try:
+            custom_url = await self.dynamodb_client.get_tradingview_link(code)
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to fetch TradingView link for {code}: {e}"
+            )
+            custom_url = None
+        if custom_url:
+            return custom_url
+        return build_tradingview_url_from_symbol(index)
 
     async def get_workflows_by_asset(
         self, code: str, country_code: str = "xpar"
@@ -310,6 +336,7 @@ class WorkflowService:
             end_date=workflow_data.get("end_date"),
             conditions=conditions,
             trigger=trigger,
+            tradingview_url=None,
             created_at=workflow_data["created_at"],
             updated_at=workflow_data["updated_at"],
         )

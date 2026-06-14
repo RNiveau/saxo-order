@@ -170,6 +170,7 @@ export interface WorkflowDetail {
   end_date: string | null;
   conditions: ConditionDetail[];
   trigger: TriggerDetail;
+  tradingview_url: string | null;
   created_at: string;
   updated_at: string;
 }
