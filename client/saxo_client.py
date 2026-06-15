@@ -564,7 +564,10 @@ class SaxoClient:
     def is_day_open(
         self, saxo_uic: str, asset_type: str, date: datetime
     ) -> bool:
-        data = self.get_historical_data(saxo_uic, asset_type, 1, 1, date)
+        end_of_day = date.replace(hour=23, minute=59, second=0, microsecond=0)
+        data = self.get_historical_data(
+            saxo_uic, asset_type, 1440, 1, end_of_day
+        )
         if len(data) == 0:
             return False
         return data[0]["Time"].day == date.day
