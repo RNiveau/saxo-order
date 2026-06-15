@@ -129,13 +129,13 @@ async def load_workflows(force_from_disk: bool = False) -> List[Workflow]:
                 x1 = Point(
                     x=datetime.datetime.strptime(
                         indicator_data["x1"]["x"], "%Y-%m-%d"
-                    ),
+                    ).replace(tzinfo=datetime.UTC),
                     y=indicator_data["x1"]["y"],
                 )
                 x2 = Point(
                     x=datetime.datetime.strptime(
                         indicator_data["x2"]["x"], "%Y-%m-%d"
-                    ),
+                    ).replace(tzinfo=datetime.UTC),
                     y=indicator_data["x2"]["y"],
                 )
                 indicator: Indicator = IndicatorInclined(
