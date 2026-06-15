@@ -174,10 +174,20 @@ class WorkflowEngine:
                         f"Failed to track order for {order[0].name}: {e}"
                     )
 
+    _US_EXCHANGES = (":xnys", ":xnas", ":xase")
+
+    def _get_market(self, workflow: Workflow):
+        if workflow.is_us:
+            return USMarket()
+        code = (workflow.cfd or "").lower()
+        if any(code.endswith(ex) for ex in self._US_EXCHANGES):
+            return USMarket()
+        return EUMarket()
+
     def _get_candles_from_indicator_ut(
         self, workflow: Workflow, indicator: Indicator
     ) -> List[Candle]:
-        market = EUMarket() if workflow.is_us is False else USMarket()
+        market = self._get_market(workflow)
 
         if indicator.ut == UnitTime.W:
             match indicator.name:
@@ -223,9 +233,7 @@ class WorkflowEngine:
             case IndicatorType.BBH | IndicatorType.BBB:
                 count = 21
             case (
-                IndicatorType.POL
-                | IndicatorType.ZONE
-                | IndicatorType.INCLINED
+                IndicatorType.POL | IndicatorType.ZONE | IndicatorType.INCLINED
             ):
                 count = 1
             case _:
@@ -262,7 +270,7 @@ class WorkflowEngine:
         self, workflow: Workflow, candles: List[Candle], run: AbstractWorkflow
     ) -> Optional[tuple[Candle, Order]]:
         run.init_workflow(workflow.conditions[0].indicator, candles)
-        market = EUMarket() if workflow.is_us is False else USMarket()
+        market = self._get_market(workflow)
 
         close_candles = self.candles_service.build_candles(
             code=workflow.cfd,
@@ -343,7 +351,7 @@ class WorkflowEngine:
         self.logger.debug(
             f"get trigger candle for {workflow.cfd} {workflow.trigger.ut}"
         )
-        market = EUMarket() if workflow.is_us is False else USMarket()
+        market = self._get_market(workflow)
         trigger_candles = self.candles_service.build_candles(
             code=workflow.cfd,
             ut=workflow.trigger.ut,
