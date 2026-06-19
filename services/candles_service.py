@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 from typing import List, Optional, Union
 
 from client.client_helper import map_data_to_candle, map_data_to_candles
@@ -248,18 +249,23 @@ class CandlesService:
         self.logger.info(f"Build candles for {code}, ut: {ut}, date: {date}")
         if market.open_minutes not in [0, 30]:
             raise SaxoException(
-                f"Wrong parameter {market.open_minutes}, we handle only 0 and 30"
+                f"Wrong parameter {market.open_minutes}, "
+                "we handle only 0 and 30"
             )
-        nbr_30m = count * 2 * 3
+        num_h1_per_day = (
+            market.close_hour
+            - market.open_hour
+            + (1 if market.open_minutes == 0 else 0)
+        )
         if ut == UnitTime.H4:
-            nbr_30m = count * 8 * 3
+            candles_per_day = len(market.h4_blocks)
         elif ut == UnitTime.D:
-            num_h1 = (
-                market.close_hour
-                - market.open_hour
-                + (1 if market.open_minutes == 0 else 0)
-            )
-            nbr_30m = count * num_h1 * 2 * 3
+            candles_per_day = 1
+        else:
+            candles_per_day = num_h1_per_day
+        trading_days = math.ceil(count / candles_per_day)
+        calendar_days = math.ceil(trading_days * 7 / 5) + 4
+        nbr_30m = calendar_days * 48
         asset = self.saxo_client.get_asset(code)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
@@ -269,9 +275,7 @@ class CandlesService:
             date=date,
         )
         if len(data) == 0:
-            raise SaxoException(
-                f"No data returned for {code}"
-            )
+            raise SaxoException(f"No data returned for {code}")
         if data[0]["Time"].minute == market.open_minutes:
             data = data[1:]
         candles = self._build_h1_from_30m(data, market, ut)
