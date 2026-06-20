@@ -116,9 +116,6 @@ export interface WorkflowListItem {
   primary_unit_time: string | null;
   created_at: string;
   updated_at: string;
-  last_order_timestamp?: number | null;
-  last_order_direction?: string | null;
-  last_order_quantity?: number | null;
 }
 
 export interface WorkflowListResponse {

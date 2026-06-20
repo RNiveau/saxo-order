@@ -27,15 +27,6 @@ class WorkflowListItem(BaseModel):
     )
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
-    last_order_timestamp: Optional[int] = Field(
-        None, description="Unix timestamp of most recent order placement"
-    )
-    last_order_direction: Optional[str] = Field(
-        None, description="Direction of most recent order (BUY/SELL)"
-    )
-    last_order_quantity: Optional[float] = Field(
-        None, description="Quantity of most recent order"
-    )
 
 
 class IndicatorDetail(BaseModel):
