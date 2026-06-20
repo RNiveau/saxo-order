@@ -36,21 +36,6 @@ class WorkflowService:
             self._convert_to_list_item(w) for w in workflows_data
         ]
 
-        for workflow_item in workflow_items:
-            last_order = await self._get_last_order_for_workflow(
-                workflow_item.id
-            )
-            if last_order:
-                workflow_item.last_order_timestamp = int(
-                    last_order["placed_at"]
-                )
-                workflow_item.last_order_direction = last_order[
-                    "order_direction"
-                ]
-                workflow_item.last_order_quantity = float(
-                    last_order["order_quantity"]
-                )
-
         total = len(workflow_items)
 
         return WorkflowListResponse(
@@ -268,9 +253,6 @@ class WorkflowService:
             primary_unit_time=primary_unit_time,
             created_at=workflow_data["created_at"],
             updated_at=workflow_data["updated_at"],
-            last_order_timestamp=None,
-            last_order_direction=None,
-            last_order_quantity=None,
         )
 
     def _convert_to_detail(
@@ -416,17 +398,3 @@ class WorkflowService:
             ),
             order_direction=order_data["order_direction"],
         )
-
-    async def _get_last_order_for_workflow(
-        self, workflow_id: str
-    ) -> Dict[str, Any] | None:
-        try:
-            orders = await self.dynamodb_client.get_workflow_orders(
-                workflow_id=workflow_id, limit=1
-            )
-            return orders[0] if orders else None
-        except Exception as e:
-            self.logger.error(
-                f"Error fetching last order for workflow {workflow_id}: {e}"
-            )
-            return None
