@@ -336,31 +336,7 @@ interface OrderHistoryResponse {
 
 ### 3.2 Update WorkflowTable Component
 
-**File**: `frontend/src/components/WorkflowTable.tsx`
-
-```typescript
-// Add "Last Order" column after "End Date"
-<th>Last Order</th>
-
-// In data row
-<td>{formatRelativeTime(workflow.last_order_timestamp)}</td>
-
-// Helper function
-const formatRelativeTime = (dateString: string | null) => {
-  if (!dateString) return '-';
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
-};
-```
+> **Note (PR #608)**: The "Last Order" column was removed from `WorkflowTable`. Order history is displayed in the detail modal instead (see §3.3).
 
 ### 3.3 Update WorkflowDetailModal Component
 
@@ -446,9 +422,8 @@ aws dynamodb put-item \
 **Step 2: Verify in UI**
 
 1. Navigate to http://localhost:5173/workflows
-2. Check "Last Order" column shows timestamp
-3. Click workflow row to open detail modal
-4. Verify "Order History" section displays order
+2. Click workflow row to open detail modal
+3. Verify "Order History" section displays order
 
 **Step 3: Test API Endpoints**
 
