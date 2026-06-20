@@ -276,25 +276,15 @@ class WorkflowOrderHistoryResponse(BaseModel):
 
 ---
 
-## 5. Updated WorkflowListItem (Existing Model Extension)
+## 5. WorkflowListItem
 
-**Purpose**: Add last order fields to existing workflow list response
+> **Note (PR #608)**: `last_order_timestamp`, `last_order_direction`, and `last_order_quantity` were removed from `WorkflowListItem` and the "Last Order" table column was dropped. Fetching one DynamoDB row per workflow on every list load caused N+1 queries and excessive debug logging. Order history is now loaded on demand inside the detail modal (`WorkflowDetailModal` calls `getWorkflowOrderHistory` when opened).
 
-**Location**: `model/workflow_api.py` (modify existing class)
+**Location**: `model/workflow_api.py`
 
-**New Fields**:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `last_order_timestamp` | str \| None | No | ISO 8601 timestamp of most recent order |
-| `last_order_direction` | str \| None | No | BUY or SELL |
-| `last_order_quantity` | float \| None | No | Order quantity |
-
-**Modified Pydantic Model**:
+**Current Model**:
 
 ```python
-# model/workflow_api.py (MODIFY existing class)
-
 class WorkflowListItem(BaseModel):
     """Workflow summary for list views."""
 
@@ -308,59 +298,8 @@ class WorkflowListItem(BaseModel):
     end_date: Optional[str] = None
     primary_indicator: Optional[str] = None
     primary_unit_time: Optional[str] = None
-    created_at: str
-    updated_at: str
-
-    # NEW FIELDS (Phase 1):
-    last_order_timestamp: Optional[str] = Field(
-        None,
-        description="ISO 8601 timestamp of most recent order placement"
-    )
-    last_order_direction: Optional[str] = Field(
-        None,
-        description="Direction of last order (BUY or SELL)"
-    )
-    last_order_quantity: Optional[float] = Field(
-        None,
-        gt=0,
-        description="Quantity of last order"
-    )
-```
-
-**Backend Service Logic**:
-
-```python
-# services/workflow_service.py (MODIFY existing method)
-
-def list_workflows(self) -> List[WorkflowListItem]:
-    """List all workflows with last order information."""
-    workflows = self._get_cached_workflows()
-    workflow_items = []
-
-    for wf in workflows:
-        # Get last order for this workflow
-        last_order = self._get_last_order_for_workflow(wf["id"])
-
-        workflow_items.append(
-            WorkflowListItem(
-                id=wf["id"],
-                name=wf["name"],
-                # ... existing fields ...
-                # NEW: Add last order fields
-                last_order_timestamp=last_order.get("placed_at") if last_order else None,
-                last_order_direction=last_order.get("order_direction") if last_order else None,
-                last_order_quantity=last_order.get("order_quantity") if last_order else None,
-            )
-        )
-
-    return workflow_items
-
-def _get_last_order_for_workflow(self, workflow_id: str) -> Optional[Dict[str, Any]]:
-    """Get most recent order for a workflow (cached)."""
-    orders = self.dynamodb_client.get_workflow_orders(workflow_id, limit=1)
-    if orders:
-        return orders[0]
-    return None
+    created_at: datetime
+    updated_at: datetime
 ```
 
 ---
