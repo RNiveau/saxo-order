@@ -3,9 +3,8 @@ from typing import Union
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import (
-    get_binance_client,
-    get_configuration,
-    get_saxo_client,
+    get_binance_report_service,
+    get_report_service,
 )
 from api.models.report import (
     CreateGSheetOrderRequest,
@@ -16,10 +15,7 @@ from api.models.report import (
 )
 from api.services.binance_report_service import BinanceReportService
 from api.services.report_service import ReportService
-from client.binance_client import BinanceClient
-from client.saxo_client import SaxoClient
 from model import Signal, Strategy
-from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.logger import Logger
 
@@ -40,9 +36,10 @@ async def get_report_config():
 async def get_report_orders(
     account_id: str = Query(..., description="Account ID (Saxo or Binance)"),
     from_date: str = Query(..., description="Start date (YYYY-MM-DD format)"),
-    saxo_client: SaxoClient = Depends(get_saxo_client),
-    binance_client: BinanceClient = Depends(get_binance_client),
-    config: Configuration = Depends(get_configuration),
+    saxo_report_service: ReportService = Depends(get_report_service),
+    binance_report_service: BinanceReportService = Depends(
+        get_binance_report_service
+    ),
 ):
     """
     Get trading report orders for a specific account from a given date.
@@ -54,12 +51,11 @@ async def get_report_orders(
     summary data.
     """
     try:
-        # Route to appropriate service based on account_id prefix
         report_service: Union[BinanceReportService, ReportService]
         if account_id.startswith("binance_"):
-            report_service = BinanceReportService(binance_client, config)
+            report_service = binance_report_service
         else:
-            report_service = ReportService(saxo_client, config)
+            report_service = saxo_report_service
 
         orders = report_service.get_orders_report(account_id, from_date)
 
@@ -99,9 +95,10 @@ async def get_report_orders(
 async def get_report_summary(
     account_id: str = Query(..., description="Account ID (Saxo or Binance)"),
     from_date: str = Query(..., description="Start date (YYYY-MM-DD format)"),
-    saxo_client: SaxoClient = Depends(get_saxo_client),
-    binance_client: BinanceClient = Depends(get_binance_client),
-    config: Configuration = Depends(get_configuration),
+    saxo_report_service: ReportService = Depends(get_report_service),
+    binance_report_service: BinanceReportService = Depends(
+        get_binance_report_service
+    ),
 ):
     """
     Get summary statistics for trading report.
@@ -111,12 +108,11 @@ async def get_report_summary(
     Returns aggregated data like total orders, volume, fees, etc.
     """
     try:
-        # Route to appropriate service based on account_id prefix
         report_service: Union[BinanceReportService, ReportService]
         if account_id.startswith("binance_"):
-            report_service = BinanceReportService(binance_client, config)
+            report_service = binance_report_service
         else:
-            report_service = ReportService(saxo_client, config)
+            report_service = saxo_report_service
 
         orders = report_service.get_orders_report(account_id, from_date)
 
@@ -137,9 +133,10 @@ async def get_report_summary(
 @router.post("/gsheet/create")
 async def create_gsheet_order(
     request: CreateGSheetOrderRequest,
-    saxo_client: SaxoClient = Depends(get_saxo_client),
-    binance_client: BinanceClient = Depends(get_binance_client),
-    config: Configuration = Depends(get_configuration),
+    saxo_report_service: ReportService = Depends(get_report_service),
+    binance_report_service: BinanceReportService = Depends(
+        get_binance_report_service
+    ),
 ):
     """
     Create a new order entry in Google Sheets.
@@ -149,12 +146,11 @@ async def create_gsheet_order(
     This opens a new position with stop loss, target, and strategy tracking.
     """
     try:
-        # Route to appropriate service based on account_id prefix
         report_service: Union[BinanceReportService, ReportService]
         if request.account_id.startswith("binance_"):
-            report_service = BinanceReportService(binance_client, config)
+            report_service = binance_report_service
         else:
-            report_service = ReportService(saxo_client, config)
+            report_service = saxo_report_service
 
         # Get orders using the same from_date as the frontend used
         orders = report_service.get_orders_report(
@@ -193,9 +189,10 @@ async def create_gsheet_order(
 @router.post("/gsheet/update")
 async def update_gsheet_order(
     request: UpdateGSheetOrderRequest,
-    saxo_client: SaxoClient = Depends(get_saxo_client),
-    binance_client: BinanceClient = Depends(get_binance_client),
-    config: Configuration = Depends(get_configuration),
+    saxo_report_service: ReportService = Depends(get_report_service),
+    binance_report_service: BinanceReportService = Depends(
+        get_binance_report_service
+    ),
 ):
     """
     Update an existing order entry in Google Sheets.
@@ -205,12 +202,11 @@ async def update_gsheet_order(
     This can either update an open position or close it.
     """
     try:
-        # Route to appropriate service based on account_id prefix
         report_service: Union[BinanceReportService, ReportService]
         if request.account_id.startswith("binance_"):
-            report_service = BinanceReportService(binance_client, config)
+            report_service = binance_report_service
         else:
-            report_service = ReportService(saxo_client, config)
+            report_service = saxo_report_service
 
         # Get orders using the same from_date as the frontend used
         orders = report_service.get_orders_report(
