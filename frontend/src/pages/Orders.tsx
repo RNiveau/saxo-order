@@ -50,7 +50,8 @@ export function Orders() {
     if (!shouldPrefill || loadingAccounts) return;
 
     const code = searchParams.get('code') || '';
-    const countryCode = searchParams.get('country_code') || 'xpar';
+    const countryCodeParam = searchParams.get('country_code');
+    const countryCode = countryCodeParam !== null ? countryCodeParam : 'xpar';
     const priceStr = searchParams.get('price') || '0';
     const price = parseFloat(priceStr);
     const exchange = searchParams.get('exchange') || 'saxo';

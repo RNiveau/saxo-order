@@ -885,7 +885,7 @@ export function AssetDetail() {
         <WorkflowCreateModal
           onClose={() => setShowCreateWorkflow(false)}
           onSuccess={() => setShowCreateWorkflow(false)}
-          prefill={{ index: symbol.split(':')[0], cfd: symbol.split(':')[0] }}
+          prefill={{ index: symbol, cfd: symbol }}
         />
       )}
     </div>
