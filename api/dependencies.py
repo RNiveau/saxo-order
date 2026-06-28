@@ -1,10 +1,12 @@
 import os
 from functools import lru_cache
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
 from fastapi import Depends, HTTPException, Request
 
 from api.services.asset_details_service import AssetDetailsService
+from api.services.binance_report_service import BinanceReportService
+from api.services.report_service import ReportService
 from client.aws_client import AwsClient, DynamoDBClient
 from client.binance_client import BinanceClient
 from client.gsheet_client import GSheetClient
@@ -86,6 +88,20 @@ def get_gsheet_client() -> GSheetClient:
         key_path=config.gsheet_creds_path,
         spreadsheet_id=config.spreadsheet_id,
     )
+
+
+@lru_cache()
+def get_report_service() -> ReportService:
+    saxo_client = cast(SaxoClient, get_saxo_client())
+    config = get_configuration()
+    return ReportService(saxo_client, config)
+
+
+@lru_cache()
+def get_binance_report_service() -> BinanceReportService:
+    binance_client = get_binance_client()
+    config = get_configuration()
+    return BinanceReportService(binance_client, config)
 
 
 def get_asset_details_service(
