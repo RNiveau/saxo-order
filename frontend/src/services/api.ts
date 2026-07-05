@@ -824,3 +824,54 @@ export const assetDetailsService = {
     return response.data;
   },
 };
+
+export interface TradeRepublicTransaction {
+  datetime: string;
+  date: string;
+  account_type: string;
+  category: string;
+  type: string;
+  asset_class: string | null;
+  name: string | null;
+  symbol: string | null;
+  shares: number | null;
+  price: number | null;
+  amount: number;
+  fee: number | null;
+  tax: number | null;
+  currency: string;
+  original_amount: number | null;
+  original_currency: string | null;
+  fx_rate: number | null;
+  description: string | null;
+  transaction_id: string;
+  counterparty_name: string | null;
+  counterparty_iban: string | null;
+  payment_reference: string | null;
+  mcc_code: string | null;
+}
+
+export interface TradeRepublicParseError {
+  row_number: number;
+  raw_line: string;
+  reason: string;
+}
+
+export interface UploadTradeRepublicResponse {
+  transactions: TradeRepublicTransaction[];
+  errors: TradeRepublicParseError[];
+  total_rows: number;
+}
+
+export const tradeRepublicService = {
+  upload: async (file: File): Promise<UploadTradeRepublicResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post<UploadTradeRepublicResponse>(
+      '/api/trade-republic/upload',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return response.data;
+  },
+};

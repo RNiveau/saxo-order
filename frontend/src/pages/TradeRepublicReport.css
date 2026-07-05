@@ -1,0 +1,89 @@
+.trade-republic-report {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.trade-republic-report h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #e0e0e0;
+}
+
+.info-text {
+  color: #a0a0a0;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.upload-box {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.upload-input {
+  padding: 0.5rem;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  background-color: #1f2937;
+  color: #e0e0e0;
+}
+
+.loading {
+  color: #a0a0a0;
+}
+
+.error-message {
+  background-color: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #fca5a5;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.warning-message {
+  background-color: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #374151;
+  border-radius: 12px;
+}
+
+.transactions-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #1f2937;
+}
+
+.transactions-table th,
+.transactions-table td {
+  padding: 0.6rem 0.9rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid #374151;
+  font-size: 0.9rem;
+}
+
+.transactions-table th {
+  color: #9ca3af;
+  font-weight: 600;
+  background: #111827;
+}
+
+.transactions-table td {
+  color: #e0e0e0;
+}
+
+.transactions-table tbody tr:hover {
+  background: #1a202c;
+}

@@ -1,0 +1,5 @@
+datetime,date,account_type,category,type,asset_class,name,symbol,shares,price,amount,fee,tax,currency,original_amount,original_currency,fx_rate,description,transaction_id,counterparty_name,counterparty_iban,payment_reference,mcc_code
+2026-03-01T11:31:45.309887Z,2026-03-01,DEFAULT,CASH,INTEREST_PAYMENT,,,,,,-2.97,,,EUR,,,,Interest payment for payout collection 019ca7a8-6f3f-72da-8766-5ad26381f838,019ca92b-2e1d-7a63-831a-88c8927ba850,,,,
+2026-03-02T09:15:00.000000Z,2026-03-02,DEFAULT,TRADE,BUY,STOCK,Apple Inc.,US0378331005,2,150.25,-300.50,-1.00,0,EUR,,,,Buy order executed,tx-stock-001,,,,
+2026-03-03T10:00:00.000000Z,2026-03-03,DEFAULT,TRADE,BUY,FUND,iShares Core MSCI World,IE00B4L5Y983,5,88.40,-442.00,-1.00,0,EUR,-480.00,USD,1.0862,Buy ETF order,tx-etf-001,,,,
+2026-03-04T12:00:00.000000Z,2026-03-04,DEFAULT,CASH,FEE,,,,,,,-0.50,,EUR,,,,Card fee,tx-fee-001,,,,

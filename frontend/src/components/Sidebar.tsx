@@ -187,6 +187,15 @@ export function Sidebar() {
                 <span className="label">Trading Report</span>
               </NavLink>
             </li>
+            <li>
+              <NavLink
+                to="/trade-republic-report"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">🧾</span>
+                <span className="label">Trade Republic Report</span>
+              </NavLink>
+            </li>
           </ul>
         )}
       </nav>

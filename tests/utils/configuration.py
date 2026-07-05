@@ -20,3 +20,7 @@ class MockConfiguration(Configuration):
     @property
     def saxo_url(self) -> str:
         return "saxo_url"
+
+    @property
+    def trade_republic_sheet_name(self) -> str:
+        return "ETF / DCA"

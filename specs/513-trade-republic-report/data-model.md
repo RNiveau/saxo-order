@@ -6,7 +6,6 @@ Represents a single parsed row from an uploaded Trade Republic CSV export. Held 
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `source` | `str` | always `"trade_republic"` | Explicit origin marker per constitution's Domain Model Integrity principle (analogous to the `exchange` field on other models) |
 | `datetime` | `datetime` | yes | Parsed from CSV `datetime` column (ISO-8601, e.g. `2026-03-01T11:31:45.309887Z`) |
 | `date` | `date` | yes | Parsed from CSV `date` column |
 | `account_type` | `str` | yes | Raw value from CSV (e.g. `DEFAULT`) — see research.md §4 |

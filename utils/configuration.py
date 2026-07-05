@@ -118,6 +118,10 @@ class Configuration:
         return self.config["spreadsheet_id"]
 
     @property
+    def trade_republic_sheet_name(self) -> str:
+        return self.config["trade_republic_sheet_name"]
+
+    @property
     def gsheet_creds_path(self) -> str:
         return "gsheet-creds.json"
 
