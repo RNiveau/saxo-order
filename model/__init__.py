@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from model.enum import (  # noqa: F401
     AlertType,
@@ -185,3 +185,38 @@ class EUMarket(Market):
         super().__init__(
             open_hour=7, close_hour=15, open_minutes=0, h4_blocks=[3, 4, 2]
         )
+
+
+@dataclass
+class TradeRepublicTransaction:
+    date: datetime.date
+    datetime: datetime.datetime
+    account_type: str
+    category: str
+    type: str
+    amount: float
+    currency: Union[Currency, str]
+    transaction_id: str
+    source: str = "trade_republic"
+    asset_class: Optional[AssetType] = None
+    name: Optional[str] = None
+    symbol: Optional[str] = None
+    shares: Optional[float] = None
+    price: Optional[float] = None
+    fee: Optional[float] = None
+    tax: Optional[float] = None
+    original_amount: Optional[float] = None
+    original_currency: Optional[Union[Currency, str]] = None
+    fx_rate: Optional[float] = None
+    description: Optional[str] = None
+    counterparty_name: Optional[str] = None
+    counterparty_iban: Optional[str] = None
+    payment_reference: Optional[str] = None
+    mcc_code: Optional[str] = None
+
+
+@dataclass
+class ParseError:
+    row_number: int
+    raw_line: str
+    reason: str

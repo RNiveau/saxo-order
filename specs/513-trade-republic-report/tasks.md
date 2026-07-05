@@ -23,9 +23,9 @@ Existing web app layout, extended in place (see plan.md Project Structure): `api
 
 **Purpose**: Dependency and configuration groundwork required before any code can run
 
-- [ ] T001 Add `python-multipart` dependency via `poetry add python-multipart` (updates `pyproject.toml` and `poetry.lock`) — required by FastAPI's `UploadFile`; see research.md §7 and plan.md Technical Context
-- [ ] T002 Add `trade_republic_sheet_name: "ETF / DCA"` key to `config.yml`, a `trade_republic_sheet_name` property to `Configuration` in `utils/configuration.py` (following the existing `spreadsheet_id` property pattern), and the matching property to `MockConfiguration` in `tests/utils/configuration.py`
-- [ ] T003 [P] Create the CSV test fixture `tests/services/files/trade_republic_sample.csv` using the header and sample row from spec.md (plus a couple of additional rows: one `STOCK` trade row with shares/price/symbol populated, one row missing a required field, to support later test tasks)
+- [x] T001 Add `python-multipart` dependency via `poetry add python-multipart` (updates `pyproject.toml` and `poetry.lock`) — required by FastAPI's `UploadFile`; see research.md §7 and plan.md Technical Context
+- [x] T002 Add `trade_republic_sheet_name: "ETF / DCA"` key to `config.yml`, a `trade_republic_sheet_name` property to `Configuration` in `utils/configuration.py` (following the existing `spreadsheet_id` property pattern), and the matching property to `MockConfiguration` in `tests/utils/configuration.py`
+- [x] T003 [P] Create the CSV test fixture `tests/services/files/trade_republic_sample.csv` using the header and sample row from spec.md (plus a couple of additional rows: one `STOCK` trade row with shares/price/symbol populated, one row missing a required field, to support later test tasks)
 
 **Checkpoint**: Dependency installed, config wired, fixture ready — implementation can begin
 
@@ -37,11 +37,11 @@ Existing web app layout, extended in place (see plan.md Project Structure): `api
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 [P] Add the `TradeRepublicTransaction` dataclass to `model/__init__.py` per data-model.md (fields, types incl. `Union[Currency, str]` for `currency`/`original_currency`, `Optional[AssetType]` for `asset_class`, `source: str = "trade_republic"`)
-- [ ] T005 [P] Create `api/models/trade_republic.py` with the Pydantic API models: `TradeRepublicTransactionResponse` (with a `from_transaction` classmethod mirroring `ReportOrderResponse.from_report_order` in `api/models/report.py`), `ParseErrorResponse`, `UploadTradeRepublicResponse`, `ExportTradeRepublicRequest`, `ExportTradeRepublicResponse` — shapes per contracts/trade-republic-api.md
-- [ ] T006 Create `api/services/trade_republic_service.py` with a `TradeRepublicService` class (constructor takes the existing `GSheetClient`, dependency-injected — no parsing/export logic yet, just the class shell)
-- [ ] T007 Wire `get_trade_republic_service()` into `api/dependencies.py` (constructs `TradeRepublicService` from `get_gsheet_client()`, following the existing `get_report_service()` pattern)
-- [ ] T008 Create `api/routers/trade_republic.py` with an empty `APIRouter(prefix="/api/trade-republic", tags=["trade_republic"])` and register it via `app.include_router(trade_republic.router)` in `api/main.py`
+- [x] T004 [P] Add the `TradeRepublicTransaction` dataclass to `model/__init__.py` per data-model.md (fields, types incl. `Union[Currency, str]` for `currency`/`original_currency`, `Optional[AssetType]` for `asset_class`, `source: str = "trade_republic"`)
+- [x] T005 [P] Create `api/models/trade_republic.py` with the Pydantic API models: `TradeRepublicTransactionResponse` (with a `from_transaction` classmethod mirroring `ReportOrderResponse.from_report_order` in `api/models/report.py`), `ParseErrorResponse`, `UploadTradeRepublicResponse`, `ExportTradeRepublicRequest`, `ExportTradeRepublicResponse` — shapes per contracts/trade-republic-api.md
+- [x] T006 Create `api/services/trade_republic_service.py` with a `TradeRepublicService` class (constructor takes the existing `GSheetClient`, dependency-injected — no parsing/export logic yet, just the class shell)
+- [x] T007 Wire `get_trade_republic_service()` into `api/dependencies.py` (constructs `TradeRepublicService` from `get_gsheet_client()`, following the existing `get_report_service()` pattern)
+- [x] T008 Create `api/routers/trade_republic.py` with an empty `APIRouter(prefix="/api/trade-republic", tags=["trade_republic"])` and register it via `app.include_router(trade_republic.router)` in `api/main.py`
 
 **Checkpoint**: Model, service shell, and router are wired — user story implementation can now begin
 
@@ -55,16 +55,16 @@ Existing web app layout, extended in place (see plan.md Project Structure): `api
 
 ### Tests for User Story 1
 
-- [ ] T009 [P] [US1] Write unit tests in `tests/api/services/test_trade_republic_service.py` for `TradeRepublicService.parse_csv`: delimiter detection (comma and semicolon input), a `CASH`/`INTEREST_PAYMENT` row with blank optional fields, a `STOCK` trade row with shares/price/symbol populated, a foreign-currency row (`original_amount`/`original_currency`/`fx_rate`), and `asset_class` mapping (`FUND`→`AssetType.ETF`, `STOCK`→`AssetType.STOCK`, empty→`None`)
-- [ ] T010 [P] [US1] Write a router test in `tests/api/routers/test_trade_republic.py` for `POST /api/trade-republic/upload` happy path: upload the fixture CSV via `TestClient`, assert the response's `transactions`/`total_rows` match, using `app.dependency_overrides[get_trade_republic_service]` per the pattern in `tests/api/routers/test_watchlist.py`
+- [x] T009 [P] [US1] Write unit tests in `tests/api/services/test_trade_republic_service.py` for `TradeRepublicService.parse_csv`: delimiter detection (comma and semicolon input), a `CASH`/`INTEREST_PAYMENT` row with blank optional fields, a `STOCK` trade row with shares/price/symbol populated, a foreign-currency row (`original_amount`/`original_currency`/`fx_rate`), and `asset_class` mapping (`FUND`→`AssetType.ETF`, `STOCK`→`AssetType.STOCK`, empty→`None`)
+- [x] T010 [P] [US1] Write a router test in `tests/api/routers/test_trade_republic.py` for `POST /api/trade-republic/upload` happy path: upload the fixture CSV via `TestClient`, assert the response's `transactions`/`total_rows` match, using `app.dependency_overrides[get_trade_republic_service]` per the pattern in `tests/api/routers/test_watchlist.py`
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Implement `parse_csv(file_content: str) -> Tuple[List[TradeRepublicTransaction], List[ParseError]]` in `api/services/trade_republic_service.py`: sniff the delimiter with `csv.Sniffer` (fallback to comma, research.md §2), iterate rows with `csv.DictReader`, map each row to a `TradeRepublicTransaction` (including the `asset_class`→`AssetType` and `currency`→`Union[Currency, str]` mappings)
-- [ ] T012 [US1] Implement `POST /api/trade-republic/upload` in `api/routers/trade_republic.py`: accept `file: UploadFile`, decode and pass its content to `TradeRepublicService.parse_csv`, return `UploadTradeRepublicResponse` built from the results (depends on T011)
-- [ ] T013 [P] [US1] Add `tradeRepublicService.upload(file: File)` to `frontend/src/services/api.ts` with TypeScript interfaces mirroring `UploadTradeRepublicResponse`/`TradeRepublicTransactionResponse` (contracts/trade-republic-api.md)
-- [ ] T014 [US1] Create `frontend/src/pages/TradeRepublicReport.tsx` + `TradeRepublicReport.css`: file upload input, calls `tradeRepublicService.upload`, renders parsed transactions in a table (blank cells for empty optional fields, both native and original currency/amount shown for foreign-currency rows) (depends on T013)
-- [ ] T015 [US1] Add the `/trade-republic-report` route to `frontend/src/App.tsx` and a "Trade Republic Report" nav entry to `frontend/src/components/Sidebar.tsx` (depends on T014)
+- [x] T011 [US1] Implement `parse_csv(file_content: str) -> Tuple[List[TradeRepublicTransaction], List[ParseError]]` in `api/services/trade_republic_service.py`: sniff the delimiter with `csv.Sniffer` (fallback to comma, research.md §2), iterate rows with `csv.DictReader`, map each row to a `TradeRepublicTransaction` (including the `asset_class`→`AssetType` and `currency`→`Union[Currency, str]` mappings)
+- [x] T012 [US1] Implement `POST /api/trade-republic/upload` in `api/routers/trade_republic.py`: accept `file: UploadFile`, decode and pass its content to `TradeRepublicService.parse_csv`, return `UploadTradeRepublicResponse` built from the results (depends on T011)
+- [x] T013 [P] [US1] Add `tradeRepublicService.upload(file: File)` to `frontend/src/services/api.ts` with TypeScript interfaces mirroring `UploadTradeRepublicResponse`/`TradeRepublicTransactionResponse` (contracts/trade-republic-api.md)
+- [x] T014 [US1] Create `frontend/src/pages/TradeRepublicReport.tsx` + `TradeRepublicReport.css`: file upload input, calls `tradeRepublicService.upload`, renders parsed transactions in a table (blank cells for empty optional fields, both native and original currency/amount shown for foreign-currency rows) (depends on T013)
+- [x] T015 [US1] Add the `/trade-republic-report` route to `frontend/src/App.tsx` and a "Trade Republic Report" nav entry to `frontend/src/components/Sidebar.tsx` (depends on T014)
 
 **Checkpoint**: Uploading a well-formed CSV displays every transaction in the UI — User Story 1 is independently functional
 
@@ -101,12 +101,12 @@ Existing web app layout, extended in place (see plan.md Project Structure): `api
 
 ### Tests for User Story 3
 
-- [ ] T023 [P] [US3] Extend `tests/api/services/test_trade_republic_service.py`: a CSV whose header doesn't match the expected columns raises a clear parse error (FR-006), and a CSV with one row missing a required field (per data-model.md's validation rules) yields that row as a `ParseError` while the other rows still parse (FR-008)
-- [ ] T024 [P] [US3] Extend `tests/api/routers/test_trade_republic.py`: `POST /api/trade-republic/upload` with a non-CSV file returns `400` with no transactions, and a header-only CSV returns `200` with empty `transactions`/`errors` (FR-007)
+- [ ] T023 [P] [US3] Extend `tests/api/services/test_trade_republic_service.py`: a CSV whose header doesn't match the expected columns raises a clear parse error (FR-006). (Note: per-row required-field validation producing `ParseError` — the other half of FR-008 originally scoped here — was already implemented as part of T011, since a type-safe `parse_csv` couldn't skip it; see `test_parses_well_formed_rows_and_flags_the_malformed_one` in the same file for that coverage.)
+- [ ] T024 [P] [US3] Extend `tests/api/routers/test_trade_republic.py`: `POST /api/trade-republic/upload` with a non-CSV file returns `400` with no transactions, and a header-only CSV returns `200` with empty `transactions`/`errors` (FR-007 — already covered implicitly since an empty-body CSV simply yields zero `DictReader` rows; add an explicit test for it)
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Extend `parse_csv` in `api/services/trade_republic_service.py`: validate the sniffed header against the expected column set and raise a clear exception if it doesn't match (FR-006); for each row, check the required fields from data-model.md's validation rules and collect a `ParseError` (row number, raw line, reason) instead of raising, so the rest of the file keeps parsing (FR-008) (depends on T011)
+- [ ] T025 [US3] Extend `parse_csv` in `api/services/trade_republic_service.py`: validate the sniffed header against the expected column set and raise a clear exception if it doesn't match (FR-006). (Per-row required-field validation is already implemented, from T011.)
 - [ ] T026 [US3] Update `POST /api/trade-republic/upload` in `api/routers/trade_republic.py` to catch the header-validation exception from T025 and return `400` with a clear `detail` message (depends on T012, T025)
 - [ ] T027 [US3] Add to `frontend/src/pages/TradeRepublicReport.tsx`: an explicit "no transactions found" empty state when `transactions` is empty and no error occurred, an upload-rejection error banner for `400` responses, and a visually flagged row (or separate list) for entries in `errors` (depends on T014)
 
@@ -186,3 +186,5 @@ Task: "Create api/models/trade_republic.py with the Pydantic API models"
 - `[P]` tasks touch different files with no incomplete-task dependency
 - Commit after each task or logical group
 - Stop at any checkpoint to validate a story independently before continuing
+
+**Progress (2026-07-05)**: Phases 1–3 (T001–T015) implemented and checked off — Setup, Foundational, and User Story 1 (upload + review) are done, tested (8 new backend tests passing, no regressions in the existing suite), and lint/type-clean. Phases 4–5 (export, invalid-input UX) and Phase 6 (polish) remain.

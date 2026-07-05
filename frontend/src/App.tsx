@@ -9,6 +9,7 @@ import { AssetDetail } from './pages/AssetDetail';
 import { Watchlist } from './pages/Watchlist';
 import { LongTermPositions } from './pages/LongTermPositions';
 import { Report } from './pages/Report';
+import { TradeRepublicReport } from './pages/TradeRepublicReport';
 import { Orders } from './pages/Orders';
 import { Alerts } from './pages/Alerts';
 import { AssetExclusions } from './pages/AssetExclusions';
@@ -34,6 +35,7 @@ function App() {
               <Route path="/alerts" element={<Alerts />} />
               <Route path="/exclusions" element={<AssetExclusions />} />
               <Route path="/report" element={<Report />} />
+              <Route path="/trade-republic-report" element={<TradeRepublicReport />} />
               <Route path="/search" element={<SearchResults />} />
               <Route path="/asset/:symbol" element={<AssetDetail />} />
             </Routes>

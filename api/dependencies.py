@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException, Request
 from api.services.asset_details_service import AssetDetailsService
 from api.services.binance_report_service import BinanceReportService
 from api.services.report_service import ReportService
+from api.services.trade_republic_service import TradeRepublicService
 from client.aws_client import AwsClient, DynamoDBClient
 from client.binance_client import BinanceClient
 from client.gsheet_client import GSheetClient
@@ -102,6 +103,12 @@ def get_binance_report_service() -> BinanceReportService:
     binance_client = get_binance_client()
     config = get_configuration()
     return BinanceReportService(binance_client, config)
+
+
+@lru_cache()
+def get_trade_republic_service() -> TradeRepublicService:
+    gsheet_client = get_gsheet_client()
+    return TradeRepublicService(gsheet_client)
 
 
 def get_asset_details_service(

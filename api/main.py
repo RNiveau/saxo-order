@@ -16,6 +16,7 @@ from api.routers import (
     order,
     report,
     search,
+    trade_republic,
     tradingview,
     watchlist,
     workflow,
@@ -101,6 +102,7 @@ app.include_router(indicator.router)
 app.include_router(order.router)
 app.include_router(report.router)
 app.include_router(search.router)
+app.include_router(trade_republic.router)
 app.include_router(tradingview.router)
 app.include_router(watchlist.router)
 app.include_router(workflow.router)
