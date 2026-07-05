@@ -42,4 +42,4 @@ datetime,date,account_type,category,type,asset_class,name,symbol,shares,price,am
 poetry run pytest tests/api/services/test_trade_republic_service.py tests/api/routers/test_trade_republic.py -v
 ```
 
-Should cover: header/delimiter detection, required-field validation producing `ParseError` entries, foreign-currency row parsing (`original_amount`/`original_currency`/`fx_rate`), empty-file handling, and the export endpoint calling `GSheetClient` once per selected transaction (mocked, no real network/Sheets call in tests).
+Should cover: header/delimiter detection, required-field validation producing `ParseError` entries, foreign-currency row parsing (`original_amount`/`original_currency`/`fx_rate`), empty-file handling, and the export endpoint calling `GSheetClient` exactly **once** for the whole selection (single batched `append` call, not once per transaction — see research.md §6), including the case where that single call raises and zero rows are reported as exported (mocked, no real network/Sheets call in tests).

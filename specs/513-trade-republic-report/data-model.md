@@ -14,15 +14,15 @@ Represents a single parsed row from an uploaded Trade Republic CSV export. Held 
 | `type` | `str` | yes | Raw value from CSV (e.g. `INTEREST_PAYMENT`) — see research.md §4 |
 | `asset_class` | `Optional[AssetType]` (existing enum) | no | Reused from `model.enum.AssetType`: CSV `FUND` → `AssetType.ETF`, CSV `STOCK` → `AssetType.STOCK`. Empty for cash-only rows |
 | `name` | `Optional[str]` | no | Asset name; empty for cash-only rows |
-| `symbol` | `Optional[str]` | no | Asset ticker; empty for cash-only rows |
+| `symbol` | `Optional[str]` | no | ISIN of the asset (Trade Republic identifies securities by ISIN, not ticker — see spec.md Assumptions and the FR-013 `ISIN` column mapping); empty for cash-only rows |
 | `shares` | `Optional[float]` | no | Empty for non-trade rows |
 | `price` | `Optional[float]` | no | Empty for non-trade rows |
 | `amount` | `float` | yes | Signed transaction amount in `currency` |
 | `fee` | `Optional[float]` | no | |
 | `tax` | `Optional[float]` | no | |
-| `currency` | `Currency` (existing enum) | yes | Reused from `model.enum.Currency`; unknown codes kept as raw string (research.md §5) |
+| `currency` | `Union[Currency, str]` | yes | `model.enum.Currency` when the code is one of its known values (only `EUR` covered today); otherwise the raw ISO code string. `Currency` currently only defines `EUR`/`USD`/`JPY` — common Trade Republic currencies such as `GBP`/`CHF`/`DKK` fall back to the raw string immediately (research.md §5) |
 | `original_amount` | `Optional[float]` | no | Populated only for foreign-currency transactions |
-| `original_currency` | `Optional[Currency]` | no | Populated only for foreign-currency transactions |
+| `original_currency` | `Optional[Union[Currency, str]]` | no | Same `Union[Currency, str]` handling as `currency`; populated only for foreign-currency transactions |
 | `fx_rate` | `Optional[float]` | no | Populated only for foreign-currency transactions |
 | `description` | `Optional[str]` | no | Free text |
 | `transaction_id` | `str` | yes | Unique id from the broker; no uniqueness enforcement is performed by this feature (no duplicate detection, FR-012) |
