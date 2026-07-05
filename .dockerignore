@@ -1,0 +1,7 @@
+.venv
+.git
+__pycache__
+*.pyc
+frontend/node_modules
+secrets.yml
+access_token

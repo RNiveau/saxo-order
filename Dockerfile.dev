@@ -8,9 +8,12 @@ RUN pip install poetry
 # Copy poetry files
 COPY pyproject.toml poetry.lock ./
 
-# Install dependencies only (not the project itself)
-RUN poetry config virtualenvs.create false && \
+# Install dependencies only (not the project itself) into an in-project venv,
+# isolated from the system site-packages where poetry itself lives
+RUN poetry config virtualenvs.in-project true && \
     poetry install --no-interaction --no-ansi --no-root
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy application code
 COPY . .
