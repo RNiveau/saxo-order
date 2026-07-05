@@ -29,6 +29,24 @@
   border-radius: 8px;
   background-color: #1f2937;
   color: #e0e0e0;
+  width: 320px;
+}
+
+.upload-input::file-selector-button {
+  padding: 0.5rem 1rem;
+  margin-right: 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #2563eb;
+  color: white;
+  transition: background-color 0.2s ease;
+}
+
+.upload-input::file-selector-button:hover {
+  background-color: #1d4ed8;
 }
 
 .loading {
