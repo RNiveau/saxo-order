@@ -17,6 +17,11 @@ from model import (
     helper,
 )
 
+ETF_DCA_SENS_MAP = {
+    "BUY": "Achat",
+    "SELL": "Vente",
+}
+
 
 class GSheetClient:
     def __init__(
@@ -373,7 +378,7 @@ class GSheetClient:
     def _generate_etf_dca_row(
         self, transaction: TradeRepublicTransaction, row_number: int
     ) -> List:
-        sens = "Achat" if transaction.amount < 0 else "Vente"
+        sens = ETF_DCA_SENS_MAP.get(transaction.type, "")
         return [
             transaction.name,
             transaction.symbol,

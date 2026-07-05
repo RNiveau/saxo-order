@@ -361,6 +361,7 @@ class TestAppendEtfDcaRows:
             _make_transaction(
                 transaction_id="tx-2",
                 date=datetime.strptime("2026-03-03", "%Y-%m-%d").date(),
+                type="SELL",
                 amount=442.0,
                 name="iShares Core MSCI World",
                 symbol="IE00B4L5Y983",
@@ -400,3 +401,22 @@ class TestAppendEtfDcaRows:
             "=E7*F7",
             "=H7+G7",
         ]
+
+    def test_sens_blank_for_non_trade_types(self):
+        client = MockEtfDcaGsheetClient(starting_row_count=5)
+        transactions = [
+            _make_transaction(transaction_id="tx-1", type="DIVIDEND"),
+            _make_transaction(transaction_id="tx-2", type="INTEREST_PAYMENT"),
+            _make_transaction(transaction_id="tx-3", type="TRANSFER_INBOUND"),
+            _make_transaction(transaction_id="tx-4", type="IPO_SUBSCRIPTION"),
+        ]
+
+        client.append_etf_dca_rows(transactions)
+
+        rows = (
+            client.client.spreadsheets()
+            .values()
+            .append.call_args.kwargs["body"]["values"]
+        )
+
+        assert [row[3] for row in rows] == ["", "", "", ""]
