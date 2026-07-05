@@ -32,4 +32,6 @@
 ## Notes
 
 - All 3 clarifications resolved by the user on 2026-07-05: transactions are transient (no server-side persistence), export is per-selected-transaction (not whole-batch), and no duplicate detection by `transaction_id` is performed. Spec updated accordingly (FR-010–FR-013, US1/US2 acceptance scenarios, Edge Cases, Assumptions, Out of Scope).
-- Ready for `/speckit.plan`.
+- 2026-07-05 (later same day): `asset_class` mapping to the existing `AssetType` enum confirmed by the user (FUND→ETF, STOCK→STOCK) — added as FR-014.
+- 2026-07-05 (later same day): the real "ETF / DCA" Google Sheet name and column layout (ETF, ISIN, Date, Sens, Prix, Quantité, Frais, Total, Total TTC) provided by the user, replacing the earlier placeholder-layout approach — added as FR-013 (field mapping) and FR-015 (no export-eligibility restriction).
+- Ready for `/speckit.plan` (plan.md/research.md/data-model.md/contracts already updated to match).

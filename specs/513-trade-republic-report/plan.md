@@ -7,7 +7,7 @@
 
 ## Summary
 
-Add a "Trade Republic Report" section to the web UI where a trader uploads a Trade Republic CSV export. The backend parses the file line by line into transactions and returns them to the frontend, which displays them in a table. The trader can then select one or more transactions and export them to Google Sheets; both the display data and the exported data are transient (no server-side persistence), and the exact Google Sheets column layout is a placeholder pending a follow-up spec. No duplicate detection is performed.
+Add a "Trade Republic Report" section to the web UI where a trader uploads a Trade Republic CSV export. The backend parses the file line by line into transactions and returns them to the frontend, which displays them in a table. The trader can then select one or more transactions and export them as new rows in the existing "ETF / DCA" Google Sheet (field mapping per FR-013); the parsed/displayed data is transient (no server-side persistence). No duplicate detection is performed.
 
 ## Technical Context
 
@@ -18,7 +18,7 @@ Add a "Trade Republic Report" section to the web UI where a trader uploads a Tra
 **Target Platform**: Existing web app (FastAPI backend + Vite/React SPA), same deployment target as the rest of the API (local `run_api.py` / Lambda)
 **Project Type**: Web application (backend `api/` + frontend `frontend/`) — existing Option 2 structure, no new top-level project
 **Performance Goals**: Parse and display a typical monthly statement (up to a few hundred rows) in under 5 seconds (spec SC-001)
-**Constraints**: No new persistent storage; export is per-selected-transaction, not whole-batch (spec FR-011); no duplicate detection (spec FR-012); Google Sheets column layout is a placeholder, not final (spec FR-013)
+**Constraints**: No new persistent storage; export is per-selected-transaction, not whole-batch (spec FR-011); no duplicate detection (spec FR-012); export targets the existing "ETF / DCA" Google Sheet with the fixed field mapping in spec FR-013
 **Scale/Scope**: Single trader, one file at a time, statements in the tens-to-low-hundreds of rows
 
 ## Constitution Check
@@ -28,8 +28,8 @@ Add a "Trade Republic Report" section to the web UI where a trader uploads a Tra
 | Principle | Check | Result |
 |---|---|---|
 | I. Layered Architecture Discipline | New `api/routers/trade_republic.py` (thin) → new `api/services/trade_republic_service.py` (parsing + orchestration, no direct external calls except through the client) → existing `client/gsheet_client.py` (extended, encapsulates all Sheets API access) → new `model` dataclass/enums. Frontend: new `pages/TradeRepublicReport.tsx` calls only `services/api.ts`; no inline axios. | PASS |
-| II. Clean Code First | Reuse existing `Currency` enum where it fits (native `currency`/`original_currency` fields). `category`/`type`/`account_type` are Trade-Republic-controlled vocabularies for which only one sample value each is known; treating them as validated strings (not a guessed, possibly-wrong enum) avoids over-engineering and brittle parsing — documented as a deliberate exception in research.md, not a hardcoded-string anti-pattern. | PASS (see research.md §3) |
-| III. Configuration-Driven Design | No new secrets. One new non-sensitive config key (`trade_republic_sheet_name`) added to `config.yml` for the placeholder export tab name, following the existing `spreadsheet_id` pattern. | PASS |
+| II. Clean Code First | Reuse existing `Currency` and `AssetType` enums where they fit (`currency`/`original_currency`, `asset_class` — see FR-014). `category`/`type`/`account_type` are Trade-Republic-controlled vocabularies for which only one sample value each is known; treating them as validated strings (not a guessed, possibly-wrong enum) avoids over-engineering and brittle parsing — documented as a deliberate exception in research.md, not a hardcoded-string anti-pattern. | PASS (see research.md §4) |
+| III. Configuration-Driven Design | No new secrets. One new non-sensitive config key (`trade_republic_sheet_name`, value `"ETF / DCA"`) added to `config.yml`, following the existing `spreadsheet_id` pattern. | PASS |
 | IV. Safe Deployment Practices | No new AWS resources (no persistence = no new DynamoDB table), no Pulumi changes. Existing deploy pipeline (`./deploy.sh`) picks up the new code unchanged. | PASS |
 | V. Domain Model Integrity | New `TradeRepublicTransaction` model includes an explicit `source: str = "trade_republic"` field, consistent with the constitution's requirement to identify data origin explicitly rather than inferring it from which fields are populated. | PASS |
 
@@ -63,10 +63,10 @@ api/
 └── dependencies.py                # UPDATED — get_trade_republic_service()
 
 client/
-└── gsheet_client.py                # UPDATED — add append-to-placeholder-sheet method
+└── gsheet_client.py                # UPDATED — add append_etf_dca_row method
 
 model/
-├── enum.py                         # UPDATED — no new enums (see research.md §3)
+├── enum.py                         # UNCHANGED — reuses existing AssetType/Currency, no new enums (see research.md §1, §4)
 └── __init__.py                     # UPDATED — add TradeRepublicTransaction dataclass
 
 tests/

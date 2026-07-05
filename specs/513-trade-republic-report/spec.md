@@ -28,13 +28,13 @@ As a trader, I want to upload the CSV file exported from Trade Republic into a d
 
 As a trader, once I've reviewed the transactions parsed from a Trade Republic statement, I want to export them to my Google Sheets so they become part of my broader financial record without retyping anything.
 
-**Why this priority**: Reviewing data that cannot leave the upload screen has limited standalone value; getting it into the trader's existing Google Sheets record is the actual payoff of digitizing the statement. It is P1 alongside upload because the two together form the minimum viable slice of this feature (the exact sheet layout is deferred, see Assumptions).
+**Why this priority**: Reviewing data that cannot leave the upload screen has limited standalone value; getting it into the trader's existing "ETF / DCA" Google Sheet is the actual payoff of digitizing the statement.
 
-**Independent Test**: Can be fully tested by uploading a CSV, triggering the export action, and verifying that the trader receives a clear success confirmation (or a clear error if the export fails) — independent of the final column layout in the sheet, which is specified separately.
+**Independent Test**: Can be fully tested by uploading a CSV, selecting a transaction, triggering the export action, and verifying a new row appears in the "ETF / DCA" sheet with the fields mapped per FR-013, plus a clear success confirmation in the UI (or a clear error if the export fails).
 
 **Acceptance Scenarios**:
 
-1. **Given** transactions are displayed after an upload, **When** the trader selects one or more specific rows and triggers the export action, **Then** only the selected transactions are sent to Google Sheets and the trader sees a success confirmation.
+1. **Given** transactions are displayed after an upload, **When** the trader selects one or more specific rows and triggers the export action, **Then** only the selected transactions are appended as new rows to the "ETF / DCA" Google Sheet (per the FR-013 field mapping) and the trader sees a success confirmation.
 2. **Given** the Google Sheets export fails (e.g. connectivity or permission error), **When** the trader triggers export, **Then** a clear error is shown, no rows are marked as exported, and no partial/corrupted state is left in the UI.
 3. **Given** no transaction is selected, **When** the trader attempts to trigger the export action, **Then** the system prevents the export (e.g. the action is disabled) rather than sending an empty request.
 
@@ -83,12 +83,15 @@ As a trader, if I upload a file that isn't a valid Trade Republic CSV export (wr
 - **FR-010**: Uploaded transactions MUST be held transiently for the current review session (in-memory / current visit only); the system MUST NOT persist them server-side beyond that session. Re-visiting the section after a reload requires uploading the CSV again.
 - **FR-011**: System MUST let the trader select one or more specific transactions from the displayed batch and export only that selection to Google Sheets, rather than forcing an all-or-nothing export of the whole batch (consistent with the row-level journaling pattern used by the existing Saxo/Binance reporting).
 - **FR-012**: System MUST NOT perform any duplicate detection on `transaction_id` across uploads or exports; avoiding re-export of an already-exported transaction (e.g. from overlapping statement periods) is the trader's responsibility.
-- **FR-013**: The exact column mapping and layout used when writing to Google Sheets is deferred to a follow-up specification; this feature only requires that a defined, reviewable, per-transaction export action exists.
+- **FR-013**: System MUST export each selected transaction as one new row appended to the existing "ETF / DCA" Google Sheet, mapping fields as follows: `ETF` ← transaction name, `ISIN` ← transaction symbol, `Date` ← transaction date, `Sens` ← "Achat" if the amount is negative (money leaving the account) or "Vente" if positive, `Prix` ← price, `Quantité` ← shares, `Frais` ← fee, `Total` ← price × shares, `Total TTC` ← Total + Frais.
+- **FR-014**: System MUST map the CSV `asset_class` column to the existing asset type classification: `FUND` corresponds to the existing ETF asset type, and `STOCK` corresponds to the existing stock asset type. A row whose `asset_class` is empty (e.g. cash movements) MUST still display normally with no asset type shown.
+- **FR-015**: System MUST NOT restrict which transactions the trader can select for export; since the "ETF / DCA" sheet's columns describe an ETF trade, selecting a transaction that lacks trade fields (e.g. a cash/interest movement with no name, symbol, price, or shares) still appends a row, with those specific cells left blank. Choosing appropriate rows to export is the trader's responsibility.
 
 ### Key Entities
 
-- **Trade Republic Transaction**: A single row from the uploaded CSV — one of a cash movement, a trade, an interest payment, a fee, etc. Carries: timestamp, date, account type, category, type, asset class, asset name/symbol (when applicable), shares, price, amount, fee, tax, currency, original amount/currency/fx rate (when a currency conversion applies), free-text description, a unique transaction id, and optional counterparty details (name, IBAN, payment reference, merchant category code).
+- **Trade Republic Transaction**: A single row from the uploaded CSV — one of a cash movement, a trade, an interest payment, a fee, etc. Carries: timestamp, date, account type, category, type, asset class (mapped to the existing ETF/stock asset type classification — see FR-014, empty for non-asset rows), asset name/symbol (when applicable), shares, price, amount, fee, tax, currency, original amount/currency/fx rate (when a currency conversion applies), free-text description, a unique transaction id, and optional counterparty details (name, IBAN, payment reference, merchant category code).
 - **Upload Batch**: The set of transactions produced by parsing one uploaded CSV file, reviewed together in the UI before export.
+- **ETF / DCA Sheet Row**: The exported representation of one transaction in the existing "ETF / DCA" Google Sheet — see FR-013 for the field mapping.
 
 ## Success Criteria *(mandatory)*
 
@@ -102,7 +105,9 @@ As a trader, if I upload a file that isn't a valid Trade Republic CSV export (wr
 
 ## Assumptions
 
-- The Google Sheets column layout/mapping for exported transactions is explicitly out of scope for this spec and will be defined in a follow-up specification, as requested by the trader.
+- The "ETF / DCA" Google Sheet already exists with the column layout given in FR-013; this feature appends rows to it, it does not create the sheet or its headers.
+- The transaction's `symbol` field carries the ISIN (consistent with how Trade Republic identifies securities), and is mapped directly to the sheet's `ISIN` column.
+- `Sens` (Achat/Vente) is derived from the sign of `amount` rather than from the CSV `type` column, since the full set of `type` values Trade Republic uses for trades is not confirmed from the single sample row available.
 - The CSV format matches the header and structure supplied (23 columns as listed in FR-002); files from other brokers or with a different column set are out of scope.
 - The feature is single-user (the trader uploading their own statement); no multi-user sharing or permissions model is introduced.
 - Numeric fields use a dot as the decimal separator and ISO-8601 timestamps, consistent with the sample row provided.
@@ -111,10 +116,11 @@ As a trader, if I upload a file that isn't a valid Trade Republic CSV export (wr
 
 ## Out of Scope
 
-- Defining the exact Google Sheets column layout/mapping (explicitly deferred by the requester).
+- Creating or reformatting the "ETF / DCA" Google Sheet — it already exists.
 - Server-side persistence of uploaded transactions across sessions/reloads.
 - Duplicate detection or prevention across uploads/exports by `transaction_id`.
 - Automatic reconciliation between Trade Republic transactions and the existing Saxo/Binance reporting or trading journal.
 - Editing transaction values in the UI before export — the review is read-only over what was parsed.
 - Scheduled or automatic imports (e.g. via email or API) — upload is manual and file-based only.
 - Multi-file / bulk upload in a single action.
+- Preventing export of non-ETF-trade transactions to the "ETF / DCA" sheet (see FR-015) — no such validation is introduced.

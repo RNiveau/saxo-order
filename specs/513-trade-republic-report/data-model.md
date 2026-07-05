@@ -2,17 +2,17 @@
 
 ## TradeRepublicTransaction
 
-Represents a single parsed row from an uploaded Trade Republic CSV export. Held only in-memory (backend response payload / frontend state) — never persisted (see research.md §2).
+Represents a single parsed row from an uploaded Trade Republic CSV export. Held only in-memory (backend response payload / frontend state) — never persisted (see research.md §3).
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `source` | `str` | always `"trade_republic"` | Explicit origin marker per constitution's Domain Model Integrity principle (analogous to the `exchange` field on other models) |
 | `datetime` | `datetime` | yes | Parsed from CSV `datetime` column (ISO-8601, e.g. `2026-03-01T11:31:45.309887Z`) |
 | `date` | `date` | yes | Parsed from CSV `date` column |
-| `account_type` | `str` | yes | Raw value from CSV (e.g. `DEFAULT`) — see research.md §3 |
-| `category` | `str` | yes | Raw value from CSV (e.g. `CASH`) — see research.md §3 |
-| `type` | `str` | yes | Raw value from CSV (e.g. `INTEREST_PAYMENT`) — see research.md §3 |
-| `asset_class` | `Optional[str]` | no | Empty for cash-only rows |
+| `account_type` | `str` | yes | Raw value from CSV (e.g. `DEFAULT`) — see research.md §4 |
+| `category` | `str` | yes | Raw value from CSV (e.g. `CASH`) — see research.md §4 |
+| `type` | `str` | yes | Raw value from CSV (e.g. `INTEREST_PAYMENT`) — see research.md §4 |
+| `asset_class` | `Optional[AssetType]` (existing enum) | no | Reused from `model.enum.AssetType`: CSV `FUND` → `AssetType.ETF`, CSV `STOCK` → `AssetType.STOCK`. Empty for cash-only rows |
 | `name` | `Optional[str]` | no | Asset name; empty for cash-only rows |
 | `symbol` | `Optional[str]` | no | Asset ticker; empty for cash-only rows |
 | `shares` | `Optional[float]` | no | Empty for non-trade rows |
@@ -20,7 +20,7 @@ Represents a single parsed row from an uploaded Trade Republic CSV export. Held 
 | `amount` | `float` | yes | Signed transaction amount in `currency` |
 | `fee` | `Optional[float]` | no | |
 | `tax` | `Optional[float]` | no | |
-| `currency` | `Currency` (existing enum) | yes | Reused from `model.enum.Currency`; unknown codes kept as raw string (research.md §4) |
+| `currency` | `Currency` (existing enum) | yes | Reused from `model.enum.Currency`; unknown codes kept as raw string (research.md §5) |
 | `original_amount` | `Optional[float]` | no | Populated only for foreign-currency transactions |
 | `original_currency` | `Optional[Currency]` | no | Populated only for foreign-currency transactions |
 | `fx_rate` | `Optional[float]` | no | Populated only for foreign-currency transactions |

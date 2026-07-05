@@ -81,4 +81,4 @@ Export one or more previously-parsed transactions to Google Sheets. Because noth
 - `400` — empty `transactions` list (FR: export requires at least one selected transaction).
 - `500` — Google Sheets write failure (connectivity/permission); response body carries a clear `detail` message; no partial state is implied since each transaction is appended independently and the response only reports success for rows that actually made it (`exported_count`).
 
-**Note**: The Google Sheets row layout produced by this endpoint is a placeholder (one column per `TradeRepublicTransaction` field, see research.md §5) and is expected to change once the follow-up spec defines the real layout — this contract's request/response shapes are stable, the sheet's column layout is not.
+**Note**: Each transaction is appended as one row to the existing "ETF / DCA" Google Sheet, with columns `ETF, ISIN, Date, Sens, Prix, Quantité, Frais, Total, Total TTC` mapped per spec FR-013 / research.md §6. This request/response shape carries the full `TradeRepublicTransaction`; the sheet-column mapping is applied server-side and does not change this contract if the mapping is later adjusted.
