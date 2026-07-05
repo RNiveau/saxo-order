@@ -88,6 +88,7 @@ def get_gsheet_client() -> GSheetClient:
     return GSheetClient(
         key_path=config.gsheet_creds_path,
         spreadsheet_id=config.spreadsheet_id,
+        trade_republic_sheet_name=config.trade_republic_sheet_name,
     )
 
 

@@ -13,18 +13,25 @@ from model import (
     Order,
     ReportOrder,
     Taxes,
+    TradeRepublicTransaction,
     helper,
 )
 
 
 class GSheetClient:
-    def __init__(self, key_path: str, spreadsheet_id: str) -> None:
+    def __init__(
+        self,
+        key_path: str,
+        spreadsheet_id: str,
+        trade_republic_sheet_name: str = "ETF / DCA",
+    ) -> None:
         credentials = Credentials.from_service_account_file(
             key_path, scopes=["https://www.googleapis.com/auth/spreadsheets"]
         )
         self.client = build("sheets", "v4", credentials=credentials)
         self.spreadsheet_id = spreadsheet_id
         self.sheet_name = "Liste d’ordre"
+        self.trade_republic_sheet_name = trade_republic_sheet_name
 
     def _get_sheet_id(self):
         spreadsheet = (
@@ -120,6 +127,9 @@ class GSheetClient:
         return block
 
     def _get_number_rows(self):
+        return self._get_number_rows_for_sheet(self.sheet_name)
+
+    def _get_number_rows_for_sheet(self, sheet_name: str) -> Optional[int]:
         spreadsheet = (
             self.client.spreadsheets()
             .get(spreadsheetId=self.spreadsheet_id)
@@ -127,7 +137,7 @@ class GSheetClient:
         )
         sheets = spreadsheet.get("sheets", [])
         for sheet in sheets:
-            if sheet["properties"]["title"] == self.sheet_name:
+            if sheet["properties"]["title"] == sheet_name:
                 return sheet["properties"]["gridProperties"]["rowCount"]
         return None
 
@@ -358,4 +368,49 @@ class GSheetClient:
         self.client.spreadsheets().batchUpdate(
             spreadsheetId=self.spreadsheet_id, body={"requests": requests}
         ).execute()
+        return result
+
+    def _generate_etf_dca_row(
+        self, transaction: TradeRepublicTransaction, row_number: int
+    ) -> List:
+        sens = "Achat" if transaction.amount < 0 else "Vente"
+        return [
+            transaction.name,
+            transaction.symbol,
+            transaction.date.strftime("%d/%m/%Y"),
+            sens,
+            transaction.price,
+            transaction.shares,
+            transaction.fee,
+            f"=E{row_number}*F{row_number}",
+            f"=H{row_number}+G{row_number}",
+        ]
+
+    def append_etf_dca_rows(
+        self, transactions: List[TradeRepublicTransaction]
+    ) -> Any:
+        row_count = self._get_number_rows_for_sheet(
+            self.trade_republic_sheet_name
+        )
+        if row_count is None:
+            raise ValueError(
+                f"Sheet '{self.trade_republic_sheet_name}' not found"
+            )
+        start_row = row_count + 1
+        rows = [
+            self._generate_etf_dca_row(transaction, start_row + i)
+            for i, transaction in enumerate(transactions)
+        ]
+        result = (
+            self.client.spreadsheets()
+            .values()
+            .append(
+                spreadsheetId=self.spreadsheet_id,
+                range=f"{self.trade_republic_sheet_name}!A:A",
+                valueInputOption="USER_ENTERED",
+                insertDataOption="INSERT_ROWS",
+                body={"values": rows},
+            )
+            .execute()
+        )
         return result

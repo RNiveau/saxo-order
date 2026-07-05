@@ -1,8 +1,21 @@
-from typing import List, Optional
+from datetime import date, datetime
+from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
-from model import AssetType, ParseError, TradeRepublicTransaction
+from model import (
+    AssetType,
+    Currency,
+    ParseError,
+    TradeRepublicTransaction,
+)
+
+
+def _parse_currency(value: str) -> Union[Currency, str]:
+    try:
+        return Currency.get_value(value)
+    except ValueError:
+        return value
 
 
 class TradeRepublicTransactionResponse(BaseModel):
@@ -64,6 +77,40 @@ class TradeRepublicTransactionResponse(BaseModel):
             counterparty_iban=transaction.counterparty_iban,
             payment_reference=transaction.payment_reference,
             mcc_code=transaction.mcc_code,
+        )
+
+    def to_transaction(self) -> TradeRepublicTransaction:
+        """Convert this API response back to a domain model, so a
+        previously-uploaded transaction sent back by the frontend for
+        export can be handed to the service/client layer unchanged."""
+        return TradeRepublicTransaction(
+            date=date.fromisoformat(self.date),
+            datetime=datetime.fromisoformat(self.datetime),
+            account_type=self.account_type,
+            category=self.category,
+            type=self.type,
+            amount=self.amount,
+            currency=_parse_currency(self.currency),
+            transaction_id=self.transaction_id,
+            asset_class=self.asset_class,
+            name=self.name,
+            symbol=self.symbol,
+            shares=self.shares,
+            price=self.price,
+            fee=self.fee,
+            tax=self.tax,
+            original_amount=self.original_amount,
+            original_currency=(
+                _parse_currency(self.original_currency)
+                if self.original_currency
+                else None
+            ),
+            fx_rate=self.fx_rate,
+            description=self.description,
+            counterparty_name=self.counterparty_name,
+            counterparty_iban=self.counterparty_iban,
+            payment_reference=self.payment_reference,
+            mcc_code=self.mcc_code,
         )
 
 

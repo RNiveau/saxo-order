@@ -1,4 +1,5 @@
 from datetime import datetime
+from unittest.mock import MagicMock
 
 from client.gsheet_client import GSheetClient
 from model import (
@@ -9,6 +10,7 @@ from model import (
     Order,
     ReportOrder,
     Taxes,
+    TradeRepublicTransaction,
     Underlying,
 )
 
@@ -19,6 +21,17 @@ class MockGsheetClient(GSheetClient):
 
     def _get_number_rows(self) -> int:
         return 1
+
+
+class MockEtfDcaGsheetClient(GSheetClient):
+    def __init__(self, starting_row_count: int = 5) -> None:
+        self.trade_republic_sheet_name = "ETF / DCA"
+        self.spreadsheet_id = "spreadsheet-id"
+        self.client = MagicMock()
+        self._starting_row_count = starting_row_count
+
+    def _get_number_rows_for_sheet(self, sheet_name: str) -> int:
+        return self._starting_row_count
 
 
 class TestGsheetClient:
@@ -292,3 +305,98 @@ class TestGsheetClient:
         assert requests[2]["values"][0][2] == "=T1-AA1"
         assert requests[2]["values"][0][3] == "=AI1/F1"
         assert requests[2]["values"][0][4] == "=AB1-U1"
+
+
+def _make_transaction(**overrides) -> TradeRepublicTransaction:
+    defaults = dict(
+        date=datetime.strptime("2026-03-02", "%Y-%m-%d").date(),
+        datetime=datetime.strptime("2026-03-02T09:15:00", "%Y-%m-%dT%H:%M:%S"),
+        account_type="DEFAULT",
+        category="TRADE",
+        type="BUY",
+        amount=-300.5,
+        currency=Currency.EURO,
+        transaction_id="tx-1",
+        asset_class=AssetType.STOCK,
+        name="Apple Inc.",
+        symbol="US0378331005",
+        shares=2,
+        price=150.25,
+        fee=-1.0,
+    )
+    defaults.update(overrides)
+    return TradeRepublicTransaction(**defaults)
+
+
+class TestAppendEtfDcaRows:
+    def test_single_batched_append_call(self):
+        client = MockEtfDcaGsheetClient(starting_row_count=5)
+        transactions = [
+            _make_transaction(transaction_id="tx-1"),
+            _make_transaction(transaction_id="tx-2"),
+        ]
+
+        client.append_etf_dca_rows(transactions)
+
+        client.client.spreadsheets().values().append.assert_called_once()
+        call_kwargs = (
+            client.client.spreadsheets().values().append.call_args.kwargs
+        )
+        assert call_kwargs["range"] == "ETF / DCA!A:A"
+        assert len(call_kwargs["body"]["values"]) == 2
+
+    def test_row_content_matches_fr013_mapping(self):
+        client = MockEtfDcaGsheetClient(starting_row_count=5)
+        transactions = [
+            _make_transaction(
+                transaction_id="tx-1",
+                date=datetime.strptime("2026-03-02", "%Y-%m-%d").date(),
+                amount=-300.5,
+                name="Apple Inc.",
+                symbol="US0378331005",
+                price=150.25,
+                shares=2,
+                fee=-1.0,
+            ),
+            _make_transaction(
+                transaction_id="tx-2",
+                date=datetime.strptime("2026-03-03", "%Y-%m-%d").date(),
+                amount=442.0,
+                name="iShares Core MSCI World",
+                symbol="IE00B4L5Y983",
+                price=88.40,
+                shares=5,
+                fee=-1.0,
+            ),
+        ]
+
+        client.append_etf_dca_rows(transactions)
+
+        rows = (
+            client.client.spreadsheets()
+            .values()
+            .append.call_args.kwargs["body"]["values"]
+        )
+
+        assert rows[0] == [
+            "Apple Inc.",
+            "US0378331005",
+            "02/03/2026",
+            "Achat",
+            150.25,
+            2,
+            -1.0,
+            "=E6*F6",
+            "=H6+G6",
+        ]
+        assert rows[1] == [
+            "iShares Core MSCI World",
+            "IE00B4L5Y983",
+            "03/03/2026",
+            "Vente",
+            88.40,
+            5,
+            -1.0,
+            "=E7*F7",
+            "=H7+G7",
+        ]
