@@ -33,6 +33,12 @@ class TradeRepublicService:
     def __init__(self, gsheet_client: GSheetClient):
         self.gsheet_client = gsheet_client
 
+    def export_transactions(
+        self, transactions: List[TradeRepublicTransaction]
+    ) -> int:
+        self.gsheet_client.append_etf_dca_rows(transactions)
+        return len(transactions)
+
     def parse_csv(
         self, file_content: str
     ) -> Tuple[List[TradeRepublicTransaction], List[ParseError]]:

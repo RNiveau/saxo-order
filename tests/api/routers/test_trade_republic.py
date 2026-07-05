@@ -56,3 +56,50 @@ class TestUploadEndpoint:
         assert body["transactions"][0]["transaction_id"] == (
             "019ca92b-2e1d-7a63-831a-88c8927ba850"
         )
+
+
+class TestExportEndpoint:
+    def _get_uploaded_transactions(self):
+        with open(FIXTURE_PATH, "rb") as f:
+            response = client.post(
+                "/api/trade-republic/upload",
+                files={"file": ("trade_republic_sample.csv", f, "text/csv")},
+            )
+        return response.json()["transactions"]
+
+    def test_export_success(self, real_trade_republic_service):
+        transactions = self._get_uploaded_transactions()
+
+        response = client.post(
+            "/api/trade-republic/gsheet/export",
+            json={"transactions": transactions[:2]},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["exported_count"] == 2
+        gsheet_client = real_trade_republic_service.gsheet_client
+        gsheet_client.append_etf_dca_rows.assert_called_once()
+
+    def test_export_empty_selection_returns_400(
+        self, real_trade_republic_service
+    ):
+        response = client.post(
+            "/api/trade-republic/gsheet/export",
+            json={"transactions": []},
+        )
+
+        assert response.status_code == 400
+
+    def test_export_gsheet_failure_returns_500(
+        self, real_trade_republic_service
+    ):
+        transactions = self._get_uploaded_transactions()
+        gsheet_client = real_trade_republic_service.gsheet_client
+        gsheet_client.append_etf_dca_rows.side_effect = RuntimeError("boom")
+
+        response = client.post(
+            "/api/trade-republic/gsheet/export",
+            json={"transactions": transactions[:1]},
+        )
+
+        assert response.status_code == 500

@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -5,7 +6,7 @@ import pytest
 
 from api.services.trade_republic_service import TradeRepublicService
 from client.gsheet_client import GSheetClient
-from model import AssetType, Currency
+from model import AssetType, Currency, TradeRepublicTransaction
 
 FIXTURE_PATH = (
     Path(__file__).parent.parent.parent
@@ -129,3 +130,40 @@ class TestParseCsv:
         assert errors == []
         assert len(transactions) == 1
         assert transactions[0].amount == -2.97
+
+
+def _stub_transaction(transaction_id: str) -> TradeRepublicTransaction:
+    return TradeRepublicTransaction(
+        date=datetime.strptime("2026-03-02", "%Y-%m-%d").date(),
+        datetime=datetime.strptime("2026-03-02T09:15:00", "%Y-%m-%dT%H:%M:%S"),
+        account_type="DEFAULT",
+        category="TRADE",
+        type="BUY",
+        amount=-300.5,
+        currency=Currency.EURO,
+        transaction_id=transaction_id,
+    )
+
+
+class TestExportTransactions:
+    def test_calls_append_etf_dca_rows_and_returns_count(self, service):
+        transactions = [
+            _stub_transaction("tx-1"),
+            _stub_transaction("tx-2"),
+        ]
+
+        count = service.export_transactions(transactions)
+
+        service.gsheet_client.append_etf_dca_rows.assert_called_once_with(
+            transactions
+        )
+        assert count == 2
+
+    def test_propagates_gsheet_client_exceptions(self, service):
+        service.gsheet_client.append_etf_dca_rows.side_effect = RuntimeError(
+            "boom"
+        )
+        transactions = [_stub_transaction("tx-1")]
+
+        with pytest.raises(RuntimeError):
+            service.export_transactions(transactions)

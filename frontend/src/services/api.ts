@@ -863,6 +863,15 @@ export interface UploadTradeRepublicResponse {
   total_rows: number;
 }
 
+export interface ExportTradeRepublicRequest {
+  transactions: TradeRepublicTransaction[];
+}
+
+export interface ExportTradeRepublicResponse {
+  status: string;
+  exported_count: number;
+}
+
 export const tradeRepublicService = {
   upload: async (file: File): Promise<UploadTradeRepublicResponse> => {
     const formData = new FormData();
@@ -871,6 +880,16 @@ export const tradeRepublicService = {
       '/api/trade-republic/upload',
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return response.data;
+  },
+
+  export: async (
+    transactions: TradeRepublicTransaction[]
+  ): Promise<ExportTradeRepublicResponse> => {
+    const response = await api.post<ExportTradeRepublicResponse>(
+      '/api/trade-republic/gsheet/export',
+      { transactions }
     );
     return response.data;
   },
