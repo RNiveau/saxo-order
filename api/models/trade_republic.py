@@ -11,7 +11,6 @@ class TradeRepublicTransactionResponse(BaseModel):
     Maps from model.TradeRepublicTransaction for API serialization.
     """
 
-    source: str
     datetime: str
     date: str
     account_type: str
@@ -42,7 +41,6 @@ class TradeRepublicTransactionResponse(BaseModel):
     ) -> "TradeRepublicTransactionResponse":
         """Convert a TradeRepublicTransaction domain model to API response."""
         return cls(
-            source=transaction.source,
             datetime=transaction.datetime.isoformat(),
             date=transaction.date.isoformat(),
             account_type=transaction.account_type,

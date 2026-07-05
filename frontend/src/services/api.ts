@@ -826,7 +826,6 @@ export const assetDetailsService = {
 };
 
 export interface TradeRepublicTransaction {
-  source: string;
   datetime: string;
   date: string;
   account_type: string;

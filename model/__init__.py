@@ -197,7 +197,6 @@ class TradeRepublicTransaction:
     amount: float
     currency: Union[Currency, str]
     transaction_id: str
-    source: str = "trade_republic"
     asset_class: Optional[AssetType] = None
     name: Optional[str] = None
     symbol: Optional[str] = None

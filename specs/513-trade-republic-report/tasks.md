@@ -37,7 +37,7 @@ Existing web app layout, extended in place (see plan.md Project Structure): `api
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T004 [P] Add the `TradeRepublicTransaction` dataclass to `model/__init__.py` per data-model.md (fields, types incl. `Union[Currency, str]` for `currency`/`original_currency`, `Optional[AssetType]` for `asset_class`, `source: str = "trade_republic"`)
+- [x] T004 [P] Add the `TradeRepublicTransaction` dataclass to `model/__init__.py` per data-model.md (fields, types incl. `Union[Currency, str]` for `currency`/`original_currency`, `Optional[AssetType]` for `asset_class`; no origin-marker field — see plan.md Constitution Check V)
 - [x] T005 [P] Create `api/models/trade_republic.py` with the Pydantic API models: `TradeRepublicTransactionResponse` (with a `from_transaction` classmethod mirroring `ReportOrderResponse.from_report_order` in `api/models/report.py`), `ParseErrorResponse`, `UploadTradeRepublicResponse`, `ExportTradeRepublicRequest`, `ExportTradeRepublicResponse` — shapes per contracts/trade-republic-api.md
 - [x] T006 Create `api/services/trade_republic_service.py` with a `TradeRepublicService` class (constructor takes the existing `GSheetClient`, dependency-injected — no parsing/export logic yet, just the class shell)
 - [x] T007 Wire `get_trade_republic_service()` into `api/dependencies.py` (constructs `TradeRepublicService` from `get_gsheet_client()`, following the existing `get_report_service()` pattern)

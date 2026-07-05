@@ -18,7 +18,6 @@ Upload and parse a Trade Republic CSV export. Nothing is persisted server-side; 
 {
   "transactions": [
     {
-      "source": "trade_republic",
       "datetime": "2026-03-01T11:31:45.309887Z",
       "date": "2026-03-01",
       "account_type": "DEFAULT",
