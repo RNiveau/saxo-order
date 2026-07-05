@@ -133,6 +133,8 @@ Examples:
 - Google Sheets (persisted trading journal); in-memory `TTLCache` for report fetches (5 min TTL); no database for this feature (020-saxo-reporting)
 - TypeScript 5+ / React 19+ + React (`useState`), existing `reportConfigService` from `frontend/src/services/api.ts` (already loaded — no new dependency) (020-saxo-reporting)
 - N/A — purely in-memory component state (`strategy`, `signal`) (020-saxo-reporting)
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (existing `api/` app), Python standard library `csv` module, existing `client/gsheet_client.py` (Google Sheets API via `googleapiclient`), Axios + React Router DOM v7+ (frontend, existing `frontend/src/services/api.ts`) (513-trade-republic-report)
+- N/A — per spec (FR-010), uploaded transactions are held only for the current browser session (React state); no database table or file store is introduced (513-trade-republic-report)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)
