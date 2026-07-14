@@ -10,6 +10,7 @@
 ### Session 2026-07-14
 
 - Q: In what timezone are the 9:00–10:00 H1 reference window and the 10:00 evaluation start point defined? → A: Paris exchange local time (Europe/Paris), DST-aware — 9:00 always means 9:00 at the exchange, year-round.
+- Q: Should the UI enforce an explicit maximum date range for a backtest run, or can a trader request any range? → A: No explicit UI cap — any range is accepted; days beyond what Saxo's historical-candle capability can supply fall through the existing "no data" per-day handling (FR-004).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -97,7 +98,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 - **FR-009**: When both the currently active stop-loss level (original or break-even) and the take-profit level would be reached within the same 5-minute candle, system MUST resolve the exit using the stop-loss (or break-even) level.
 - **FR-010**: When the 5-minute candle that triggers a stop-loss, break-even, or take-profit exit opens beyond that level (a gap), system MUST record the exit at that candle's open price; otherwise the exit MUST be recorded at the exact stop-loss, break-even, or take-profit price level.
 - **FR-011**: System MUST allow multiple sequential trades per day for this backtest: once a trade has closed (stop-loss, break-even, take-profit, or end of day) and there is remaining time before end of day, system MUST resume evaluating 5-minute candles for a new trade signal per FR-006. At most one trade may be open at any given time, and each new trade starts with its own fresh (unmoved) stop-loss.
-- **FR-012**: System MUST let a trader provide a start date and end date via the UI and run the backtest across every trading day in that range (a single-day run is the special case where start date equals end date); the system MUST retain a per-day result (no data / no trade / one or more trades, each in chronological order with entry, exit, exit reason — stop-loss, break-even, take-profit, or end of day — and points gained or lost) for each day in the range so it can be drilled into via the detail view (User Story 3).
+- **FR-012**: System MUST let a trader provide a start date and end date via the UI and run the backtest across every trading day in that range (a single-day run is the special case where start date equals end date), with no application-imposed maximum range; the system MUST retain a per-day result (no data / no trade / one or more trades, each in chronological order with entry, exit, exit reason — stop-loss, break-even, take-profit, or end of day — and points gained or lost) for each day in the range so it can be drilled into via the detail view (User Story 3). Any day outside what the underlying candle history can supply is reported as "no data" (FR-004), not rejected upfront.
 - **FR-013**: For a range run, system MUST display a single aggregate summary with exactly these figures:
   - **Number of days**: count of trading days in the range that had usable H1 reference data (days reported as "no data" are excluded).
   - **Number of trades**: total count of trades taken across the range (equal to the sum of winning, losing, and break-even positions).
@@ -129,7 +130,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 ## Assumptions
 
 - "Points" refers to raw index price difference on FRA40.I (e.g., entry 8000.0 to exit 7950.0 is a 50-point loss), not currency P&L from a specific position size; no position sizing or account currency conversion is in scope.
-- The FRA40.I H1 and 5-minute candle history needed for past (fully closed) trading days is obtainable through the existing Saxo historical-candle capability; no new market-data source is required.
+- The FRA40.I H1 and 5-minute candle history needed for past (fully closed) trading days is obtainable through the existing Saxo historical-candle capability; no new market-data source is required. The UI does not enforce its own maximum date-range length — a trader may request any range, and any day the underlying candle history cannot supply is simply reported as "no data" (FR-004) rather than rejected upfront.
 - The backtest operates only on already-closed historical days; it does not run live or simulate intraday in real time.
 - "End of day" means the close of FRA40.I's regular trading session for that day, using the last available 5-minute candle.
 - All clock times in this spec (9:00, 10:00, end of day) are Paris exchange local time (Europe/Paris), which observes daylight saving time; on the rare day where DST transition affects candle availability for the reference window, the existing "no data" handling (FR-004) applies.
