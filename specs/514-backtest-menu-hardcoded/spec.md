@@ -5,6 +5,12 @@
 **Status**: Draft
 **Input**: User description: "I want a new menu «back test» which will run hardcoded back test. I don't want to create a back test engine. All of them will be hardcoded. First one is the following: on the FRA40.I index, take the h1 candle 9am-10am with high and low has limit. then we work with 5minutes candle. if after 10am, the price is going bellow low h1, then close above the low, then we have a breakout 5min, we take a position. we sell the position when we lost 50points, or at the end of the day or if the price is going to high h1 less 10 points"
 
+## Clarifications
+
+### Session 2026-07-14
+
+- Q: In what timezone are the 9:00–10:00 H1 reference window and the 10:00 evaluation start point defined? → A: Paris exchange local time (Europe/Paris), DST-aware — 9:00 always means 9:00 at the exchange, year-round.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Run the "CAC40 Bougie de 9h" backtest for a single day (Priority: P1)
@@ -78,9 +84,9 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 
 - **FR-001**: System MUST provide a "Backtest" menu, reachable from primary navigation, listing the available hardcoded backtests by name.
 - **FR-002**: System MUST provide one hardcoded backtest, "CAC40 Bougie de 9h," selectable from the Backtest menu, implementing the rules in FR-003 through FR-011 (including FR-008a). This backtest's rules are fixed in code; the menu does not offer a generic engine for defining new strategies.
-- **FR-003**: For a given trading day, system MUST derive the reference range from the FRA40.I 1-hour (H1) candle covering 9:00–10:00, using its high as the upper reference level and its low as the lower reference level. These levels stay fixed for the rest of the day, across all trades taken that day.
-- **FR-004**: If the 9:00–10:00 H1 candle is not available for a given day, system MUST report that day as having no data and MUST continue processing any other requested days without failing the run.
-- **FR-005**: For the period from 10:00 to the end of the trading session, system MUST evaluate FRA40.I 5-minute candles in chronological order.
+- **FR-003**: For a given trading day, system MUST derive the reference range from the FRA40.I 1-hour (H1) candle covering 9:00–10:00 Paris exchange local time (Europe/Paris, DST-aware), using its high as the upper reference level and its low as the lower reference level. These levels stay fixed for the rest of the day, across all trades taken that day.
+- **FR-004**: If the 9:00–10:00 (Paris local time) H1 candle is not available for a given day, system MUST report that day as having no data and MUST continue processing any other requested days without failing the run.
+- **FR-005**: For the period from 10:00 Paris local time to the end of the trading session, system MUST evaluate FRA40.I 5-minute candles in chronological order.
 - **FR-006**: System MUST recognize a trade signal ("breakout reversal") each time, after 10:00, price trades below the H1 low and a later 5-minute candle closes at or above the H1 low, provided no trade is currently open. This allows multiple signals — and multiple trades — on the same day, as long as they occur sequentially rather than concurrently.
 - **FR-007**: When a trade signal is recognized, system MUST record a long (buy) entry at the closing price of the 5-minute candle that closed at or above the H1 low.
 - **FR-008**: System MUST evaluate, for each 5-minute candle after entry in chronological order, whether any of the following exit conditions is met, and MUST close the trade at the first one reached:
@@ -126,6 +132,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 - The FRA40.I H1 and 5-minute candle history needed for past (fully closed) trading days is obtainable through the existing Saxo historical-candle capability; no new market-data source is required.
 - The backtest operates only on already-closed historical days; it does not run live or simulate intraday in real time.
 - "End of day" means the close of FRA40.I's regular trading session for that day, using the last available 5-minute candle.
+- All clock times in this spec (9:00, 10:00, end of day) are Paris exchange local time (Europe/Paris), which observes daylight saving time; on the rare day where DST transition affects candle availability for the reference window, the existing "no data" handling (FR-004) applies.
 - Only one hardcoded backtest ("CAC40 Bougie de 9h") is in scope for this feature; the Backtest menu's list structure should not preclude adding further hardcoded backtests later, but no generic backtest-authoring capability is being built.
 - There is no upper limit on how many trades can occur in a single day beyond the natural constraint that a new trade can only start once the previous one has closed (never more than one open position at a time).
 - No order placement, paper-trading, or live-execution capability is implied — this is a historical, read-only analysis feature.
