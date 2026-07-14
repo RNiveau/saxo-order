@@ -27,18 +27,19 @@ A trader wants to select the "Backtest" menu, pick the hardcoded "CAC40 Bougie d
 
 ---
 
-### User Story 2 - Run the backtest over a range of days and see aggregate results (Priority: P2)
+### User Story 2 - Run the backtest over a UI-provided time range and see aggregate results (Priority: P2)
 
-A trader wants to run the same hardcoded backtest across many past trading days at once and see summary statistics — number of trades, win rate, and total points gained or lost — to judge whether the strategy is worth trading live.
+A trader wants to enter a start date and end date in the UI, run the "CAC40 Bougie de 9h" backtest across every trading day in that range, and see one summary result: number of days, number of trades, number of winning positions, number of losing positions, average win, average loss, and the final (net) result — to judge whether the strategy is worth trading live.
 
 **Why this priority**: A single day's result has little statistical value; traders need to see the strategy's behavior across a meaningful sample of days before trusting it. This builds directly on User Story 1's per-day logic.
 
-**Independent Test**: Run the backtest over a known multi-week date range with a mix of trade and no-trade days, and verify the aggregate counts (total days processed, days with a trade, wins, losses, total points) match the sum of the individual per-day results.
+**Independent Test**: Provide a known multi-week start/end date range with a mix of trade and no-trade days, run the backtest, and verify the seven summary figures (number of days, number of trades, number of winning positions, number of losing positions, average win, average loss, final result) match a manual computation from the individual per-day results.
 
 **Acceptance Scenarios**:
 
-1. **Given** a selected date range covering multiple trading days, **When** the backtest runs, **Then** the system displays one row per trading day showing whether a trade occurred and its result, plus a summary of total trades, wins, losses, and net points across the range.
-2. **Given** a date range that includes non-trading days (weekends, holidays) or days with missing data, **When** the backtest runs, **Then** those days are excluded from the per-day trade list and from the aggregate statistics without stopping the run.
+1. **Given** a start date and end date entered in the UI, **When** the backtest runs, **Then** the system displays a single summary containing: number of days, number of trades, number of winning positions, number of losing positions, average win (in points), average loss (in points), and the final result (net points) for the range.
+2. **Given** a date range that includes non-trading days (weekends, holidays) or days with missing H1 data, **When** the backtest runs, **Then** those days are excluded from the "number of days" count and from every other summary figure, and the run completes without error.
+3. **Given** a date range where no trade signal ever occurs, **When** the backtest runs, **Then** the system displays number of trades as 0, number of winning and losing positions as 0, average win and average loss as not applicable, and a final result of 0 points.
 
 ---
 
@@ -83,15 +84,22 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 - **FR-009**: When both the stop-loss and take-profit conditions would be met within the same 5-minute candle, system MUST resolve the exit as a stop-loss.
 - **FR-010**: When the 5-minute candle that triggers a stop-loss or take-profit exit opens beyond that level (a gap), system MUST record the exit at that candle's open price; otherwise the exit MUST be recorded at the exact stop-loss or take-profit price level.
 - **FR-011**: System MUST allow multiple sequential trades per day for this backtest: once a trade has closed (stop-loss, take-profit, or end of day) and there is remaining time before end of day, system MUST resume evaluating 5-minute candles for a new trade signal per FR-006. At most one trade may be open at any given time.
-- **FR-012**: System MUST allow a trader to run the backtest for a single selected day or for a selected date range, and MUST report a per-day result (no data / no trade / one or more trades, each in chronological order with entry, exit, exit reason, and points gained or lost) for each day in the requested period.
-- **FR-013**: For a multi-day run, system MUST display aggregate statistics: total number of trades, number of days with at least one trade, number of winning trades, number of losing trades, and net points gained or lost across the period.
+- **FR-012**: System MUST let a trader provide a start date and end date via the UI and run the backtest across every trading day in that range (a single-day run is the special case where start date equals end date); the system MUST retain a per-day result (no data / no trade / one or more trades, each in chronological order with entry, exit, exit reason, and points gained or lost) for each day in the range so it can be drilled into via the detail view (User Story 3).
+- **FR-013**: For a range run, system MUST display a single aggregate summary with exactly these figures:
+  - **Number of days**: count of trading days in the range that had usable H1 reference data (days reported as "no data" are excluded).
+  - **Number of trades**: total count of trades taken across the range.
+  - **Number of winning positions**: count of trades that closed with a positive points result.
+  - **Number of losing positions**: count of trades that closed with a zero or negative points result.
+  - **Average win**: mean points gained across winning positions (not applicable when there are no winning positions).
+  - **Average loss**: mean points lost across losing positions, expressed as a positive magnitude (not applicable when there are no losing positions).
+  - **Final result**: net points gained or lost across every trade in the range (sum of all trades' points results).
 - **FR-014**: Trade results MUST be expressed in index points (entry/exit price and points gained or lost), consistent with how the strategy's thresholds (50 points, 10 points) are defined.
 - **FR-015**: System MUST let a trader open a detail view for any backtested day that produced at least one trade, showing the H1 high/low reference levels, the 5-minute candles used from 10:00 onward, and the entry/exit points for every trade taken that day.
 
 ### Key Entities
 
 - **Backtest Definition**: A hardcoded strategy available in the Backtest menu (name, instrument, and fixed rule set). "CAC40 Bougie de 9h" is the first instance; the data model must not assume it is the only one.
-- **Backtest Run**: The result of executing a Backtest Definition over a single day or a date range — a list of per-day outcomes plus aggregate statistics.
+- **Backtest Run**: The result of executing a Backtest Definition over a UI-provided date range (a single day is the range's degenerate case) — a list of per-day outcomes plus the aggregate summary: number of days, number of trades, number of winning positions, number of losing positions, average win, average loss, and final result.
 - **Day Result**: The outcome for a single trading day within a Backtest Run — either "no data," "no trade," or a chronological list of one or more trades, each with entry price/time, exit price/time, exit reason (stop-loss, take-profit, end of day), and points gained or lost.
 
 ## Success Criteria *(mandatory)*
@@ -100,7 +108,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 
 - **SC-001**: A trader can select the Backtest menu, run the "CAC40 Bougie de 9h" backtest for a single past day, and see a correct result (no data / no trade / one or more trades, each with entry, exit, and points) within a few seconds of requesting it.
 - **SC-002**: On a hand-verified set of at least 5 historical FRA40.I trading days covering all outcome types (no data, no trade, stop-loss exit, take-profit exit, end-of-day exit, and at least one day with more than one trade), the backtest's reported entry price, exit price, exit reason, and points result match manual calculation exactly for every trade on every day.
-- **SC-003**: A trader can run the backtest over a multi-week date range and receive aggregate statistics (trade count, win/loss count, net points) that match the sum of the individual day results.
+- **SC-003**: A trader can enter a start and end date in the UI, run the backtest over a multi-week range, and receive a summary (number of days, number of trades, number of winning positions, number of losing positions, average win, average loss, final result) that matches a manual computation from the individual day results.
 - **SC-004**: A trader can open the detail view for any day with a trade and visually confirm the H1 reference levels and the entry/exit points against the underlying 5-minute candles.
 - **SC-005**: Days with missing or unavailable H1 reference data never interrupt a multi-day backtest run — the run always completes and reports results for every day that does have data.
 
@@ -113,3 +121,6 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 - Only one hardcoded backtest ("CAC40 Bougie de 9h") is in scope for this feature; the Backtest menu's list structure should not preclude adding further hardcoded backtests later, but no generic backtest-authoring capability is being built.
 - There is no upper limit on how many trades can occur in a single day beyond the natural constraint that a new trade can only start once the previous one has closed (never more than one open position at a time).
 - No order placement, paper-trading, or live-execution capability is implied — this is a historical, read-only analysis feature.
+- A trade with a points result of exactly zero is classified as a losing position (not a win), since it did not gain the trader anything; this only affects the rare breakeven end-of-day exit.
+- "Average loss" is reported as a positive magnitude (e.g., "42 pts") rather than a negative number, so the summary reads naturally; "final result" is the only figure in the summary that can be negative, since it is a net sum.
+- "Number of days" in the range summary counts only trading days where the H1 reference candle was available (i.e., days actually evaluated); days reported as "no data" are not counted, consistent with how they are excluded from every other aggregate figure.
