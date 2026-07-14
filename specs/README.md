@@ -105,6 +105,8 @@ Examples:
 
 If no GitHub issue exists, use sequential numbers: `001-feature-name`
 
+Note: `231-inclined-line-indicator` and `022-trade-republic-report` were corrected from placeholder numbers (`512`/`513`) that collided with unrelated real GitHub issues. `231` matches its actual GitHub issue (#231); `022` has no GitHub issue and continues the sequential range instead.
+
 ## Constitution Compliance
 
 All features must comply with the project constitution (`.specify/memory/constitution.md`):

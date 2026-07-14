@@ -1,6 +1,6 @@
 # Feature Specification: Trade Republic Report
 
-**Feature Branch**: `513-trade-republic-report`
+**Feature Branch**: `022-trade-republic-report`
 **Created**: 2026-07-05
 **Status**: Draft
 **Input**: User description: "I want you to create a new section in the ui « trade republic report » in this section, i can upload a csv, backend read it line by line and then the ui surface these lines, i can export it in the gsheet. Let's specify the gsheet format later. Here is the csv file format: datetime, date, account_type, category, type, asset_class, name, symbol, shares, price, amount, fee, tax, currency, original_amount, original_currency, fx_rate, description, transaction_id, counterparty_name, counterparty_iban, payment_reference, mcc_code"

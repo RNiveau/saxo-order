@@ -1,7 +1,7 @@
 # Implementation Plan: Inclined Line Indicator (ROB/SOH)
 
-**Branch**: `512-inclined-line-indicator` | **Date**: 2026-04-12 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/specs/512-inclined-line-indicator/spec.md`
+**Branch**: `231-inclined-line-indicator` | **Date**: 2026-04-12 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/231-inclined-line-indicator/spec.md`
 
 ## Summary
 
@@ -36,7 +36,7 @@ Add an "inclined" indicator type to the workflow engine that projects a linear t
 ### Documentation (this feature)
 
 ```text
-specs/512-inclined-line-indicator/
+specs/231-inclined-line-indicator/
 ├── plan.md              # This file
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output

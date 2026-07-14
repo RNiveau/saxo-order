@@ -1,6 +1,6 @@
 # Feature Specification: Inclined Line Indicator (ROB/SOH)
 
-**Feature Branch**: `512-inclined-line-indicator`
+**Feature Branch**: `231-inclined-line-indicator`
 **Created**: 2026-04-12
 **Status**: Draft
 **Input**: User description: "Calculate ROB and SOH inclined lines for workflow monitoring (GitHub issue #231)"
