@@ -1,6 +1,6 @@
 # Tasks: Trade Republic Report
 
-**Input**: Design documents from `/specs/513-trade-republic-report/`
+**Input**: Design documents from `/specs/022-trade-republic-report/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/trade-republic-api.md, quickstart.md
 
 **Tests**: Included. This repo's constitution makes backend test coverage a pre-merge gate (mirror `tests/` structure, no mock-only tests), and plan.md/quickstart.md already commit to specific new test files — so backend tests are part of "done" for each story, not optional. No frontend test framework is configured in this repo, so frontend verification is the manual `quickstart.md` walkthrough, not automated tests.
