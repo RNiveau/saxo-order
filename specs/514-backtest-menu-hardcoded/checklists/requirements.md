@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Backtest Menu with Hardcoded FRA40 Opening-Range Reversal Strategy
+# Specification Quality Checklist: Backtest Menu with Hardcoded "CAC40 Bougie de 9h" Backtest
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-07-14

@@ -1,4 +1,4 @@
-# Feature Specification: Backtest Menu with Hardcoded FRA40 Opening-Range Reversal Strategy
+# Feature Specification: Backtest Menu with Hardcoded "CAC40 Bougie de 9h" Backtest
 
 **Feature Branch**: `514-backtest-menu-hardcoded`
 **Created**: 2026-07-14
@@ -7,9 +7,9 @@
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Run the FRA40 opening-range reversal backtest for a single day (Priority: P1)
+### User Story 1 - Run the "CAC40 Bougie de 9h" backtest for a single day (Priority: P1)
 
-A trader wants to select the "Backtest" menu, pick the hardcoded "FRA40 Opening-Range Reversal" backtest, choose a past trading day, and see whether the strategy would have entered one or more trades that day, and for each, at what price it entered, exited, and with what result in points.
+A trader wants to select the "Backtest" menu, pick the hardcoded "CAC40 Bougie de 9h" backtest, choose a past trading day, and see whether the strategy would have entered one or more trades that day, and for each, at what price it entered, exited, and with what result in points.
 
 **Why this priority**: This is the core capability of the feature. Without a single-day run producing a correct trade (or correctly reporting no trade), the feature delivers no value.
 
@@ -70,7 +70,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 ### Functional Requirements
 
 - **FR-001**: System MUST provide a "Backtest" menu, reachable from primary navigation, listing the available hardcoded backtests by name.
-- **FR-002**: System MUST provide one hardcoded backtest, "FRA40 Opening-Range Reversal," selectable from the Backtest menu, implementing the rules in FR-003 through FR-011. This backtest's rules are fixed in code; the menu does not offer a generic engine for defining new strategies.
+- **FR-002**: System MUST provide one hardcoded backtest, "CAC40 Bougie de 9h," selectable from the Backtest menu, implementing the rules in FR-003 through FR-011. This backtest's rules are fixed in code; the menu does not offer a generic engine for defining new strategies.
 - **FR-003**: For a given trading day, system MUST derive the reference range from the FRA40.I 1-hour (H1) candle covering 9:00–10:00, using its high as the upper reference level and its low as the lower reference level. These levels stay fixed for the rest of the day, across all trades taken that day.
 - **FR-004**: If the 9:00–10:00 H1 candle is not available for a given day, system MUST report that day as having no data and MUST continue processing any other requested days without failing the run.
 - **FR-005**: For the period from 10:00 to the end of the trading session, system MUST evaluate FRA40.I 5-minute candles in chronological order.
@@ -90,7 +90,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 
 ### Key Entities
 
-- **Backtest Definition**: A hardcoded strategy available in the Backtest menu (name, instrument, and fixed rule set). The FRA40 Opening-Range Reversal is the first instance; the data model must not assume it is the only one.
+- **Backtest Definition**: A hardcoded strategy available in the Backtest menu (name, instrument, and fixed rule set). "CAC40 Bougie de 9h" is the first instance; the data model must not assume it is the only one.
 - **Backtest Run**: The result of executing a Backtest Definition over a single day or a date range — a list of per-day outcomes plus aggregate statistics.
 - **Day Result**: The outcome for a single trading day within a Backtest Run — either "no data," "no trade," or a chronological list of one or more trades, each with entry price/time, exit price/time, exit reason (stop-loss, take-profit, end of day), and points gained or lost.
 
@@ -98,7 +98,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 
 ### Measurable Outcomes
 
-- **SC-001**: A trader can select the Backtest menu, run the FRA40 Opening-Range Reversal backtest for a single past day, and see a correct result (no data / no trade / one or more trades, each with entry, exit, and points) within a few seconds of requesting it.
+- **SC-001**: A trader can select the Backtest menu, run the "CAC40 Bougie de 9h" backtest for a single past day, and see a correct result (no data / no trade / one or more trades, each with entry, exit, and points) within a few seconds of requesting it.
 - **SC-002**: On a hand-verified set of at least 5 historical FRA40.I trading days covering all outcome types (no data, no trade, stop-loss exit, take-profit exit, end-of-day exit, and at least one day with more than one trade), the backtest's reported entry price, exit price, exit reason, and points result match manual calculation exactly for every trade on every day.
 - **SC-003**: A trader can run the backtest over a multi-week date range and receive aggregate statistics (trade count, win/loss count, net points) that match the sum of the individual day results.
 - **SC-004**: A trader can open the detail view for any day with a trade and visually confirm the H1 reference levels and the entry/exit points against the underlying 5-minute candles.
@@ -110,6 +110,6 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 - The FRA40.I H1 and 5-minute candle history needed for past (fully closed) trading days is obtainable through the existing Saxo historical-candle capability; no new market-data source is required.
 - The backtest operates only on already-closed historical days; it does not run live or simulate intraday in real time.
 - "End of day" means the close of FRA40.I's regular trading session for that day, using the last available 5-minute candle.
-- Only one hardcoded backtest (FRA40 Opening-Range Reversal) is in scope for this feature; the Backtest menu's list structure should not preclude adding further hardcoded backtests later, but no generic backtest-authoring capability is being built.
+- Only one hardcoded backtest ("CAC40 Bougie de 9h") is in scope for this feature; the Backtest menu's list structure should not preclude adding further hardcoded backtests later, but no generic backtest-authoring capability is being built.
 - There is no upper limit on how many trades can occur in a single day beyond the natural constraint that a new trade can only start once the previous one has closed (never more than one open position at a time).
 - No order placement, paper-trading, or live-execution capability is implied — this is a historical, read-only analysis feature.
