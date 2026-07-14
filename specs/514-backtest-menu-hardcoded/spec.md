@@ -12,6 +12,7 @@
 - Q: In what timezone are the 9:00–10:00 H1 reference window and the 10:00 evaluation start point defined? → A: Paris exchange local time (Europe/Paris), DST-aware — 9:00 always means 9:00 at the exchange, year-round.
 - Q: Should the UI enforce an explicit maximum date range for a backtest run, or can a trader request any range? → A: No explicit UI cap — any range is accepted; days beyond what Saxo's historical-candle capability can supply fall through the existing "no data" per-day handling (FR-004).
 - Q: Are a Backtest Run's results persisted for later retrieval, or computed fresh on each request? → A: Ephemeral for now — computed on demand and returned synchronously; nothing is persisted.
+- Q: What should happen when a trader submits an invalid date range (end date before start date, or a future date)? → A: Reject upfront with a validation error before running anything, rather than silently returning an empty/zero result.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -51,6 +52,7 @@ A trader wants to enter a start date and end date in the UI, run the "CAC40 Boug
 2. **Given** a date range that includes non-trading days (weekends, holidays) or days with missing H1 data, **When** the backtest runs, **Then** those days are excluded from the "number of days" count and from every other summary figure, and the run completes without error.
 3. **Given** a date range where no trade signal ever occurs, **When** the backtest runs, **Then** the system displays number of trades as 0, number of winning, losing, and break-even positions as 0, average win and average loss as not applicable, and a final result of 0 points.
 4. **Given** a date range containing at least one trade that closed via the break-even mechanism, **When** the backtest runs, **Then** that trade counts toward "number of BE" and toward "number of trades," but not toward "number of winning positions" or "number of losing positions," and its 0-point result is excluded from the average win and average loss calculations.
+5. **Given** an end date before the start date, or a start or end date in the future, entered in the UI, **When** the trader submits the request, **Then** the system rejects it with a validation error and does not run the backtest.
 
 ---
 
@@ -79,6 +81,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 - **Gap through the exit level**: If the 5-minute candle that breaches the stop-loss, break-even, or take-profit level opens beyond that level (a gap), the exit is recorded at that candle's open price rather than the exact threshold, to reflect realistic fill slippage.
 - **End-of-day with no clear last candle**: The end-of-day exit uses the close of the final 5-minute candle of FRA40.I's regular trading session for that day.
 - **Break-even state does not carry across trades**: Each trade (including a same-day re-entry per FR-011) starts with its own fresh stop-loss at entry-minus-50; the break-even arming from a previous, already-closed trade has no effect on a later trade that day.
+- **Invalid date range submitted**: If the end date is before the start date, or either date is in the future, the system MUST reject the request with a validation error before evaluating any day, rather than running and returning an empty or zero-trade result.
 
 ## Requirements *(mandatory)*
 
@@ -111,6 +114,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
   - **Final result**: net points gained or lost across every trade in the range (sum of all trades' points results).
 - **FR-014**: Trade results MUST be expressed in index points (entry/exit price and points gained or lost), consistent with how the strategy's thresholds (50 points, 10 points) are defined.
 - **FR-015**: System MUST let a trader open a detail view for any backtested day that produced at least one trade, showing the H1 high/low reference levels, the 5-minute candles used from 10:00 onward, and the entry/exit points for every trade taken that day.
+- **FR-016**: System MUST validate the trader-provided start and end date before running the backtest, and MUST reject the request with a clear error, without evaluating any day, when the end date is before the start date or when either date is in the future.
 
 ### Key Entities
 
