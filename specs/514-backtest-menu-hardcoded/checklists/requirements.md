@@ -31,5 +31,6 @@
 
 ## Notes
 
-- All open questions (multi-trade-per-day, entry fill price, gap/slippage handling on exits) were resolved with the user before the spec was written and are captured directly in FR-009, FR-010, and FR-011 rather than as open markers.
+- All open questions (entry fill price, gap/slippage handling on exits) were resolved with the user before the spec was written and are captured directly in FR-010 rather than as open markers.
+- Re-entry: the user corrected the initial "one trade per day" assumption — the strategy allows multiple sequential trades per day as long as the previous position has closed first. This is captured in FR-006 and FR-011, Acceptance Scenario 7, and the "Repeat breakdown after a closed trade" edge case.
 - Ready for `/speckit.clarify` (optional, given clarifications were already resolved) or `/speckit.plan`.
