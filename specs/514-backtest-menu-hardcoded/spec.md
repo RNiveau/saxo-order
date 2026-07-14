@@ -11,6 +11,7 @@
 
 - Q: In what timezone are the 9:00–10:00 H1 reference window and the 10:00 evaluation start point defined? → A: Paris exchange local time (Europe/Paris), DST-aware — 9:00 always means 9:00 at the exchange, year-round.
 - Q: Should the UI enforce an explicit maximum date range for a backtest run, or can a trader request any range? → A: No explicit UI cap — any range is accepted; days beyond what Saxo's historical-candle capability can supply fall through the existing "no data" per-day handling (FR-004).
+- Q: Are a Backtest Run's results persisted for later retrieval, or computed fresh on each request? → A: Ephemeral for now — computed on demand and returned synchronously; nothing is persisted.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -114,7 +115,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 ### Key Entities
 
 - **Backtest Definition**: A hardcoded strategy available in the Backtest menu (name, instrument, and fixed rule set). "CAC40 Bougie de 9h" is the first instance; the data model must not assume it is the only one.
-- **Backtest Run**: The result of executing a Backtest Definition over a UI-provided date range (a single day is the range's degenerate case) — a list of per-day outcomes plus the aggregate summary: number of days, number of trades, number of winning positions, number of losing positions, number of BE, average win, average loss, and final result.
+- **Backtest Run**: The result of executing a Backtest Definition over a UI-provided date range (a single day is the range's degenerate case) — a list of per-day outcomes plus the aggregate summary: number of days, number of trades, number of winning positions, number of losing positions, number of BE, average win, average loss, and final result. Computed on demand for the requesting trader and returned synchronously; not persisted (for now — see Assumptions).
 - **Day Result**: The outcome for a single trading day within a Backtest Run — either "no data," "no trade," or a chronological list of one or more trades, each with entry price/time, exit price/time, exit reason (stop-loss, break-even, take-profit, or end of day), and points gained or lost.
 
 ## Success Criteria *(mandatory)*
@@ -137,6 +138,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 - Only one hardcoded backtest ("CAC40 Bougie de 9h") is in scope for this feature; the Backtest menu's list structure should not preclude adding further hardcoded backtests later, but no generic backtest-authoring capability is being built.
 - There is no upper limit on how many trades can occur in a single day beyond the natural constraint that a new trade can only start once the previous one has closed (never more than one open position at a time).
 - No order placement, paper-trading, or live-execution capability is implied — this is a historical, read-only analysis feature.
+- Backtest Run results are not persisted for this feature; each run is computed on demand and returned to the requesting trader synchronously. Saving/revisiting past runs is out of scope but not precluded for a future iteration.
 - A trade closed via the break-even mechanism (FR-008a) always has a points result of exactly 0 and is counted only in "number of BE" — never in winning or losing positions, and excluded from the average win/loss calculations. In the rare case a trade reaches exactly 0 points through a different exit (e.g., an end-of-day close that happens to land on the entry price without break-even ever arming), it is classified as a losing position, since only break-even-mechanism exits are labeled "BE".
 - "Average loss" is reported as a positive magnitude (e.g., "42 pts") rather than a negative number, so the summary reads naturally; "final result" is the only figure in the summary that can be negative, since it is a net sum.
 - "Number of days" in the range summary counts only trading days where the H1 reference candle was available (i.e., days actually evaluated); days reported as "no data" are not counted, consistent with how they are excluded from every other aggregate figure.
