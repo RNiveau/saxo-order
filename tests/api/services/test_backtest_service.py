@@ -72,6 +72,34 @@ class TestEvaluateDayNoData:
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         assert result.status == DayStatus.NO_DATA
 
+    def test_m5_fetch_raising_returns_no_trade(self):
+        """If the H1 reference is available but the 5-minute fetch
+        fails, the day is a NO_TRADE (not NO_DATA, which is reserved
+        for a missing H1 reference per FR-004)."""
+        service = make_service([h1_candle()], m5_candles=[], raise_on_m5=True)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.NO_TRADE
+        assert result.h1_high == H1_HIGH
+        assert result.h1_low == H1_LOW
+
+
+class TestListAndGetDefinition:
+    def test_list_definitions_returns_the_hardcoded_backtest(self):
+        service = make_service([], [])
+        definitions = service.list_definitions()
+        assert len(definitions) == 1
+        assert definitions[0].code == "B9H"
+        assert definitions[0].display_name == "CAC40 Bougie de 9h"
+        assert definitions[0].instrument == "FRA40.I"
+
+    def test_get_definition_found(self):
+        service = make_service([], [])
+        assert service.get_definition("B9H") is not None
+
+    def test_get_definition_not_found(self):
+        service = make_service([], [])
+        assert service.get_definition("NOPE") is None
+
 
 class TestEvaluateDayNoTrade:
     def test_no_breakout_below_h1_low(self):

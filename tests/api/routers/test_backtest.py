@@ -10,10 +10,13 @@ from api.services.backtest_service import BacktestService
 from model import (
     BacktestRunResult,
     BacktestSummary,
+    Candle,
     DayResult,
     DayResultSummary,
+    Trade,
+    UnitTime,
 )
-from model.enum import DayStatus
+from model.enum import DayStatus, ExitReason
 
 client = TestClient(app)
 
@@ -53,6 +56,65 @@ class TestGetBacktestDay:
         assert body["h1_high"] == 8050.0
         assert body["h1_low"] == 8000.0
         assert body["trades"] == []
+
+    def test_traded_day_with_trades_and_candles_returns_200(
+        self, mock_backtest_service
+    ):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+        mock_backtest_service.evaluate_day.return_value = DayResult(
+            date=datetime.date(2026, 6, 2),
+            status=DayStatus.TRADED,
+            h1_high=8050.0,
+            h1_low=8000.0,
+            candles=[
+                Candle(
+                    lower=8005.0,
+                    higher=8013.0,
+                    open=8009.5,
+                    close=8012.0,
+                    ut=UnitTime.M5,
+                    date=datetime.datetime(2026, 6, 2, 8, 0),
+                )
+            ],
+            trades=[
+                Trade(
+                    entry_time=datetime.datetime(2026, 6, 2, 8, 5),
+                    entry_price=8010.0,
+                    exit_time=datetime.datetime(2026, 6, 2, 9, 0),
+                    exit_price=7960.0,
+                    exit_reason=ExitReason.STOP_LOSS,
+                    points=-50.0,
+                )
+            ],
+        )
+
+        response = client.get(
+            "/api/backtest/day",
+            params={"definition": "B9H", "date": "2026-06-02"},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["candles"]) == 1
+        assert body["candles"][0]["higher"] == 8013.0
+        assert len(body["trades"]) == 1
+        assert body["trades"][0]["exit_reason"] == "stop_loss"
+        assert body["trades"][0]["points"] == -50.0
+
+    def test_invalid_date_format_returns_400(self, mock_backtest_service):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+
+        response = client.get(
+            "/api/backtest/day",
+            params={"definition": "B9H", "date": "not-a-date"},
+        )
+
+        assert response.status_code == 400
+        mock_backtest_service.evaluate_day.assert_not_called()
 
     def test_no_data_day_returns_200(self, mock_backtest_service):
         mock_backtest_service.get_definition.return_value = MagicMock(
