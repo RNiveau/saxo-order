@@ -10,12 +10,14 @@ from click.core import Context
 from slack_sdk import WebClient
 
 from client import client_helper
+from client.anthropic_client import AnthropicClient
 from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
 from model import Alert, AlertType, AssetType, Candle, EUMarket, UnitTime
 from saxo_order.async_utils import create_dynamodb_client
 from saxo_order.commands import catch_exception
 from services import congestion_indicator, indicator_service
+from services.alert_triage_service import TriageAgent
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.helper import build_daily_candles_from_h1
@@ -510,6 +512,7 @@ async def run_alerting(
             "mm50_touch": [],
         }
         has_message = False
+        all_alerts: List[Alert] = []
         for asset in assets:
             logger.debug(f"scan {asset['name']}")
 
@@ -532,6 +535,7 @@ async def run_alerting(
                 saxo_client=saxo_client,
                 dynamodb_client=dynamodb_client,
             )
+            all_alerts.extend(asset_alerts)
 
             # Build Slack messages from detected alerts
             for alert in asset_alerts:
@@ -619,6 +623,16 @@ async def run_alerting(
                         channel="#stock",
                         text=message,
                     )
+
+        try:
+            triage_agent = TriageAgent(AnthropicClient(configuration))
+            digest = triage_agent.synthesize(all_alerts)
+            logger.info(
+                f"Triage digest for {digest.run_date}: {digest.counts} "
+                f"(fallback={digest.fallback_used})"
+            )
+        except Exception as e:
+            logger.error(f"Triage step failed: {e}")
 
 
 def _run_double_inside_bar(
