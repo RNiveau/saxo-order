@@ -27,9 +27,9 @@ Web + Lambda layout (per plan.md): backend at repo root (`model/`, `client/`, `s
 
 **Purpose**: Dependency, exception type, and configuration plumbing shared by all stories
 
-- [ ] T001 [P] Add `anthropic` dependency to `pyproject.toml` and refresh `poetry.lock` (`poetry lock`)
-- [ ] T002 [P] Add `AnthropicException` (mirroring `SaxoException`) to `utils/exception.py`
-- [ ] T003 [P] Add `anthropic_api_key` (from `secrets`) and `anthropic_model` (from `config`, default `claude-sonnet-5`) properties to `utils/configuration.py`, and document the new keys in the `secrets.yml` / `config.yml` example files
+- [x] T001 [P] Add `anthropic` dependency to `pyproject.toml` and refresh `poetry.lock` (`poetry lock`)
+- [x] T002 [P] Add `AnthropicException` (mirroring `SaxoException`) to `utils/exception.py`
+- [x] T003 [P] Add `anthropic_api_key` (from `secrets`) and `anthropic_model` (from `config`, default `claude-sonnet-5`) properties to `utils/configuration.py`, and document the new keys in the `secrets.yml` / `config.yml` example files
 
 **Checkpoint**: Config + exception + dependency available
 
