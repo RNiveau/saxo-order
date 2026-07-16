@@ -1,4 +1,5 @@
 import type { BacktestDayDetail as BacktestDayDetailData } from '../services/api';
+import { formatParisTime } from '../utils/backtestTime';
 import './BacktestDayDetail.css';
 
 const formatReason = (reason: string) => reason.replace(/_/g, ' ');
@@ -34,9 +35,9 @@ export function BacktestDayDetail({ detail }: BacktestDayDetailProps) {
           <table className="backtest-trades-table">
             <thead>
               <tr>
-                <th>Entry time</th>
+                <th>Entry time (Paris)</th>
                 <th>Entry price</th>
-                <th>Exit time</th>
+                <th>Exit time (Paris)</th>
                 <th>Exit price</th>
                 <th>Exit reason</th>
                 <th>Points</th>
@@ -45,9 +46,9 @@ export function BacktestDayDetail({ detail }: BacktestDayDetailProps) {
             <tbody>
               {detail.trades.map((trade, index) => (
                 <tr key={index}>
-                  <td>{trade.entry_time}</td>
+                  <td>{formatParisTime(trade.entry_time)}</td>
                   <td>{trade.entry_price}</td>
-                  <td>{trade.exit_time}</td>
+                  <td>{formatParisTime(trade.exit_time)}</td>
                   <td>{trade.exit_price}</td>
                   <td>{formatReason(trade.exit_reason)}</td>
                   <td className={pointsClass(trade.points)}>{trade.points}</td>
@@ -60,12 +61,14 @@ export function BacktestDayDetail({ detail }: BacktestDayDetailProps) {
 
       {detail.candles.length > 0 && (
         <details className="backtest-candles-details">
-          <summary>5-minute candles from 10:00 ({detail.candles.length})</summary>
+          <summary>
+            5-minute candles from 10:00 Paris time ({detail.candles.length})
+          </summary>
           <div className="backtest-candles-scroll">
             <table className="backtest-candles-table">
               <thead>
                 <tr>
-                  <th>Time</th>
+                  <th>Time (Paris)</th>
                   <th>Open</th>
                   <th>High</th>
                   <th>Low</th>
@@ -75,7 +78,7 @@ export function BacktestDayDetail({ detail }: BacktestDayDetailProps) {
               <tbody>
                 {detail.candles.map((candle, index) => (
                   <tr key={index}>
-                    <td>{candle.date}</td>
+                    <td>{formatParisTime(candle.date)}</td>
                     <td>{candle.open}</td>
                     <td>{candle.higher}</td>
                     <td>{candle.lower}</td>
