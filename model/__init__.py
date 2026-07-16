@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from model.enum import (  # noqa: F401
     AlertType,
     AssetType,
+    Conviction,
     Currency,
     Direction,
     OrderType,
@@ -51,6 +52,30 @@ class Alert:
             return f"{self.asset_code}_{self.country_code}"
         else:
             return self.asset_code
+
+
+@dataclass
+class TriagedAsset:
+    asset_code: str
+    asset_description: str
+    exchange: str
+    conviction: Conviction
+    rationale: str
+    patterns: List[AlertType]
+    ma50_slope: Optional[float] = None
+    rank: Optional[int] = None
+    country_code: Optional[str] = None
+
+
+@dataclass
+class AlertDigest:
+    run_date: str
+    created_at: int
+    summary: str
+    counts: Dict[str, int]
+    triaged_assets: List[TriagedAsset]
+    model: str
+    fallback_used: bool = False
 
 
 @dataclass

@@ -119,3 +119,9 @@ class AlertType(EnumWithGetValue):
 class Exchange(EnumWithGetValue):
     SAXO = "saxo"
     BINANCE = "binance"
+
+
+class Conviction(EnumWithGetValue):
+    HIGH = "high"
+    WATCH = "watch"
+    NOISE = "noise"
