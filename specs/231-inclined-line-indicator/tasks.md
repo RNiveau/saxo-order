@@ -1,6 +1,6 @@
 # Tasks: Inclined Line Indicator (ROB/SOH)
 
-**Input**: Design documents from `/specs/512-inclined-line-indicator/`
+**Input**: Design documents from `/specs/231-inclined-line-indicator/`
 **Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.

@@ -1,7 +1,7 @@
 # Quickstart: Inclined Line Indicator (ROB/SOH)
 
 **Date**: 2026-04-12
-**Feature**: 512-inclined-line-indicator
+**Feature**: 231-inclined-line-indicator
 
 ## Prerequisites
 

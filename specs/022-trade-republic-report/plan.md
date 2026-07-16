@@ -1,7 +1,7 @@
 # Implementation Plan: Trade Republic Report
 
-**Branch**: `513-trade-republic-report` | **Date**: 2026-07-05 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/specs/513-trade-republic-report/spec.md`
+**Branch**: `022-trade-republic-report` | **Date**: 2026-07-05 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/022-trade-republic-report/spec.md`
 
 ## Summary
 
@@ -38,7 +38,7 @@ No violations — Complexity Tracking section is not needed.
 ### Documentation (this feature)
 
 ```text
-specs/513-trade-republic-report/
+specs/022-trade-republic-report/
 ├── plan.md              # This file (/speckit.plan command output)
 ├── research.md          # Phase 0 output (/speckit.plan command)
 ├── data-model.md        # Phase 1 output (/speckit.plan command)
