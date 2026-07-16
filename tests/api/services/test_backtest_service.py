@@ -1,11 +1,20 @@
 import datetime
 from unittest.mock import MagicMock
+from zoneinfo import ZoneInfo
 
-from api.services.backtest_service import BacktestService
+from api.services.backtest_service import (
+    BacktestService,
+    is_future_paris_date,
+    is_today_not_yet_closed,
+    paris_reference_window_utc,
+    paris_session_end_utc,
+)
 from model import BacktestDefinition, Candle, DayResult, Trade, UnitTime
 from model.enum import DayStatus, ExitReason
 from services.candles_service import CandlesService
 from utils.exception import SaxoException
+
+PARIS_TZ = ZoneInfo("Europe/Paris")
 
 DEFINITION = BacktestDefinition(
     code="B9H",
@@ -56,6 +65,47 @@ def make_service(h1_candles, m5_candles, raise_on_h1=False, raise_on_m5=False):
 
     candles_service.get_candles_in_window.side_effect = side_effect
     return BacktestService(candles_service)
+
+
+class TestTimezoneHelpers:
+    def test_reference_window_cest_summer(self):
+        start, end = paris_reference_window_utc(datetime.date(2026, 6, 2))
+        assert start == datetime.datetime(2026, 6, 2, 7, 0)
+        assert end == datetime.datetime(2026, 6, 2, 8, 0)
+
+    def test_reference_window_cet_winter(self):
+        start, end = paris_reference_window_utc(datetime.date(2026, 1, 15))
+        assert start == datetime.datetime(2026, 1, 15, 8, 0)
+        assert end == datetime.datetime(2026, 1, 15, 9, 0)
+
+    def test_session_end_cest_summer(self):
+        assert paris_session_end_utc(
+            datetime.date(2026, 6, 2)
+        ) == datetime.datetime(2026, 6, 2, 15, 30)
+
+    def test_session_end_cet_winter(self):
+        assert paris_session_end_utc(
+            datetime.date(2026, 1, 15)
+        ) == datetime.datetime(2026, 1, 15, 16, 30)
+
+    def test_is_future_paris_date(self):
+        now = datetime.datetime(2026, 6, 2, 10, 0, tzinfo=PARIS_TZ)
+        assert is_future_paris_date(datetime.date(2026, 6, 3), now=now)
+        assert not is_future_paris_date(datetime.date(2026, 6, 2), now=now)
+        assert not is_future_paris_date(datetime.date(2026, 6, 1), now=now)
+
+    def test_today_before_session_close_is_not_yet_closed(self):
+        now = datetime.datetime(2026, 6, 2, 10, 0, tzinfo=PARIS_TZ)
+        assert is_today_not_yet_closed(datetime.date(2026, 6, 2), now=now)
+
+    def test_today_after_session_close_is_closed(self):
+        now = datetime.datetime(2026, 6, 2, 18, 0, tzinfo=PARIS_TZ)
+        assert not is_today_not_yet_closed(datetime.date(2026, 6, 2), now=now)
+
+    def test_other_day_is_never_not_yet_closed(self):
+        now = datetime.datetime(2026, 6, 2, 10, 0, tzinfo=PARIS_TZ)
+        assert not is_today_not_yet_closed(datetime.date(2026, 6, 1), now=now)
+        assert not is_today_not_yet_closed(datetime.date(2026, 6, 3), now=now)
 
 
 class TestEvaluateDayNoData:
@@ -315,6 +365,27 @@ class TestRunRange:
         assert result.days[1].date == day3
         assert result.days[1].trade_count == 3
         assert result.days[1].points == -20
+
+    def test_weekends_are_skipped_without_calling_evaluate_day(self, mocker):
+        """Saturday/Sunday never trade, so run_range must not spend a
+        fetch resolving them to NO_DATA - it should skip evaluate_day
+        for those dates entirely."""
+        service = BacktestService(MagicMock(spec=CandlesService))
+        friday = datetime.date(2026, 6, 5)
+        monday = datetime.date(2026, 6, 8)
+        evaluate_day = mocker.patch.object(
+            service,
+            "evaluate_day",
+            side_effect=lambda d, date: DayResult(
+                date=date, status=DayStatus.NO_TRADE, h1_high=8050, h1_low=8000
+            ),
+        )
+
+        result = service.run_range(DEFINITION, friday, monday)
+
+        called_dates = [call.args[1] for call in evaluate_day.call_args_list]
+        assert called_dates == [friday, monday]
+        assert result.summary.number_of_days == 2
 
     def test_empty_range_returns_all_zero_summary(self, mocker):
         service = BacktestService(MagicMock(spec=CandlesService))

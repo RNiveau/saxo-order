@@ -14,6 +14,11 @@ const formatReason = (reason: string) => reason.replace(/_/g, ' ');
 
 const pointsClass = (points: number) => (points >= 0 ? 'positive' : 'negative');
 
+// Matches the backend's Paris-local "today" (Europe/Paris), not the
+// browser's UTC day, so the client-side check agrees with the API's.
+const parisToday = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+
 export function Backtest() {
   const [definitions, setDefinitions] = useState<BacktestDefinition[]>([]);
   const [selectedDefinition, setSelectedDefinition] = useState<string>('');
@@ -68,7 +73,7 @@ export function Backtest() {
     if (!selectedDefinition || !startDate || !endDate) return;
     setError(null);
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = parisToday();
     if (endDate < startDate) {
       setError('End date must not be before start date.');
       return;

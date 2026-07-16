@@ -12,6 +12,7 @@ from api.models.backtest import (
 from api.services.backtest_service import (
     BacktestService,
     is_future_paris_date,
+    is_today_not_yet_closed,
 )
 from model import BacktestDefinition
 
@@ -86,5 +87,10 @@ def _parse_date(value: str) -> datetime.date:
     if is_future_paris_date(trading_date):
         raise HTTPException(
             status_code=400, detail="date must not be in the future"
+        )
+    if is_today_not_yet_closed(trading_date):
+        raise HTTPException(
+            status_code=400,
+            detail="today's session has not closed yet",
         )
     return trading_date

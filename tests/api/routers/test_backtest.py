@@ -148,6 +148,46 @@ class TestGetBacktestDay:
         assert response.status_code == 400
         mock_backtest_service.evaluate_day.assert_not_called()
 
+    def test_today_not_yet_closed_returns_400(
+        self, mock_backtest_service, mocker
+    ):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+        mocker.patch(
+            "api.routers.backtest.is_today_not_yet_closed", return_value=True
+        )
+        today = datetime.date.today().isoformat()
+
+        response = client.get(
+            "/api/backtest/day",
+            params={"definition": "B9H", "date": today},
+        )
+
+        assert response.status_code == 400
+        mock_backtest_service.evaluate_day.assert_not_called()
+
+    def test_today_after_close_returns_200(
+        self, mock_backtest_service, mocker
+    ):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+        mocker.patch(
+            "api.routers.backtest.is_today_not_yet_closed", return_value=False
+        )
+        today = datetime.date.today()
+        mock_backtest_service.evaluate_day.return_value = DayResult(
+            date=today, status=DayStatus.NO_TRADE, h1_high=8050, h1_low=8000
+        )
+
+        response = client.get(
+            "/api/backtest/day",
+            params={"definition": "B9H", "date": today.isoformat()},
+        )
+
+        assert response.status_code == 200
+
     def test_unknown_definition_returns_400(self, mock_backtest_service):
         mock_backtest_service.get_definition.return_value = None
 

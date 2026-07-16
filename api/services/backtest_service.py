@@ -69,9 +69,27 @@ def paris_session_end_utc(trading_date: datetime.date) -> datetime.datetime:
     return _to_naive_utc(end_local)
 
 
-def is_future_paris_date(d: datetime.date) -> bool:
-    today_paris = datetime.datetime.now(PARIS_TZ).date()
-    return d > today_paris
+def is_future_paris_date(
+    d: datetime.date, now: Optional[datetime.datetime] = None
+) -> bool:
+    current = (now or datetime.datetime.now(PARIS_TZ)).astimezone(PARIS_TZ)
+    return d > current.date()
+
+
+def is_today_not_yet_closed(
+    d: datetime.date, now: Optional[datetime.datetime] = None
+) -> bool:
+    """True if d is today (Paris) and the regular session hasn't ended
+    yet - the backtest only operates on already-closed historical days,
+    and Saxo won't return a complete H1/5-minute series for a session
+    still in progress."""
+    current = (now or datetime.datetime.now(PARIS_TZ)).astimezone(PARIS_TZ)
+    if d != current.date():
+        return False
+    session_end_local = datetime.datetime(
+        d.year, d.month, d.day, 17, 30, tzinfo=PARIS_TZ
+    )
+    return current < session_end_local
 
 
 def _to_naive_utc(value: datetime.datetime) -> datetime.datetime:
@@ -157,6 +175,12 @@ class BacktestService:
 
         current = start_date
         while current <= end_date:
+            if current.weekday() >= 5:
+                # Saturday/Sunday: FRA40.I never trades, so skip the
+                # H1/5-minute fetches that would only resolve to
+                # NO_DATA - avoids two wasted Saxo calls per weekend day.
+                current += datetime.timedelta(days=1)
+                continue
             day_result = self.evaluate_day(definition, current)
             if day_result.status != DayStatus.NO_DATA:
                 day_points = round(
