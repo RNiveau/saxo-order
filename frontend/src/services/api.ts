@@ -970,6 +970,32 @@ export interface BacktestDayDetail {
   trades: BacktestTrade[];
 }
 
+export interface BacktestSummary {
+  definition_code: string;
+  start_date: string;
+  end_date: string;
+  number_of_days: number;
+  number_of_trades: number;
+  number_of_winning_positions: number;
+  number_of_losing_positions: number;
+  number_of_be: number;
+  average_win: number | null;
+  average_loss: number | null;
+  final_result: number;
+}
+
+export interface BacktestDayResultSummary {
+  date: string;
+  status: string;
+  trade_count: number;
+  points: number;
+}
+
+export interface BacktestRunResponse {
+  summary: BacktestSummary;
+  days: BacktestDayResultSummary[];
+}
+
 export const backtestService = {
   getDefinitions: async (): Promise<BacktestDefinition[]> => {
     const response = await api.get<BacktestDefinition[]>('/api/backtest/definitions');
@@ -979,6 +1005,17 @@ export const backtestService = {
   getDayDetail: async (definition: string, date: string): Promise<BacktestDayDetail> => {
     const response = await api.get<BacktestDayDetail>('/api/backtest/day', {
       params: { definition, date },
+    });
+    return response.data;
+  },
+
+  runRange: async (
+    definition: string,
+    startDate: string,
+    endDate: string
+  ): Promise<BacktestRunResponse> => {
+    const response = await api.get<BacktestRunResponse>('/api/backtest/run', {
+      params: { definition, start_date: startDate, end_date: endDate },
     });
     return response.data;
   },

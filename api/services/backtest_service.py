@@ -4,8 +4,11 @@ from zoneinfo import ZoneInfo
 
 from model import (
     BacktestDefinition,
+    BacktestRunResult,
+    BacktestSummary,
     Candle,
     DayResult,
+    DayResultSummary,
     Strategy,
     Trade,
     UnitTime,
@@ -140,6 +143,84 @@ class BacktestService:
             h1_low=h1_low,
             candles=five_min_candles,
             trades=trades,
+        )
+
+    def run_range(
+        self,
+        definition: BacktestDefinition,
+        start_date: datetime.date,
+        end_date: datetime.date,
+    ) -> BacktestRunResult:
+        """Run the backtest across every day in [start_date, end_date]."""
+        day_summaries: List[DayResultSummary] = []
+        all_trades: List[Trade] = []
+
+        current = start_date
+        while current <= end_date:
+            day_result = self.evaluate_day(definition, current)
+            if day_result.status != DayStatus.NO_DATA:
+                day_points = round(
+                    sum(trade.points for trade in day_result.trades), 4
+                )
+                day_summaries.append(
+                    DayResultSummary(
+                        date=day_result.date,
+                        status=day_result.status,
+                        trade_count=len(day_result.trades),
+                        points=day_points,
+                    )
+                )
+                all_trades.extend(day_result.trades)
+            current += datetime.timedelta(days=1)
+
+        summary = self._build_summary(
+            definition, start_date, end_date, all_trades, len(day_summaries)
+        )
+        return BacktestRunResult(summary=summary, days=day_summaries)
+
+    @staticmethod
+    def _build_summary(
+        definition: BacktestDefinition,
+        start_date: datetime.date,
+        end_date: datetime.date,
+        trades: List[Trade],
+        number_of_days: int,
+    ) -> BacktestSummary:
+        winning: List[Trade] = []
+        losing: List[Trade] = []
+        be_trades: List[Trade] = []
+        for trade in trades:
+            if trade.exit_reason == ExitReason.BREAK_EVEN:
+                be_trades.append(trade)
+            elif trade.points > 0:
+                winning.append(trade)
+            else:
+                losing.append(trade)
+
+        average_win = (
+            round(sum(t.points for t in winning) / len(winning), 4)
+            if winning
+            else None
+        )
+        average_loss = (
+            round(-sum(t.points for t in losing) / len(losing), 4)
+            if losing
+            else None
+        )
+        final_result = round(sum(t.points for t in trades), 4)
+
+        return BacktestSummary(
+            definition_code=definition.code,
+            start_date=start_date,
+            end_date=end_date,
+            number_of_days=number_of_days,
+            number_of_trades=len(trades),
+            number_of_winning_positions=len(winning),
+            number_of_losing_positions=len(losing),
+            number_of_be=len(be_trades),
+            average_win=average_win,
+            average_loss=average_loss,
+            final_result=final_result,
         )
 
     def _fetch_h1_reference_candle(

@@ -2,7 +2,7 @@ import datetime
 from unittest.mock import MagicMock
 
 from api.services.backtest_service import BacktestService
-from model import BacktestDefinition, Candle, UnitTime
+from model import BacktestDefinition, Candle, DayResult, Trade, UnitTime
 from model.enum import DayStatus, ExitReason
 from services.candles_service import CandlesService
 from utils.exception import SaxoException
@@ -228,3 +228,110 @@ class TestEvaluateDaySameCandleEdgeCases:
         assert trade.exit_reason == ExitReason.BREAK_EVEN
         assert trade.exit_price == 8010
         assert trade.exit_time == candles[3].date
+
+
+def make_trade(exit_reason, points, entry_price=8010.0):
+    return Trade(
+        entry_time=datetime.datetime(2026, 6, 3, 8, 5),
+        entry_price=entry_price,
+        exit_time=datetime.datetime(2026, 6, 3, 9, 0),
+        exit_price=entry_price + points,
+        exit_reason=exit_reason,
+        points=points,
+    )
+
+
+class TestRunRange:
+    def test_aggregates_across_days_and_excludes_no_data(self, mocker):
+        service = BacktestService(MagicMock(spec=CandlesService))
+        day1 = datetime.date(2026, 6, 1)
+        day2 = datetime.date(2026, 6, 2)
+        day3 = datetime.date(2026, 6, 3)
+        results = {
+            day1: DayResult(date=day1, status=DayStatus.NO_DATA),
+            day2: DayResult(
+                date=day2,
+                status=DayStatus.NO_TRADE,
+                h1_high=8050,
+                h1_low=8000,
+            ),
+            day3: DayResult(
+                date=day3,
+                status=DayStatus.TRADED,
+                h1_high=8050,
+                h1_low=8000,
+                trades=[
+                    make_trade(ExitReason.STOP_LOSS, -50),
+                    make_trade(ExitReason.TAKE_PROFIT, 30),
+                    make_trade(ExitReason.BREAK_EVEN, 0),
+                ],
+            ),
+        }
+        mocker.patch.object(
+            service, "evaluate_day", side_effect=lambda d, date: results[date]
+        )
+
+        result = service.run_range(DEFINITION, day1, day3)
+
+        assert result.summary.number_of_days == 2  # NO_DATA excluded
+        assert result.summary.number_of_trades == 3
+        assert result.summary.number_of_winning_positions == 1
+        assert result.summary.number_of_losing_positions == 1
+        assert result.summary.number_of_be == 1
+        assert result.summary.average_win == 30
+        assert result.summary.average_loss == 50  # positive magnitude
+        assert result.summary.final_result == -20
+        assert len(result.days) == 2  # NO_DATA day excluded from list too
+        assert result.days[0].date == day2
+        assert result.days[0].trade_count == 0
+        assert result.days[1].date == day3
+        assert result.days[1].trade_count == 3
+        assert result.days[1].points == -20
+
+    def test_empty_range_returns_all_zero_summary(self, mocker):
+        service = BacktestService(MagicMock(spec=CandlesService))
+        day = datetime.date(2026, 6, 2)
+        mocker.patch.object(
+            service,
+            "evaluate_day",
+            return_value=DayResult(
+                date=day, status=DayStatus.NO_TRADE, h1_high=8050, h1_low=8000
+            ),
+        )
+
+        result = service.run_range(DEFINITION, day, day)
+
+        assert result.summary.number_of_days == 1
+        assert result.summary.number_of_trades == 0
+        assert result.summary.number_of_winning_positions == 0
+        assert result.summary.number_of_losing_positions == 0
+        assert result.summary.number_of_be == 0
+        assert result.summary.average_win is None
+        assert result.summary.average_loss is None
+        assert result.summary.final_result == 0
+
+    def test_zero_point_non_be_trade_counts_as_losing(self, mocker):
+        """A trade with points == 0 that did NOT close via the
+        break-even mechanism (e.g. an end-of-day close landing exactly
+        on the entry price) counts as a losing position, not a win or
+        a BE (per spec.md Assumptions)."""
+        service = BacktestService(MagicMock(spec=CandlesService))
+        day = datetime.date(2026, 6, 2)
+        mocker.patch.object(
+            service,
+            "evaluate_day",
+            return_value=DayResult(
+                date=day,
+                status=DayStatus.TRADED,
+                h1_high=8050,
+                h1_low=8000,
+                trades=[make_trade(ExitReason.END_OF_DAY, 0)],
+            ),
+        )
+
+        result = service.run_range(DEFINITION, day, day)
+
+        assert result.summary.number_of_trades == 1
+        assert result.summary.number_of_winning_positions == 0
+        assert result.summary.number_of_losing_positions == 1
+        assert result.summary.number_of_be == 0

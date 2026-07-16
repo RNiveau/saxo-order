@@ -4,7 +4,11 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import get_backtest_service
-from api.models.backtest import BacktestDefinitionResponse, DayDetailResponse
+from api.models.backtest import (
+    BacktestDefinitionResponse,
+    BacktestRunResponse,
+    DayDetailResponse,
+)
 from api.services.backtest_service import (
     BacktestService,
     is_future_paris_date,
@@ -38,6 +42,26 @@ async def get_backtest_day(
         backtest_definition, trading_date
     )
     return DayDetailResponse.from_day_result(day_result)
+
+
+@router.get("/run", response_model=BacktestRunResponse)
+async def get_backtest_run(
+    definition: str = Query(..., description="Backtest definition code"),
+    start_date: str = Query(..., description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="End date (YYYY-MM-DD)"),
+    backtest_service: BacktestService = Depends(get_backtest_service),
+) -> BacktestRunResponse:
+    """Run the backtest across a date range and return the aggregate
+    summary plus a compact per-day list."""
+    backtest_definition = _resolve_definition(backtest_service, definition)
+    start = _parse_date(start_date)
+    end = _parse_date(end_date)
+    if end < start:
+        raise HTTPException(
+            status_code=400, detail="end_date must not be before start_date"
+        )
+    run_result = backtest_service.run_range(backtest_definition, start, end)
+    return BacktestRunResponse.from_run_result(run_result)
 
 
 def _resolve_definition(
