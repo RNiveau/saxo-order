@@ -1,0 +1,118 @@
+openapi: 3.1.0
+info:
+  title: Alert Digests API
+  version: 1.0.0
+  description: >
+    Read API for persisted daily alert-triage briefs (digests). Produced by the
+    daily alerting scan's triage step and retained indefinitely. Read-only:
+    digests are created by the scan, not via HTTP.
+servers:
+  - url: http://localhost:8000
+paths:
+  /api/alert-digests:
+    get:
+      summary: List recent alert digests (full), newest-first
+      operationId: listAlertDigests
+      tags: [alert-digests]
+      description: >
+        Returns full digests (including per-asset payloads) for the recent
+        window, newest-first, so the homepage carousel can page client-side
+        without per-day round-trips. The table holds ~1 item/day.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+          description: Maximum number of digests to return (default all; small table).
+      responses:
+        "200":
+          description: Digests ordered by created_at descending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertDigestListResponse"
+        "403":
+          description: Not in an AWS context (DynamoDB unavailable)
+  /api/alert-digests/{run_date}:
+    get:
+      summary: Get the brief for a specific run date
+      operationId: getAlertDigest
+      tags: [alert-digests]
+      parameters:
+        - name: run_date
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Run date in YYYY-MM-DD. Returns the latest run for that day.
+      responses:
+        "200":
+          description: The full ranked brief for the run date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertDigestResponse"
+        "404":
+          description: No digest exists for that run date
+        "403":
+          description: Not in an AWS context (DynamoDB unavailable)
+components:
+  schemas:
+    Conviction:
+      type: string
+      enum: [high, watch, noise]
+    TriagedAssetResponse:
+      type: object
+      required: [asset_code, asset_description, exchange, conviction, patterns]
+      properties:
+        asset_code: { type: string, example: SAN }
+        asset_description: { type: string, example: Sanofi }
+        exchange: { type: string, example: saxo }
+        country_code:
+          type: [string, "null"]
+          example: xpar
+        conviction: { $ref: "#/components/schemas/Conviction" }
+        rank:
+          type: [integer, "null"]
+          minimum: 1
+          example: 1
+        rationale:
+          type: string
+          example: "double top + MA50 rejection, slope -2.3% (trend agrees)"
+        patterns:
+          type: array
+          items: { type: string }
+          example: [double_top, mm50_touch]
+        ma50_slope:
+          type: [number, "null"]
+          example: -2.3
+    AlertDigestResponse:
+      type: object
+      required: [run_date, created_at, summary, counts, triaged_assets, fallback_used, model]
+      properties:
+        run_date: { type: string, example: "2026-07-16" }
+        created_at: { type: integer, example: 1768579200 }
+        summary:
+          type: string
+          example: "28 signals across 22 stocks — 3 high, 5 watch."
+        counts:
+          type: object
+          additionalProperties: { type: integer }
+          example: { high: 3, watch: 5, noise: 20 }
+        triaged_assets:
+          type: array
+          items: { $ref: "#/components/schemas/TriagedAssetResponse" }
+        fallback_used: { type: boolean, example: false }
+        model: { type: string, example: "claude-sonnet-5" }
+    AlertDigestListResponse:
+      type: object
+      required: [digests]
+      properties:
+        digests:
+          type: array
+          description: Full digests for the recent window, newest-first.
+          items: { $ref: "#/components/schemas/AlertDigestResponse" }
