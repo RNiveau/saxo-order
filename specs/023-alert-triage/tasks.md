@@ -41,8 +41,8 @@ Web + Lambda layout (per plan.md): backend at repo root (`model/`, `client/`, `s
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 [P] Add `Conviction` enum (`HIGH`/`WATCH`/`NOISE`) to `model/enum.py` using `EnumWithGetValue`
-- [ ] T005 Add `TriagedAsset` and `AlertDigest` dataclasses to `model/__init__.py` (with explicit `exchange` field per asset; export both) (depends on T004)
+- [x] T004 [P] Add `Conviction` enum (`HIGH`/`WATCH`/`NOISE`) to `model/enum.py` using `EnumWithGetValue`
+- [x] T005 Add `TriagedAsset` and `AlertDigest` dataclasses to `model/__init__.py` (with explicit `exchange` field per asset; export both) (depends on T004)
 
 **Checkpoint**: Domain models ready — user stories can begin
 
