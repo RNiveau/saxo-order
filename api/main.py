@@ -10,6 +10,7 @@ from api.routers import (
     alert_digest,
     alerting,
     asset_details,
+    backtest,
     fund,
     homepage,
     indexes,
@@ -99,6 +100,7 @@ async def dynamodb_error_handler(
 app.include_router(alert_digest.router)
 app.include_router(alerting.router)
 app.include_router(asset_details.router)
+app.include_router(backtest.router)
 app.include_router(fund.router)
 app.include_router(homepage.router)
 app.include_router(indexes.router)

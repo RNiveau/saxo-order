@@ -2,12 +2,22 @@ import datetime
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
+from model.backtest import (  # noqa: F401
+    BacktestDefinition,
+    BacktestRunResult,
+    BacktestSummary,
+    DayResult,
+    DayResultSummary,
+    Trade,
+)
 from model.enum import (  # noqa: F401
     AlertType,
     AssetType,
     Conviction,
     Currency,
+    DayStatus,
     Direction,
+    ExitReason,
     OrderType,
     Signal,
     Strategy,

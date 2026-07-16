@@ -5,6 +5,7 @@ from typing import Optional, Union, cast
 from fastapi import Depends, HTTPException, Request
 
 from api.services.asset_details_service import AssetDetailsService
+from api.services.backtest_service import BacktestService
 from api.services.binance_report_service import BinanceReportService
 from api.services.report_service import ReportService
 from api.services.trade_republic_service import TradeRepublicService
@@ -110,6 +111,12 @@ def get_binance_report_service() -> BinanceReportService:
 def get_trade_republic_service() -> TradeRepublicService:
     gsheet_client = get_gsheet_client()
     return TradeRepublicService(gsheet_client)
+
+
+@lru_cache()
+def get_backtest_service() -> BacktestService:
+    candles_service = get_candles_service()
+    return BacktestService(candles_service)
 
 
 def get_asset_details_service(

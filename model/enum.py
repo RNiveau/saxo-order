@@ -125,3 +125,16 @@ class Conviction(EnumWithGetValue):
     HIGH = "high"
     WATCH = "watch"
     NOISE = "noise"
+
+
+class ExitReason(EnumWithGetValue):
+    STOP_LOSS = "stop_loss"
+    BREAK_EVEN = "break_even"
+    TAKE_PROFIT = "take_profit"
+    END_OF_DAY = "end_of_day"
+
+
+class DayStatus(EnumWithGetValue):
+    NO_DATA = "no_data"
+    NO_TRADE = "no_trade"
+    TRADED = "traded"
