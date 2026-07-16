@@ -56,10 +56,10 @@ Web + Lambda layout (per plan.md): backend at repo root (`model/`, `client/`, `s
 
 ### Implementation for User Story 1
 
-- [ ] T006 [P] [US1] Implement `AnthropicClient` in `client/anthropic_client.py`: constructed from `Configuration`, wraps the SDK, public `complete_json(system, user_payload) -> dict` with retries/backoff/logging, raises `AnthropicException` on transport or parse failure (SDK imported ONLY here) (depends on T002, T003)
-- [ ] T007 [US1] Implement `TriageAgent` in `services/alert_triage_service.py`: `build_payload` (per-asset patterns + `ma50_slope` + combo/mm50 facts), call `AnthropicClient.complete_json`, parse into `TriagedAsset`s with tier/rank/rationale, reconcile against detected alerts (drop unknown assets, never drop scanned assets), assemble `AlertDigest` (`model` = configured id) (depends on T005, T006)
-- [ ] T008 [US1] Unit test `TriageAgent` reasoning path in `tests/services/test_alert_triage_service.py`: confluence + slope ranking (SC-007), rank+rationale present on high/watch, noise counted, asset reconciliation (mock `AnthropicClient.complete_json`)
-- [ ] T009 [US1] In `saxo_order/commands/alerting.py` `run_alerting`, collect per-asset `Alert` objects into a run-level list and call `TriageAgent.synthesize` after the scan loop to produce the digest (depends on T007)
+- [x] T006 [P] [US1] Implement `AnthropicClient` in `client/anthropic_client.py`: constructed from `Configuration`, wraps the SDK, public `complete_json(system, user_payload) -> dict` with retries/backoff/logging, raises `AnthropicException` on transport or parse failure (SDK imported ONLY here) (depends on T002, T003)
+- [x] T007 [US1] Implement `TriageAgent` in `services/alert_triage_service.py`: `build_payload` (per-asset patterns + `ma50_slope` + combo/mm50 facts), call `AnthropicClient.complete_json`, parse into `TriagedAsset`s with tier/rank/rationale, reconcile against detected alerts (drop unknown assets, never drop scanned assets), assemble `AlertDigest` (`model` = configured id) (depends on T005, T006)
+- [x] T008 [US1] Unit test `TriageAgent` reasoning path in `tests/services/test_alert_triage_service.py`: confluence + slope ranking (SC-007), rank+rationale present on high/watch, noise counted, asset reconciliation (mock `AnthropicClient.complete_json`)
+- [x] T009 [US1] In `saxo_order/commands/alerting.py` `run_alerting`, collect per-asset `Alert` objects into a run-level list and call `TriageAgent.synthesize` after the scan loop to produce the digest (depends on T007)
 
 **Checkpoint**: A ranked, tiered brief is produced from a scan and unit-tested in isolation
 
