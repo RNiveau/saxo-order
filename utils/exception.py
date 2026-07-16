@@ -4,3 +4,7 @@ class SaxoException(Exception):
 
 class EmptyResponseException(SaxoException):
     pass
+
+
+class AnthropicException(Exception):
+    pass

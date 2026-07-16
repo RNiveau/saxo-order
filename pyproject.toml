@@ -25,6 +25,7 @@ uvicorn = {extras = ["standard"], version = "^0.38.0"}
 pydantic = "^2.12.4"
 cachetools = "^6.2.1"
 python-multipart = "^0.0.32"
+anthropic = "^0.117.0"
 
 [tool.poetry.dev-dependencies]
 black = "^26.3.1"

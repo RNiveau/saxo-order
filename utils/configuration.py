@@ -141,5 +141,13 @@ class Configuration:
         return self.secrets["slack_token"]
 
     @property
+    def anthropic_api_key(self) -> str:
+        return self.secrets["anthropic_api_key"]
+
+    @property
+    def anthropic_model(self) -> str:
+        return self.config.get("anthropic_model", "claude-sonnet-5")
+
+    @property
     def api_mode(self) -> bool:
         return os.getenv("API_MODE", "false").lower() == "true"
