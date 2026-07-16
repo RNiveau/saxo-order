@@ -43,7 +43,7 @@ The daily scan is a critical, unattended background job. The trader must be able
 
 ### User Story 3 - Review the history of past briefs (Priority: P2)
 
-Because each daily brief is persisted without expiry, the trader can look back at previous days' briefs to review what the agent flagged and judge, in hindsight, whether the high-conviction calls played out. The trader can open the most recent brief and step back through prior runs by date.
+Because each daily brief is persisted without expiry, the trader can look back at previous days' briefs to review what the agent flagged and judge, in hindsight, whether the high-conviction calls played out. From the homepage the trader sees the latest brief and can page back through recent runs via a carousel.
 
 **Why this priority**: History is the payoff of persisting the digest and the basis for building trust in (or calibrating) the agent's judgment over time. It is highly valuable but not required for the first usable version — the brief delivers value on day one; history compounds it.
 
@@ -51,8 +51,8 @@ Because each daily brief is persisted without expiry, the trader can look back a
 
 **Acceptance Scenarios**:
 
-1. **Given** briefs exist for several past run dates, **When** the trader opens the brief history, **Then** the briefs are listed newest-first.
-2. **Given** the trader selects a past run date, **When** the brief is opened, **Then** the full ranked brief for that date is displayed.
+1. **Given** briefs exist for several past run dates, **When** the trader opens the homepage, **Then** the most recent brief is shown first and the carousel pages backward through prior runs in reverse-chronological order.
+2. **Given** the trader pages the carousel to a past run date, **When** that slide is shown, **Then** the ranked brief for that date is displayed.
 3. **Given** briefs have accumulated over many days, **When** old alerts have expired from the raw alert store, **Then** the corresponding briefs remain available in history.
 
 ---
@@ -101,7 +101,7 @@ Instead of blasting the raw per-indicator lists into the notification channel, t
 - **FR-012**: A brief produced via the fallback path MUST be flagged as such so consumers can distinguish reasoning-based from fallback briefs.
 - **FR-013**: A failure in the triage or persistence step MUST NOT prevent the scan from completing, MUST NOT lose raw alert data, and MUST NOT affect the order/workflow path.
 - **FR-014**: The system MUST expose the persisted briefs for consumption by the application, supporting (a) listing briefs newest-first and (b) retrieving a single brief by its run date.
-- **FR-015**: The application MUST provide a view that displays a brief's ranked assets with their conviction tier indicated visually, and MUST allow the user to select and view briefs from prior run dates.
+- **FR-015**: The application MUST surface the latest brief on the homepage, displaying the ranked high- and watch-tier assets with their conviction tier indicated visually (noise summarized as a count), and MUST let the user page back through recent run dates via a carousel.
 - **FR-016**: After a scan, the notification channel MUST receive a concise summary (headline counts and top high-conviction names) with a link into the application, and MUST NOT receive the previous raw per-indicator dump.
 - **FR-017**: The reasoning model MUST be configurable and swappable without code changes, defaulting to a specified high-capability model.
 - **FR-018**: The reasoning step MUST reconcile its output against the actually detected alerts: assets not present in the scan are ignored, and assets present in the scan are never silently dropped from the brief.
@@ -132,7 +132,8 @@ Instead of blasting the raw per-indicator lists into the notification channel, t
 - Conviction tiers are exactly three (high / watch / noise); "noise" is summarized rather than enumerated in notifications.
 - The concise notification targets the same primary channel used today for stock alerts; error/operational channels are unchanged.
 - Historical briefs are retained indefinitely (no automatic expiry); any future pruning is out of scope for this feature.
-- The application already surfaces raw alerts, so the daily-brief view is an addition alongside the existing alerts experience rather than a replacement of it.
+- The daily brief is surfaced as a section on the existing homepage (above the current homepage cards) rather than as a separate page; the existing raw-alerts experience is unchanged.
+- The carousel covers recent run dates only; arbitrary deep-history lookup (jump-to-date) is deferred to a future iteration.
 - Access control for the new view follows the same model as the rest of the application (no new authentication requirements introduced by this feature).
 
 ## Out of Scope

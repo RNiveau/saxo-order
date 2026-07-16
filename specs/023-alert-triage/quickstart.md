@@ -23,7 +23,7 @@ poetry run k-order alerting --code SAN --country-code xpar
 poetry run python -c "import asyncio; from saxo_order.commands.alerting import run_alerting; asyncio.run(run_alerting('config.yml'))"
 ```
 
-Expected: scan runs detection as before, then a single **Daily Brief** is written to `alert_digests` and a concise digest is posted to Slack `#stock` with a link to `/daily-brief`.
+Expected: scan runs detection as before, then a single **Daily Brief** is written to `alert_digests` and a concise digest is posted to Slack `#stock` with a link to the homepage `/`.
 
 ## Verify the fallback path
 
@@ -41,10 +41,10 @@ curl http://localhost:8000/api/alert-digests/2026-07-16 # single brief by run da
 ## Frontend
 
 ```bash
-cd frontend && npm run dev            # http://localhost:5173/daily-brief
+cd frontend && npm run dev            # http://localhost:5173/
 ```
 
-The Daily Brief page shows the latest brief with conviction badges (🔴 high / 🟡 watch) and a run-date selector to page back through history.
+The homepage shows a Daily Brief section with the latest brief — conviction badges (🔴 high / 🟡 watch), noise as a count — and a carousel to page back through recent run dates.
 
 ## Test
 
@@ -60,6 +60,6 @@ poetry run black . && poetry run isort . && poetry run mypy . && poetry run flak
 
 - [ ] Multi-pattern asset ranks above single-pattern asset (US1 / SC-007)
 - [ ] Reasoning failure → fallback brief, scan intact, raw alerts stored (US2 / SC-003, SC-004)
-- [ ] `GET /api/alert-digests` newest-first; `GET /{run_date}` returns full brief (US3)
+- [ ] `GET /api/alert-digests` returns full recent digests newest-first; homepage carousel pages back through them (US3)
 - [ ] Slack gets one concise digest + link, not the raw firehose (US4 / SC-001)
 - [ ] No-alerts run still records a brief and Slack says "no signals" (FR-019)

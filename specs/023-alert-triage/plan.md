@@ -5,7 +5,7 @@
 
 ## Summary
 
-After the daily French-stock alerting scan runs its deterministic pattern detectors and stores raw `Alert` objects, a new **triage agent** reasons over the day's collected alerts and produces a ranked **daily brief**: every alerting asset is assigned a conviction tier (high / watch / noise), the high/watch assets are ranked and given a one-line rationale, driven by pattern **confluence** (multiple patterns on one asset) and **`ma50_slope` trend alignment** (already attached to each alert's `data`). The brief is persisted to a new **no-TTL DynamoDB table `alert_digests`** for indefinite history, exposed via a new **API** (list newest-first, get by run date), and surfaced in a new **React "Daily Brief" page**. Slack is demoted from a per-indicator firehose to a short digest notification linking into the app.
+After the daily French-stock alerting scan runs its deterministic pattern detectors and stores raw `Alert` objects, a new **triage agent** reasons over the day's collected alerts and produces a ranked **daily brief**: every alerting asset is assigned a conviction tier (high / watch / noise), the high/watch assets are ranked and given a one-line rationale, driven by pattern **confluence** (multiple patterns on one asset) and **`ma50_slope` trend alignment** (already attached to each alert's `data`). The brief is persisted to a new **no-TTL DynamoDB table `alert_digests`** for indefinite history, exposed via a new **API** (list recent digests newest-first, get by run date), and surfaced as a **Daily Brief section on the existing homepage** with a **carousel** to page back through recent run dates. Slack is demoted from a per-indicator firehose to a short digest notification linking into the app.
 
 Technical approach: the Anthropic SDK is wrapped in a **new dedicated `client/anthropic_client.py`** (Client Layer) constructed from `Configuration`, owning retries/errors/logging and raising a new `AnthropicException`; a new `services/alert_triage_service.py` (Service Layer) depends on the client — never the SDK — builds the payload, parses the response, and falls back to a deterministic ranking on any failure so the scan never breaks. Model is config-driven (`claude-sonnet-5` default). Detection logic and the order/workflow path are untouched.
 
@@ -81,15 +81,15 @@ pulumi/
 
 api/
 ├── main.py                      # EDIT: include_router(alert_digest.router)
-├── routers/alert_digest.py      # NEW: GET /api/alert-digests , GET /api/alert-digests/{run_date}
+├── routers/alert_digest.py      # NEW: GET /api/alert-digests (full recent digests) , GET /api/alert-digests/{run_date}
 ├── services/alert_digest_service.py  # NEW: read/format digests (TTLCache like AlertingService)
 └── models/alert_digest.py       # NEW: Pydantic response models
 
 frontend/src/
-├── pages/DailyBrief.tsx + .css  # NEW: ranked brief view + run-date history selector
-├── services/api.ts              # EDIT: alertDigestService (list, getByRunDate)
-├── components/Sidebar.tsx       # EDIT: nav entry "Daily Brief"
-└── App.tsx                      # EDIT: <Route path="/daily-brief" ...>
+├── components/DailyBrief.tsx + .css          # NEW: brief section embedded in Home
+├── components/DailyBriefCarousel.tsx + .css  # NEW: reverse-chronological day pager
+├── components/Home.tsx          # EDIT: render DailyBrief section above homepage grid
+└── services/api.ts              # EDIT: alertDigestService (listRecent, getByRunDate)
 
 pyproject.toml                   # EDIT: add anthropic dependency
 
@@ -100,7 +100,7 @@ tests/
 └── api/test_alert_digest_service.py         # NEW (list newest-first, get by run_date)
 ```
 
-**Structure Decision**: Web + Lambda layout matching the existing `workflow_orders` precedent end-to-end (new DynamoDB table → `DynamoDBClient` methods → API router/service/model → React page + sidebar route). The only new architectural element is the `AnthropicClient` in the Client Layer; everything else follows established patterns.
+**Structure Decision**: Web + Lambda layout matching the existing `workflow_orders` precedent for the backend (new DynamoDB table → `DynamoDBClient` methods → API router/service/model). The front end diverges from that precedent deliberately: instead of a standalone page + route + sidebar entry, the brief is a **section embedded in the existing `Home` component** with a carousel to page recent run dates — zero-click access to the day's top signals and history navigation for free. The list endpoint returns full recent digests so the carousel pages client-side without per-day round-trips. The only new architectural element is the `AnthropicClient` in the Client Layer; everything else follows established patterns.
 
 ## Complexity Tracking
 

@@ -41,14 +41,15 @@ All Technical Context items were resolvable from the existing codebase and prior
 ## R7. Slack demotion
 
 - **Decision**: Replace the per-indicator `slack_messages` dump to `#stock` with a single concise message: headline tier counts + top high-conviction names + a link to the app's Daily Brief page. The `#errors` operational channel and the workflow channels are unchanged. "No signals" message preserved (FR-019).
-- **Rationale**: FR-016 / SC-001 — app becomes source of truth, Slack becomes a pointer. Link target is the frontend `/daily-brief` route (base URL from config).
+- **Rationale**: FR-016 / SC-001 — app becomes source of truth, Slack becomes a pointer. Link target is the frontend homepage `/` (base URL from config), where the brief section renders.
 - **Alternatives considered**: Keep both raw and digest — rejected: reintroduces the firehose the feature exists to remove.
 
 ## R8. API + Frontend surface
 
-- **Decision**: New router `GET /api/alert-digests` (list, newest-first, optional `limit`) and `GET /api/alert-digests/{run_date}` (latest brief for that date), backed by `AlertDigestService` (with a short `TTLCache` like `AlertingService`) and Pydantic models in `api/models/alert_digest.py`. New React page `DailyBrief.tsx` at route `/daily-brief`, fetching via a new `alertDigestService` in `services/api.ts`, with conviction badges and a run-date selector; sidebar entry added.
-- **Rationale**: Directly mirrors the alerting/workflow-orders API+UI precedent. TypeScript interfaces mirror the Pydantic models exactly (constitution API Contract Standards).
-- **Alternatives considered**: Reusing the existing `/alerts` page — rejected: the brief is a distinct, ranked, cross-asset artifact with its own history navigation.
+- **Decision**: New router `GET /api/alert-digests` (returns **full** recent digests, newest-first, optional `limit`) and `GET /api/alert-digests/{run_date}` (latest brief for that date), backed by `AlertDigestService` (with a short `TTLCache` like `AlertingService`) and Pydantic models in `api/models/alert_digest.py`. The brief is rendered as a **`DailyBrief` section embedded in the existing `Home` component** (above the current homepage grid), with a **`DailyBriefCarousel`** that pages recent run dates in reverse-chronological order; conviction badges for high/watch, noise as a count. Fetching via a new `alertDigestService` in `services/api.ts`. No new route or sidebar entry.
+- **Rationale**: The brief is the trader's primary "what to look at today" artifact — homepage placement gives zero-click access, and the carousel satisfies the run-history requirement (FR-015/US3) without a separate selector or page. The list endpoint returns full digests (not just summaries) because the table is tiny (~1 item/day) and it lets the carousel page client-side with no per-day round-trip. TypeScript interfaces mirror the Pydantic models exactly (constitution API Contract Standards).
+- **Scope note**: The carousel covers recent run dates only (bounded by `limit`); arbitrary jump-to-date deep-history lookup is deferred to a future iteration.
+- **Alternatives considered**: (a) Standalone `/daily-brief` page + sidebar entry — rejected: adds a click to the most important artifact and duplicates history navigation the carousel already provides. (b) List endpoint returning summaries only + per-day `GET /{run_date}` on each carousel move — rejected: unnecessary round-trips for a one-item-per-day table.
 
 ## R9. Configuration & dependency
 

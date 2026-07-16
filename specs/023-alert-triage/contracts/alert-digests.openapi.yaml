@@ -11,9 +11,13 @@ servers:
 paths:
   /api/alert-digests:
     get:
-      summary: List alert digests, newest-first
+      summary: List recent alert digests (full), newest-first
       operationId: listAlertDigests
       tags: [alert-digests]
+      description: >
+        Returns full digests (including per-asset payloads) for the recent
+        window, newest-first, so the homepage carousel can page client-side
+        without per-day round-trips. The table holds ~1 item/day.
       parameters:
         - name: limit
           in: query
@@ -104,21 +108,11 @@ components:
           items: { $ref: "#/components/schemas/TriagedAssetResponse" }
         fallback_used: { type: boolean, example: false }
         model: { type: string, example: "claude-sonnet-5" }
-    AlertDigestSummary:
-      type: object
-      required: [run_date, created_at, summary, counts, fallback_used]
-      properties:
-        run_date: { type: string }
-        created_at: { type: integer }
-        summary: { type: string }
-        counts:
-          type: object
-          additionalProperties: { type: integer }
-        fallback_used: { type: boolean }
     AlertDigestListResponse:
       type: object
       required: [digests]
       properties:
         digests:
           type: array
-          items: { $ref: "#/components/schemas/AlertDigestSummary" }
+          description: Full digests for the recent window, newest-first.
+          items: { $ref: "#/components/schemas/AlertDigestResponse" }

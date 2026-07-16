@@ -78,7 +78,7 @@ Field names mirror the domain models exactly so the frontend TS interfaces match
 
 - `TriagedAssetResponse`: `asset_code, asset_description, exchange, country_code, conviction, rank, rationale, patterns: List[str], ma50_slope`
 - `AlertDigestResponse`: `run_date, created_at, summary, counts, triaged_assets: List[TriagedAssetResponse], fallback_used, model`
-- `AlertDigestListResponse`: `digests: List[AlertDigestSummary]` where `AlertDigestSummary` = `run_date, created_at, summary, counts, fallback_used` (no per-asset payload, for the list view).
+- `AlertDigestListResponse`: `digests: List[AlertDigestResponse]` — the list endpoint returns **full** digests (with per-asset payloads) for the recent window so the homepage carousel pages client-side without extra calls. The table is ~1 item/day, so payload size is not a concern.
 
 ## State / lifecycle
 
