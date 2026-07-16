@@ -1,3 +1,108 @@
 .backtest-page {
-  padding: 24px;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.backtest-page h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #e0e0e0;
+}
+
+.backtest-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.backtest-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #a0a0a0;
+  font-size: 0.85rem;
+}
+
+.backtest-controls select,
+.backtest-controls input[type='date'] {
+  padding: 0.5rem;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  background-color: #1f2937;
+  color: #e0e0e0;
+}
+
+.backtest-controls button {
+  padding: 0.55rem 1.25rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #2563eb;
+  color: white;
+  transition: background-color 0.2s ease;
+}
+
+.backtest-controls button:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.backtest-controls button:disabled {
+  background-color: #374151;
+  cursor: not-allowed;
+}
+
+.backtest-error {
+  background-color: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #fca5a5;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.backtest-day-result h2 {
+  color: #e0e0e0;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.backtest-status {
+  color: #a0a0a0;
+}
+
+.backtest-h1-range {
+  color: #a0a0a0;
+  margin-bottom: 1rem;
+}
+
+.backtest-trades-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #e0e0e0;
+}
+
+.backtest-trades-table th,
+.backtest-trades-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #374151;
+  font-size: 0.9rem;
+}
+
+.backtest-trades-table th {
+  color: #a0a0a0;
+  font-weight: 600;
+}
+
+.backtest-trades-table td.positive {
+  color: #3fb950;
+}
+
+.backtest-trades-table td.negative {
+  color: #f85149;
 }

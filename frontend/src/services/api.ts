@@ -937,3 +937,49 @@ export const alertDigestService = {
     return response.data;
   },
 };
+
+export interface BacktestDefinition {
+  code: string;
+  display_name: string;
+  instrument: string;
+}
+
+export interface BacktestTrade {
+  entry_time: string;
+  entry_price: number;
+  exit_time: string;
+  exit_price: number;
+  exit_reason: string;
+  points: number;
+}
+
+export interface BacktestCandle {
+  date: string | null;
+  open: number;
+  close: number;
+  lower: number;
+  higher: number;
+}
+
+export interface BacktestDayDetail {
+  date: string;
+  status: string;
+  h1_high: number | null;
+  h1_low: number | null;
+  candles: BacktestCandle[];
+  trades: BacktestTrade[];
+}
+
+export const backtestService = {
+  getDefinitions: async (): Promise<BacktestDefinition[]> => {
+    const response = await api.get<BacktestDefinition[]>('/api/backtest/definitions');
+    return response.data;
+  },
+
+  getDayDetail: async (definition: string, date: string): Promise<BacktestDayDetail> => {
+    const response = await api.get<BacktestDayDetail>('/api/backtest/day', {
+      params: { definition, date },
+    });
+    return response.data;
+  },
+};
