@@ -1,0 +1,63 @@
+.backtest-day-detail h2 {
+  color: #e0e0e0;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.backtest-status {
+  color: #a0a0a0;
+}
+
+.backtest-h1-range {
+  color: #a0a0a0;
+  margin-bottom: 1rem;
+}
+
+.backtest-trades-table,
+.backtest-candles-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #e0e0e0;
+}
+
+.backtest-trades-table th,
+.backtest-trades-table td,
+.backtest-candles-table th,
+.backtest-candles-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #374151;
+  font-size: 0.9rem;
+}
+
+.backtest-trades-table th,
+.backtest-candles-table th {
+  color: #a0a0a0;
+  font-weight: 600;
+}
+
+.backtest-trades-table td.positive {
+  color: #3fb950;
+}
+
+.backtest-trades-table td.negative {
+  color: #f85149;
+}
+
+.backtest-candles-details {
+  margin-top: 1rem;
+}
+
+.backtest-candles-details summary {
+  color: #a0a0a0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.backtest-candles-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid #374151;
+  border-radius: 8px;
+}

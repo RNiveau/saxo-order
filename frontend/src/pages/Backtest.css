@@ -88,30 +88,12 @@
   margin-bottom: 1.5rem;
 }
 
-.backtest-day-result h2 {
-  color: #e0e0e0;
-  font-size: 1.2rem;
-  margin-bottom: 0.5rem;
-}
-
-.backtest-status {
-  color: #a0a0a0;
-}
-
-.backtest-h1-range {
-  color: #a0a0a0;
-  margin-bottom: 1rem;
-}
-
-.backtest-trades-table,
 .backtest-days-table {
   width: 100%;
   border-collapse: collapse;
   color: #e0e0e0;
 }
 
-.backtest-trades-table th,
-.backtest-trades-table td,
 .backtest-days-table th,
 .backtest-days-table td {
   text-align: left;
@@ -120,22 +102,33 @@
   font-size: 0.9rem;
 }
 
-.backtest-trades-table th,
 .backtest-days-table th {
   color: #a0a0a0;
   font-weight: 600;
 }
 
-.backtest-trades-table td.positive,
+.backtest-days-table tr.backtest-day-row--clickable {
+  cursor: pointer;
+}
+
+.backtest-days-table tr.backtest-day-row--clickable:hover {
+  background-color: #1f2937;
+}
+
 .backtest-days-table td.positive,
 .backtest-summary-tile .value.positive {
   color: #3fb950;
 }
 
-.backtest-trades-table td.negative,
 .backtest-days-table td.negative,
 .backtest-summary-tile .value.negative {
   color: #f85149;
+}
+
+.backtest-day-drilldown {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #374151;
 }
 
 .backtest-summary-grid {

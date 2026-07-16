@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { backtestService } from '../services/api';
 import type {
   BacktestDefinition,
-  BacktestDayDetail,
+  BacktestDayDetail as BacktestDayDetailData,
   BacktestRunResponse,
 } from '../services/api';
+import { BacktestDayDetail } from '../components/BacktestDayDetail';
 import './Backtest.css';
 
 type Mode = 'day' | 'range';
@@ -19,11 +20,15 @@ export function Backtest() {
   const [mode, setMode] = useState<Mode>('day');
 
   const [date, setDate] = useState<string>('');
-  const [dayResult, setDayResult] = useState<BacktestDayDetail | null>(null);
+  const [dayResult, setDayResult] = useState<BacktestDayDetailData | null>(null);
 
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [runResult, setRunResult] = useState<BacktestRunResponse | null>(null);
+
+  const [drilldown, setDrilldown] = useState<BacktestDayDetailData | null>(null);
+  const [drilldownLoading, setDrilldownLoading] = useState(false);
+  const [drilldownError, setDrilldownError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +80,7 @@ export function Backtest() {
 
     setLoading(true);
     setRunResult(null);
+    setDrilldown(null);
     try {
       const result = await backtestService.runRange(selectedDefinition, startDate, endDate);
       setRunResult(result);
@@ -83,6 +89,22 @@ export function Backtest() {
       console.error('Backtest range run error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openDrilldown = async (dayDate: string) => {
+    if (!selectedDefinition) return;
+    setDrilldownLoading(true);
+    setDrilldownError(null);
+    setDrilldown(null);
+    try {
+      const result = await backtestService.getDayDetail(selectedDefinition, dayDate);
+      setDrilldown(result);
+    } catch (err) {
+      setDrilldownError('Failed to load day detail');
+      console.error('Backtest day detail error:', err);
+    } finally {
+      setDrilldownLoading(false);
     }
   };
 
@@ -164,55 +186,7 @@ export function Backtest() {
 
       {error && <div className="backtest-error">{error}</div>}
 
-      {mode === 'day' && dayResult && (
-        <div className="backtest-day-result">
-          <h2>{dayResult.date}</h2>
-
-          {dayResult.status === 'no_data' && (
-            <p className="backtest-status backtest-status--no-data">
-              No data available for this day.
-            </p>
-          )}
-
-          {dayResult.status === 'no_trade' && (
-            <p className="backtest-status backtest-status--no-trade">
-              No trade this day (H1 range: {dayResult.h1_low} - {dayResult.h1_high}).
-            </p>
-          )}
-
-          {dayResult.status === 'traded' && (
-            <>
-              <p className="backtest-h1-range">
-                H1 range: {dayResult.h1_low} - {dayResult.h1_high}
-              </p>
-              <table className="backtest-trades-table">
-                <thead>
-                  <tr>
-                    <th>Entry time</th>
-                    <th>Entry price</th>
-                    <th>Exit time</th>
-                    <th>Exit price</th>
-                    <th>Exit reason</th>
-                    <th>Points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dayResult.trades.map((trade, index) => (
-                    <tr key={index}>
-                      <td>{trade.entry_time}</td>
-                      <td>{trade.entry_price}</td>
-                      <td>{trade.exit_time}</td>
-                      <td>{trade.exit_price}</td>
-                      <td>{formatReason(trade.exit_reason)}</td>
-                      <td className={pointsClass(trade.points)}>{trade.points}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-        </div>
-      )}
+      {mode === 'day' && dayResult && <BacktestDayDetail detail={dayResult} />}
 
       {mode === 'range' && runResult && (
         <div className="backtest-range-result">
@@ -263,16 +237,31 @@ export function Backtest() {
               </tr>
             </thead>
             <tbody>
-              {runResult.days.map((day) => (
-                <tr key={day.date}>
-                  <td>{day.date}</td>
-                  <td>{formatReason(day.status)}</td>
-                  <td>{day.trade_count}</td>
-                  <td className={pointsClass(day.points)}>{day.points}</td>
-                </tr>
-              ))}
+              {runResult.days.map((day) => {
+                const clickable = day.status === 'traded';
+                return (
+                  <tr
+                    key={day.date}
+                    className={clickable ? 'backtest-day-row--clickable' : ''}
+                    onClick={clickable ? () => openDrilldown(day.date) : undefined}
+                  >
+                    <td>{day.date}</td>
+                    <td>{formatReason(day.status)}</td>
+                    <td>{day.trade_count}</td>
+                    <td className={pointsClass(day.points)}>{day.points}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+
+          {drilldownLoading && <p className="backtest-status">Loading day detail...</p>}
+          {drilldownError && <div className="backtest-error">{drilldownError}</div>}
+          {drilldown && (
+            <div className="backtest-day-drilldown">
+              <BacktestDayDetail detail={drilldown} />
+            </div>
+          )}
         </div>
       )}
     </div>
