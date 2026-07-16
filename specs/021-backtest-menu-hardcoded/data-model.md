@@ -44,14 +44,14 @@ Hardcoded, not persisted — one Python constant, not a DB row.
 |---|---|---|
 | `entry_time` | `datetime` | Close time of the confirming 5-minute candle (FR-007) |
 | `entry_price` | `float` | Close price of the confirming 5-minute candle |
-| `exit_time` | `Optional[datetime]` | `None` only if the day's evaluation window ends without any exit ever being recorded (should not happen once EOD fallback fires — kept optional defensively) |
+| `exit_time` | `datetime` | Required — a `Trade` is only ever constructed once it has closed (the implementation never stores an open position as a `Trade`), so there is no `None` case to represent |
 | `exit_price` | `float` | Per FR-010 gap-fill rule |
 | `exit_reason` | `ExitReason` | One of the four members above |
 | `points` | `float` | `exit_price - entry_price`, rounded consistent with existing `Candle` price rounding (`round(..., 4)` per `client/client_helper.py` convention, then reported to the trader in points) |
 
 **Validation rules** (enforced in `api/services/backtest_service.py`, not at the dataclass level — consistent with how other domain models in this codebase are built by services rather than self-validating):
 - `entry_time < exit_time` when `exit_time` is set.
-- `exit_reason == BREAK_EVEN` ⇔ `points == 0`.
+- `exit_reason == BREAK_EVEN` normally implies `points == 0`, but not always: FR-010's gap-fill rule applies uniformly to all exit types, so a break-even exit whose triggering candle opens beyond the break-even level records that candle's open price (and therefore a small non-zero points value) rather than being forced to exactly 0. `exit_reason` reflects which mechanism closed the trade (the stop had moved to break-even before being hit), not a guarantee of the resulting points — see spec.md's Assumptions for the reasoning.
 - At most one `Trade` per `DayResult` may be "open" at construction time — trades are only appended once closed (FR-011: at most one open position at any time).
 
 ### `DayResult`

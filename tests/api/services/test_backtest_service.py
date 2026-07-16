@@ -246,6 +246,26 @@ class TestEvaluateDayExits:
         assert trade.exit_price == 8010
         assert trade.points == 0
 
+    def test_break_even_exit_with_gap_is_not_exactly_zero(self):
+        """FR-010's gap-fill rule applies uniformly to all exit types,
+        including break-even (resolved explicitly after PR review):
+        a candle that opens below the (now break-even) stop records
+        that open price, so the trade's points can be a small
+        non-zero value even though it is still labeled BREAK_EVEN."""
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),
+            m5_candle(1, 8000, 8015, 7995, 8010),  # entry @8010
+            m5_candle(2, 8015, 8035, 8005, 8020),  # arms BE (>=8030)
+            m5_candle(3, 8005, 8008, 7995, 8000),  # gap: open 8005 < 8010
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert len(result.trades) == 1
+        trade = result.trades[0]
+        assert trade.exit_reason == ExitReason.BREAK_EVEN
+        assert trade.exit_price == 8005
+        assert trade.points == -5
+
     def test_multi_trade_day_reentry(self):
         candles = [
             # Trade 1: breach -> entry @8010 -> stop-loss
@@ -434,3 +454,32 @@ class TestRunRange:
         assert result.summary.number_of_winning_positions == 0
         assert result.summary.number_of_losing_positions == 1
         assert result.summary.number_of_be == 0
+
+    def test_gapped_be_trade_stays_be_not_losing(self, mocker):
+        """A BREAK_EVEN trade with non-zero points (gap-through, see
+        evaluate_day's gap test) is still classified as BE, not as a
+        loss, and its points are excluded from average_loss - only
+        final_result reflects the actual value (resolved explicitly
+        after PR review, see spec.md Assumptions)."""
+        service = BacktestService(MagicMock(spec=CandlesService))
+        day = datetime.date(2026, 6, 2)
+        mocker.patch.object(
+            service,
+            "evaluate_day",
+            return_value=DayResult(
+                date=day,
+                status=DayStatus.TRADED,
+                h1_high=8050,
+                h1_low=8000,
+                trades=[make_trade(ExitReason.BREAK_EVEN, -5)],
+            ),
+        )
+
+        result = service.run_range(DEFINITION, day, day)
+
+        assert result.summary.number_of_trades == 1
+        assert result.summary.number_of_be == 1
+        assert result.summary.number_of_winning_positions == 0
+        assert result.summary.number_of_losing_positions == 0
+        assert result.summary.average_loss is None
+        assert result.summary.final_result == -5
