@@ -135,6 +135,8 @@ Examples:
 - N/A — purely in-memory component state (`strategy`, `signal`) (020-saxo-reporting)
 - Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (existing `api/` app), Python standard library `csv` module, existing `client/gsheet_client.py` (Google Sheets API via `googleapiclient`), Axios + React Router DOM v7+ (frontend, existing `frontend/src/services/api.ts`) (022-trade-republic-report)
 - N/A — per spec (FR-010), uploaded transactions are held only for the current browser session (React state); no database table or file store is introduced (022-trade-republic-report)
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) — no change from existing stack. + FastAPI (backend, existing), Pydantic v2 (existing), `zoneinfo` (Python stdlib — new usage in this codebase for DST-aware Paris-local time math, see research.md §1), existing `SaxoClient`/`CandlesService`; React Router DOM v7+, Axios, Vite (frontend, existing). (021-backtest-menu-hardcoded)
+- N/A — ephemeral, computed on demand per request, nothing persisted (Clarifications, Session 2026-07-14). (021-backtest-menu-hardcoded)
 - Python 3.12 (backend), TypeScript 5+ / React 19+ (frontend) + `anthropic` SDK (NEW, backend), FastAPI + Pydantic v2, Click, `aioboto3` (DynamoDB), `slack_sdk`, `cachetools` (TTLCache); React Router DOM v7+, Vite 7+, Axios (frontend) (023-alert-triage)
 - AWS DynamoDB — new `alert_digests` table (hash_key `run_date` String, range_key `created_at` Number, **no TTL**); existing `alerts` table unchanged (023-alert-triage)
 
