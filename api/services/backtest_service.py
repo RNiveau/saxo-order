@@ -160,7 +160,7 @@ class BacktestService:
             status=status,
             h1_high=h1_high,
             h1_low=h1_low,
-            candles=five_min_candles,
+            candles=chronological,
             trades=trades,
         )
 

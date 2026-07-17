@@ -175,6 +175,29 @@ class TestEvaluateDayNoTrade:
         assert result.trades == []
 
 
+class TestEvaluateDayCandleOrdering:
+    def test_day_result_candles_are_chronological_even_if_fetched_reversed(
+        self,
+    ):
+        """The real SaxoClient returns candles newest-first (repo-wide
+        "index 0 = newest" convention). DayResult.candles must still be
+        time-ascending for the detail view's "5-minute candles from
+        10:00" table (FR-015), independently of the fetch order -- the
+        engine already sorts internally for its own evaluation, but the
+        DayResult used to be populated from the raw, unsorted fetch."""
+        chronological_candles = [
+            m5_candle(0, 8010, 8020, 8005, 8015),
+            m5_candle(1, 8015, 8025, 8010, 8020),
+            m5_candle(2, 8020, 8030, 8015, 8025),
+        ]
+        newest_first = list(reversed(chronological_candles))
+        service = make_service([h1_candle()], newest_first)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert [c.date for c in result.candles] == [
+            c.date for c in chronological_candles
+        ]
+
+
 class TestEvaluateDayExits:
     def test_stop_loss_exit(self):
         candles = [
@@ -230,6 +253,24 @@ class TestEvaluateDayExits:
         assert trade.exit_reason == ExitReason.END_OF_DAY
         assert trade.exit_price == 8015
         assert trade.points == 5
+
+    def test_entry_on_last_candle_produces_zero_point_end_of_day(self):
+        """A signal that only confirms on the session's final 5-minute
+        candle opens and immediately closes (end of day) on that same
+        candle, since there is no further candle to evaluate -- the
+        trade never had a chance to move, so points is exactly 0."""
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),  # breach
+            m5_candle(1, 8000, 8015, 7995, 8010),  # entry @8010, also last
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert len(result.trades) == 1
+        trade = result.trades[0]
+        assert trade.entry_price == 8010
+        assert trade.exit_price == 8010
+        assert trade.exit_reason == ExitReason.END_OF_DAY
+        assert trade.points == 0
 
     def test_break_even_exit(self):
         candles = [
@@ -552,3 +593,32 @@ class TestRunRange:
         assert result.summary.number_of_losing_positions == 0
         assert result.summary.average_loss is None
         assert result.summary.final_result == -5
+
+    def test_zero_point_end_of_day_trade_counts_as_losing(self, mocker):
+        """A non-BE trade that closes at exactly 0 points (e.g. entry
+        confirmed on the session's last candle, see evaluate_day's
+        same-candle EOD test) is classified as a losing position, not a
+        win or a BE - only break-even-mechanism exits get the "BE"
+        label (documented in spec.md Assumptions)."""
+        service = BacktestService(MagicMock(spec=CandlesService))
+        day = datetime.date(2026, 6, 2)
+        mocker.patch.object(
+            service,
+            "evaluate_day",
+            return_value=DayResult(
+                date=day,
+                status=DayStatus.TRADED,
+                h1_high=8050,
+                h1_low=8000,
+                trades=[make_trade(ExitReason.END_OF_DAY, 0)],
+            ),
+        )
+
+        result = service.run_range(DEFINITION, day, day)
+
+        assert result.summary.number_of_trades == 1
+        assert result.summary.number_of_be == 0
+        assert result.summary.number_of_winning_positions == 0
+        assert result.summary.number_of_losing_positions == 1
+        assert result.summary.average_loss == 0
+        assert result.summary.final_result == 0
