@@ -1,8 +1,67 @@
 import datetime
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 from model import Candle, Market, UnitTime
 from utils.logger import Logger
+
+
+def _local_hour_to_utc(
+    local_date: datetime.date, hour: int, minute: int, tz: ZoneInfo
+) -> int:
+    """UTC hour of ``hour:minute`` local time on ``local_date`` in ``tz``."""
+    local_dt = datetime.datetime(
+        local_date.year,
+        local_date.month,
+        local_date.day,
+        hour,
+        minute,
+        tzinfo=tz,
+    )
+    return local_dt.astimezone(datetime.UTC).hour
+
+
+def market_in_utc(market: Market, reference: datetime.datetime) -> Market:
+    """Convert a market's exchange-local session hours to UTC, DST-aware.
+
+    The Saxo API returns candle timestamps in UTC, while an exchange's
+    session is defined in its local wall-clock time (Euronext Paris trades
+    09:00-17:00 local all year, NYSE 09:30-15:00 local). Because the UTC
+    offset of that local time changes with daylight saving, the session's
+    UTC hours shift by one hour between summer and winter. Centralising the
+    conversion here keeps every candle builder DST-correct instead of
+    hardcoding a single season's UTC hours.
+
+    Args:
+        market: Market whose ``open_hour``/``close_hour`` are exchange-local.
+        reference: Datetime whose date selects the DST regime. Naive values
+            are treated as UTC; tz-aware values are honoured as-is.
+
+    Returns:
+        A new ``Market`` with ``open_hour``/``close_hour`` expressed in UTC
+        for the reference date. ``open_minutes`` and ``h4_blocks`` are
+        preserved (DST offsets are whole hours, so minutes never shift).
+
+    Note:
+        Only the UTC hour-of-day is kept, so this assumes the session stays
+        within a single UTC day with ``open_hour < close_hour`` (true for
+        Euronext and US exchanges). A market whose local->UTC conversion
+        crosses midnight would need day-aware handling.
+    """
+    tz = ZoneInfo(market.timezone)
+    if reference.tzinfo is None:
+        reference = reference.replace(tzinfo=datetime.UTC)
+    local_date = reference.astimezone(tz).date()
+
+    return Market(
+        open_hour=_local_hour_to_utc(
+            local_date, market.open_hour, market.open_minutes, tz
+        ),
+        open_minutes=market.open_minutes,
+        close_hour=_local_hour_to_utc(local_date, market.close_hour, 0, tz),
+        h4_blocks=market.h4_blocks,
+        timezone="UTC",
+    )
 
 
 def build_current_weekly_candle_from_daily(
@@ -62,23 +121,28 @@ def get_date_utc0() -> datetime.datetime:
     return datetime.datetime.now(tz=datetime.UTC)
 
 
-def build_h4_candles_from_h1(
-    candles: List[Candle], market: Market
-) -> List[Candle]:
+def _h4_ending_hours(market: Market) -> dict:
+    """Map each H4 block's UTC ending hour to its size for `market`."""
     ending_hours = {}
     cumulative = 0
     for block_size in market.h4_blocks:
         cumulative += block_size
-        ending_hour = market.open_hour + cumulative - 1
-        ending_hours[ending_hour] = block_size
+        ending_hours[market.open_hour + cumulative - 1] = block_size
+    return ending_hours
 
+
+def build_h4_candles_from_h1(
+    candles: List[Candle], market: Market
+) -> List[Candle]:
     candles_h4 = []
     i = 0
     while i < len(candles):
         candle_date = candles[i].date
         if candle_date is None:
             i += 1
-        elif candle_date.hour in ending_hours:
+            continue
+        ending_hours = _h4_ending_hours(market_in_utc(market, candle_date))
+        if candle_date.hour in ending_hours:
             block_size = ending_hours[candle_date.hour]
             if i + block_size - 1 >= len(candles):
                 break
@@ -97,7 +161,6 @@ def build_h4_candles_from_h1(
 def build_daily_candles_from_h1(
     candles: List[Candle], market: Market
 ) -> List[Candle]:
-    ending_hour = market.close_hour - (1 if market.open_minutes == 30 else 0)
     num_h1 = (
         market.close_hour
         - market.open_hour
@@ -110,7 +173,12 @@ def build_daily_candles_from_h1(
         candle_date = candles[i].date
         if candle_date is None:
             i += 1
-        elif candle_date.hour == ending_hour:
+            continue
+        utc_market = market_in_utc(market, candle_date)
+        ending_hour = utc_market.close_hour - (
+            1 if market.open_minutes == 30 else 0
+        )
+        if candle_date.hour == ending_hour:
             if i + num_h1 - 1 >= len(candles):
                 break
             candles_daily.append(

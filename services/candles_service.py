@@ -12,6 +12,7 @@ from utils.helper import (
     build_daily_candles_from_h1,
     build_h4_candles_from_h1,
     get_date_utc0,
+    market_in_utc,
 )
 from utils.logger import Logger
 
@@ -199,11 +200,12 @@ class CandlesService:
         candles = []
         i = 0
         while i < len(data):
-            open_hour_ok = data[i]["Time"].hour >= market.open_hour
+            utc_market = market_in_utc(market, data[i]["Time"])
+            open_hour_ok = data[i]["Time"].hour >= utc_market.open_hour
             close_hour_ok = (
-                data[i]["Time"].hour <= market.close_hour
+                data[i]["Time"].hour <= utc_market.close_hour
                 if market.open_minutes == 0
-                else data[i]["Time"].hour <= market.close_hour + 1
+                else data[i]["Time"].hour <= utc_market.close_hour + 1
             )
             minutes_ok = (
                 data[i]["Time"].minute == 30
@@ -269,9 +271,7 @@ class CandlesService:
             date=date,
         )
         if len(data) == 0:
-            raise SaxoException(
-                f"No data returned for {code}"
-            )
+            raise SaxoException(f"No data returned for {code}")
         if data[0]["Time"].minute == market.open_minutes:
             data = data[1:]
         candles = self._build_h1_from_30m(data, market, ut)

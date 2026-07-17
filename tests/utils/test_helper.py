@@ -9,6 +9,7 @@ from utils.helper import (
     build_daily_candles_from_h1,
     build_h4_candles_from_h1,
     build_weekly_candles_from_daily,
+    market_in_utc,
 )
 
 
@@ -1007,6 +1008,147 @@ class TestHelper:
     ):
         assert (
             build_daily_candles_from_h1(candles=candles, market=market)
+            == expected
+        )
+
+    @pytest.mark.parametrize(
+        "market_factory, reference, expected_open, expected_close",
+        [
+            # Euronext Paris 09:00-17:00 local -> UTC 07:00-15:00 in CEST
+            (EUMarket, datetime.datetime(2024, 6, 21), 7, 15),
+            # ... and UTC 08:00-16:00 in CET (winter)
+            (EUMarket, datetime.datetime(2024, 1, 15), 8, 16),
+            # NYSE 09:30-15:00 local -> UTC 13:30-19:00 in EDT
+            (USMarket, datetime.datetime(2024, 6, 21), 13, 19),
+            # ... and UTC 14:30-20:00 in EST (winter)
+            (USMarket, datetime.datetime(2024, 1, 15), 14, 20),
+        ],
+    )
+    def test_market_in_utc(
+        self,
+        market_factory,
+        reference: datetime.datetime,
+        expected_open: int,
+        expected_close: int,
+    ):
+        market = market_in_utc(market_factory(), reference)
+        assert market.open_hour == expected_open
+        assert market.close_hour == expected_close
+        assert market.open_minutes == market_factory().open_minutes
+
+    def test_build_daily_candle_from_h1_winter_dst(self):
+        """In winter (CET) the EU session lands on UTC 08:00-16:00.
+
+        With the hardcoded summer UTC close hour (15) this batch produced
+        no daily candle; the DST-aware conversion now recognises the 16:00
+        UTC close.
+        """
+        candles = [
+            Candle(
+                lower=93 + i,
+                higher=118 - i,
+                open=97 + i,
+                close=99 + i,
+                ut=UnitTime.H1,
+                date=datetime.datetime(2024, 1, 15, hour, 0),
+            )
+            for i, hour in enumerate(range(16, 7, -1))
+        ]
+        expected = [
+            Candle(
+                lower=min(c.lower for c in candles),
+                higher=max(c.higher for c in candles),
+                open=candles[-1].open,
+                close=candles[0].close,
+                ut=UnitTime.D,
+                date=datetime.datetime(2024, 1, 15, 8, 0),
+            )
+        ]
+        assert (
+            build_daily_candles_from_h1(candles=candles, market=EUMarket())
+            == expected
+        )
+
+    def test_build_daily_candles_cross_season_batch(self):
+        """A single batch spanning a DST transition must build a daily
+        candle for both the winter and the summer day.
+
+        Each candle's own date selects its DST regime, so the winter close
+        (16:00 UTC) and the summer close (15:00 UTC) are both recognised.
+        A single per-batch regime would drop one of the two days.
+        """
+        winter = [
+            Candle(
+                lower=200 + i,
+                higher=300 - i,
+                open=210 + i,
+                close=220 + i,
+                ut=UnitTime.H1,
+                date=datetime.datetime(2025, 1, 15, hour, 0),
+            )
+            for i, hour in enumerate(range(16, 7, -1))
+        ]
+        summer = [
+            Candle(
+                lower=100 + i,
+                higher=190 - i,
+                open=110 + i,
+                close=120 + i,
+                ut=UnitTime.H1,
+                date=datetime.datetime(2024, 8, 20, hour, 0),
+            )
+            for i, hour in enumerate(range(15, 6, -1))
+        ]
+
+        def daily(day, date):
+            return Candle(
+                lower=min(c.lower for c in day),
+                higher=max(c.higher for c in day),
+                open=day[-1].open,
+                close=day[0].close,
+                ut=UnitTime.D,
+                date=date,
+            )
+
+        expected = [
+            daily(winter, datetime.datetime(2025, 1, 15, 8, 0)),
+            daily(summer, datetime.datetime(2024, 8, 20, 7, 0)),
+        ]
+        assert (
+            build_daily_candles_from_h1(
+                candles=winter + summer, market=EUMarket()
+            )
+            == expected
+        )
+
+    def test_build_h4_candles_from_h1_winter_dst(self):
+        """In winter (CET) the EU session lands on UTC 08:00-16:00, so H4
+        blocks end at UTC 10/14/16 instead of the summer 09/13/15."""
+        winter = [
+            Candle(
+                lower=200 + i,
+                higher=300 - i,
+                open=210 + i,
+                close=220 + i,
+                ut=UnitTime.H1,
+                date=datetime.datetime(2025, 1, 15, hour, 0),
+            )
+            for i, hour in enumerate(range(16, 7, -1))
+        ]
+
+        def h4(day):
+            return Candle(
+                lower=min(c.lower for c in day),
+                higher=max(c.higher for c in day),
+                open=day[-1].open,
+                close=day[0].close,
+                ut=UnitTime.H4,
+                date=day[-1].date,
+            )
+
+        expected = [h4(winter[0:2]), h4(winter[2:6]), h4(winter[6:9])]
+        assert (
+            build_h4_candles_from_h1(candles=winter, market=EUMarket())
             == expected
         )
 
