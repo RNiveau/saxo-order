@@ -9,6 +9,7 @@ from utils.helper import (
     build_daily_candles_from_h1,
     build_h4_candles_from_h1,
     build_weekly_candles_from_daily,
+    market_in_utc,
 )
 
 
@@ -1007,6 +1008,64 @@ class TestHelper:
     ):
         assert (
             build_daily_candles_from_h1(candles=candles, market=market)
+            == expected
+        )
+
+    @pytest.mark.parametrize(
+        "market_factory, reference, expected_open, expected_close",
+        [
+            # Euronext Paris 09:00-17:00 local -> UTC 07:00-15:00 in CEST
+            (EUMarket, datetime.datetime(2024, 6, 21), 7, 15),
+            # ... and UTC 08:00-16:00 in CET (winter)
+            (EUMarket, datetime.datetime(2024, 1, 15), 8, 16),
+            # NYSE 09:30-15:00 local -> UTC 13:30-19:00 in EDT
+            (USMarket, datetime.datetime(2024, 6, 21), 13, 19),
+            # ... and UTC 14:30-20:00 in EST (winter)
+            (USMarket, datetime.datetime(2024, 1, 15), 14, 20),
+        ],
+    )
+    def test_market_in_utc(
+        self,
+        market_factory,
+        reference: datetime.datetime,
+        expected_open: int,
+        expected_close: int,
+    ):
+        market = market_in_utc(market_factory(), reference)
+        assert market.open_hour == expected_open
+        assert market.close_hour == expected_close
+        assert market.open_minutes == market_factory().open_minutes
+
+    def test_build_daily_candle_from_h1_winter_dst(self):
+        """In winter (CET) the EU session lands on UTC 08:00-16:00.
+
+        With the hardcoded summer UTC close hour (15) this batch produced
+        no daily candle; the DST-aware conversion now recognises the 16:00
+        UTC close.
+        """
+        candles = [
+            Candle(
+                lower=93 + i,
+                higher=118 - i,
+                open=97 + i,
+                close=99 + i,
+                ut=UnitTime.H1,
+                date=datetime.datetime(2024, 1, 15, hour, 0),
+            )
+            for i, hour in enumerate(range(16, 7, -1))
+        ]
+        expected = [
+            Candle(
+                lower=min(c.lower for c in candles),
+                higher=max(c.higher for c in candles),
+                open=candles[-1].open,
+                close=candles[0].close,
+                ut=UnitTime.D,
+                date=datetime.datetime(2024, 1, 15, 8, 0),
+            )
+        ]
+        assert (
+            build_daily_candles_from_h1(candles=candles, market=EUMarket())
             == expected
         )
 

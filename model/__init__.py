@@ -196,19 +196,28 @@ class Market:
     open_minutes: int
     close_hour: int
     h4_blocks: List[int] = None  # type: ignore[assignment]
+    timezone: str = "UTC"
 
 
 class USMarket(Market):
     def __init__(self) -> None:
         super().__init__(
-            open_hour=13, close_hour=19, open_minutes=30, h4_blocks=[4, 3]
+            open_hour=9,
+            close_hour=15,
+            open_minutes=30,
+            h4_blocks=[4, 3],
+            timezone="America/New_York",
         )
 
 
 class EUMarket(Market):
     def __init__(self) -> None:
         super().__init__(
-            open_hour=7, close_hour=15, open_minutes=0, h4_blocks=[3, 4, 2]
+            open_hour=9,
+            close_hour=17,
+            open_minutes=0,
+            h4_blocks=[3, 4, 2],
+            timezone="Europe/Paris",
         )
 
 

@@ -1,8 +1,64 @@
 import datetime
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 from model import Candle, Market, UnitTime
 from utils.logger import Logger
+
+
+def market_in_utc(market: Market, reference: datetime.datetime) -> Market:
+    """Convert a market's exchange-local session hours to UTC, DST-aware.
+
+    The Saxo API returns candle timestamps in UTC, while an exchange's
+    session is defined in its local wall-clock time (Euronext Paris trades
+    09:00-17:00 local all year, NYSE 09:30-15:00 local). Because the UTC
+    offset of that local time changes with daylight saving, the session's
+    UTC hours shift by one hour between summer and winter. Centralising the
+    conversion here keeps every candle builder DST-correct instead of
+    hardcoding a single season's UTC hours.
+
+    Args:
+        market: Market whose ``open_hour``/``close_hour`` are exchange-local.
+        reference: Datetime whose date selects the DST regime. Naive values
+            are treated as UTC; tz-aware values are honoured as-is.
+
+    Returns:
+        A new ``Market`` with ``open_hour``/``close_hour`` expressed in UTC
+        for the reference date. ``open_minutes`` and ``h4_blocks`` are
+        preserved (DST offsets are whole hours, so minutes never shift).
+    """
+    tz = ZoneInfo(market.timezone)
+    if reference.tzinfo is None:
+        reference = reference.replace(tzinfo=datetime.UTC)
+    local_date = reference.astimezone(tz).date()
+
+    def to_utc_hour(hour: int, minute: int) -> int:
+        local_dt = datetime.datetime(
+            local_date.year,
+            local_date.month,
+            local_date.day,
+            hour,
+            minute,
+            tzinfo=tz,
+        )
+        return local_dt.astimezone(datetime.UTC).hour
+
+    return Market(
+        open_hour=to_utc_hour(market.open_hour, market.open_minutes),
+        open_minutes=market.open_minutes,
+        close_hour=to_utc_hour(market.close_hour, 0),
+        h4_blocks=market.h4_blocks,
+        timezone="UTC",
+    )
+
+
+def _market_reference_date(
+    candles: List[Candle],
+) -> datetime.datetime:
+    """Pick the DST reference date for a batch of candles (newest first)."""
+    if candles and candles[0].date is not None:
+        return candles[0].date
+    return get_date_utc0()
 
 
 def build_current_weekly_candle_from_daily(
@@ -65,6 +121,7 @@ def get_date_utc0() -> datetime.datetime:
 def build_h4_candles_from_h1(
     candles: List[Candle], market: Market
 ) -> List[Candle]:
+    market = market_in_utc(market, _market_reference_date(candles))
     ending_hours = {}
     cumulative = 0
     for block_size in market.h4_blocks:
@@ -97,6 +154,7 @@ def build_h4_candles_from_h1(
 def build_daily_candles_from_h1(
     candles: List[Candle], market: Market
 ) -> List[Candle]:
+    market = market_in_utc(market, _market_reference_date(candles))
     ending_hour = market.close_hour - (1 if market.open_minutes == 30 else 0)
     num_h1 = (
         market.close_hour
