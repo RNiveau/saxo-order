@@ -625,7 +625,10 @@ async def run_alerting(
                     )
 
         try:
-            triage_agent = TriageAgent(AnthropicClient(configuration))
+            triage_agent = TriageAgent(
+                AnthropicClient(configuration),
+                configuration.triage_slope_threshold,
+            )
             digest = triage_agent.synthesize(all_alerts)
             logger.info(
                 f"Triage digest for {digest.run_date}: {digest.counts} "

@@ -73,10 +73,10 @@ Web + Lambda layout (per plan.md): backend at repo root (`model/`, `client/`, `s
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Add deterministic fallback to `TriageAgent` in `services/alert_triage_service.py`: rank by distinct-pattern count then `abs(ma50_slope)`, tier mapping (≥2 patterns → high; 1 pattern w/ meaningful |slope| → watch; else noise), templated rationale, `fallback_used=True`, `model="deterministic-fallback"` (thresholds from config) (depends on T007)
-- [ ] T011 [US2] Wrap `synthesize` to catch `AnthropicException` and invalid/parse failures → deterministic fallback in `services/alert_triage_service.py`
-- [ ] T012 [US2] Wrap the triage+notify block in `run_alerting` (`saxo_order/commands/alerting.py`) so any exception is logged and swallowed after raw alerts are already stored — order/workflow path untouched (depends on T009)
-- [ ] T013 [US2] Tests in `tests/services/test_alert_triage_service.py`: transport failure and invalid-output both yield a valid `fallback_used=True` digest; simulated triage exception leaves raw-alert storage intact and scan completing
+- [x] T010 [US2] Add deterministic fallback to `TriageAgent` in `services/alert_triage_service.py`: rank by distinct-pattern count then `abs(ma50_slope)`, tier mapping (≥2 patterns → high; 1 pattern w/ meaningful |slope| → watch; else noise), templated rationale, `fallback_used=True`, `model="deterministic-fallback"` (thresholds from config) (depends on T007)
+- [x] T011 [US2] Wrap `synthesize` to catch `AnthropicException` and invalid/parse failures → deterministic fallback in `services/alert_triage_service.py`
+- [x] T012 [US2] Wrap the triage+notify block in `run_alerting` (`saxo_order/commands/alerting.py`) so any exception is logged and swallowed after raw alerts are already stored — order/workflow path untouched (depends on T009)
+- [x] T013 [US2] Tests in `tests/services/test_alert_triage_service.py`: transport failure and invalid-output both yield a valid `fallback_used=True` digest; simulated triage exception leaves raw-alert storage intact and scan completing
 
 **Checkpoint**: Guaranteed brief delivery with graceful degradation (SC-003, SC-004)
 

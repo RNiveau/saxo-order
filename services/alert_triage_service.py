@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from client.anthropic_client import AnthropicClient
 from model import Alert, AlertDigest, Conviction, TriagedAsset
+from utils.exception import AnthropicException
 from utils.logger import Logger
 
 TRIAGE_SYSTEM_PROMPT = """You are a trading-desk analyst triaging the day's \
@@ -42,9 +43,17 @@ Respond with ONLY a JSON object, no prose, no code fences:
 "rank": <int>, "rationale": "<one line>"}]}"""
 
 
+FALLBACK_MODEL = "deterministic-fallback"
+
+
 class TriageAgent:
-    def __init__(self, anthropic_client: AnthropicClient) -> None:
+    def __init__(
+        self,
+        anthropic_client: AnthropicClient,
+        slope_threshold: float = 1.0,
+    ) -> None:
         self.anthropic_client = anthropic_client
+        self.slope_threshold = slope_threshold
         self.logger = Logger.get_logger("triage_agent", logging.INFO)
 
     def synthesize(self, alerts: List[Alert]) -> AlertDigest:
@@ -65,24 +74,94 @@ class TriageAgent:
                 fallback_used=False,
             )
 
-        payload = self._build_payload(grouped)
-        raw = self.anthropic_client.complete_json(
-            TRIAGE_SYSTEM_PROMPT, payload
+        try:
+            raw = self.anthropic_client.complete_json(
+                TRIAGE_SYSTEM_PROMPT, self._build_payload(grouped)
+            )
+            triaged = self._parse_triaged(raw, grouped)
+            counts = self._count_tiers(triaged)
+            summary = str(
+                raw.get("summary", "")
+            ).strip() or self._default_summary(counts)
+            return AlertDigest(
+                run_date=run_date,
+                created_at=created_at,
+                summary=summary,
+                counts=counts,
+                triaged_assets=triaged,
+                model=self.anthropic_client.model,
+                fallback_used=False,
+            )
+        except AnthropicException as e:
+            self.logger.warning(
+                f"Triage reasoning failed, using deterministic fallback: {e}"
+            )
+            return self._fallback_digest(grouped, run_date, created_at)
+
+    def _fallback_digest(
+        self,
+        grouped: Dict[str, Dict[str, Any]],
+        run_date: str,
+        created_at: int,
+    ) -> AlertDigest:
+        ordered = sorted(
+            grouped.values(),
+            key=lambda entry: (
+                len(entry["patterns"]),
+                self._abs_slope(entry["ma50_slope"]),
+            ),
+            reverse=True,
         )
-        triaged = self._parse_triaged(raw, grouped)
+        triaged: List[TriagedAsset] = []
+        rank = 1
+        for entry in ordered:
+            conviction = self._fallback_conviction(entry)
+            if conviction == Conviction.NOISE:
+                triaged.append(
+                    self._build_triaged_asset(
+                        entry, Conviction.NOISE, None, ""
+                    )
+                )
+            else:
+                triaged.append(
+                    self._build_triaged_asset(
+                        entry,
+                        conviction,
+                        rank,
+                        self._fallback_rationale(entry),
+                    )
+                )
+                rank += 1
         counts = self._count_tiers(triaged)
-        summary = str(raw.get("summary", "")).strip() or self._default_summary(
-            counts
-        )
         return AlertDigest(
             run_date=run_date,
             created_at=created_at,
-            summary=summary,
+            summary=self._default_summary(counts),
             counts=counts,
             triaged_assets=triaged,
-            model=self.anthropic_client.model,
-            fallback_used=False,
+            model=FALLBACK_MODEL,
+            fallback_used=True,
         )
+
+    def _fallback_conviction(self, entry: Dict[str, Any]) -> Conviction:
+        pattern_count = len(entry["patterns"])
+        if pattern_count >= 2:
+            return Conviction.HIGH
+        if (
+            pattern_count == 1
+            and self._abs_slope(entry["ma50_slope"]) >= self.slope_threshold
+        ):
+            return Conviction.WATCH
+        return Conviction.NOISE
+
+    def _fallback_rationale(self, entry: Dict[str, Any]) -> str:
+        patterns = ", ".join(p.value for p in entry["patterns"])
+        slope = entry["ma50_slope"]
+        slope_text = f", slope {slope:.1f}%" if slope is not None else ""
+        return f"{len(entry['patterns'])} pattern(s): {patterns}{slope_text}"
+
+    def _abs_slope(self, slope: Optional[float]) -> float:
+        return abs(slope) if slope is not None else 0.0
 
     def _group_by_asset(
         self, alerts: List[Alert]
