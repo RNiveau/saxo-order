@@ -149,5 +149,9 @@ class Configuration:
         return self.config.get("anthropic_model", "claude-sonnet-5")
 
     @property
+    def triage_slope_threshold(self) -> float:
+        return float(self.config.get("triage_slope_threshold", 1.0))
+
+    @property
     def api_mode(self) -> bool:
         return os.getenv("API_MODE", "false").lower() == "true"
