@@ -26,6 +26,12 @@ def market_in_utc(market: Market, reference: datetime.datetime) -> Market:
         A new ``Market`` with ``open_hour``/``close_hour`` expressed in UTC
         for the reference date. ``open_minutes`` and ``h4_blocks`` are
         preserved (DST offsets are whole hours, so minutes never shift).
+
+    Note:
+        Only the UTC hour-of-day is kept, so this assumes the session stays
+        within a single UTC day with ``open_hour < close_hour`` (true for
+        Euronext and US exchanges). A market whose local->UTC conversion
+        crosses midnight would need day-aware handling.
     """
     tz = ZoneInfo(market.timezone)
     if reference.tzinfo is None:

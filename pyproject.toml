@@ -26,6 +26,7 @@ pydantic = "^2.12.4"
 cachetools = "^6.2.1"
 python-multipart = "^0.0.32"
 anthropic = "^0.117.0"
+tzdata = "^2026.3"
 
 [tool.poetry.dev-dependencies]
 black = "^26.3.1"
