@@ -1,0 +1,26 @@
+.daily-brief-container {
+  max-width: 1400px;
+  margin: 0 auto 1.5rem;
+  padding: 0 2rem;
+}
+
+.daily-brief-message,
+.daily-brief-error {
+  text-align: center;
+  padding: 1.5rem;
+  font-size: 1rem;
+  color: #8b949e;
+}
+
+.daily-brief-error {
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid #f85149;
+  border-radius: 6px;
+}
+
+@media (max-width: 768px) {
+  .daily-brief-container {
+    padding: 0 1rem;
+  }
+}

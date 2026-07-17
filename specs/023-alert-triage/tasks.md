@@ -99,9 +99,9 @@ Web + Lambda layout (per plan.md): backend at repo root (`model/`, `client/`, `s
 - [x] T020 [US3] Implement `AlertDigestService` in `api/services/alert_digest_service.py`: list full digests newest-first, get by run_date, short `TTLCache` like `AlertingService` (uses `DynamoDBClient` methods only — no client internals) (depends on T016, T019)
 - [x] T021 [US3] Test `AlertDigestService` newest-first list + get-by-run_date in `tests/api/test_alert_digest_service.py`
 - [x] T022 [US3] Implement router `api/routers/alert_digest.py` (`GET /api/alert-digests`, `GET /api/alert-digests/{run_date}`, 404 on missing) and `include_router` in `api/main.py` (depends on T020)
-- [ ] T023 [P] [US3] Add `alertDigestService` (`listRecent`, `getByRunDate`) + TS interfaces mirroring the Pydantic models in `frontend/src/services/api.ts`
-- [ ] T024 [US3] Build `DailyBrief.tsx` + `DailyBriefCarousel.tsx` (+ CSS) in `frontend/src/components/`: conviction badges (🔴 high / 🟡 watch), noise as a count, fallback indicator, reverse-chronological carousel paging (depends on T023)
-- [ ] T025 [US3] Render the `DailyBrief` section above the existing grid in `frontend/src/components/Home.tsx` (depends on T024)
+- [x] T023 [P] [US3] Add `alertDigestService` (`listRecent`, `getByRunDate`) + TS interfaces mirroring the Pydantic models in `frontend/src/services/api.ts`
+- [x] T024 [US3] Build `DailyBrief.tsx` + `DailyBriefCarousel.tsx` (+ CSS) in `frontend/src/components/`: conviction badges (🔴 high / 🟡 watch), noise as a count, fallback indicator, reverse-chronological carousel paging (depends on T023)
+- [x] T025 [US3] Render the `DailyBrief` section above the existing grid in `frontend/src/components/Home.tsx` (depends on T024)
 
 **Checkpoint**: Briefs persist indefinitely (SC-006) and are browsable on the homepage
 
