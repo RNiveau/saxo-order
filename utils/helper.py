@@ -6,6 +6,21 @@ from model import Candle, Market, UnitTime
 from utils.logger import Logger
 
 
+def _local_hour_to_utc(
+    local_date: datetime.date, hour: int, minute: int, tz: ZoneInfo
+) -> int:
+    """UTC hour of ``hour:minute`` local time on ``local_date`` in ``tz``."""
+    local_dt = datetime.datetime(
+        local_date.year,
+        local_date.month,
+        local_date.day,
+        hour,
+        minute,
+        tzinfo=tz,
+    )
+    return local_dt.astimezone(datetime.UTC).hour
+
+
 def market_in_utc(market: Market, reference: datetime.datetime) -> Market:
     """Convert a market's exchange-local session hours to UTC, DST-aware.
 
@@ -38,21 +53,12 @@ def market_in_utc(market: Market, reference: datetime.datetime) -> Market:
         reference = reference.replace(tzinfo=datetime.UTC)
     local_date = reference.astimezone(tz).date()
 
-    def to_utc_hour(hour: int, minute: int) -> int:
-        local_dt = datetime.datetime(
-            local_date.year,
-            local_date.month,
-            local_date.day,
-            hour,
-            minute,
-            tzinfo=tz,
-        )
-        return local_dt.astimezone(datetime.UTC).hour
-
     return Market(
-        open_hour=to_utc_hour(market.open_hour, market.open_minutes),
+        open_hour=_local_hour_to_utc(
+            local_date, market.open_hour, market.open_minutes, tz
+        ),
         open_minutes=market.open_minutes,
-        close_hour=to_utc_hour(market.close_hour, 0),
+        close_hour=_local_hour_to_utc(local_date, market.close_hour, 0, tz),
         h4_blocks=market.h4_blocks,
         timezone="UTC",
     )
