@@ -116,7 +116,8 @@ BacktestDefinition (1, hardcoded) ─┬─> BacktestRunResult (per request)
 ## State transitions (`Trade`, within a single day's evaluation — not persisted, computed in one pass)
 
 ```
-[no position] --(FR-006 breakout-reversal signal)--> [open, stop = entry-50]
+[no position] --(FR-006 signal, close within 20pts of H1 low and below take-profit, FR-006a)--> [open, stop = entry-50]
+[no position] --(FR-006 signal, but fails FR-006a's distance/take-profit bounds)--> [no position] (resumes searching for a fresh breach)
 [open, stop = entry-50] --(candle high >= entry+20, FR-008a)--> [open, stop = entry (break-even armed)]
 [open, stop = entry-50] --(candle low <= entry-50)--> [closed: STOP_LOSS]
 [open, stop = entry-50] --(candle high >= H1_high-10)--> [closed: TAKE_PROFIT]

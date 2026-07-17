@@ -328,6 +328,75 @@ class TestEvaluateDaySameCandleEdgeCases:
         assert trade.exit_time == candles[3].date
 
 
+class TestIsValidEntry:
+    """Direct unit tests for the entry-validity rule added after PR
+    review: a breakout-reversal close only produces a trade when it is
+    within MAX_ENTRY_DISTANCE_FROM_LOW points of the H1 low and still
+    below the take-profit level."""
+
+    def test_within_distance_and_below_tp_is_valid(self):
+        assert BacktestService._is_valid_entry(8010, 8000, 8040) is True
+
+    def test_exactly_at_max_distance_is_valid(self):
+        assert BacktestService._is_valid_entry(8020, 8000, 8040) is True
+
+    def test_beyond_max_distance_is_invalid(self):
+        assert BacktestService._is_valid_entry(8021, 8000, 8040) is False
+
+    def test_at_take_profit_level_is_invalid(self):
+        assert BacktestService._is_valid_entry(8015, 8005, 8015) is False
+
+    def test_above_take_profit_level_is_invalid(self):
+        assert BacktestService._is_valid_entry(8016, 8005, 8015) is False
+
+    def test_just_below_take_profit_level_is_valid(self):
+        assert BacktestService._is_valid_entry(8014, 8005, 8015) is True
+
+
+class TestEvaluateDayEntryValidityRule:
+    def test_entry_too_far_above_h1_low_is_rejected(self):
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),  # breach
+            # close back above h1_low, but 25pts away (> 20pt max)
+            m5_candle(1, 8015, 8030, 8005, 8025),
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.NO_TRADE
+        assert result.trades == []
+
+    def test_entry_at_or_above_take_profit_is_rejected(self):
+        h1 = h1_candle(higher=8025, lower=8005)  # take_profit_level = 8015
+        candles = [
+            m5_candle(0, 8010, 8015, 7995, 8000),  # breach
+            # close back within 20pts of the low, but at/above TP (8018)
+            m5_candle(1, 8010, 8020, 8005, 8018),
+        ]
+        service = make_service([h1], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.NO_TRADE
+        assert result.trades == []
+
+    def test_rejected_entry_still_allows_a_fresh_signal_afterwards(self):
+        """After an invalid entry, the breach flag resets so a later,
+        independent breach/close-back pair can still produce a valid
+        trade the same day."""
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),  # breach 1
+            m5_candle(1, 8015, 8030, 8005, 8025),  # invalid close-back
+            m5_candle(2, 8010, 8015, 7995, 7998),  # breach 2
+            m5_candle(3, 8000, 8015, 7995, 8010),  # valid close-back @8010
+            m5_candle(4, 8012, 8020, 8005, 8015),  # end of day
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.TRADED
+        assert len(result.trades) == 1
+        trade = result.trades[0]
+        assert trade.entry_price == 8010
+        assert trade.exit_reason == ExitReason.END_OF_DAY
+
+
 def make_trade(exit_reason, points, entry_price=8010.0):
     return Trade(
         entry_time=datetime.datetime(2026, 6, 3, 8, 5),

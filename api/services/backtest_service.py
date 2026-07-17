@@ -35,6 +35,7 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
 STOP_LOSS_POINTS = 50
 TAKE_PROFIT_OFFSET_POINTS = 10
 BREAK_EVEN_TRIGGER_POINTS = 20
+MAX_ENTRY_DISTANCE_FROM_LOW = 20
 FIVE_MINUTE_HORIZON = 5
 H1_HORIZON = 60
 
@@ -292,6 +293,22 @@ class BacktestService:
             )
             return []
 
+    @staticmethod
+    def _is_valid_entry(
+        entry_price: float, h1_low: float, take_profit_level: float
+    ) -> bool:
+        """A breakout-reversal close only produces a trade when it
+        still leaves room to work: within MAX_ENTRY_DISTANCE_FROM_LOW
+        points of the H1 low, and below the take-profit level. A
+        reversal candle that closes too far above the low, or already
+        at/above H1-high-10, is not a valid entry - it would exit on
+        the very next candle for little or no favorable move despite
+        being labeled a take-profit (added after PR review)."""
+        return (
+            entry_price - h1_low <= MAX_ENTRY_DISTANCE_FROM_LOW
+            and entry_price < take_profit_level
+        )
+
     def _evaluate_trades(
         self,
         candles: List[Candle],
@@ -311,10 +328,13 @@ class BacktestService:
                         breached = True
                     continue
                 if candle.close >= h1_low:
-                    position = _OpenPosition(
-                        entry_time=candle_date,
-                        entry_price=candle.close,
-                    )
+                    if self._is_valid_entry(
+                        candle.close, h1_low, take_profit_level
+                    ):
+                        position = _OpenPosition(
+                            entry_time=candle_date,
+                            entry_price=candle.close,
+                        )
                     breached = False
                 continue
 
