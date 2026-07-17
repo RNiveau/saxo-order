@@ -12,7 +12,7 @@ import aioboto3
 import boto3
 from botocore.exceptions import ClientError
 
-from model import Alert, AlertType
+from model import Alert, AlertDigest, AlertType
 from utils.json_util import dumps_indicator, hash_indicator
 from utils.logger import Logger
 
@@ -886,3 +886,86 @@ class DynamoDBClient(AwsClient):
                 f"Error querying orders for workflow {workflow_id}: {e}"
             )
             return []
+
+    @_dynamo_operation
+    async def store_alert_digest(self, digest: AlertDigest) -> Dict[str, Any]:
+        item = {
+            "run_date": digest.run_date,
+            "created_at": digest.created_at,
+            "summary": digest.summary,
+            "counts": digest.counts,
+            "triaged_assets": [
+                {
+                    "asset_code": asset.asset_code,
+                    "asset_description": asset.asset_description,
+                    "exchange": asset.exchange,
+                    "conviction": asset.conviction.value,
+                    "rationale": asset.rationale,
+                    "patterns": [p.value for p in asset.patterns],
+                    "ma50_slope": asset.ma50_slope,
+                    "rank": asset.rank,
+                    "country_code": asset.country_code,
+                }
+                for asset in digest.triaged_assets
+            ],
+            "fallback_used": digest.fallback_used,
+            "model": digest.model,
+        }
+        item = self._convert_floats_to_decimal(item)
+
+        table = await self._get_table("alert_digests")
+        response = await table.put_item(Item=item)
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB put_item error: {response}")
+
+        return response
+
+    @_dynamo_operation
+    async def get_alert_digests(
+        self, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        digests: List[Dict[str, Any]] = []
+        table = await self._get_table("alert_digests")
+        response = await table.scan()
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB scan error: {response}")
+            return digests
+
+        digests.extend(response.get("Items", []))
+
+        while "LastEvaluatedKey" in response:
+            response = await table.scan(
+                ExclusiveStartKey=response["LastEvaluatedKey"]
+            )
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB scan error: {response}")
+                break
+            digests.extend(response.get("Items", []))
+
+        digests.sort(key=lambda d: int(d.get("created_at", 0)), reverse=True)
+
+        if limit is not None:
+            digests = digests[:limit]
+
+        return digests
+
+    @_dynamo_operation
+    async def get_alert_digest(
+        self, run_date: str
+    ) -> Optional[Dict[str, Any]]:
+        table = await self._get_table("alert_digests")
+        response = await table.query(
+            KeyConditionExpression="run_date = :run_date",
+            ExpressionAttributeValues={":run_date": run_date},
+            ScanIndexForward=False,
+            Limit=1,
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB query error: {response}")
+            return None
+
+        items = response.get("Items", [])
+        return items[0] if items else None

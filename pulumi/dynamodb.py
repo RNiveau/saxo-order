@@ -89,3 +89,19 @@ def workflow_orders_table() -> aws.dynamodb.Table:
             attribute_name="ttl",
         ),
     )
+
+
+def alert_digests_table() -> aws.dynamodb.Table:
+    return aws.dynamodb.Table(
+        "alert_digests",
+        attributes=[
+            aws.dynamodb.TableAttributeArgs(name="run_date", type="S"),
+            aws.dynamodb.TableAttributeArgs(name="created_at", type="N"),
+        ],
+        hash_key="run_date",
+        range_key="created_at",
+        name="alert_digests",
+        billing_mode="PAY_PER_REQUEST",
+        stream_enabled=True,
+        stream_view_type="NEW_AND_OLD_IMAGES",
+    )
