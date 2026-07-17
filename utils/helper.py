@@ -58,15 +58,6 @@ def market_in_utc(market: Market, reference: datetime.datetime) -> Market:
     )
 
 
-def _market_reference_date(
-    candles: List[Candle],
-) -> datetime.datetime:
-    """Pick the DST reference date for a batch of candles (newest first)."""
-    if candles and candles[0].date is not None:
-        return candles[0].date
-    return get_date_utc0()
-
-
 def build_current_weekly_candle_from_daily(
     candles: List[Candle],
 ) -> Optional[Candle]:
@@ -124,24 +115,28 @@ def get_date_utc0() -> datetime.datetime:
     return datetime.datetime.now(tz=datetime.UTC)
 
 
-def build_h4_candles_from_h1(
-    candles: List[Candle], market: Market
-) -> List[Candle]:
-    market = market_in_utc(market, _market_reference_date(candles))
+def _h4_ending_hours(market: Market) -> dict:
+    """Map each H4 block's UTC ending hour to its size for `market`."""
     ending_hours = {}
     cumulative = 0
     for block_size in market.h4_blocks:
         cumulative += block_size
-        ending_hour = market.open_hour + cumulative - 1
-        ending_hours[ending_hour] = block_size
+        ending_hours[market.open_hour + cumulative - 1] = block_size
+    return ending_hours
 
+
+def build_h4_candles_from_h1(
+    candles: List[Candle], market: Market
+) -> List[Candle]:
     candles_h4 = []
     i = 0
     while i < len(candles):
         candle_date = candles[i].date
         if candle_date is None:
             i += 1
-        elif candle_date.hour in ending_hours:
+            continue
+        ending_hours = _h4_ending_hours(market_in_utc(market, candle_date))
+        if candle_date.hour in ending_hours:
             block_size = ending_hours[candle_date.hour]
             if i + block_size - 1 >= len(candles):
                 break
@@ -160,8 +155,6 @@ def build_h4_candles_from_h1(
 def build_daily_candles_from_h1(
     candles: List[Candle], market: Market
 ) -> List[Candle]:
-    market = market_in_utc(market, _market_reference_date(candles))
-    ending_hour = market.close_hour - (1 if market.open_minutes == 30 else 0)
     num_h1 = (
         market.close_hour
         - market.open_hour
@@ -174,7 +167,12 @@ def build_daily_candles_from_h1(
         candle_date = candles[i].date
         if candle_date is None:
             i += 1
-        elif candle_date.hour == ending_hour:
+            continue
+        utc_market = market_in_utc(market, candle_date)
+        ending_hour = utc_market.close_hour - (
+            1 if market.open_minutes == 30 else 0
+        )
+        if candle_date.hour == ending_hour:
             if i + num_h1 - 1 >= len(candles):
                 break
             candles_daily.append(

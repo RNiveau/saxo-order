@@ -197,16 +197,15 @@ class CandlesService:
     def _build_h1_from_30m(
         self, data: list, market: Market, ut: UnitTime
     ) -> List[Candle]:
-        if data:
-            market = market_in_utc(market, data[0]["Time"])
         candles = []
         i = 0
         while i < len(data):
-            open_hour_ok = data[i]["Time"].hour >= market.open_hour
+            utc_market = market_in_utc(market, data[i]["Time"])
+            open_hour_ok = data[i]["Time"].hour >= utc_market.open_hour
             close_hour_ok = (
-                data[i]["Time"].hour <= market.close_hour
+                data[i]["Time"].hour <= utc_market.close_hour
                 if market.open_minutes == 0
-                else data[i]["Time"].hour <= market.close_hour + 1
+                else data[i]["Time"].hour <= utc_market.close_hour + 1
             )
             minutes_ok = (
                 data[i]["Time"].minute == 30
