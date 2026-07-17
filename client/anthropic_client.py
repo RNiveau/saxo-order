@@ -23,18 +23,23 @@ class AnthropicClient:
         return self._model
 
     def complete_json(
-        self, system: str, user_payload: str, max_tokens: int = 16000
+        self, system: str, user_payload: str, max_tokens: int = 4096
     ) -> Dict[str, Any]:
         try:
             response = self._client.messages.create(
                 model=self._model,
                 max_tokens=max_tokens,
+                thinking={"type": "disabled"},
                 system=system,
                 messages=[{"role": "user", "content": user_payload}],
             )
         except (anthropic.APIError, anthropic.APIConnectionError) as e:
             raise AnthropicException(f"Anthropic API call failed: {e}")
 
+        if response.stop_reason == "max_tokens":
+            raise AnthropicException(
+                "Anthropic response truncated (max_tokens)"
+            )
         return self._parse_json(self._extract_text(response))
 
     def _extract_text(self, response: Any) -> str:

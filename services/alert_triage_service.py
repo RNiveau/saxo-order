@@ -12,7 +12,6 @@ technical alerts on French stocks.
 
 You receive a JSON object with an "assets" array. Each asset has:
 - id: opaque identifier you MUST echo back unchanged
-- code, name, exchange
 - patterns: the chart patterns that fired today on this asset
 - ma50_slope: percent slope of the 50-period moving average (medium-term \
 trend); positive = uptrend, negative = downtrend, null = unknown
@@ -24,22 +23,23 @@ stronger than one with a single isolated pattern.
 negative (trend agrees); a bullish setup is higher conviction when ma50_slope \
 is positive. A signal fighting the trend is weaker.
 
-Assign every asset exactly one conviction tier:
+Conviction tiers:
 - "high": a genuine, actionable setup worth looking at now.
 - "watch": a plausible setup to keep an eye on.
 - "noise": low-signal, isolated, or trend-conflicting hits.
 
-Rank the high and watch assets together with a 1-based "rank" (1 = best). \
-Give each high/watch asset a one-line "rationale" naming the patterns and the \
-trend context. Noise assets need no rank or rationale.
+RETURN ONLY the "high" and "watch" assets - the ones worth surfacing. Any \
+asset you omit is treated as "noise", so never list noise assets. Rank the \
+returned assets with a 1-based "rank" (1 = best) and give each a one-line \
+"rationale" naming the patterns and the trend context.
 
-Be selective: most days only a few assets are "high". Do not inflate tiers.
+Be selective: most days only a few assets are high or watch. Do not inflate \
+tiers.
 
 Respond with ONLY a JSON object, no prose, no code fences:
 {"summary": "<one or two sentence headline of the day>",
- "assets": [{"id": "<echoed id>", "conviction": "high|watch|noise", \
-"rank": <int or null>, "rationale": "<one line or empty>"}]}
-Include every asset from the input in your "assets" array."""
+ "assets": [{"id": "<echoed id>", "conviction": "high|watch", \
+"rank": <int>, "rationale": "<one line>"}]}"""
 
 
 class TriageAgent:
@@ -115,9 +115,6 @@ class TriageAgent:
         assets = [
             {
                 "id": asset_id,
-                "code": entry["asset_code"],
-                "name": entry["asset_description"],
-                "exchange": entry["exchange"],
                 "patterns": [p.value for p in entry["patterns"]],
                 "ma50_slope": entry["ma50_slope"],
             }
