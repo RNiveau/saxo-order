@@ -3,19 +3,25 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_saxo_client
+from api.dependencies import get_dynamodb_client, get_saxo_client
 from api.main import app
 
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _clear_overrides():
+    """Clear dependency overrides after each test."""
+    yield
+    app.dependency_overrides.clear()
+
+
 @pytest.fixture
 def mock_dynamodb_client():
     """Mock DynamoDBClient with async methods."""
-    with patch("api.dependencies.DynamoDBClient") as mock_class:
-        mock_instance = AsyncMock()
-        mock_class.return_value = mock_instance
-        yield mock_instance
+    mock_instance = AsyncMock()
+    app.dependency_overrides[get_dynamodb_client] = lambda: mock_instance
+    yield mock_instance
 
 
 def create_workflow_data(
@@ -135,7 +141,7 @@ class TestWorkflowEndpoint:
         assert data["total"] == 0
         assert len(data["workflows"]) == 0
 
-    def test_get_asset_workflows_missing_code(self):
+    def test_get_asset_workflows_missing_code(self, mock_dynamodb_client):
         """Test request without required code parameter."""
         response = client.get("/api/workflow/asset")
 

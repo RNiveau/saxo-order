@@ -1,6 +1,3 @@
-from unittest.mock import AsyncMock, patch
-
-import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -12,7 +9,6 @@ client = TestClient(app)
 class TestDynamoDBErrorHandler:
     def test_dynamodb_error_returns_503(self):
         """Test that DynamoDBOperationError is caught by global handler."""
-        from fastapi import Request
 
         @app.get("/test-dynamo-error")
         async def test_endpoint():
