@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from client.anthropic_client import AnthropicClient
 from model import Alert, AlertDigest, AlertType, Conviction, TriagedAsset
@@ -14,7 +14,11 @@ class FakeAnthropicClient(AnthropicClient):
         self.calls = 0
 
     def complete_json(
-        self, system: str, user_payload: str, max_tokens: int = 16000
+        self,
+        system: str,
+        user_payload: str,
+        output_schema: Optional[Dict[str, Any]] = None,
+        max_tokens: int = 16000,
     ) -> Dict[str, Any]:
         self.calls += 1
         self.last_payload = user_payload
@@ -26,7 +30,11 @@ class RaisingAnthropicClient(AnthropicClient):
         self._model = "test-model"
 
     def complete_json(
-        self, system: str, user_payload: str, max_tokens: int = 16000
+        self,
+        system: str,
+        user_payload: str,
+        output_schema: Optional[Dict[str, Any]] = None,
+        max_tokens: int = 16000,
     ) -> Dict[str, Any]:
         raise AssertionError("complete_json must not be called")
 
@@ -36,7 +44,11 @@ class FailingAnthropicClient(AnthropicClient):
         self._model = "test-model"
 
     def complete_json(
-        self, system: str, user_payload: str, max_tokens: int = 16000
+        self,
+        system: str,
+        user_payload: str,
+        output_schema: Optional[Dict[str, Any]] = None,
+        max_tokens: int = 16000,
     ) -> Dict[str, Any]:
         raise AnthropicException("boom")
 
