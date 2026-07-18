@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import {
   workflowService,
   indicatorService,
@@ -219,15 +220,18 @@ export function AssetDetail() {
         // Refresh alerts section
         await fetchAlerts(symbol);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Run alerts error:', err);
 
       // Specific error message mapping
-      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+      if (
+        axios.isAxiosError(err) &&
+        (err.code === 'ECONNABORTED' || err.message?.includes('timeout'))
+      ) {
         setRunAlertsError(
           'Alert detection timed out. Please try again.'
         );
-      } else if (err.response) {
+      } else if (axios.isAxiosError(err) && err.response) {
         // HTTP error responses
         const status = err.response.status;
         switch (status) {
@@ -251,7 +255,7 @@ export function AssetDetail() {
               err.response.data?.detail || 'An error occurred during alert detection.'
             );
         }
-      } else if (err.request) {
+      } else if (axios.isAxiosError(err) && err.request) {
         // Network error (request made but no response)
         setRunAlertsError(
           'Connection failed. Please check your network and try again.'
@@ -361,8 +365,12 @@ export function AssetDetail() {
       }
 
       setTimeout(() => setWatchlistSuccess(null), 3000);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to update watchlist';
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update watchlist';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
       setWatchlistError(errorMessage);
       console.error('Watchlist toggle error:', err);
       setTimeout(() => setWatchlistError(null), 5000);
@@ -396,8 +404,12 @@ export function AssetDetail() {
       setWatchlistSuccess(`${action} short-term positions: ${assetName}`);
 
       setTimeout(() => setWatchlistSuccess(null), 3000);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to update label';
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update label';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
       setWatchlistError(errorMessage);
       console.error('Label toggle error:', err);
       setTimeout(() => setWatchlistError(null), 5000);
@@ -429,8 +441,12 @@ export function AssetDetail() {
       setWatchlistSuccess(`${action} long-term positions: ${assetName}`);
 
       setTimeout(() => setWatchlistSuccess(null), 3000);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to update label';
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update label';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
       setWatchlistError(errorMessage);
       console.error('Label toggle error:', err);
       setTimeout(() => setWatchlistError(null), 5000);
@@ -463,8 +479,12 @@ export function AssetDetail() {
       setWatchlistSuccess(`${action} homepage: ${assetName}`);
 
       setTimeout(() => setWatchlistSuccess(null), 3000);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to update label';
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update label';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
       setWatchlistError(errorMessage);
       console.error('Label toggle error:', err);
       setTimeout(() => setWatchlistError(null), 5000);
@@ -499,8 +519,12 @@ export function AssetDetail() {
       setWatchlistSuccess(`${action} SLWIN positions: ${assetName}`);
 
       setTimeout(() => setWatchlistSuccess(null), 3000);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to update label';
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update label';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+      }
       setWatchlistError(errorMessage);
       console.error('Label toggle error:', err);
       setTimeout(() => setWatchlistError(null), 5000);
