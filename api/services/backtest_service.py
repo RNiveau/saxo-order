@@ -359,11 +359,7 @@ class BacktestService:
                 # high confirms the reversal has momentum - closing
                 # back above the H1 low is not itself an entry.
                 if candle.higher > candidate.higher:
-                    entry_price = (
-                        candle.open
-                        if candle.open > candidate.higher
-                        else candidate.higher
-                    )
+                    entry_price = max(candidate.higher, candle.open)
                     if self._is_valid_entry(
                         entry_price, h1_low, take_profit_level
                     ):
