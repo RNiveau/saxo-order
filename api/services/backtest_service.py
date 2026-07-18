@@ -317,13 +317,13 @@ class BacktestService:
     def _is_valid_entry(
         entry_price: float, h1_low: float, take_profit_level: float
     ) -> bool:
-        """A breakout-reversal close only produces a trade when it
-        still leaves room to work: within MAX_ENTRY_DISTANCE_FROM_LOW
-        points of the H1 low, and below the take-profit level. A
-        reversal candle that closes too far above the low, or already
-        at/above H1-high-10, is not a valid entry - it would exit on
-        the very next candle for little or no favorable move despite
-        being labeled a take-profit (added after PR review)."""
+        """A breakout entry only produces a trade when it still leaves
+        room to work: within MAX_ENTRY_DISTANCE_FROM_LOW points of the
+        H1 low, and below the take-profit level. An entry too far
+        above the low, or already at/above H1-high-10, is not valid -
+        it would exit on the very next candle for little or no
+        favorable move despite being labeled a take-profit (added
+        after PR review)."""
         return (
             entry_price - h1_low <= MAX_ENTRY_DISTANCE_FROM_LOW
             and entry_price < take_profit_level
@@ -338,24 +338,50 @@ class BacktestService:
         trades: List[Trade] = []
         position: Optional[_OpenPosition] = None
         breached = False
+        candidate: Optional[Candle] = None
         take_profit_level = h1_high - TAKE_PROFIT_OFFSET_POINTS
 
         for candle in candles:
             candle_date = _candle_date(candle)
             if position is None:
-                if not breached:
-                    if candle.lower < h1_low:
-                        breached = True
+                if candidate is None:
+                    if not breached:
+                        if candle.lower < h1_low:
+                            breached = True
+                        continue
+                    if candle.close >= h1_low:
+                        candidate = candle
+                        breached = False
                     continue
-                if candle.close >= h1_low:
+
+                # candidate is the reversal candle awaiting breakout
+                # confirmation: only a later candle trading above its
+                # high confirms the reversal has momentum - closing
+                # back above the H1 low is not itself an entry.
+                if candle.higher > candidate.higher:
+                    entry_price = (
+                        candle.open
+                        if candle.open > candidate.higher
+                        else candidate.higher
+                    )
                     if self._is_valid_entry(
-                        candle.close, h1_low, take_profit_level
+                        entry_price, h1_low, take_profit_level
                     ):
                         position = _OpenPosition(
                             entry_time=candle_date,
-                            entry_price=candle.close,
+                            entry_price=entry_price,
                         )
-                    breached = False
+                    candidate = None
+                    continue
+                if candle.close < h1_low:
+                    # New full context: this candle both invalidates
+                    # the pending candidate and is itself a fresh
+                    # breach (its low is necessarily below h1_low
+                    # whenever its close is).
+                    candidate = None
+                    breached = True
+                    continue
+                candidate = candle
                 continue
 
             stop_level = position.stop_level

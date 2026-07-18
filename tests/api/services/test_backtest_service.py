@@ -222,89 +222,96 @@ class TestEvaluateDayExits:
     def test_stop_loss_exit(self):
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),  # breach
-            m5_candle(1, 8000, 8015, 7995, 8010),  # confirm -> entry @8010
-            m5_candle(2, 8005, 8010, 7950, 7955),  # SL: low<=7960, no gap
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+            m5_candle(3, 8000, 8005, 7950, 7955),  # SL: low<=7965, no gap
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         assert result.status == DayStatus.TRADED
         assert len(result.trades) == 1
         trade = result.trades[0]
-        assert trade.entry_price == 8010
+        assert trade.entry_price == 8015
         assert trade.exit_reason == ExitReason.STOP_LOSS
-        assert trade.exit_price == 7960
+        assert trade.exit_price == 7965
         assert trade.points == -50
 
     def test_stop_loss_exit_with_gap(self):
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),
-            m5_candle(1, 8000, 8015, 7995, 8010),  # entry @8010
-            m5_candle(2, 7900, 7910, 7850, 7880),  # gap below 7960
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+            m5_candle(3, 7900, 7910, 7850, 7880),  # gap below 7965
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.STOP_LOSS
         assert trade.exit_price == 7900
-        assert trade.points == -110
+        assert trade.points == -115
 
     def test_take_profit_exit(self):
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),
-            m5_candle(1, 8000, 8015, 7995, 8010),  # entry @8010
-            m5_candle(2, 8020, 8045, 8015, 8035),  # TP: high>=8040, no gap
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+            m5_candle(3, 8020, 8045, 8015, 8035),  # TP: high>=8040, no gap
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.TAKE_PROFIT
         assert trade.exit_price == 8040
-        assert trade.points == 30
+        assert trade.points == 25
 
     def test_end_of_day_exit(self):
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),
-            m5_candle(1, 8000, 8015, 7995, 8010),  # entry @8010
-            m5_candle(2, 8012, 8020, 8005, 8015),  # last candle of the day
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+            m5_candle(3, 8012, 8020, 8005, 8018),  # last candle of the day
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.END_OF_DAY
-        assert trade.exit_price == 8015
-        assert trade.points == 5
+        assert trade.exit_price == 8018
+        assert trade.points == 3
 
     def test_entry_on_last_candle_produces_zero_point_end_of_day(self):
-        """A signal that only confirms on the session's final 5-minute
-        candle opens and immediately closes (end of day) on that same
-        candle, since there is no further candle to evaluate -- the
-        trade never had a chance to move, so points is exactly 0."""
+        """A breakout that only confirms on the session's final
+        5-minute candle opens and immediately closes (end of day) on
+        that same candle, since there is no further candle to
+        evaluate -- the trade never had a chance to move, so points
+        is exactly 0."""
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),  # breach
-            m5_candle(1, 8000, 8015, 7995, 8010),  # entry @8010, also last
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # breakout, also last
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         assert len(result.trades) == 1
         trade = result.trades[0]
-        assert trade.entry_price == 8010
-        assert trade.exit_price == 8010
+        assert trade.entry_price == 8015
+        assert trade.exit_price == 8015
         assert trade.exit_reason == ExitReason.END_OF_DAY
         assert trade.points == 0
 
     def test_break_even_exit(self):
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),
-            m5_candle(1, 8000, 8015, 7995, 8010),  # entry @8010
-            m5_candle(2, 8015, 8035, 8005, 8020),  # arms BE (>=8030)
-            m5_candle(3, 8020, 8025, 8005, 8000),  # BE exit: low<=8010
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+            m5_candle(3, 8015, 8039, 8005, 8020),  # arms BE (>=8035), no TP
+            m5_candle(4, 8020, 8025, 8005, 8000),  # BE exit: low<=8015
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         assert len(result.trades) == 1
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.BREAK_EVEN
-        assert trade.exit_price == 8010
+        assert trade.exit_price == 8015
         assert trade.points == 0
 
     def test_break_even_exit_with_gap_is_not_exactly_zero(self):
@@ -315,9 +322,10 @@ class TestEvaluateDayExits:
         non-zero value even though it is still labeled BREAK_EVEN."""
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),
-            m5_candle(1, 8000, 8015, 7995, 8010),  # entry @8010
-            m5_candle(2, 8015, 8035, 8005, 8020),  # arms BE (>=8030)
-            m5_candle(3, 8005, 8008, 7995, 8000),  # gap: open 8005 < 8010
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+            m5_candle(3, 8015, 8039, 8005, 8020),  # arms BE (>=8035), no TP
+            m5_candle(4, 8005, 8008, 7995, 8000),  # gap: open 8005 < 8015
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
@@ -325,27 +333,97 @@ class TestEvaluateDayExits:
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.BREAK_EVEN
         assert trade.exit_price == 8005
-        assert trade.points == -5
+        assert trade.points == -10
 
     def test_multi_trade_day_reentry(self):
         candles = [
-            # Trade 1: breach -> entry @8010 -> stop-loss
+            # Trade 1: breach -> candidate -> breakout @8015 -> stop-loss
             m5_candle(0, 8005, 8010, 7990, 7995),
             m5_candle(1, 8000, 8015, 7995, 8010),
-            m5_candle(2, 8005, 8010, 7950, 7955),
-            # Trade 2: fresh breach -> entry -> end of day
-            m5_candle(3, 7950, 7960, 7930, 7935),
-            m5_candle(4, 7940, 8005, 7935, 8005),
-            m5_candle(5, 8010, 8020, 8000, 8015),
+            m5_candle(2, 8010, 8020, 8005, 8015),
+            m5_candle(3, 8000, 8005, 7950, 7955),
+            # Trade 2: fresh breach -> candidate -> breakout @8005 -> EOD
+            m5_candle(4, 7950, 7960, 7930, 7935),
+            m5_candle(5, 7940, 8005, 7935, 8000),
+            m5_candle(6, 8000, 8010, 7995, 8005),
+            m5_candle(7, 8010, 8020, 8000, 8015),
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         assert result.status == DayStatus.TRADED
         assert len(result.trades) == 2
+        assert result.trades[0].entry_price == 8015
         assert result.trades[0].exit_reason == ExitReason.STOP_LOSS
+        assert result.trades[0].exit_price == 7965
         assert result.trades[1].entry_price == 8005
         assert result.trades[1].exit_reason == ExitReason.END_OF_DAY
         assert result.trades[1].exit_price == 8015
+
+
+class TestBreakoutConfirmation:
+    """Direct tests for the breakout-confirmation step clarified after
+    PR review: closing back above the H1 low only produces a
+    candidate reversal candle - entry only fires once a later candle's
+    high trades above that candidate's high."""
+
+    def test_reversal_without_breakout_confirmation_produces_no_trade(self):
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),  # breach
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8014, 8005, 8012),  # never exceeds 8015
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.NO_TRADE
+        assert result.trades == []
+
+    def test_candidate_rolls_forward_when_breakout_not_yet_confirmed(self):
+        """A candle that stays above the H1 low but fails to beat the
+        current candidate's high becomes the new candidate itself,
+        rather than cancelling the signal."""
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),  # breach
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate1, higher=8015
+            m5_candle(2, 8010, 8014, 8005, 8012),  # rolls: new candidate=8014
+            m5_candle(3, 8010, 8020, 8005, 8015),  # breaks 8014 -> entry
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert len(result.trades) == 1
+        assert result.trades[0].entry_price == 8014
+
+    def test_candidate_closing_back_below_h1_low_requires_a_fresh_breach(
+        self,
+    ):
+        """While waiting for a breakout, a candle that closes back
+        below the H1 low discards the pending candidate entirely - a
+        brand new breach and reversal pair is required, not just a
+        new candidate."""
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),  # breach 1
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate1, higher=8015
+            m5_candle(2, 7995, 8005, 7985, 7990),  # closes below h1_low
+            m5_candle(3, 7995, 8020, 7985, 8005),  # candidate2, higher=8020
+            m5_candle(4, 8010, 8025, 8000, 8015),  # breaks 8020 -> entry
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert len(result.trades) == 1
+        assert result.trades[0].entry_price == 8020
+
+    def test_breakout_entry_gap_fill(self):
+        """A candle that opens above the candidate's high (a gap)
+        records the entry at that worse open price, not the exact
+        breakout level - same gap-fill convention as the exits."""
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),  # breach
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8020, 8030, 8015, 8025),  # gaps above 8015
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert len(result.trades) == 1
+        assert result.trades[0].entry_price == 8020
 
 
 class TestEvaluateDaySameCandleEdgeCases:
@@ -355,16 +433,17 @@ class TestEvaluateDaySameCandleEdgeCases:
         stop-loss using the pre-candle level, not a break-even arm."""
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),
-            m5_candle(1, 8000, 8015, 7995, 8010),  # entry @8010
-            # low breaches original stop (7960) AND high reaches +20 (8030)
-            m5_candle(2, 8005, 8035, 7950, 8000),
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+            # low breaches original stop (7965) AND high reaches +20 (8035)
+            m5_candle(3, 8005, 8035, 7950, 8000),
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         assert len(result.trades) == 1
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.STOP_LOSS
-        assert trade.exit_price == 7960
+        assert trade.exit_price == 7965
 
     def test_arm_and_breach_round_trip_does_not_exit_same_candle(self):
         """A candle whose high reaches the +20pt arm threshold and whose
@@ -373,20 +452,21 @@ class TestEvaluateDaySameCandleEdgeCases:
         exit -- arming only takes effect on the next candle."""
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),
-            m5_candle(1, 8000, 8015, 7995, 8010),  # entry @8010
-            # high reaches +20 (8030->8035) AND low dips to 8005 (<=entry
-            # 8010, but > original stop 7960 -- no exit this candle)
-            m5_candle(2, 8015, 8035, 8005, 8020),
-            # now armed: low breaches the new stop (8010)
-            m5_candle(3, 8020, 8025, 8005, 8000),
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+            # high reaches +20 (8035->8039, below TP 8040) AND low dips to
+            # 8010 (<=entry 8015, but > original stop 7965 -- no exit)
+            m5_candle(3, 8015, 8039, 8010, 8020),
+            # now armed: low breaches the new stop (8015)
+            m5_candle(4, 8020, 8025, 8005, 8000),
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         assert len(result.trades) == 1
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.BREAK_EVEN
-        assert trade.exit_price == 8010
-        assert trade.exit_time == candles[3].date
+        assert trade.exit_price == 8015
+        assert trade.exit_time == candles[4].date
 
 
 class TestIsValidEntry:
@@ -418,8 +498,9 @@ class TestEvaluateDayEntryValidityRule:
     def test_entry_too_far_above_h1_low_is_rejected(self):
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),  # breach
-            # close back above h1_low, but 25pts away (> 20pt max)
-            m5_candle(1, 8015, 8030, 8005, 8025),
+            m5_candle(1, 8015, 8026, 8005, 8020),  # candidate, higher=8026
+            # breaks 8026 -> entry@8026, but 26pts from h1_low (> 20 max)
+            m5_candle(2, 8020, 8030, 8010, 8025),
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
@@ -430,8 +511,9 @@ class TestEvaluateDayEntryValidityRule:
         h1 = h1_candle(higher=8025, lower=8005)  # take_profit_level = 8015
         candles = [
             m5_candle(0, 8010, 8015, 7995, 8000),  # breach
-            # close back within 20pts of the low, but at/above TP (8018)
-            m5_candle(1, 8010, 8020, 8005, 8018),
+            m5_candle(1, 8010, 8016, 8000, 8010),  # candidate, higher=8016
+            # breaks 8016 -> entry@8016, within 20pts but at/above TP (8015)
+            m5_candle(2, 8012, 8020, 8005, 8015),
         ]
         service = make_service([h1], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
@@ -439,23 +521,26 @@ class TestEvaluateDayEntryValidityRule:
         assert result.trades == []
 
     def test_rejected_entry_still_allows_a_fresh_signal_afterwards(self):
-        """After an invalid entry, the breach flag resets so a later,
-        independent breach/close-back pair can still produce a valid
-        trade the same day."""
+        """After an invalid entry, the search resets so a later,
+        independent breach/candidate/breakout sequence can still
+        produce a valid trade the same day."""
         candles = [
             m5_candle(0, 8005, 8010, 7990, 7995),  # breach 1
-            m5_candle(1, 8015, 8030, 8005, 8025),  # invalid close-back
-            m5_candle(2, 8010, 8015, 7995, 7998),  # breach 2
-            m5_candle(3, 8000, 8015, 7995, 8010),  # valid close-back @8010
-            m5_candle(4, 8012, 8020, 8005, 8015),  # end of day
+            m5_candle(1, 8015, 8026, 8005, 8020),  # candidate1, higher=8026
+            m5_candle(2, 8020, 8030, 8010, 8025),  # invalid breakout (26pts)
+            m5_candle(3, 8010, 8015, 7995, 7998),  # breach 2
+            m5_candle(4, 8000, 8015, 7995, 8010),  # candidate2, higher=8015
+            m5_candle(5, 8010, 8020, 8005, 8015),  # breaks 8015 -> entry
+            m5_candle(6, 8012, 8020, 8005, 8018),  # end of day
         ]
         service = make_service([h1_candle()], candles)
         result = service.evaluate_day(DEFINITION, TRADING_DATE)
         assert result.status == DayStatus.TRADED
         assert len(result.trades) == 1
         trade = result.trades[0]
-        assert trade.entry_price == 8010
+        assert trade.entry_price == 8015
         assert trade.exit_reason == ExitReason.END_OF_DAY
+        assert trade.exit_price == 8018
 
 
 def make_trade(exit_reason, points, entry_price=8010.0):
