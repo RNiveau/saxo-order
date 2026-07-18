@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api.routers import (
+    alert_digest,
     alerting,
     asset_details,
     fund,
@@ -95,6 +96,7 @@ async def dynamodb_error_handler(
 
 
 # Include routers
+app.include_router(alert_digest.router)
 app.include_router(alerting.router)
 app.include_router(asset_details.router)
 app.include_router(fund.router)

@@ -894,3 +894,46 @@ export const tradeRepublicService = {
     return response.data;
   },
 };
+
+export interface TriagedAsset {
+  asset_code: string;
+  asset_description: string;
+  exchange: string;
+  country_code: string | null;
+  conviction: 'high' | 'watch' | 'noise';
+  rank: number | null;
+  rationale: string;
+  patterns: string[];
+  ma50_slope: number | null;
+}
+
+export interface AlertDigest {
+  run_date: string;
+  created_at: number;
+  summary: string;
+  counts: Record<string, number>;
+  triaged_assets: TriagedAsset[];
+  fallback_used: boolean;
+  model: string;
+}
+
+export interface AlertDigestListResponse {
+  digests: AlertDigest[];
+}
+
+export const alertDigestService = {
+  listRecent: async (limit?: number): Promise<AlertDigestListResponse> => {
+    const response = await api.get<AlertDigestListResponse>(
+      '/api/alert-digests',
+      { params: limit ? { limit } : undefined }
+    );
+    return response.data;
+  },
+
+  getByRunDate: async (runDate: string): Promise<AlertDigest> => {
+    const response = await api.get<AlertDigest>(
+      `/api/alert-digests/${runDate}`
+    );
+    return response.data;
+  },
+};

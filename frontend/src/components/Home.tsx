@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { HomepageResponse } from '../services/api';
 import { homepageService } from '../services/api';
+import { DailyBrief } from './DailyBrief';
 import { HomepageCard } from './HomepageCard';
 import './Home.css';
 
@@ -32,39 +33,32 @@ export function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="home-container">
-        <div className="home-message">Loading homepage assets...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="home-container">
-        <div className="home-error">{error}</div>
-      </div>
-    );
-  }
-
-  if (!homepageData || homepageData.items.length === 0) {
-    return (
-      <div className="home-container">
-        <div className="home-empty">
-          No assets on homepage. Add assets from the asset detail page.
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="home-container">
-      <div className="home-grid">
-        {homepageData.items.map((item) => (
-          <HomepageCard key={item.id} item={item} />
-        ))}
-      </div>
-    </div>
+    <>
+      <DailyBrief />
+      {loading ? (
+        <div className="home-container">
+          <div className="home-message">Loading homepage assets...</div>
+        </div>
+      ) : error ? (
+        <div className="home-container">
+          <div className="home-error">{error}</div>
+        </div>
+      ) : !homepageData || homepageData.items.length === 0 ? (
+        <div className="home-container">
+          <div className="home-empty">
+            No assets on homepage. Add assets from the asset detail page.
+          </div>
+        </div>
+      ) : (
+        <div className="home-container">
+          <div className="home-grid">
+            {homepageData.items.map((item) => (
+              <HomepageCard key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -630,6 +630,7 @@ async def run_alerting(
                 configuration.triage_slope_threshold,
             )
             digest = triage_agent.synthesize(all_alerts)
+            await dynamodb_client.store_alert_digest(digest)
             logger.info(
                 f"Triage digest for {digest.run_date}: {digest.counts} "
                 f"(fallback={digest.fallback_used})"
