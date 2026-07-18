@@ -3,6 +3,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from api.date_utils import parse_iso_date
 from api.dependencies import get_backtest_service
 from api.models.backtest import (
     BacktestDefinitionResponse,
@@ -80,13 +81,7 @@ def _resolve_definition(
 
 
 def _parse_date(value: str) -> datetime.date:
-    try:
-        trading_date = datetime.date.fromisoformat(value)
-    except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid date, expected YYYY-MM-DD",
-        )
+    trading_date = parse_iso_date(value)
     if is_future_paris_date(trading_date):
         raise HTTPException(
             status_code=400, detail="date must not be in the future"
