@@ -200,6 +200,23 @@ def test_fallback_ranks_by_confluence_then_slope() -> None:
     assert digest.counts == {"high": 1, "watch": 1, "noise": 1}
 
 
+def test_fallback_treats_congestion20_and_100_as_one_family() -> None:
+    # congestion20 and congestion100 are the same detector at two lookback
+    # windows - they must not count as two distinct patterns toward
+    # confluence, or a purely redundant hit gets wrongly promoted to HIGH.
+    alerts = [
+        _alert("SAN", AlertType.CONGESTION20, 0.5),
+        _alert("SAN", AlertType.CONGESTION100, 0.5),
+    ]
+    digest = TriageAgent(
+        FailingAnthropicClient(), slope_threshold=1.0
+    ).synthesize(alerts)
+
+    asset = digest.triaged_assets[0]
+    assert asset.conviction == Conviction.NOISE
+    assert asset.rank is None
+
+
 def test_fallback_slope_threshold_is_configurable() -> None:
     alerts = [_alert("TTE", AlertType.CONGESTION20, 1.5)]
 
