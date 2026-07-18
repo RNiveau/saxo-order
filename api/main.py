@@ -87,7 +87,9 @@ async def dynamodb_error_handler(
     return JSONResponse(
         status_code=503,
         content={
-            "detail": "Service temporarily unavailable. Please try again later."
+            "detail": (
+                "Service temporarily unavailable. Please try again later."
+            )
         },
     )
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any, Dict
 from unittest.mock import MagicMock
 
 from client.gsheet_client import GSheetClient
@@ -308,7 +309,7 @@ class TestGsheetClient:
 
 
 def _make_transaction(**overrides) -> TradeRepublicTransaction:
-    defaults = dict(
+    defaults: Dict[str, Any] = dict(
         date=datetime.strptime("2026-03-02", "%Y-%m-%d").date(),
         datetime=datetime.strptime("2026-03-02T09:15:00", "%Y-%m-%dT%H:%M:%S"),
         account_type="DEFAULT",

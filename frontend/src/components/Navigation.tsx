@@ -14,7 +14,7 @@ export function Navigation() {
   useEffect(() => {
     loadIndexes();
 
-    let intervalId: NodeJS.Timeout | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
     let lastLoadTime = Date.now();
 
     const handleVisibilityChange = () => {

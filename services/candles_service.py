@@ -250,7 +250,8 @@ class CandlesService:
         self.logger.info(f"Build candles for {code}, ut: {ut}, date: {date}")
         if market.open_minutes not in [0, 30]:
             raise SaxoException(
-                f"Wrong parameter {market.open_minutes}, we handle only 0 and 30"
+                f"Wrong parameter {market.open_minutes}, "
+                "we handle only 0 and 30"
             )
         nbr_30m = count * 2 * 3
         if ut == UnitTime.H4:

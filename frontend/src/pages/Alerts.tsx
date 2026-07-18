@@ -85,9 +85,13 @@ export function Alerts() {
     .sort((a, b) => {
       if (sortBy === 'ma50_slope') {
         // Sort by MA50 slope descending (highest slope first)
-        // Treat missing/null values as 0
-        const aSlope = a.data?.ma50_slope ?? 0;
-        const bSlope = b.data?.ma50_slope ?? 0;
+        // Treat missing/null/non-numeric values as 0
+        const toSlope = (value: unknown): number => {
+          const numeric = typeof value === 'number' ? value : parseFloat(String(value));
+          return isNaN(numeric) ? 0 : numeric;
+        };
+        const aSlope = toSlope(a.data?.ma50_slope);
+        const bSlope = toSlope(b.data?.ma50_slope);
         return bSlope - aSlope; // Descending order
       } else {
         // Sort by date descending (newest first)

@@ -20,7 +20,7 @@ export function Sidebar() {
   useEffect(() => {
     loadWatchlist();
 
-    let intervalId: NodeJS.Timeout | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     // Function to start/stop auto-refresh based on visibility
     const handleVisibilityChange = () => {

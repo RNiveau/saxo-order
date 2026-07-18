@@ -59,8 +59,13 @@ export function IndicatorCard({ indicators, onTradingViewUrlUpdated }: Indicator
       if (onTradingViewUrlUpdated) {
         onTradingViewUrlUpdated(tradingViewUrl);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to save TradingView URL');
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        setError(axiosError.response?.data?.detail || 'Failed to save TradingView URL');
+      } else {
+        setError('Failed to save TradingView URL');
+      }
     } finally {
       setSaving(false);
     }

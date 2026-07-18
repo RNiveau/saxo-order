@@ -14,7 +14,7 @@ export function LongTermPositions() {
   useEffect(() => {
     loadData();
 
-    let intervalId: NodeJS.Timeout | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {

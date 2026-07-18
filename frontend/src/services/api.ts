@@ -735,7 +735,7 @@ export interface AlertItem {
   exchange: string;
   country_code: string | null;
   date: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   age_hours: number;
   tradingview_url?: string;
 }

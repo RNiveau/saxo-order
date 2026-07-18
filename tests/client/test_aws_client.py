@@ -1,5 +1,5 @@
 import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from botocore.exceptions import ClientError
@@ -262,7 +262,7 @@ class TestDynamoDBErrorHandling:
     async def test_graceful_degradation_get_all_tradingview_links(
         self, mock_dynamodb_resource, client
     ):
-        """Methods with internal try/except should return defaults on ClientError."""
+        """Methods with internal try/except return defaults on ClientError."""
         _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ClientError(
             {
