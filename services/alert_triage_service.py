@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from client.anthropic_client import AnthropicClient
-from model import Alert, AlertDigest, Conviction, TriagedAsset
+from model import Alert, AlertDigest, AlertType, Conviction, TriagedAsset
 from utils.exception import AnthropicException
 from utils.logger import Logger
 
@@ -17,17 +17,47 @@ You receive a JSON object with an "assets" array. Each asset has:
 - ma50_slope: percent slope of the 50-period moving average (medium-term \
 trend); positive = uptrend, negative = downtrend, null = unknown
 
-Rank the day's opportunities using two ideas:
-1. Confluence - an asset where several distinct patterns fired at once is \
-stronger than one with a single isolated pattern.
-2. Trend alignment - a bearish setup is higher conviction when ma50_slope is \
-negative (trend agrees); a bullish setup is higher conviction when ma50_slope \
-is positive. A signal fighting the trend is weaker.
+Pattern semantics - know what each pattern actually means before reasoning \
+about confluence or trend alignment:
+- combo: the only pattern with an explicit computed direction. Treat it as \
+the primary source of directional bias.
+- mm50_touch: can ONLY fire when the 50-MA is already rising strongly (its \
+detector requires ma50_slope >= +3%). It is a bullish continuation signal \
+(price pulling back to a rising average) - NEVER cite it as confirming a \
+bearish thesis or as "trend-aligned" with a negative slope. If you see \
+mm50_touch alongside a claimed bearish setup, that combination is internally \
+inconsistent, not "confluence that overrides a conflict" - treat it as a red \
+flag on the bearish read, not a supporting signal.
+- congestion20 and congestion100: the SAME underlying consolidation detector \
+run at two different lookback windows (20 vs 100 candles). If both fire \
+together, count them as ONE point of confluence, not two - they are not \
+independent evidence. Congestion itself has no inherent direction (price is \
+range-bound, could break either way).
+- double_top: a geometric match of two similar recent highs. It is only a \
+meaningful bearish reversal signal when it interrupts a PRIOR uptrend (the \
+stock was rising, then topped out). If the stock is already in an \
+established downtrend (strongly negative ma50_slope), a "double_top" is not \
+a fresh reversal - it is just noise inside an ongoing decline, and should \
+NOT be described as "confirming" or "reinforcing" the bearish bias.
+- containing_candle and double_inside_bar: pure geometric consolidation / \
+indecision patterns. They carry no directional meaning on their own and \
+should not be described as bearish or bullish by themselves.
+
+Rank the day's opportunities using two ideas, applied with the pattern \
+semantics above (not just pattern names or counts):
+1. Confluence - genuinely independent patterns pointing the same direction \
+is stronger than one isolated or internally-redundant pattern (see \
+congestion20/100 above).
+2. Trend alignment - only meaningful when the pattern's actual direction \
+(per the semantics above) matches ma50_slope. Do not award trend alignment \
+to a pattern that has no real direction, or that structurally cannot occur \
+against the claimed trend (e.g. mm50_touch during a "bearish" thesis).
 
 Conviction tiers:
-- "high": a genuine, actionable setup worth looking at now.
+- "high": a genuine, actionable setup worth looking at now, with directional \
+evidence that actually holds up under the pattern semantics above.
 - "watch": a plausible setup to keep an eye on.
-- "noise": low-signal, isolated, or trend-conflicting hits.
+- "noise": low-signal, isolated, redundant, or internally-inconsistent hits.
 
 RETURN ONLY the "high" and "watch" assets - the ones worth surfacing. Any \
 asset you omit is treated as "noise", so never list noise assets. Rank the \
@@ -35,7 +65,7 @@ returned assets with a 1-based "rank" (1 = best) and give each a one-line \
 "rationale" naming the patterns and the trend context.
 
 Be selective: most days only a few assets are high or watch. Do not inflate \
-tiers.
+tiers, and do not pad confluence with redundant or non-directional patterns.
 
 Respond with ONLY a JSON object, no prose, no code fences:
 {"summary": "<one or two sentence headline of the day>",
@@ -44,6 +74,11 @@ Respond with ONLY a JSON object, no prose, no code fences:
 
 
 FALLBACK_MODEL = "deterministic-fallback"
+
+# congestion20 and congestion100 are the same underlying detector run at two
+# lookback windows, not independent signals - collapse them to one family
+# when counting confluence in the deterministic fallback.
+_PATTERN_FAMILY = {AlertType.CONGESTION100: AlertType.CONGESTION20}
 
 
 class TriageAgent:
@@ -107,7 +142,7 @@ class TriageAgent:
         ordered = sorted(
             grouped.values(),
             key=lambda entry: (
-                len(entry["patterns"]),
+                len(self._pattern_families(entry["patterns"])),
                 self._abs_slope(entry["ma50_slope"]),
             ),
             reverse=True,
@@ -144,11 +179,11 @@ class TriageAgent:
         )
 
     def _fallback_conviction(self, entry: Dict[str, Any]) -> Conviction:
-        pattern_count = len(entry["patterns"])
-        if pattern_count >= 2:
+        family_count = len(self._pattern_families(entry["patterns"]))
+        if family_count >= 2:
             return Conviction.HIGH
         if (
-            pattern_count == 1
+            family_count == 1
             and self._abs_slope(entry["ma50_slope"]) >= self.slope_threshold
         ):
             return Conviction.WATCH
@@ -158,7 +193,11 @@ class TriageAgent:
         patterns = ", ".join(p.value for p in entry["patterns"])
         slope = entry["ma50_slope"]
         slope_text = f", slope {slope:.1f}%" if slope is not None else ""
-        return f"{len(entry['patterns'])} pattern(s): {patterns}{slope_text}"
+        family_count = len(self._pattern_families(entry["patterns"]))
+        return f"{family_count} pattern(s): {patterns}{slope_text}"
+
+    def _pattern_families(self, patterns: List[AlertType]) -> set[AlertType]:
+        return {_PATTERN_FAMILY.get(p, p) for p in patterns}
 
     def _abs_slope(self, slope: Optional[float]) -> float:
         return abs(slope) if slope is not None else 0.0
@@ -280,3 +319,38 @@ class TriageAgent:
             f"{counts[Conviction.WATCH.value]} watch, "
             f"{counts[Conviction.NOISE.value]} noise."
         )
+
+
+def format_slack_digest(digest: AlertDigest, app_url: str) -> str:
+    if len(digest.triaged_assets) == 0:
+        return digest.summary
+
+    high = digest.counts.get(Conviction.HIGH.value, 0)
+    watch = digest.counts.get(Conviction.WATCH.value, 0)
+    noise = digest.counts.get(Conviction.NOISE.value, 0)
+
+    lines = [
+        f"\U0001f4ca Daily brief ({digest.run_date}): "
+        f"{high} high, {watch} watch, {noise} filtered"
+    ]
+
+    high_assets = sorted(
+        (
+            asset
+            for asset in digest.triaged_assets
+            if asset.conviction == Conviction.HIGH
+        ),
+        key=lambda asset: asset.rank or 0,
+    )
+    if high_assets:
+        names = ", ".join(
+            f"{asset.asset_description} ({asset.asset_code})"
+            for asset in high_assets
+        )
+        lines.append(f"Top: {names}")
+
+    if digest.fallback_used:
+        lines.append("(fallback ranking - reasoning was unavailable)")
+
+    lines.append(app_url)
+    return "\n".join(lines)

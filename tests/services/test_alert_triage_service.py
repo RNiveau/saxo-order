@@ -2,8 +2,8 @@ import datetime
 from typing import Any, Dict, List
 
 from client.anthropic_client import AnthropicClient
-from model import Alert, AlertType, Conviction
-from services.alert_triage_service import TriageAgent
+from model import Alert, AlertDigest, AlertType, Conviction, TriagedAsset
+from services.alert_triage_service import TriageAgent, format_slack_digest
 from utils.exception import AnthropicException
 
 
@@ -200,6 +200,23 @@ def test_fallback_ranks_by_confluence_then_slope() -> None:
     assert digest.counts == {"high": 1, "watch": 1, "noise": 1}
 
 
+def test_fallback_treats_congestion20_and_100_as_one_family() -> None:
+    # congestion20 and congestion100 are the same detector at two lookback
+    # windows - they must not count as two distinct patterns toward
+    # confluence, or a purely redundant hit gets wrongly promoted to HIGH.
+    alerts = [
+        _alert("SAN", AlertType.CONGESTION20, 0.5),
+        _alert("SAN", AlertType.CONGESTION100, 0.5),
+    ]
+    digest = TriageAgent(
+        FailingAnthropicClient(), slope_threshold=1.0
+    ).synthesize(alerts)
+
+    asset = digest.triaged_assets[0]
+    assert asset.conviction == Conviction.NOISE
+    assert asset.rank is None
+
+
 def test_fallback_slope_threshold_is_configurable() -> None:
     alerts = [_alert("TTE", AlertType.CONGESTION20, 1.5)]
 
@@ -212,3 +229,94 @@ def test_fallback_slope_threshold_is_configurable() -> None:
         FailingAnthropicClient(), slope_threshold=1.0
     ).synthesize(alerts)
     assert lenient.triaged_assets[0].conviction == Conviction.WATCH
+
+
+def _triaged_asset(
+    code: str, conviction: Conviction, rank: int | None = None
+) -> TriagedAsset:
+    return TriagedAsset(
+        asset_code=code,
+        asset_description=f"{code} SA",
+        exchange="saxo",
+        conviction=conviction,
+        rationale="double top + MA50 rejection",
+        patterns=[AlertType.DOUBLE_TOP],
+        ma50_slope=-2.3,
+        rank=rank,
+        country_code="xpar",
+    )
+
+
+def test_format_slack_digest_no_signals_returns_summary() -> None:
+    digest = AlertDigest(
+        run_date="2026-07-16",
+        created_at=1768579200,
+        summary="No signals detected today.",
+        counts={"high": 0, "watch": 0, "noise": 0},
+        triaged_assets=[],
+        model="claude-sonnet-5",
+        fallback_used=False,
+    )
+
+    message = format_slack_digest(digest, "https://app.example.com")
+
+    assert message == "No signals detected today."
+
+
+def test_format_slack_digest_includes_counts_top_names_and_link() -> None:
+    digest = AlertDigest(
+        run_date="2026-07-16",
+        created_at=1768579200,
+        summary="28 signals across 22 stocks.",
+        counts={"high": 2, "watch": 1, "noise": 20},
+        triaged_assets=[
+            _triaged_asset("SAN", Conviction.HIGH, rank=1),
+            _triaged_asset("TTE", Conviction.HIGH, rank=2),
+            _triaged_asset("AIR", Conviction.WATCH, rank=3),
+        ],
+        model="claude-sonnet-5",
+        fallback_used=False,
+    )
+
+    message = format_slack_digest(digest, "https://app.example.com")
+
+    assert "2 high, 1 watch, 20 filtered" in message
+    assert "SAN" in message
+    assert "TTE" in message
+    assert message.index("SAN") < message.index("TTE")
+    assert "AIR" not in message.split("\n")[1]
+    assert message.endswith("https://app.example.com")
+    assert "fallback" not in message
+
+
+def test_format_slack_digest_flags_fallback() -> None:
+    digest = AlertDigest(
+        run_date="2026-07-16",
+        created_at=1768579200,
+        summary="1 high",
+        counts={"high": 1, "watch": 0, "noise": 0},
+        triaged_assets=[_triaged_asset("SAN", Conviction.HIGH, rank=1)],
+        model="deterministic-fallback",
+        fallback_used=True,
+    )
+
+    message = format_slack_digest(digest, "https://app.example.com")
+
+    assert "fallback ranking" in message
+
+
+def test_format_slack_digest_handles_no_high_assets() -> None:
+    digest = AlertDigest(
+        run_date="2026-07-16",
+        created_at=1768579200,
+        summary="1 watch",
+        counts={"high": 0, "watch": 1, "noise": 0},
+        triaged_assets=[_triaged_asset("SAN", Conviction.WATCH, rank=1)],
+        model="claude-sonnet-5",
+        fallback_used=False,
+    )
+
+    message = format_slack_digest(digest, "https://app.example.com")
+
+    assert "Top:" not in message
+    assert "0 high, 1 watch, 0 filtered" in message
