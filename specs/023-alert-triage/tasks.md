@@ -115,8 +115,8 @@ Web + Lambda layout (per plan.md): backend at repo root (`model/`, `client/`, `s
 
 ### Implementation for User Story 4
 
-- [ ] T026 [US4] In `run_alerting` (`saxo_order/commands/alerting.py`), replace the per-indicator `slack_messages` posting with a single concise digest message (counts + top high-conviction names + homepage link from config); preserve the "no signals" message (depends on T009)
-- [ ] T027 [US4] Test the concise-message formatting (counts, top names, link, and no-signals branch) in `tests/services/test_alert_triage_service.py` or a dedicated formatter test — assert real output, not mock calls
+- [x] T026 [US4] In `run_alerting` (`saxo_order/commands/alerting.py`), replace the per-indicator `slack_messages` posting with a single concise digest message (counts + top high-conviction names + homepage link from config); preserve the "no signals" message (depends on T009)
+- [x] T027 [US4] Test the concise-message formatting (counts, top names, link, and no-signals branch) in `tests/services/test_alert_triage_service.py` or a dedicated formatter test — assert real output, not mock calls
 
 **Checkpoint**: Firehose removed; app is source of truth (SC-001)
 

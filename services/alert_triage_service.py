@@ -280,3 +280,38 @@ class TriageAgent:
             f"{counts[Conviction.WATCH.value]} watch, "
             f"{counts[Conviction.NOISE.value]} noise."
         )
+
+
+def format_slack_digest(digest: AlertDigest, app_url: str) -> str:
+    if len(digest.triaged_assets) == 0:
+        return digest.summary
+
+    high = digest.counts.get(Conviction.HIGH.value, 0)
+    watch = digest.counts.get(Conviction.WATCH.value, 0)
+    noise = digest.counts.get(Conviction.NOISE.value, 0)
+
+    lines = [
+        f"\U0001f4ca Daily brief ({digest.run_date}): "
+        f"{high} high, {watch} watch, {noise} filtered"
+    ]
+
+    high_assets = sorted(
+        (
+            asset
+            for asset in digest.triaged_assets
+            if asset.conviction == Conviction.HIGH
+        ),
+        key=lambda asset: asset.rank or 0,
+    )
+    if high_assets:
+        names = ", ".join(
+            f"{asset.asset_description} ({asset.asset_code})"
+            for asset in high_assets
+        )
+        lines.append(f"Top: {names}")
+
+    if digest.fallback_used:
+        lines.append("(fallback ranking - reasoning was unavailable)")
+
+    lines.append(app_url)
+    return "\n".join(lines)
