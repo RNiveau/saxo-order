@@ -21,16 +21,6 @@ class BacktestDefinitionResponse(BaseModel):
     display_name: str
     instrument: str
 
-    @classmethod
-    def from_definition(
-        cls, definition: BacktestDefinition
-    ) -> "BacktestDefinitionResponse":
-        return cls(
-            code=definition.code,
-            display_name=definition.display_name,
-            instrument=definition.instrument,
-        )
-
 
 class TradeResponse(BaseModel):
     entry_time: datetime.datetime
@@ -40,17 +30,6 @@ class TradeResponse(BaseModel):
     exit_reason: str
     points: float
 
-    @classmethod
-    def from_trade(cls, trade: Trade) -> "TradeResponse":
-        return cls(
-            entry_time=trade.entry_time,
-            entry_price=trade.entry_price,
-            exit_time=trade.exit_time,
-            exit_price=trade.exit_price,
-            exit_reason=trade.exit_reason.value,
-            points=trade.points,
-        )
-
 
 class CandleResponse(BaseModel):
     date: Optional[datetime.datetime] = None
@@ -58,16 +37,6 @@ class CandleResponse(BaseModel):
     close: float
     lower: float
     higher: float
-
-    @classmethod
-    def from_candle(cls, candle: Candle) -> "CandleResponse":
-        return cls(
-            date=candle.date,
-            open=candle.open,
-            close=candle.close,
-            lower=candle.lower,
-            higher=candle.higher,
-        )
 
 
 class DayDetailResponse(BaseModel):
@@ -78,39 +47,12 @@ class DayDetailResponse(BaseModel):
     candles: List[CandleResponse] = []
     trades: List[TradeResponse] = []
 
-    @classmethod
-    def from_day_result(cls, day_result: DayResult) -> "DayDetailResponse":
-        return cls(
-            date=day_result.date,
-            status=day_result.status.value,
-            h1_high=day_result.h1_high,
-            h1_low=day_result.h1_low,
-            candles=[
-                CandleResponse.from_candle(candle)
-                for candle in day_result.candles
-            ],
-            trades=[
-                TradeResponse.from_trade(trade) for trade in day_result.trades
-            ],
-        )
-
 
 class DayResultSummaryResponse(BaseModel):
     date: datetime.date
     status: str
     trade_count: int
     points: float
-
-    @classmethod
-    def from_day_result_summary(
-        cls, summary: DayResultSummary
-    ) -> "DayResultSummaryResponse":
-        return cls(
-            date=summary.date,
-            status=summary.status.value,
-            trade_count=summary.trade_count,
-            points=summary.points,
-        )
 
 
 class BacktestSummaryResponse(BaseModel):
@@ -126,37 +68,87 @@ class BacktestSummaryResponse(BaseModel):
     average_loss: Optional[float] = None
     final_result: float
 
-    @classmethod
-    def from_summary(
-        cls, summary: BacktestSummary
-    ) -> "BacktestSummaryResponse":
-        return cls(
-            definition_code=summary.definition_code,
-            start_date=summary.start_date,
-            end_date=summary.end_date,
-            number_of_days=summary.number_of_days,
-            number_of_trades=summary.number_of_trades,
-            number_of_winning_positions=summary.number_of_winning_positions,
-            number_of_losing_positions=summary.number_of_losing_positions,
-            number_of_be=summary.number_of_be,
-            average_win=summary.average_win,
-            average_loss=summary.average_loss,
-            final_result=summary.final_result,
-        )
-
 
 class BacktestRunResponse(BaseModel):
     summary: BacktestSummaryResponse
     days: List[DayResultSummaryResponse] = []
 
-    @classmethod
-    def from_run_result(
-        cls, run_result: BacktestRunResult
-    ) -> "BacktestRunResponse":
-        return cls(
-            summary=BacktestSummaryResponse.from_summary(run_result.summary),
-            days=[
-                DayResultSummaryResponse.from_day_result_summary(day)
-                for day in run_result.days
-            ],
-        )
+
+def backtest_definition_to_response(
+    definition: BacktestDefinition,
+) -> BacktestDefinitionResponse:
+    return BacktestDefinitionResponse(
+        code=definition.code,
+        display_name=definition.display_name,
+        instrument=definition.instrument,
+    )
+
+
+def _trade_to_response(trade: Trade) -> TradeResponse:
+    return TradeResponse(
+        entry_time=trade.entry_time,
+        entry_price=trade.entry_price,
+        exit_time=trade.exit_time,
+        exit_price=trade.exit_price,
+        exit_reason=trade.exit_reason.value,
+        points=trade.points,
+    )
+
+
+def _candle_to_response(candle: Candle) -> CandleResponse:
+    return CandleResponse(
+        date=candle.date,
+        open=candle.open,
+        close=candle.close,
+        lower=candle.lower,
+        higher=candle.higher,
+    )
+
+
+def day_result_to_response(day_result: DayResult) -> DayDetailResponse:
+    return DayDetailResponse(
+        date=day_result.date,
+        status=day_result.status.value,
+        h1_high=day_result.h1_high,
+        h1_low=day_result.h1_low,
+        candles=[_candle_to_response(candle) for candle in day_result.candles],
+        trades=[_trade_to_response(trade) for trade in day_result.trades],
+    )
+
+
+def _day_result_summary_to_response(
+    summary: DayResultSummary,
+) -> DayResultSummaryResponse:
+    return DayResultSummaryResponse(
+        date=summary.date,
+        status=summary.status.value,
+        trade_count=summary.trade_count,
+        points=summary.points,
+    )
+
+
+def _backtest_summary_to_response(
+    summary: BacktestSummary,
+) -> BacktestSummaryResponse:
+    return BacktestSummaryResponse(
+        definition_code=summary.definition_code,
+        start_date=summary.start_date,
+        end_date=summary.end_date,
+        number_of_days=summary.number_of_days,
+        number_of_trades=summary.number_of_trades,
+        number_of_winning_positions=summary.number_of_winning_positions,
+        number_of_losing_positions=summary.number_of_losing_positions,
+        number_of_be=summary.number_of_be,
+        average_win=summary.average_win,
+        average_loss=summary.average_loss,
+        final_result=summary.final_result,
+    )
+
+
+def backtest_run_result_to_response(
+    run_result: BacktestRunResult,
+) -> BacktestRunResponse:
+    return BacktestRunResponse(
+        summary=_backtest_summary_to_response(run_result.summary),
+        days=[_day_result_summary_to_response(day) for day in run_result.days],
+    )

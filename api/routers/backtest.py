@@ -8,6 +8,9 @@ from api.models.backtest import (
     BacktestDefinitionResponse,
     BacktestRunResponse,
     DayDetailResponse,
+    backtest_definition_to_response,
+    backtest_run_result_to_response,
+    day_result_to_response,
 )
 from api.services.backtest_service import (
     BacktestService,
@@ -25,7 +28,7 @@ async def get_backtest_definitions(
 ) -> List[BacktestDefinitionResponse]:
     """List the hardcoded backtests available in the Backtest menu."""
     return [
-        BacktestDefinitionResponse.from_definition(definition)
+        backtest_definition_to_response(definition)
         for definition in backtest_service.list_definitions()
     ]
 
@@ -42,7 +45,7 @@ async def get_backtest_day(
     day_result = backtest_service.evaluate_day(
         backtest_definition, trading_date
     )
-    return DayDetailResponse.from_day_result(day_result)
+    return day_result_to_response(day_result)
 
 
 @router.get("/run", response_model=BacktestRunResponse)
@@ -62,7 +65,7 @@ async def get_backtest_run(
             status_code=400, detail="end_date must not be before start_date"
         )
     run_result = backtest_service.run_range(backtest_definition, start, end)
-    return BacktestRunResponse.from_run_result(run_result)
+    return backtest_run_result_to_response(run_result)
 
 
 def _resolve_definition(
