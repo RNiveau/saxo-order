@@ -67,10 +67,40 @@ returned assets with a 1-based "rank" (1 = best) and give each a one-line \
 Be selective: most days only a few assets are high or watch. Do not inflate \
 tiers, and do not pad confluence with redundant or non-directional patterns.
 
-Respond with ONLY a JSON object, no prose, no code fences:
-{"summary": "<one or two sentence headline of the day>",
- "assets": [{"id": "<echoed id>", "conviction": "high|watch", \
-"rank": <int>, "rationale": "<one line>"}]}"""
+"summary" is a one or two sentence headline of the day. "assets" is the \
+ranked list of high/watch assets, each with its echoed "id", "conviction", \
+1-based "rank", and a one-line "rationale" naming the patterns and the \
+trend context."""
+
+# Enforced via output_config.format (structured outputs) so the response is
+# always valid JSON matching this exact shape - no prose preamble, no code
+# fences, no risk of triggering the deterministic fallback on a well-formed
+# answer just because it wasn't formatted the way the prompt asked.
+TRIAGE_RESPONSE_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "assets": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "conviction": {
+                        "type": "string",
+                        "enum": ["high", "watch"],
+                    },
+                    "rank": {"type": "integer"},
+                    "rationale": {"type": "string"},
+                },
+                "required": ["id", "conviction", "rank", "rationale"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["summary", "assets"],
+    "additionalProperties": False,
+}
 
 
 FALLBACK_MODEL = "deterministic-fallback"
@@ -111,7 +141,9 @@ class TriageAgent:
 
         try:
             raw = self.anthropic_client.complete_json(
-                TRIAGE_SYSTEM_PROMPT, self._build_payload(grouped)
+                TRIAGE_SYSTEM_PROMPT,
+                self._build_payload(grouped),
+                output_schema=TRIAGE_RESPONSE_SCHEMA,
             )
             triaged = self._parse_triaged(raw, grouped)
             counts = self._count_tiers(triaged)

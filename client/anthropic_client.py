@@ -34,8 +34,17 @@ class AnthropicClient:
         return self._model
 
     def complete_json(
-        self, system: str, user_payload: str, max_tokens: int = 4096
+        self,
+        system: str,
+        user_payload: str,
+        output_schema: Optional[Dict[str, Any]] = None,
+        max_tokens: int = 4096,
     ) -> Dict[str, Any]:
+        kwargs: Dict[str, Any] = {}
+        if output_schema is not None:
+            kwargs["output_config"] = {
+                "format": {"type": "json_schema", "schema": output_schema}
+            }
         try:
             response = self._client.messages.create(
                 model=self._model,
@@ -43,6 +52,7 @@ class AnthropicClient:
                 thinking={"type": "disabled"},
                 system=system,
                 messages=[{"role": "user", "content": user_payload}],
+                **kwargs,
             )
         except (anthropic.APIError, anthropic.APIConnectionError) as e:
             raise AnthropicException(f"Anthropic API call failed: {e}")
