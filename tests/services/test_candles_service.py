@@ -328,3 +328,84 @@ class TestCandlesService:
         candles = candles_service.build_candles("code", ut, market, 50, date)
         for i in range(0, len(expected)):
             assert expected[i] == candles[i]
+
+    @pytest.mark.parametrize(
+        "market, ut, count, expected_count",
+        [
+            # EU H1: 9 in-session candles/day -> 1 trading day -> 3 cal days.
+            (EUMarket(), UnitTime.H1, 1, 3 * 48),
+            # EU H1 count=55 (MA50): ceil(55/9)=7 trading -> 7+2+2=11 days.
+            (EUMarket(), UnitTime.H1, 55, 11 * 48),
+            # EU H1 count=750 (COMBO): ceil(750/9)=84 -> 84+32+2=118 days.
+            (EUMarket(), UnitTime.H1, 750, 118 * 48),
+            # EU H4: len(h4_blocks)=3 candles/day -> 1 trading day -> 3 days.
+            (EUMarket(), UnitTime.H4, 1, 3 * 48),
+            # EU D: 1 candle/day -> ceil(5/1)=5 -> 5+2+2=9 days.
+            (EUMarket(), UnitTime.D, 5, 9 * 48),
+            # US H1: 6 in-session candles/day -> 1 trading day -> 3 days.
+            (USMarket(), UnitTime.H1, 1, 3 * 48),
+        ],
+    )
+    def test_build_candles_fetch_sizing(
+        self,
+        market: Market,
+        ut: UnitTime,
+        count: int,
+        expected_count: int,
+        mocker,
+    ):
+        saxo_client = mocker.Mock()
+        mocker.patch.object(
+            saxo_client,
+            "get_asset",
+            return_value={"Identifier": 12345, "AssetType": "Stock"},
+        )
+        # One off-session bar: enough to avoid the empty-data guard while
+        # producing no candles, so we can assert only on the fetch arguments.
+        mocker.patch.object(
+            saxo_client,
+            "get_historical_data",
+            return_value=[{"Time": datetime.datetime(2024, 6, 21, 3, 0)}],
+        )
+        candles_service = CandlesService(saxo_client)
+        candles_service.build_candles(
+            "code",
+            ut,
+            market,
+            count,
+            datetime.datetime(
+                2024, 6, 21, 19, 56, tzinfo=datetime.timezone.utc
+            ),
+        )
+        kwargs = saxo_client.get_historical_data.call_args.kwargs
+        assert kwargs["horizon"] == 30
+        assert kwargs["count"] == expected_count
+
+    def test_build_candles_anchors_to_last_session_close(self, mocker):
+        """Off-hours runs anchor the query to the last session close."""
+        saxo_client = mocker.Mock()
+        mocker.patch.object(
+            saxo_client,
+            "get_asset",
+            return_value={"Identifier": 12345, "AssetType": "Stock"},
+        )
+        mocker.patch.object(
+            saxo_client,
+            "get_historical_data",
+            return_value=[{"Time": datetime.datetime(2024, 6, 21, 3, 0)}],
+        )
+        candles_service = CandlesService(saxo_client)
+        # Friday 19:56 UTC, after the 15:00 UTC EU summer close.
+        candles_service.build_candles(
+            "code",
+            UnitTime.H1,
+            EUMarket(),
+            1,
+            datetime.datetime(
+                2024, 6, 21, 19, 56, tzinfo=datetime.timezone.utc
+            ),
+        )
+        kwargs = saxo_client.get_historical_data.call_args.kwargs
+        assert kwargs["date"] == datetime.datetime(
+            2024, 6, 21, 15, 0, tzinfo=datetime.timezone.utc
+        )

@@ -64,6 +64,64 @@ def market_in_utc(market: Market, reference: datetime.datetime) -> Market:
     )
 
 
+def last_session_close(
+    reference: datetime.datetime, market: Market
+) -> datetime.datetime:
+    """Anchor a fetch to the last session close at or before ``reference``.
+
+    When a candle build runs outside the cash session (evening, pre-open or
+    weekend), anchoring the Saxo ``UpTo`` query to the last session close
+    keeps the most recent returned bars in-session, so a small fetch already
+    reaches real candles instead of being filled with off-session bars that
+    the builder discards. While the session is open, ``reference`` is
+    returned unchanged.
+
+    Args:
+        reference: Moment the build runs. Naive values are treated as UTC.
+        market: Market whose exchange-local session hours define the close.
+
+    Returns:
+        A tz-aware UTC datetime: ``reference`` itself while the session is
+        open, otherwise the UTC close of the most recent trading weekday.
+        Weekends are skipped; holidays are not (an anchor on a closed day
+        still works because ``UpTo`` returns the previous existing bars).
+    """
+    if reference.tzinfo is None:
+        reference = reference.replace(tzinfo=datetime.UTC)
+    reference = reference.astimezone(datetime.UTC)
+
+    for offset in range(0, 8):
+        day = (reference - datetime.timedelta(days=offset)).date()
+        if day.weekday() >= 5:  # Saturday, Sunday
+            continue
+        noon = datetime.datetime(
+            day.year, day.month, day.day, 12, tzinfo=datetime.UTC
+        )
+        utc_market = market_in_utc(market, noon)
+        open_dt = datetime.datetime(
+            day.year,
+            day.month,
+            day.day,
+            utc_market.open_hour,
+            utc_market.open_minutes,
+            tzinfo=datetime.UTC,
+        )
+        close_dt = datetime.datetime(
+            day.year,
+            day.month,
+            day.day,
+            utc_market.close_hour,
+            0,
+            tzinfo=datetime.UTC,
+        )
+        if offset == 0:
+            if reference < open_dt:
+                continue  # today's session has not opened yet
+            return min(reference, close_dt)
+        return close_dt
+    return reference
+
+
 def build_current_weekly_candle_from_daily(
     candles: List[Candle],
 ) -> Optional[Candle]:
