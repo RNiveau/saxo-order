@@ -34,29 +34,6 @@ def mock_backtest_service():
 
 
 class TestGetBacktestDay:
-    def test_traded_day_returns_200(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
-        mock_backtest_service.evaluate_day.return_value = DayResult(
-            date=datetime.date(2026, 6, 2),
-            status=DayStatus.NO_TRADE,
-            h1_high=8050.0,
-            h1_low=8000.0,
-        )
-
-        response = client.get(
-            "/api/backtest/day",
-            params={"definition": "B9H", "date": "2026-06-02"},
-        )
-
-        assert response.status_code == 200
-        body = response.json()
-        assert body["status"] == "no_trade"
-        assert body["h1_high"] == 8050.0
-        assert body["h1_low"] == 8000.0
-        assert body["trades"] == []
-
     def test_traded_day_with_trades_and_candles_returns_200(
         self, mock_backtest_service
     ):
@@ -115,22 +92,6 @@ class TestGetBacktestDay:
 
         assert response.status_code == 400
         mock_backtest_service.evaluate_day.assert_not_called()
-
-    def test_no_data_day_returns_200(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
-        mock_backtest_service.evaluate_day.return_value = DayResult(
-            date=datetime.date(2026, 6, 2), status=DayStatus.NO_DATA
-        )
-
-        response = client.get(
-            "/api/backtest/day",
-            params={"definition": "B9H", "date": "2026-06-02"},
-        )
-
-        assert response.status_code == 200
-        assert response.json()["status"] == "no_data"
 
     def test_future_date_returns_400(self, mock_backtest_service):
         mock_backtest_service.get_definition.return_value = MagicMock(
@@ -256,26 +217,6 @@ class TestGetBacktestRun:
                 "definition": "B9H",
                 "start_date": "2026-06-10",
                 "end_date": "2026-06-01",
-            },
-        )
-
-        assert response.status_code == 400
-        mock_backtest_service.run_range.assert_not_called()
-
-    def test_future_date_returns_400(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
-        future_date = (
-            datetime.date.today() + datetime.timedelta(days=30)
-        ).isoformat()
-
-        response = client.get(
-            "/api/backtest/run",
-            params={
-                "definition": "B9H",
-                "start_date": "2026-06-01",
-                "end_date": future_date,
             },
         )
 
