@@ -207,6 +207,14 @@ class Market:
     close_hour: int
     h4_blocks: List[int] = None  # type: ignore[assignment]
     timezone: str = "UTC"
+    # Minutes past close_hour:00 at which the regular session actually
+    # ends (e.g. 30 for Euronext Paris's 17:30 close). close_hour itself
+    # stays the last-full-H1-candle-label hour used by the H4/daily
+    # candle builders in utils/helper.py, so this can exceed 59 when
+    # close_hour is a full hour short of the literal close (see
+    # USMarket, whose true 16:00 close is 60 minutes past its 15:00
+    # close_hour label).
+    end_minute: int = 0
 
 
 class USMarket(Market):
@@ -217,6 +225,7 @@ class USMarket(Market):
             open_minutes=30,
             h4_blocks=[4, 3],
             timezone="America/New_York",
+            end_minute=60,
         )
 
 
@@ -228,6 +237,7 @@ class EUMarket(Market):
             open_minutes=0,
             h4_blocks=[3, 4, 2],
             timezone="Europe/Paris",
+            end_minute=30,
         )
 
 

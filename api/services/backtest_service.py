@@ -9,6 +9,8 @@ from model import (
     Candle,
     DayResult,
     DayResultSummary,
+    EUMarket,
+    Market,
     Strategy,
     Trade,
     UnitTime,
@@ -16,6 +18,7 @@ from model import (
 from model.enum import DayStatus, ExitReason
 from services.candles_service import CandlesService
 from utils.exception import SaxoException
+from utils.helper import market_in_utc
 from utils.logger import Logger
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
@@ -40,34 +43,44 @@ FIVE_MINUTE_HORIZON = 5
 H1_HORIZON = 60
 
 
+def _eu_market_in_utc(trading_date: datetime.date) -> Market:
+    reference = datetime.datetime(
+        trading_date.year,
+        trading_date.month,
+        trading_date.day,
+        tzinfo=PARIS_TZ,
+    )
+    return market_in_utc(EUMarket(), reference)
+
+
 def paris_reference_window_utc(
     trading_date: datetime.date,
 ) -> tuple[datetime.datetime, datetime.datetime]:
     """9:00-10:00 Paris local time for trading_date, as naive UTC bounds."""
-    start_local = datetime.datetime(
+    utc_market = _eu_market_in_utc(trading_date)
+    start = datetime.datetime(
         trading_date.year,
         trading_date.month,
         trading_date.day,
-        9,
-        0,
-        tzinfo=PARIS_TZ,
+        utc_market.open_hour,
+        utc_market.open_minutes,
     )
-    end_local = start_local + datetime.timedelta(hours=1)
-    return (_to_naive_utc(start_local), _to_naive_utc(end_local))
+    end = start + datetime.timedelta(hours=1)
+    return (start, end)
 
 
 def paris_session_end_utc(trading_date: datetime.date) -> datetime.datetime:
     """End of FRA40.I's regular trading session (Euronext Paris close,
-    17:30 local), as a naive UTC datetime."""
-    end_local = datetime.datetime(
+    17:30 local, from EUMarket.close_hour/end_minute), as a naive UTC
+    datetime."""
+    utc_market = _eu_market_in_utc(trading_date)
+    return datetime.datetime(
         trading_date.year,
         trading_date.month,
         trading_date.day,
-        17,
-        30,
-        tzinfo=PARIS_TZ,
+        utc_market.close_hour,
+        utc_market.end_minute,
     )
-    return _to_naive_utc(end_local)
 
 
 def is_future_paris_date(
@@ -87,14 +100,16 @@ def is_today_not_yet_closed(
     current = (now or datetime.datetime.now(PARIS_TZ)).astimezone(PARIS_TZ)
     if d != current.date():
         return False
+    market = EUMarket()
     session_end_local = datetime.datetime(
-        d.year, d.month, d.day, 17, 30, tzinfo=PARIS_TZ
+        d.year,
+        d.month,
+        d.day,
+        market.close_hour,
+        market.end_minute,
+        tzinfo=PARIS_TZ,
     )
     return current < session_end_local
-
-
-def _to_naive_utc(value: datetime.datetime) -> datetime.datetime:
-    return value.astimezone(datetime.timezone.utc).replace(tzinfo=None)
 
 
 def _candle_date(candle: Candle) -> datetime.datetime:
