@@ -17,6 +17,7 @@ from services.indicator_service import (
     bollinger_bands,
     combo,
     containing_candle,
+    double_bottom,
     double_top,
     exponentiel_mobile_average,
     find_linear_function,
@@ -109,6 +110,60 @@ class TestIndicatorService:
             assert double_top(candles, tick) is None
         else:
             assert double_top(candles, tick).higher == expected
+
+    @pytest.mark.parametrize(
+        "lows, tick, expected",
+        [
+            (
+                [8, 9, 10, 8, 9],
+                0.5,
+                8,
+            ),
+            (
+                [8, 9, 10, 7.5, 9],
+                0.5,
+                8,
+            ),
+            (
+                [8, 9, 10, 7.4, 9],
+                0.5,
+                None,
+            ),
+            (
+                [8, 7, 10, 7.4, 9],
+                0.5,
+                7,
+            ),
+            (
+                [8, 7, 10, 7.4, 6.8],
+                0.2,
+                7,
+            ),
+            (
+                [8, 7, 10, 7.4, 6],
+                0.5,
+                None,
+            ),
+            (
+                [8, 6.9, 10, 7.4, 9, 15, 6.7, 9, 10],
+                0.2,
+                6.9,
+            ),
+        ],
+    )
+    def test_double_bottom(self, lows, tick, expected):
+        candles = list(
+            map(
+                lambda x: Candle(
+                    x, 0, 0, 0, UnitTime.D, datetime.datetime.now()
+                ),
+                lows,
+            )
+        )
+        if expected is None:
+            assert double_bottom(candles, tick) is None
+        else:
+            assert double_bottom(candles, tick).lower == expected
 
     @pytest.mark.parametrize(
         "candles, std, expected",
