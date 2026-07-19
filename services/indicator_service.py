@@ -46,6 +46,37 @@ def double_top(candles: List[Candle], tick=float) -> Optional[Candle]:
     return None
 
 
+def double_bottom(candles: List[Candle], tick=float) -> Optional[Candle]:
+    """
+    If a double bottom exist in the list, return the trough candle
+    The bottom can be another candle than the first one
+    We accept a spread of one tick between two bottoms
+    """
+    if len(candles) < 2:
+        return None
+
+    bottoms: List[Candle] = []
+
+    if candles[0].lower <= candles[1].lower:
+        bottoms.append(candles[0])
+
+    for i in range(1, len(candles) - 1):
+        if (
+            candles[i].lower <= candles[i - 1].lower
+            and candles[i].lower <= candles[i + 1].lower
+        ):
+            bottoms.append(candles[i])
+
+    if candles[-1].lower <= candles[-2].lower:
+        bottoms.append(candles[-1])
+    # Check if there are two bottoms within one tick spread
+    for i in range(len(bottoms)):
+        for j in range(i + 1, len(bottoms)):
+            if round(abs(bottoms[i].lower - bottoms[j].lower), 4) <= tick:
+                return bottoms[i]
+    return None
+
+
 def bollinger_bands(
     candles: List[Candle], multiply_std: float = 2.0, period: int = 20
 ) -> BollingerBands:

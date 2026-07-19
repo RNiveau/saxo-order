@@ -293,6 +293,30 @@ async def run_detection_for_asset(
                 )
             )
 
+        # Run DOUBLE_BOTTOM detection
+        if (
+            candle := _run_double_bottom(saxo_client, asset_dict, candles)
+        ) is not None:
+            asset_alerts.append(
+                Alert(
+                    alert_type=AlertType.DOUBLE_BOTTOM,
+                    date=(
+                        candle.date if candle.date else datetime.datetime.now()
+                    ),
+                    data={
+                        "close": candle.close,
+                        "open": candle.open,
+                        "higher": candle.higher,
+                        "lower": candle.lower,
+                        "ma50_slope": ma50_slope,
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
+
         # Run CONTAINING_CANDLE detection
         if (candle := _run_containing_candle(asset_dict, candles)) is not None:
             asset_alerts.append(
@@ -607,6 +631,29 @@ def _run_double_top(
     ):
         logger.debug(f"{asset['name']}, {double_top_candle}")
         return double_top_candle
+    return None
+
+
+def _run_double_bottom(
+    saxo_client: SaxoClient,
+    asset: Dict,
+    candles: List[Candle],
+) -> Optional[Candle]:
+    detail = saxo_client.get_asset_detail(asset["saxo_uic"], AssetType.STOCK)
+    if "TickSizeScheme" not in detail:
+        tick = 0.0
+    else:
+        tick = client_helper.get_tick_size(
+            detail["TickSizeScheme"], candles[0].close
+        )
+    double_bottom_candle = indicator_service.double_bottom(candles, tick)
+    if (
+        double_bottom_candle is not None
+        and double_bottom_candle.date is not None
+        and (datetime.datetime.now() - double_bottom_candle.date).days <= 2
+    ):
+        logger.debug(f"{asset['name']}, {double_bottom_candle}")
+        return double_bottom_candle
     return None
 
 
