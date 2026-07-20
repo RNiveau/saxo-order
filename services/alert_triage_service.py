@@ -39,6 +39,13 @@ stock was rising, then topped out). If the stock is already in an \
 established downtrend (strongly negative ma50_slope), a "double_top" is not \
 a fresh reversal - it is just noise inside an ongoing decline, and should \
 NOT be described as "confirming" or "reinforcing" the bearish bias.
+- double_bottom: the bullish mirror of double_top - a geometric match of two \
+similar recent lows. It is only a meaningful bullish reversal signal when it \
+interrupts a PRIOR downtrend (the stock was falling, then bottomed out). If \
+the stock is already in an established uptrend (strongly positive \
+ma50_slope), a "double_bottom" is not a fresh reversal - it is just noise \
+inside an ongoing advance, and should NOT be described as "confirming" or \
+"reinforcing" the bullish bias.
 - containing_candle and double_inside_bar: pure geometric consolidation / \
 indecision patterns. They carry no directional meaning on their own and \
 should not be described as bearish or bullish by themselves.
