@@ -42,16 +42,16 @@ Hardcoded, not persisted — one Python constant, not a DB row.
 
 | Field | Type | Notes |
 |---|---|---|
-| `entry_time` | `datetime` | Close time of the confirming 5-minute candle (FR-007) |
-| `entry_price` | `float` | Close price of the confirming 5-minute candle |
-| `exit_time` | `Optional[datetime]` | `None` only if the day's evaluation window ends without any exit ever being recorded (should not happen once EOD fallback fires — kept optional defensively) |
+| `entry_time` | `datetime` | Time of the confirming (breakout) 5-minute candle, not the candidate reversal candle it broke above (FR-007) |
+| `entry_price` | `float` | The candidate reversal candle's high, or the confirming candle's open if it gapped above that high (FR-007, FR-010's gap-fill convention) |
+| `exit_time` | `datetime` | Required — a `Trade` is only ever constructed once it has closed (the implementation never stores an open position as a `Trade`), so there is no `None` case to represent |
 | `exit_price` | `float` | Per FR-010 gap-fill rule |
 | `exit_reason` | `ExitReason` | One of the four members above |
 | `points` | `float` | `exit_price - entry_price`, rounded consistent with existing `Candle` price rounding (`round(..., 4)` per `client/client_helper.py` convention, then reported to the trader in points) |
 
 **Validation rules** (enforced in `api/services/backtest_service.py`, not at the dataclass level — consistent with how other domain models in this codebase are built by services rather than self-validating):
 - `entry_time < exit_time` when `exit_time` is set.
-- `exit_reason == BREAK_EVEN` ⇔ `points == 0`.
+- `exit_reason == BREAK_EVEN` normally implies `points == 0`, but not always: FR-010's gap-fill rule applies uniformly to all exit types, so a break-even exit whose triggering candle opens beyond the break-even level records that candle's open price (and therefore a small non-zero points value) rather than being forced to exactly 0. `exit_reason` reflects which mechanism closed the trade (the stop had moved to break-even before being hit), not a guarantee of the resulting points — see spec.md's Assumptions for the reasoning.
 - At most one `Trade` per `DayResult` may be "open" at construction time — trades are only appended once closed (FR-011: at most one open position at any time).
 
 ### `DayResult`
@@ -116,12 +116,16 @@ BacktestDefinition (1, hardcoded) ─┬─> BacktestRunResult (per request)
 ## State transitions (`Trade`, within a single day's evaluation — not persisted, computed in one pass)
 
 ```
-[no position] --(FR-006 breakout-reversal signal)--> [open, stop = entry-50]
+[no position, no candidate] --(FR-006: breach then close-back >= H1 low)--> [no position, candidate = reversal candle]
+[no position, candidate] --(later candle's high does not exceed candidate's high, but stays >= H1 low, FR-006b)--> [no position, candidate = that later candle]
+[no position, candidate] --(later candle closes < H1 low, FR-006b)--> [no position, no candidate] (that candle is itself a fresh breach)
+[no position, candidate] --(later candle's high > candidate's high, i.e. breakout, entry within 20pts of H1 low and below take-profit, FR-006a/FR-007)--> [open, stop = entry-50]
+[no position, candidate] --(breakout confirmed, FR-006b, but fails FR-006a's distance/take-profit bounds)--> [no position, no candidate] (resumes searching for a fresh breach)
 [open, stop = entry-50] --(candle high >= entry+20, FR-008a)--> [open, stop = entry (break-even armed)]
 [open, stop = entry-50] --(candle low <= entry-50)--> [closed: STOP_LOSS]
 [open, stop = entry-50] --(candle high >= H1_high-10)--> [closed: TAKE_PROFIT]
 [open, stop = entry (armed)] --(candle low <= entry)--> [closed: BREAK_EVEN]
 [open, stop = entry (armed)] --(candle high >= H1_high-10)--> [closed: TAKE_PROFIT]
 [open, any state] --(session end reached)--> [closed: END_OF_DAY]
-[closed] --(FR-011: time remains, new FR-006 signal)--> [no position] --> (cycle repeats)
+[closed] --(FR-011: time remains)--> [no position, no candidate] --> (cycle repeats from FR-006)
 ```

@@ -938,3 +938,86 @@ export const alertDigestService = {
     return response.data;
   },
 };
+
+export interface BacktestDefinition {
+  code: string;
+  display_name: string;
+  instrument: string;
+}
+
+export interface BacktestTrade {
+  entry_time: string;
+  entry_price: number;
+  exit_time: string;
+  exit_price: number;
+  exit_reason: string;
+  points: number;
+}
+
+export interface BacktestCandle {
+  date: string | null;
+  open: number;
+  close: number;
+  lower: number;
+  higher: number;
+}
+
+export interface BacktestDayDetail {
+  date: string;
+  status: string;
+  h1_high: number | null;
+  h1_low: number | null;
+  candles: BacktestCandle[];
+  trades: BacktestTrade[];
+}
+
+export interface BacktestSummary {
+  definition_code: string;
+  start_date: string;
+  end_date: string;
+  number_of_days: number;
+  number_of_trades: number;
+  number_of_winning_positions: number;
+  number_of_losing_positions: number;
+  number_of_be: number;
+  average_win: number | null;
+  average_loss: number | null;
+  final_result: number;
+}
+
+export interface BacktestDayResultSummary {
+  date: string;
+  status: string;
+  trade_count: number;
+  points: number;
+}
+
+export interface BacktestRunResponse {
+  summary: BacktestSummary;
+  days: BacktestDayResultSummary[];
+}
+
+export const backtestService = {
+  getDefinitions: async (): Promise<BacktestDefinition[]> => {
+    const response = await api.get<BacktestDefinition[]>('/api/backtest/definitions');
+    return response.data;
+  },
+
+  getDayDetail: async (definition: string, date: string): Promise<BacktestDayDetail> => {
+    const response = await api.get<BacktestDayDetail>('/api/backtest/day', {
+      params: { definition, date },
+    });
+    return response.data;
+  },
+
+  runRange: async (
+    definition: string,
+    startDate: string,
+    endDate: string
+  ): Promise<BacktestRunResponse> => {
+    const response = await api.get<BacktestRunResponse>('/api/backtest/run', {
+      params: { definition, start_date: startDate, end_date: endDate },
+    });
+    return response.data;
+  },
+};

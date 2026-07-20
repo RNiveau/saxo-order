@@ -340,3 +340,41 @@ class CandlesService:
                 weekly_candles.insert(0, current_weekly)
 
         return weekly_candles
+
+    def get_candles_in_window(
+        self,
+        code: str,
+        ut: UnitTime,
+        horizon: int,
+        start_utc: datetime.datetime,
+        end_utc: datetime.datetime,
+    ) -> List[Candle]:
+        """
+        Fetch candles at the given horizon (in minutes) covering an
+        explicit historical window [start_utc, end_utc).
+
+        Unlike get_candles_per_minutes/build_candles, this is anchored to
+        a specific past window rather than relative to "now", and does
+        not attempt to reconstruct in-progress periods (the window is
+        assumed to be fully closed, e.g. a past backtested day).
+        """
+        self.logger.debug(
+            f"get_candles_in_window({code}, ut={ut}, horizon={horizon}, "
+            f"{start_utc} -> {end_utc})"
+        )
+        window_minutes = (end_utc - start_utc).total_seconds() / 60
+        count = int(window_minutes // horizon) + 3
+        asset = self.saxo_client.get_asset(code)
+        data = self.saxo_client.get_historical_data(
+            saxo_uic=asset["Identifier"],
+            asset_type=asset["AssetType"],
+            horizon=horizon,
+            count=count,
+            date=end_utc + datetime.timedelta(minutes=horizon),
+        )
+        candles = map_data_to_candles(data, ut)
+        return [
+            candle
+            for candle in candles
+            if candle.date is not None and start_utc <= candle.date < end_utc
+        ]

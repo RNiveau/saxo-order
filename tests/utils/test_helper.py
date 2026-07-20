@@ -1035,6 +1035,7 @@ class TestHelper:
         assert market.open_hour == expected_open
         assert market.close_hour == expected_close
         assert market.open_minutes == market_factory().open_minutes
+        assert market.end_minute == market_factory().end_minute
 
     def test_build_daily_candle_from_h1_winter_dst(self):
         """In winter (CET) the EU session lands on UTC 08:00-16:00.

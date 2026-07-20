@@ -10,6 +10,7 @@ from model.enum_with_get_value import EnumWithGetValue
 class UnitTime(EnumWithGetValue):
 
     D = "daily"
+    M5 = "5m"
     M15 = "15m"
     M30 = "30m"
     H1 = "h1"

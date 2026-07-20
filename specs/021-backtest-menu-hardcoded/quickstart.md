@@ -37,7 +37,7 @@ Before trusting the strategy engine, run `/day` (curl or UI) against **at least 
 | 1 | No data (holiday / missing H1 candle) | `status == "no_data"` |
 | 2 | No trade (no breakout, or breakout with no confirmed reversal) | `status == "no_trade"` |
 | 3 | Stop-loss exit | entry/exit price, `exit_reason == "stop_loss"`, points == -50 (± gap adjustment) |
-| 4 | Break-even exit | entry price, stop armed at +20pts, `exit_reason == "break_even"`, points == 0 |
+| 4 | Break-even exit | entry price, stop armed at +20pts, `exit_reason == "break_even"`, points == 0 (± gap adjustment — see FR-010) |
 | 5 | Take-profit exit | entry/exit price, `exit_reason == "take_profit"`, points matches H1-high-10 minus entry |
 | 6 | End-of-day exit | entry price, exit == last 5-min candle's close, `exit_reason == "end_of_day"` |
 

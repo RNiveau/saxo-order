@@ -15,6 +15,7 @@ import { Alerts } from './pages/Alerts';
 import { AssetExclusions } from './pages/AssetExclusions';
 import Workflows from './pages/Workflows';
 import WorkflowOrders from './pages/WorkflowOrders';
+import { Backtest } from './pages/Backtest';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
               <Route path="/exclusions" element={<AssetExclusions />} />
               <Route path="/report" element={<Report />} />
               <Route path="/trade-republic-report" element={<TradeRepublicReport />} />
+              <Route path="/backtest" element={<Backtest />} />
               <Route path="/search" element={<SearchResults />} />
               <Route path="/asset/:symbol" element={<AssetDetail />} />
             </Routes>

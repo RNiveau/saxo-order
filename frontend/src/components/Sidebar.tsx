@@ -196,6 +196,15 @@ export function Sidebar() {
                 <span className="label">Trade Republic Report</span>
               </NavLink>
             </li>
+            <li>
+              <NavLink
+                to="/backtest"
+                className={({ isActive }) => isActive ? 'active' : ''}
+              >
+                <span className="icon">🧪</span>
+                <span className="label">Backtest</span>
+              </NavLink>
+            </li>
           </ul>
         )}
       </nav>
