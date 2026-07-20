@@ -43,21 +43,42 @@ NOT be described as "confirming" or "reinforcing" the bearish bias.
 indecision patterns. They carry no directional meaning on their own and \
 should not be described as bearish or bullish by themselves.
 
-Rank the day's opportunities using two ideas, applied with the pattern \
-semantics above (not just pattern names or counts):
-1. Confluence - genuinely independent patterns pointing the same direction \
-is stronger than one isolated or internally-redundant pattern (see \
-congestion20/100 above).
-2. Trend alignment - only meaningful when the pattern's actual direction \
-(per the semantics above) matches ma50_slope. Do not award trend alignment \
-to a pattern that has no real direction, or that structurally cannot occur \
-against the claimed trend (e.g. mm50_touch during a "bearish" thesis).
+Rank the day's opportunities on TWO orthogonal axes, applied with the \
+pattern semantics above (not just pattern names or counts):
 
-Conviction tiers:
-- "high": a genuine, actionable setup worth looking at now, with directional \
-evidence that actually holds up under the pattern semantics above.
-- "watch": a plausible setup to keep an eye on.
-- "noise": low-signal, isolated, redundant, or internally-inconsistent hits.
+1. CONVERGENCE - how much the evidence agrees with itself. Genuinely \
+independent patterns pointing the same direction, AND agreeing with the \
+DIRECTION (sign) of ma50_slope, are strong. Count convergence by \
+independent, directional evidence - not by raw pattern count:
+   - congestion20 + congestion100 together = ONE point (same detector, two \
+windows).
+   - patterns with no inherent direction (containing_candle, \
+double_inside_bar, congestion) add breadth but cannot themselves converge \
+on a direction.
+   - a pattern that structurally cannot occur against the claimed trend \
+(e.g. mm50_touch during a "bearish" read) is a red flag, NOT convergence.
+
+2. OPPORTUNITY - given the evidence agrees, how strong is the move it is \
+riding. This is about the MAGNITUDE of ma50_slope (and its momentum), not \
+its sign: a signal aligned with a steep, strongly-inclined trend is a bigger \
+opportunity than the same signal riding a shallow, near-flat trend. A large \
+|ma50_slope| in the signal's direction = high opportunity; a slope near zero \
+(or null/unknown) = low opportunity regardless of how many patterns fired.
+
+These are independent: many patterns can converge on a direction (high \
+convergence) while the trend they ride is nearly flat (low opportunity), and \
+a single clean directional pattern can ride a very strong trend (low \
+convergence, high opportunity).
+
+Conviction tiers combine the two axes:
+- "high": strong on BOTH - independent patterns converging on a direction \
+that also rides a strongly-inclined trend. A genuine, actionable setup worth \
+looking at now.
+- "watch": strong on ONE axis - either convergent evidence on a flat/weak \
+trend, or a single clean directional signal riding a strong trend. Plausible, \
+keep an eye on it.
+- "noise": strong on NEITHER - isolated, redundant, non-directional, or \
+internally-inconsistent hits on a flat or unknown trend.
 
 RETURN ONLY the "high" and "watch" assets - the ones worth surfacing. Any \
 asset you omit is treated as "noise", so never list noise assets. Rank the \
@@ -65,12 +86,47 @@ returned assets with a 1-based "rank" (1 = best) and give each a one-line \
 "rationale" naming the patterns and the trend context.
 
 Be selective: most days only a few assets are high or watch. Do not inflate \
-tiers, and do not pad confluence with redundant or non-directional patterns.
+tiers, do not pad convergence with redundant or non-directional patterns, and \
+do not claim opportunity on a flat or unknown trend.
 
-Respond with ONLY a JSON object, no prose, no code fences:
-{"summary": "<one or two sentence headline of the day>",
- "assets": [{"id": "<echoed id>", "conviction": "high|watch", \
-"rank": <int>, "rationale": "<one line>"}]}"""
+Rank the returned assets so that stronger on BOTH axes comes first; when two \
+assets are close, prefer the one riding the stronger trend (opportunity).
+
+"summary" is a one or two sentence headline of the day. "assets" is the \
+ranked list of high/watch assets, each with its echoed "id", "conviction", \
+1-based "rank", and a one-line "rationale" that names BOTH axes: which \
+patterns converged (or why the evidence is thin) and the strength/direction \
+of the trend they ride."""
+
+# Enforced via output_config.format (structured outputs) so the response is
+# always valid JSON matching this exact shape - no prose preamble, no code
+# fences, no risk of triggering the deterministic fallback on a well-formed
+# answer just because it wasn't formatted the way the prompt asked.
+TRIAGE_RESPONSE_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "assets": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "conviction": {
+                        "type": "string",
+                        "enum": ["high", "watch"],
+                    },
+                    "rank": {"type": "integer"},
+                    "rationale": {"type": "string"},
+                },
+                "required": ["id", "conviction", "rank", "rationale"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["summary", "assets"],
+    "additionalProperties": False,
+}
 
 
 FALLBACK_MODEL = "deterministic-fallback"
@@ -111,7 +167,9 @@ class TriageAgent:
 
         try:
             raw = self.anthropic_client.complete_json(
-                TRIAGE_SYSTEM_PROMPT, self._build_payload(grouped)
+                TRIAGE_SYSTEM_PROMPT,
+                self._build_payload(grouped),
+                output_schema=TRIAGE_RESPONSE_SCHEMA,
             )
             triaged = self._parse_triaged(raw, grouped)
             counts = self._count_tiers(triaged)

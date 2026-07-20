@@ -33,7 +33,12 @@ class AlertDigestService:
 
             logger.info("Cache miss - fetching alert digests from DynamoDB")
             items = await self.dynamodb_client.get_alert_digests(limit=limit)
-            digests = [self._to_response(item) for item in items]
+            tradingview_links = (
+                await self.dynamodb_client.get_all_tradingview_links()
+            )
+            digests = [
+                self._to_response(item, tradingview_links) for item in items
+            ]
             self._cache[cache_key] = digests
             return digests
 
@@ -43,28 +48,41 @@ class AlertDigestService:
         item = await self.dynamodb_client.get_alert_digest(run_date)
         if item is None:
             return None
-        return self._to_response(item)
+        tradingview_links = (
+            await self.dynamodb_client.get_all_tradingview_links()
+        )
+        return self._to_response(item, tradingview_links)
 
-    def _to_response(self, item: Dict[str, Any]) -> AlertDigestResponse:
+    def _to_response(
+        self, item: Dict[str, Any], tradingview_links: Dict[str, str]
+    ) -> AlertDigestResponse:
         return AlertDigestResponse(
             run_date=item["run_date"],
             created_at=int(item["created_at"]),
             summary=item["summary"],
             counts={k: int(v) for k, v in item["counts"].items()},
             triaged_assets=[
-                self._to_triaged_asset(asset)
+                self._to_triaged_asset(asset, tradingview_links)
                 for asset in item.get("triaged_assets", [])
             ],
             fallback_used=bool(item["fallback_used"]),
             model=item["model"],
         )
 
-    def _to_triaged_asset(self, asset: Dict[str, Any]) -> TriagedAssetResponse:
+    def _to_triaged_asset(
+        self, asset: Dict[str, Any], tradingview_links: Dict[str, str]
+    ) -> TriagedAssetResponse:
+        country_code = asset.get("country_code")
+        asset_id = (
+            f"{asset['asset_code']}:{country_code}"
+            if country_code
+            else asset["asset_code"]
+        )
         return TriagedAssetResponse(
             asset_code=asset["asset_code"],
             asset_description=asset["asset_description"],
             exchange=asset["exchange"],
-            country_code=asset.get("country_code"),
+            country_code=country_code,
             conviction=asset["conviction"],
             rank=(
                 int(asset["rank"]) if asset.get("rank") is not None else None
@@ -76,4 +94,5 @@ class AlertDigestService:
                 if isinstance(asset.get("ma50_slope"), Decimal)
                 else asset.get("ma50_slope")
             ),
+            tradingview_url=tradingview_links.get(asset_id),
         )
