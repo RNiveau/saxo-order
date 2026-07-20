@@ -5,12 +5,24 @@ import { DailyBriefCarousel } from './DailyBriefCarousel';
 import './DailyBrief.css';
 
 const RECENT_DIGESTS_LIMIT = 14;
+const COLLAPSED_STORAGE_KEY = 'daily_brief_collapsed';
 
 export function DailyBrief() {
   const [digests, setDigests] = useState<AlertDigest[]>([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem(COLLAPSED_STORAGE_KEY) === 'true'
+  );
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(COLLAPSED_STORAGE_KEY, String(next));
+      return next;
+    });
+  };
 
   useEffect(() => {
     const fetchDigests = async () => {
@@ -61,6 +73,8 @@ export function DailyBrief() {
         hasNext={index > 0}
         onPrev={() => setIndex((i) => Math.min(i + 1, digests.length - 1))}
         onNext={() => setIndex((i) => Math.max(i - 1, 0))}
+        collapsed={collapsed}
+        onToggleCollapsed={toggleCollapsed}
       />
     </div>
   );

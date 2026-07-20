@@ -905,6 +905,7 @@ export interface TriagedAsset {
   rationale: string;
   patterns: string[];
   ma50_slope: number | null;
+  tradingview_url: string | null;
 }
 
 export interface AlertDigest {

@@ -21,6 +21,23 @@
   gap: 0.5rem;
 }
 
+.daily-brief-collapse {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0.15rem 0.3rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.daily-brief-collapse:hover {
+  color: #e6edf3;
+  background: #21262d;
+}
+
 .daily-brief-date {
   font-size: 1rem;
   font-weight: 700;
@@ -74,13 +91,18 @@
 
 .daily-brief-asset {
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.25rem;
   padding: 0.4rem 0.6rem;
   background: #0d1117;
   border: 1px solid #21262d;
   border-radius: 4px;
+}
+
+.daily-brief-asset-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .daily-brief-asset-badge {
@@ -88,14 +110,39 @@
 }
 
 .daily-brief-asset-name {
+  flex: 1;
   font-weight: 600;
   color: #e6edf3;
   font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.daily-brief-asset-name:hover {
+  color: #58a6ff;
+  text-decoration: underline;
+}
+
+.daily-brief-asset-tradingview {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.daily-brief-asset-tradingview:hover {
+  background: #2962ff;
+  transform: scale(1.1);
 }
 
 .daily-brief-asset-rationale {
   color: #8b949e;
   font-size: 0.8rem;
+  padding-left: 1.4rem;
 }
 
 .daily-brief-empty {

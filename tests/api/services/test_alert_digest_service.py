@@ -53,6 +53,9 @@ class TestListRecent:
             _item("2026-07-16", 300),
             _item("2026-07-15", 200),
         ]
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {
+            "SAN:xpar": "https://www.tradingview.com/chart/custom"
+        }
 
         digests = await service.list_recent()
 
@@ -60,6 +63,10 @@ class TestListRecent:
         assert digests[0].counts == {"high": 1, "watch": 0, "noise": 0}
         assert digests[0].triaged_assets[0].ma50_slope == -2.3
         assert digests[0].triaged_assets[0].rank == 1
+        assert (
+            digests[0].triaged_assets[0].tradingview_url
+            == "https://www.tradingview.com/chart/custom"
+        )
 
     async def test_list_recent_uses_cache_on_second_call(
         self, service, mock_dynamodb_client
@@ -67,6 +74,7 @@ class TestListRecent:
         mock_dynamodb_client.get_alert_digests.return_value = [
             _item("2026-07-16", 300)
         ]
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         await service.list_recent()
         await service.list_recent()
@@ -81,6 +89,7 @@ class TestGetByRunDate:
         mock_dynamodb_client.get_alert_digest.return_value = _item(
             "2026-07-16", 300
         )
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         digest = await service.get_by_run_date("2026-07-16")
 

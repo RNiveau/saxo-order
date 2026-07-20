@@ -25,6 +25,9 @@ class TriagedAssetResponse(BaseModel):
     ma50_slope: Optional[float] = Field(
         default=None, description="MA50 slope used in ranking"
     )
+    tradingview_url: Optional[str] = Field(
+        default=None, description="Custom TradingView URL if configured"
+    )
 
 
 class AlertDigestResponse(BaseModel):
