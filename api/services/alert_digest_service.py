@@ -48,7 +48,9 @@ class AlertDigestService:
         item = await self.dynamodb_client.get_alert_digest(run_date)
         if item is None:
             return None
-        tradingview_links = await self.dynamodb_client.get_all_tradingview_links()
+        tradingview_links = (
+            await self.dynamodb_client.get_all_tradingview_links()
+        )
         return self._to_response(item, tradingview_links)
 
     def _to_response(
