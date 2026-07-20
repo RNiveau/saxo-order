@@ -2,6 +2,6 @@
 .git
 __pycache__
 *.pyc
+./.mypy_cache
 frontend/node_modules
-secrets.yml
 access_token
