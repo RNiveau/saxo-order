@@ -4,6 +4,13 @@
   margin-bottom: 0.5rem;
 }
 
+.backtest-day-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .backtest-status {
   color: #a0a0a0;
 }

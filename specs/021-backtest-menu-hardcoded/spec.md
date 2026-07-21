@@ -53,6 +53,7 @@ A trader wants to enter a start date and end date in the UI, run the "CAC40 Boug
 3. **Given** a date range where no trade signal ever occurs, **When** the backtest runs, **Then** the system displays number of trades as 0, number of winning, losing, and break-even positions as 0, average win and average loss as not applicable, and a final result of 0 points.
 4. **Given** a date range containing at least one trade that closed via the break-even mechanism, **When** the backtest runs, **Then** that trade counts toward "number of BE" and toward "number of trades," but not toward "number of winning positions" or "number of losing positions," and its 0-point result is excluded from the average win and average loss calculations.
 5. **Given** an end date before the start date, or a start or end date in the future, entered in the UI, **When** the trader submits the request, **Then** the system rejects it with a validation error and does not run the backtest.
+6. **Given** a completed range run, **When** the trader requests a CSV export, **Then** the system downloads a CSV file with one row per day in the range results (date, status, trade count, points), matching the displayed summary.
 
 ---
 
@@ -67,6 +68,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 **Acceptance Scenarios**:
 
 1. **Given** a backtested day with a trade, **When** the trader opens that day's detail view, **Then** the system shows the 9:00–10:00 H1 high and low, the sequence of 5-minute candles from 10:00 onward, and the entry and exit points marked against that data.
+2. **Given** a backtested day's detail view, **When** the trader requests a CSV export, **Then** the system downloads a CSV file containing the H1 high/low, the 5-minute candle sequence, and the day's trades.
 
 ---
 
@@ -124,6 +126,8 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 - **FR-014**: Trade results MUST be expressed in index points (entry/exit price and points gained or lost), consistent with how the strategy's thresholds (50 points, 10 points) are defined.
 - **FR-015**: System MUST let a trader open a detail view for any backtested day that produced at least one trade, showing the H1 high/low reference levels, the 5-minute candles used from 10:00 onward, and the entry/exit points for every trade taken that day.
 - **FR-016**: System MUST validate the trader-provided start and end date before running the backtest, and MUST reject the request with a clear error, without evaluating any day, when the end date is before the start date or when either date is in the future.
+- **FR-017**: System MUST let a trader export a range run's day-by-day summary as a downloadable CSV file, with one row per day in the results (date, status, trade count, points) — the same set of days already returned by the range run (FR-012).
+- **FR-018**: System MUST let a trader export a single day's detail (FR-015) as a downloadable CSV file, containing the H1 high/low reference levels, the sequence of 5-minute candles (date, open, high, low, close), and the day's trades (entry time/price, exit time/price, exit reason, points).
 
 ### Key Entities
 

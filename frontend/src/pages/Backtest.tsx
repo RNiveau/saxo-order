@@ -191,10 +191,19 @@ export function Backtest() {
 
       {error && <div className="backtest-error">{error}</div>}
 
-      {mode === 'day' && dayResult && <BacktestDayDetail detail={dayResult} />}
+      {mode === 'day' && dayResult && (
+        <BacktestDayDetail detail={dayResult} definition={selectedDefinition} />
+      )}
 
       {mode === 'range' && runResult && (
         <div className="backtest-range-result">
+          <button
+            className="backtest-export-csv"
+            onClick={() => backtestService.exportRunCsv(selectedDefinition, startDate, endDate)}
+          >
+            Export CSV
+          </button>
+
           <div className="backtest-summary-grid">
             <div className="backtest-summary-tile">
               <span className="label">Days</span>
@@ -264,7 +273,7 @@ export function Backtest() {
           {drilldownError && <div className="backtest-error">{drilldownError}</div>}
           {drilldown && (
             <div className="backtest-day-drilldown">
-              <BacktestDayDetail detail={drilldown} />
+              <BacktestDayDetail detail={drilldown} definition={selectedDefinition} />
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@ import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 
 from api.date_utils import parse_iso_date
 from api.dependencies import get_backtest_service
@@ -10,7 +11,9 @@ from api.models.backtest import (
     BacktestRunResponse,
     DayDetailResponse,
     backtest_definition_to_response,
+    backtest_run_result_to_csv,
     backtest_run_result_to_response,
+    day_result_to_csv,
     day_result_to_response,
 )
 from api.services.backtest_service import (
@@ -59,14 +62,67 @@ async def get_backtest_run(
     """Run the backtest across a date range and return the aggregate
     summary plus a compact per-day list."""
     backtest_definition = _resolve_definition(backtest_service, definition)
+    start, end = _parse_range(start_date, end_date)
+    run_result = backtest_service.run_range(backtest_definition, start, end)
+    return backtest_run_result_to_response(run_result)
+
+
+@router.get("/day/csv")
+async def get_backtest_day_csv(
+    definition: str = Query(..., description="Backtest definition code"),
+    date: str = Query(..., description="Trading day (YYYY-MM-DD)"),
+    backtest_service: BacktestService = Depends(get_backtest_service),
+) -> Response:
+    """CSV export of a single day's detail (FR-018)."""
+    backtest_definition = _resolve_definition(backtest_service, definition)
+    trading_date = _parse_date(date)
+    day_result = backtest_service.evaluate_day(
+        backtest_definition, trading_date
+    )
+    return Response(
+        content=day_result_to_csv(day_result),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="backtest-{definition}-{date}.csv"'
+            )
+        },
+    )
+
+
+@router.get("/run/csv")
+async def get_backtest_run_csv(
+    definition: str = Query(..., description="Backtest definition code"),
+    start_date: str = Query(..., description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="End date (YYYY-MM-DD)"),
+    backtest_service: BacktestService = Depends(get_backtest_service),
+) -> Response:
+    """CSV export of a range run's day-by-day summary (FR-017)."""
+    backtest_definition = _resolve_definition(backtest_service, definition)
+    start, end = _parse_range(start_date, end_date)
+    run_result = backtest_service.run_range(backtest_definition, start, end)
+    return Response(
+        content=backtest_run_result_to_csv(run_result),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": (
+                "attachment; "
+                f'filename="backtest-{definition}-{start_date}-{end_date}.csv"'
+            )
+        },
+    )
+
+
+def _parse_range(
+    start_date: str, end_date: str
+) -> tuple[datetime.date, datetime.date]:
     start = _parse_date(start_date)
     end = _parse_date(end_date)
     if end < start:
         raise HTTPException(
             status_code=400, detail="end_date must not be before start_date"
         )
-    run_result = backtest_service.run_range(backtest_definition, start, end)
-    return backtest_run_result_to_response(run_result)
+    return start, end
 
 
 def _resolve_definition(
