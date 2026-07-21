@@ -4,6 +4,19 @@ Base prefix: `/api/backtest` (new router `api/routers/backtest.py`, registered i
 
 All response models are Pydantic `BaseModel`s in `api/models/backtest.py`, built from the domain dataclasses in `model/backtest.py` (see data-model.md) — following the `ReportOrderResponse.from_report_order(...)` convention already used by `api/models/report.py`.
 
+## Strategy threshold parameters (all run/day endpoints)
+
+The `run`, `day`, `run/csv`, and `day/csv` endpoints accept four **optional** query parameters (FR-025–FR-027). Each is shared by both trade directions; any omitted parameter falls back to its default, so a request that supplies none reproduces the original hardcoded behavior. They are resolved into a `model.backtest.BacktestParameters` and threaded through `BacktestService.evaluate_day` / `run_range`.
+
+| Name | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `stop_loss_points` | `float` | no | `50` | Points from entry to the initial stop (FR-008 / FR-022). `> 0` |
+| `take_profit_offset_points` | `float` | no | `10` | Take-profit offset inside the opposite H1 level (FR-008 / FR-022). `> 0` |
+| `break_even_trigger_points` | `float` | no | `20` | Favorable move that arms break-even (FR-008a / FR-022). `> 0` |
+| `max_entry_distance_points` | `float` | no | `20` | Max distance from the H1 level for a valid entry (FR-006a / FR-020a). `> 0` |
+
+A non-positive value for any of these is rejected with **422** (FastAPI `Query(gt=0)` validation, FR-027) before any day is evaluated. The `definitions` endpoint does not accept them.
+
 ## `GET /api/backtest/definitions`
 
 Lists the hardcoded backtests available in the "Backtest" menu (FR-001).
@@ -33,6 +46,8 @@ Runs a hardcoded backtest across a UI-provided date range and returns the aggreg
 | `definition` | `str` | yes | Must match a `BacktestDefinition.code` (currently only `"B9H"`) |
 | `start_date` | `str` (`YYYY-MM-DD`) | yes | |
 | `end_date` | `str` (`YYYY-MM-DD`) | yes | |
+
+Plus the four optional strategy threshold parameters (see "Strategy threshold parameters" above).
 
 **Response 200** — `BacktestRunResponse`
 
@@ -76,6 +91,7 @@ Note: `days` omits any date with `status == "no_data"` per FR-013's "number of d
 |---|---|
 | 400 | `end_date < start_date`, or `start_date`/`end_date` in the future (FR-016) |
 | 400 | Unknown `definition` code |
+| 422 | A supplied strategy threshold is `<= 0` (FR-027) |
 | 500 | Unexpected error (Saxo API failure not classified as per-day "no data", etc.) |
 
 ## `GET /api/backtest/day`
@@ -88,6 +104,8 @@ Returns full detail for exactly one day — H1 reference levels, the 5-minute ca
 |---|---|---|---|
 | `definition` | `str` | yes | |
 | `date` | `str` (`YYYY-MM-DD`) | yes | |
+
+Plus the four optional strategy threshold parameters (see "Strategy threshold parameters" above).
 
 **Response 200** — `DayDetailResponse`
 
@@ -123,13 +141,14 @@ Each trade includes `direction`, the value of `model.enum.Direction` — `"Buy"`
 | Status | Condition |
 |---|---|
 | 400 | `date` in the future, or unknown `definition` code |
+| 422 | A supplied strategy threshold is `<= 0` (FR-027) |
 | 500 | Unexpected error |
 
 ## `GET /api/backtest/run/csv`
 
 CSV export of a range run's day-by-day summary (FR-017). Same query parameters, validation, and day set as `GET /api/backtest/run` — this endpoint re-runs the backtest rather than reusing a prior `/run` response (consistent with the "ephemeral, not persisted" decision in Assumptions).
 
-**Query parameters**: identical to `GET /api/backtest/run` (`definition`, `start_date`, `end_date`).
+**Query parameters**: identical to `GET /api/backtest/run` (`definition`, `start_date`, `end_date`, plus the four optional strategy threshold parameters).
 
 **Response 200** — `text/csv`, `Content-Disposition: attachment; filename="backtest-{definition}-{start_date}-{end_date}.csv"`
 
@@ -147,7 +166,7 @@ One row per day in the results (no-data days excluded, same as `/run`'s `days` l
 
 CSV export of a single day's detail (FR-018). Same query parameters and validation as `GET /api/backtest/day`.
 
-**Query parameters**: identical to `GET /api/backtest/day` (`definition`, `date`).
+**Query parameters**: identical to `GET /api/backtest/day` (`definition`, `date`, plus the four optional strategy threshold parameters).
 
 **Response 200** — `text/csv`, `Content-Disposition: attachment; filename="backtest-{definition}-{date}.csv"`
 
@@ -169,13 +188,21 @@ Three blocks in one file (H1 levels, candles, trades), each separated by a blank
 ## Frontend service mapping (`frontend/src/services/api.ts`)
 
 ```ts
+// Optional per-run thresholds; any omitted field falls back to the backend default.
+export interface BacktestParameters {
+  stop_loss_points?: number;
+  take_profit_offset_points?: number;
+  break_even_trigger_points?: number;
+  max_entry_distance_points?: number;
+}
+
 export const backtestService = {
   getDefinitions: (): Promise<BacktestDefinition[]> => ...,
-  runRange: (definition: string, startDate: string, endDate: string): Promise<BacktestRunResponse> => ...,
-  getDayDetail: (definition: string, date: string): Promise<DayDetailResponse> => ...,
-  exportRunCsv: (definition: string, startDate: string, endDate: string): void => ..., // triggers browser download
-  exportDayCsv: (definition: string, date: string): void => ...,                        // triggers browser download
+  runRange: (definition: string, startDate: string, endDate: string, parameters?: BacktestParameters): Promise<BacktestRunResponse> => ...,
+  getDayDetail: (definition: string, date: string, parameters?: BacktestParameters): Promise<DayDetailResponse> => ...,
+  exportRunCsv: (definition: string, startDate: string, endDate: string, parameters?: BacktestParameters): void => ..., // triggers browser download
+  exportDayCsv: (definition: string, date: string, parameters?: BacktestParameters): void => ...,                        // triggers browser download
 };
 ```
 
-TypeScript interfaces mirror the Pydantic response models field-for-field (Constitution: "API Contract Standards").
+TypeScript interfaces mirror the Pydantic response models field-for-field (Constitution: "API Contract Standards"). The optional threshold parameters are appended to each request's query string only when set (undefined fields are dropped), so an unparametrized call is byte-for-byte the original request.

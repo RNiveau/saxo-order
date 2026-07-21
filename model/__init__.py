@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from model.backtest import (  # noqa: F401
     BacktestDefinition,
+    BacktestParameters,
     BacktestRunResult,
     BacktestSummary,
     DayResult,

@@ -1,5 +1,8 @@
 import { backtestService } from '../services/api';
-import type { BacktestDayDetail as BacktestDayDetailData } from '../services/api';
+import type {
+  BacktestDayDetail as BacktestDayDetailData,
+  BacktestParameters,
+} from '../services/api';
 import { formatParisTime } from '../utils/backtestTime';
 import './BacktestDayDetail.css';
 
@@ -13,16 +16,17 @@ const formatDirection = (direction: string) =>
 interface BacktestDayDetailProps {
   detail: BacktestDayDetailData;
   definition: string;
+  parameters?: BacktestParameters;
 }
 
-export function BacktestDayDetail({ detail, definition }: BacktestDayDetailProps) {
+export function BacktestDayDetail({ detail, definition, parameters }: BacktestDayDetailProps) {
   return (
     <div className="backtest-day-detail">
       <div className="backtest-day-detail-header">
         <h2>{detail.date}</h2>
         <button
           className="backtest-export-csv"
-          onClick={() => backtestService.exportDayCsv(definition, detail.date)}
+          onClick={() => backtestService.exportDayCsv(definition, detail.date, parameters)}
         >
           Export CSV
         </button>

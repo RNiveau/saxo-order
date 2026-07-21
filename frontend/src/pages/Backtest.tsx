@@ -3,12 +3,25 @@ import { backtestService } from '../services/api';
 import type {
   BacktestDefinition,
   BacktestDayDetail as BacktestDayDetailData,
+  BacktestParameters,
   BacktestRunResponse,
 } from '../services/api';
 import { BacktestDayDetail } from '../components/BacktestDayDetail';
 import './Backtest.css';
 
 type Mode = 'day' | 'range';
+
+// Strategy thresholds, pre-filled with the backend defaults. Clearing a
+// field falls back to that default (the value is simply not sent).
+const PARAM_FIELDS: { key: keyof BacktestParameters; label: string; default: number }[] = [
+  { key: 'stop_loss_points', label: 'Stop loss (pts)', default: 50 },
+  { key: 'take_profit_offset_points', label: 'Take profit offset (pts)', default: 10 },
+  { key: 'break_even_trigger_points', label: 'Break-even trigger (pts)', default: 20 },
+  { key: 'max_entry_distance_points', label: 'Max entry distance (pts)', default: 20 },
+];
+
+const initialParamValues = (): Record<string, string> =>
+  Object.fromEntries(PARAM_FIELDS.map((f) => [f.key, String(f.default)]));
 
 const formatReason = (reason: string) => reason.replace(/_/g, ' ');
 
@@ -35,8 +48,25 @@ export function Backtest() {
   const [drilldownLoading, setDrilldownLoading] = useState(false);
   const [drilldownError, setDrilldownError] = useState<string | null>(null);
 
+  const [paramValues, setParamValues] = useState<Record<string, string>>(initialParamValues);
+  const [appliedParams, setAppliedParams] = useState<BacktestParameters>({});
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const buildParameters = (): BacktestParameters => {
+    const params: BacktestParameters = {};
+    PARAM_FIELDS.forEach(({ key }) => {
+      const raw = paramValues[key];
+      if (raw !== undefined && raw.trim() !== '') {
+        const value = Number(raw);
+        if (!Number.isNaN(value)) {
+          params[key] = value;
+        }
+      }
+    });
+    return params;
+  };
 
   useEffect(() => {
     backtestService
@@ -58,8 +88,10 @@ export function Backtest() {
     setLoading(true);
     setError(null);
     setDayResult(null);
+    const parameters = buildParameters();
+    setAppliedParams(parameters);
     try {
-      const result = await backtestService.getDayDetail(selectedDefinition, date);
+      const result = await backtestService.getDayDetail(selectedDefinition, date, parameters);
       setDayResult(result);
     } catch (err) {
       setError('Failed to run backtest');
@@ -86,8 +118,10 @@ export function Backtest() {
     setLoading(true);
     setRunResult(null);
     setDrilldown(null);
+    const parameters = buildParameters();
+    setAppliedParams(parameters);
     try {
-      const result = await backtestService.runRange(selectedDefinition, startDate, endDate);
+      const result = await backtestService.runRange(selectedDefinition, startDate, endDate, parameters);
       setRunResult(result);
     } catch (err) {
       setError('Failed to run backtest');
@@ -103,7 +137,7 @@ export function Backtest() {
     setDrilldownError(null);
     setDrilldown(null);
     try {
-      const result = await backtestService.getDayDetail(selectedDefinition, dayDate);
+      const result = await backtestService.getDayDetail(selectedDefinition, dayDate, appliedParams);
       setDrilldown(result);
     } catch (err) {
       setDrilldownError('Failed to load day detail');
@@ -189,17 +223,51 @@ export function Backtest() {
         )}
       </div>
 
+      <div className="backtest-parameters">
+        <span className="backtest-parameters-title">Parameters</span>
+        <div className="backtest-parameters-fields">
+          {PARAM_FIELDS.map((field) => (
+            <label key={field.key}>
+              {field.label}
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={paramValues[field.key]}
+                placeholder={String(field.default)}
+                onChange={(e) =>
+                  setParamValues((prev) => ({ ...prev, [field.key]: e.target.value }))
+                }
+              />
+            </label>
+          ))}
+          <button
+            type="button"
+            className="backtest-parameters-reset"
+            onClick={() => setParamValues(initialParamValues())}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
       {error && <div className="backtest-error">{error}</div>}
 
       {mode === 'day' && dayResult && (
-        <BacktestDayDetail detail={dayResult} definition={selectedDefinition} />
+        <BacktestDayDetail
+          detail={dayResult}
+          definition={selectedDefinition}
+          parameters={appliedParams}
+        />
       )}
 
       {mode === 'range' && runResult && (
         <div className="backtest-range-result">
           <button
             className="backtest-export-csv"
-            onClick={() => backtestService.exportRunCsv(selectedDefinition, startDate, endDate)}
+            onClick={() =>
+              backtestService.exportRunCsv(selectedDefinition, startDate, endDate, appliedParams)
+            }
           >
             Export CSV
           </button>
@@ -273,7 +341,11 @@ export function Backtest() {
           {drilldownError && <div className="backtest-error">{drilldownError}</div>}
           {drilldown && (
             <div className="backtest-day-drilldown">
-              <BacktestDayDetail detail={drilldown} definition={selectedDefinition} />
+              <BacktestDayDetail
+                detail={drilldown}
+                definition={selectedDefinition}
+                parameters={appliedParams}
+              />
             </div>
           )}
         </div>

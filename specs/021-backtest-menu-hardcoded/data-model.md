@@ -38,6 +38,19 @@ Hardcoded, not persisted — one Python constant, not a DB row.
 | `display_name` | `str` | `"CAC40 Bougie de 9h"` (per user's naming — instrument-qualified for the menu) |
 | `instrument` | `str` | `"FRA40.I"` |
 
+### `BacktestParameters` (added 2026-07-21 — tunable thresholds, FR-025)
+
+Per-run strategy thresholds, defaulting to the original hardcoded values. Not persisted; constructed from the optional query parameters and passed into `BacktestService.evaluate_day` / `run_range`, which thread it through the trade engine (`_OpenPosition` stop distance, `_DirectionSearch` entry-distance validity, `_evaluate_trades` take-profit levels, `_resolve_exit` break-even arming). A `params=None` call falls back to `BacktestParameters()` so existing call sites and tests are unchanged.
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `stop_loss_points` | `float` | `50` | Initial stop distance from entry (FR-008 / FR-022) |
+| `take_profit_offset_points` | `float` | `10` | Take-profit offset inside the opposite H1 level (FR-008 / FR-022) |
+| `break_even_trigger_points` | `float` | `20` | Favorable move from entry that arms break-even (FR-008a / FR-022) |
+| `max_entry_distance_points` | `float` | `20` | Max distance from the H1 level for a valid entry (FR-006a / FR-020a) |
+
+Both directions use the same values. Positivity (`> 0`) is enforced at the API boundary (`Query(gt=0)`, FR-027), not on the dataclass — consistent with how validation lives in the service/router layer rather than the model.
+
 ### `Trade`
 
 | Field | Type | Notes |
@@ -152,3 +165,5 @@ Both directions are searched concurrently while flat, but at most one position i
 ```
 
 A same-candle double confirmation (both a valid long and a valid short on one candle) resolves to the long (FR-023); in practice this is unreachable because the move that breaches the opposite extreme reaches the open position's take-profit first.
+
+The numeric magnitudes in the diagrams above (`entry-50`, `entry+50`, `H1_high-10`, `H1_low+10`, `entry+20`, `entry-20`, "within 20pts") show the **default** thresholds; each is the corresponding `BacktestParameters` field (FR-025), so a parametrized run substitutes its own values — e.g. `stop = entry - stop_loss_points`, take-profit at `H1_high - take_profit_offset_points`, break-even armed at `entry + break_even_trigger_points`, entry valid within `max_entry_distance_points` of the H1 level. The state machine is otherwise identical.

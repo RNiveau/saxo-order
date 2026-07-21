@@ -1007,15 +1007,43 @@ export interface BacktestRunResponse {
   days: BacktestDayResultSummary[];
 }
 
+// Optional strategy thresholds. Any value left undefined falls back to
+// the backend default (stop-loss 50, take-profit offset 10, break-even
+// trigger 20, max entry distance 20).
+export interface BacktestParameters {
+  stop_loss_points?: number;
+  take_profit_offset_points?: number;
+  break_even_trigger_points?: number;
+  max_entry_distance_points?: number;
+}
+
+const backtestParamEntries = (
+  params?: BacktestParameters
+): Record<string, string> => {
+  const entries: Record<string, string> = {};
+  if (!params) return entries;
+  (Object.keys(params) as (keyof BacktestParameters)[]).forEach((key) => {
+    const value = params[key];
+    if (value !== undefined && value !== null) {
+      entries[key] = String(value);
+    }
+  });
+  return entries;
+};
+
 export const backtestService = {
   getDefinitions: async (): Promise<BacktestDefinition[]> => {
     const response = await api.get<BacktestDefinition[]>('/api/backtest/definitions');
     return response.data;
   },
 
-  getDayDetail: async (definition: string, date: string): Promise<BacktestDayDetail> => {
+  getDayDetail: async (
+    definition: string,
+    date: string,
+    parameters?: BacktestParameters
+  ): Promise<BacktestDayDetail> => {
     const response = await api.get<BacktestDayDetail>('/api/backtest/day', {
-      params: { definition, date },
+      params: { definition, date, ...backtestParamEntries(parameters) },
     });
     return response.data;
   },
@@ -1023,24 +1051,44 @@ export const backtestService = {
   runRange: async (
     definition: string,
     startDate: string,
-    endDate: string
+    endDate: string,
+    parameters?: BacktestParameters
   ): Promise<BacktestRunResponse> => {
     const response = await api.get<BacktestRunResponse>('/api/backtest/run', {
-      params: { definition, start_date: startDate, end_date: endDate },
+      params: {
+        definition,
+        start_date: startDate,
+        end_date: endDate,
+        ...backtestParamEntries(parameters),
+      },
     });
     return response.data;
   },
 
-  exportDayCsv: (definition: string, date: string): void => {
-    const params = new URLSearchParams({ definition, date });
+  exportDayCsv: (
+    definition: string,
+    date: string,
+    parameters?: BacktestParameters
+  ): void => {
+    const params = new URLSearchParams({
+      definition,
+      date,
+      ...backtestParamEntries(parameters),
+    });
     downloadFile(`${API_BASE_URL}/api/backtest/day/csv?${params.toString()}`);
   },
 
-  exportRunCsv: (definition: string, startDate: string, endDate: string): void => {
+  exportRunCsv: (
+    definition: string,
+    startDate: string,
+    endDate: string,
+    parameters?: BacktestParameters
+  ): void => {
     const params = new URLSearchParams({
       definition,
       start_date: startDate,
       end_date: endDate,
+      ...backtestParamEntries(parameters),
     });
     downloadFile(`${API_BASE_URL}/api/backtest/run/csv?${params.toString()}`);
   },
