@@ -301,6 +301,35 @@ class TestGetBacktestDayCsv:
         assert response.status_code == 400
         mock_backtest_service.evaluate_day.assert_not_called()
 
+    def test_no_data_day_returns_blank_h1_and_empty_blocks(
+        self, mock_backtest_service
+    ):
+        """Pins the empty-block contract for a no_data day: h1_high/
+        h1_low render as blank cells (not "None"), and the candles/
+        trades blocks are present but have no rows."""
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+        mock_backtest_service.evaluate_day.return_value = DayResult(
+            date=datetime.date(2026, 6, 2), status=DayStatus.NO_DATA
+        )
+
+        response = client.get(
+            "/api/backtest/day/csv",
+            params={"definition": "B9H", "date": "2026-06-02"},
+        )
+
+        assert response.status_code == 200
+        assert response.text == (
+            "h1_high,h1_low\r\n"
+            ",\r\n"
+            "\r\n"
+            "date,open,higher,lower,close\r\n"
+            "\r\n"
+            "entry_time,entry_price,exit_time,exit_price,"
+            "exit_reason,points\r\n"
+        )
+
 
 class TestGetBacktestRunCsv:
     def test_populated_range_returns_csv(self, mock_backtest_service):
