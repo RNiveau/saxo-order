@@ -191,5 +191,5 @@ Task: "Style the single-day result view in frontend/src/pages/Backtest.css"
 
 - [P] tasks touch different files with no unmet dependencies
 - [US1]/[US2]/[US3] labels map every story-phase task back to spec.md's priorities for traceability
-- FR-002's "no generic engine" constraint means `evaluate_day`'s thresholds (50/10/20 points, 9–10 window) are code constants, not configuration — see plan.md's Complexity Tracking
+- FR-002's "no generic engine" constraint keeps the strategy *logic*, instrument, and 9–10 window fixed in code; the four numeric thresholds became per-run parameters (`BacktestParameters`, FR-025, added 2026-07-21), defaulting to 50/10/20/20 — see plan.md's Complexity Tracking (resolved) and the "Parametrized thresholds" requirements
 - Commit after each task or logical group; stop at any checkpoint to validate a story independently before continuing
