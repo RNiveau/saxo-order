@@ -239,6 +239,135 @@ class TestGetBacktestRun:
         mock_backtest_service.run_range.assert_not_called()
 
 
+class TestGetBacktestDayCsv:
+    def test_traded_day_returns_csv(self, mock_backtest_service):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+        mock_backtest_service.evaluate_day.return_value = DayResult(
+            date=datetime.date(2026, 6, 2),
+            status=DayStatus.TRADED,
+            h1_high=8050.0,
+            h1_low=8000.0,
+            candles=[
+                Candle(
+                    lower=8005.0,
+                    higher=8013.0,
+                    open=8009.5,
+                    close=8012.0,
+                    ut=UnitTime.M5,
+                    date=datetime.datetime(2026, 6, 2, 8, 0),
+                )
+            ],
+            trades=[
+                Trade(
+                    entry_time=datetime.datetime(2026, 6, 2, 8, 5),
+                    entry_price=8010.0,
+                    exit_time=datetime.datetime(2026, 6, 2, 9, 0),
+                    exit_price=7960.0,
+                    exit_reason=ExitReason.STOP_LOSS,
+                    points=-50.0,
+                )
+            ],
+        )
+
+        response = client.get(
+            "/api/backtest/day/csv",
+            params={"definition": "B9H", "date": "2026-06-02"},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/csv")
+        assert (
+            'attachment; filename="backtest-B9H-2026-06-02.csv"'
+            in response.headers["content-disposition"]
+        )
+        body = response.text
+        assert "h1_high,h1_low" in body
+        assert "8050.0,8000.0" in body
+        assert "2026-06-02T08:00:00" in body
+        assert "stop_loss" in body
+
+    def test_invalid_date_format_returns_400(self, mock_backtest_service):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+
+        response = client.get(
+            "/api/backtest/day/csv",
+            params={"definition": "B9H", "date": "not-a-date"},
+        )
+
+        assert response.status_code == 400
+        mock_backtest_service.evaluate_day.assert_not_called()
+
+
+class TestGetBacktestRunCsv:
+    def test_populated_range_returns_csv(self, mock_backtest_service):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+        mock_backtest_service.run_range.return_value = BacktestRunResult(
+            summary=BacktestSummary(
+                definition_code="B9H",
+                start_date=datetime.date(2026, 6, 1),
+                end_date=datetime.date(2026, 6, 2),
+                number_of_days=2,
+                number_of_trades=1,
+                number_of_winning_positions=1,
+                number_of_losing_positions=0,
+                number_of_be=0,
+                average_win=30.0,
+                average_loss=None,
+                final_result=30.0,
+            ),
+            days=[
+                DayResultSummary(
+                    date=datetime.date(2026, 6, 2),
+                    status=DayStatus.TRADED,
+                    trade_count=1,
+                    points=30.0,
+                )
+            ],
+        )
+
+        response = client.get(
+            "/api/backtest/run/csv",
+            params={
+                "definition": "B9H",
+                "start_date": "2026-06-01",
+                "end_date": "2026-06-02",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/csv")
+        assert (
+            'attachment; filename="backtest-B9H-2026-06-01-2026-06-02.csv"'
+            in response.headers["content-disposition"]
+        )
+        body = response.text
+        assert "date,status,trade_count,points" in body
+        assert "2026-06-02,traded,1,30.0" in body
+
+    def test_end_before_start_returns_400(self, mock_backtest_service):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+
+        response = client.get(
+            "/api/backtest/run/csv",
+            params={
+                "definition": "B9H",
+                "start_date": "2026-06-10",
+                "end_date": "2026-06-01",
+            },
+        )
+
+        assert response.status_code == 400
+        mock_backtest_service.run_range.assert_not_called()
+
+
 class TestGetBacktestDefinitions:
     def test_returns_definitions_list(self, mock_backtest_service):
         mock_backtest_service.list_definitions.return_value = [

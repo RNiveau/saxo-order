@@ -1,6 +1,8 @@
-"""Pydantic request/response models for the Backtest API."""
+"""Pydantic request/response models and CSV export for the Backtest API."""
 
+import csv
 import datetime
+import io
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -152,3 +154,69 @@ def backtest_run_result_to_response(
         summary=_backtest_summary_to_response(run_result.summary),
         days=[_day_result_summary_to_response(day) for day in run_result.days],
     )
+
+
+def backtest_run_result_to_csv(run_result: BacktestRunResult) -> str:
+    """FR-017: one row per day in run_result.days (no-data days already
+    excluded by BacktestService.run_range)."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["date", "status", "trade_count", "points"])
+    for day in run_result.days:
+        writer.writerow(
+            [
+                day.date.isoformat(),
+                day.status.value,
+                day.trade_count,
+                day.points,
+            ]
+        )
+    return output.getvalue()
+
+
+def day_result_to_csv(day_result: DayResult) -> str:
+    """FR-018: H1 levels, 5-minute candles, and trades as three blocks
+    separated by a blank line."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(["h1_high", "h1_low"])
+    writer.writerow([day_result.h1_high, day_result.h1_low])
+    writer.writerow([])
+
+    writer.writerow(["date", "open", "higher", "lower", "close"])
+    for candle in day_result.candles:
+        writer.writerow(
+            [
+                candle.date.isoformat() if candle.date else "",
+                candle.open,
+                candle.higher,
+                candle.lower,
+                candle.close,
+            ]
+        )
+    writer.writerow([])
+
+    writer.writerow(
+        [
+            "entry_time",
+            "entry_price",
+            "exit_time",
+            "exit_price",
+            "exit_reason",
+            "points",
+        ]
+    )
+    for trade in day_result.trades:
+        writer.writerow(
+            [
+                trade.entry_time.isoformat(),
+                trade.entry_price,
+                trade.exit_time.isoformat(),
+                trade.exit_price,
+                trade.exit_reason.value,
+                trade.points,
+            ]
+        )
+
+    return output.getvalue()

@@ -12,14 +12,14 @@ Add a "Backtest" menu that runs one hardcoded strategy — "CAC40 Bougie de 9h" 
 ## Technical Context
 
 **Language/Version**: Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) — no change from existing stack.
-**Primary Dependencies**: FastAPI (backend, existing), Pydantic v2 (existing), `zoneinfo` (Python stdlib — new usage in this codebase for DST-aware Paris-local time math, see research.md §1), existing `SaxoClient`/`CandlesService`; React Router DOM v7+, Axios, Vite (frontend, existing).
+**Primary Dependencies**: FastAPI (backend, existing), Pydantic v2 (existing), `zoneinfo` (Python stdlib — new usage in this codebase for DST-aware Paris-local time math, see research.md §1), Python stdlib `csv` module (CSV export, FR-017/FR-018 — same stdlib usage as 022-trade-republic-report), existing `SaxoClient`/`CandlesService`; React Router DOM v7+, Axios, Vite (frontend, existing).
 **Storage**: N/A — ephemeral, computed on demand per request, nothing persisted (Clarifications, Session 2026-07-14).
 **Testing**: pytest with mocked `SaxoClient`/`MockSaxoClient` (backend, existing convention); no frontend test framework configured (existing gap, unchanged by this feature).
 **Target Platform**: Existing FastAPI backend (Lambda-deployable) + React SPA (Vite), served locally via `run_api.py` / `npm run dev` in development.
 **Project Type**: Web application (existing backend at repo root + `frontend/`) — matches the codebase's established layout, not the generic `backend/`+`frontend/` template split.
 **Performance Goals**: Single-day run and its underlying Saxo calls complete within a few seconds (SC-001); range runs are synchronous and scale with the number of trading days requested (each day needs one H1 + one 5-minute Saxo history call) — no explicit SLA beyond "completes without a dedicated job queue," consistent with this being a single-user, on-demand analysis tool and with the "no application-level range cap" clarification.
 **Constraints**: Must respect Constitution I (Layered Architecture) — new candle-fetch logic lives in `services/candles_service.py`, not called directly from the API service; must use existing enums (`Strategy.B9H`) instead of new hardcoded strings; must follow Candle conventions (index 0 = newest list ordering where lists are produced that way, `model.workflow.Candle` everywhere outside `SaxoClient`); strategy thresholds (50/10/20 points, 9–10 window) are intentionally hardcoded in code per FR-002 ("no generic engine"), not exposed via `config.yml` — see Complexity Tracking.
-**Scale/Scope**: One hardcoded `BacktestDefinition` (`B9H`); 3 new/changed backend endpoints' worth of surface (`/definitions`, `/run`, `/day`); one new frontend page + sidebar entry; single-user tool, no concurrency/multi-tenant concerns.
+**Scale/Scope**: One hardcoded `BacktestDefinition` (`B9H`); 5 new/changed backend endpoints' worth of surface (`/definitions`, `/run`, `/day`, plus CSV exports `/run/csv` and `/day/csv` for FR-017/FR-018); one new frontend page + sidebar entry, plus two "Export CSV" buttons; single-user tool, no concurrency/multi-tenant concerns.
 
 ## Constitution Check
 
@@ -69,7 +69,8 @@ api/
 ├── models/
 │   └── backtest.py                # NEW: Pydantic request/response models
 ├── routers/
-│   └── backtest.py                # NEW: GET /definitions, /run, /day
+│   └── backtest.py                # NEW: GET /definitions, /run, /day,
+                                    #      /run/csv, /day/csv (FR-017/FR-018)
 ├── services/
 │   └── backtest_service.py        # NEW: breakout/exit rule engine + aggregation
 ├── dependencies.py                # + get_backtest_service()
@@ -77,13 +78,15 @@ api/
 
 frontend/src/
 ├── pages/
-│   ├── Backtest.tsx                # NEW: page (single-day + range modes)
+│   ├── Backtest.tsx                # NEW: page (single-day + range modes);
+                                    #      + "Export CSV" buttons (FR-017/FR-018)
 │   └── Backtest.css                # NEW
 ├── components/
 │   └── Sidebar.tsx                 # + "Backtest" NavLink entry
 ├── App.tsx                         # + <Route path="/backtest" .../>
 └── services/
-    └── api.ts                      # + backtestService + TS interfaces
+    └── api.ts                      # + backtestService + TS interfaces;
+                                    #   + exportRunCsv/exportDayCsv helpers
 
 tests/
 ├── services/

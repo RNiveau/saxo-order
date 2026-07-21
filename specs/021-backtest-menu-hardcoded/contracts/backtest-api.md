@@ -122,6 +122,47 @@ Returns full detail for exactly one day — H1 reference levels, the 5-minute ca
 | 400 | `date` in the future, or unknown `definition` code |
 | 500 | Unexpected error |
 
+## `GET /api/backtest/run/csv`
+
+CSV export of a range run's day-by-day summary (FR-017). Same query parameters, validation, and day set as `GET /api/backtest/run` — this endpoint re-runs the backtest rather than reusing a prior `/run` response (consistent with the "ephemeral, not persisted" decision in Assumptions).
+
+**Query parameters**: identical to `GET /api/backtest/run` (`definition`, `start_date`, `end_date`).
+
+**Response 200** — `text/csv`, `Content-Disposition: attachment; filename="backtest-{definition}-{start_date}-{end_date}.csv"`
+
+```csv
+date,status,trade_count,points
+2026-06-01,no_trade,0,0.0
+2026-06-02,traded,2,-8.0
+```
+
+One row per day in the results (no-data days excluded, same as `/run`'s `days` list).
+
+**Errors**: same as `GET /api/backtest/run` (400 for invalid range/definition, 500 unexpected).
+
+## `GET /api/backtest/day/csv`
+
+CSV export of a single day's detail (FR-018). Same query parameters and validation as `GET /api/backtest/day`.
+
+**Query parameters**: identical to `GET /api/backtest/day` (`definition`, `date`).
+
+**Response 200** — `text/csv`, `Content-Disposition: attachment; filename="backtest-{definition}-{date}.csv"`
+
+```csv
+h1_high,h1_low
+8042.5,8011.0
+
+date,open,higher,lower,close
+2026-06-02T10:00:00,8009.5,8013.0,8005.0,8012.0
+
+entry_time,entry_price,exit_time,exit_price,exit_reason,points
+2026-06-02T10:20:00,8012.5,2026-06-02T11:05:00,7962.5,stop_loss,-50.0
+```
+
+Three blocks in one file (H1 levels, candles, trades), each separated by a blank line — trades off `status == "no_data"` days produce only the (empty) candles/trades blocks with `h1_high`/`h1_low` blank.
+
+**Errors**: same as `GET /api/backtest/day` (400 for future date/unknown definition, 500 unexpected).
+
 ## Frontend service mapping (`frontend/src/services/api.ts`)
 
 ```ts
@@ -129,6 +170,8 @@ export const backtestService = {
   getDefinitions: (): Promise<BacktestDefinition[]> => ...,
   runRange: (definition: string, startDate: string, endDate: string): Promise<BacktestRunResponse> => ...,
   getDayDetail: (definition: string, date: string): Promise<DayDetailResponse> => ...,
+  exportRunCsv: (definition: string, startDate: string, endDate: string): void => ..., // triggers browser download
+  exportDayCsv: (definition: string, date: string): void => ...,                        // triggers browser download
 };
 ```
 

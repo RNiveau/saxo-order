@@ -9,6 +9,15 @@ export const api = axios.create({
   },
 });
 
+function downloadFile(url: string): void {
+  const link = document.createElement('a');
+  link.href = url;
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 export interface AccountInfo {
   account_id: string;
   account_key: string;
@@ -1019,5 +1028,19 @@ export const backtestService = {
       params: { definition, start_date: startDate, end_date: endDate },
     });
     return response.data;
+  },
+
+  exportDayCsv: (definition: string, date: string): void => {
+    const params = new URLSearchParams({ definition, date });
+    downloadFile(`${API_BASE_URL}/api/backtest/day/csv?${params.toString()}`);
+  },
+
+  exportRunCsv: (definition: string, startDate: string, endDate: string): void => {
+    const params = new URLSearchParams({
+      definition,
+      start_date: startDate,
+      end_date: endDate,
+    });
+    downloadFile(`${API_BASE_URL}/api/backtest/run/csv?${params.toString()}`);
   },
 };

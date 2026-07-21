@@ -1,3 +1,4 @@
+import { backtestService } from '../services/api';
 import type { BacktestDayDetail as BacktestDayDetailData } from '../services/api';
 import { formatParisTime } from '../utils/backtestTime';
 import './BacktestDayDetail.css';
@@ -7,12 +8,18 @@ const pointsClass = (points: number) => (points >= 0 ? 'positive' : 'negative');
 
 interface BacktestDayDetailProps {
   detail: BacktestDayDetailData;
+  definition: string;
 }
 
-export function BacktestDayDetail({ detail }: BacktestDayDetailProps) {
+export function BacktestDayDetail({ detail, definition }: BacktestDayDetailProps) {
   return (
     <div className="backtest-day-detail">
-      <h2>{detail.date}</h2>
+      <div className="backtest-day-detail-header">
+        <h2>{detail.date}</h2>
+        <button onClick={() => backtestService.exportDayCsv(definition, detail.date)}>
+          Export CSV
+        </button>
+      </div>
 
       {detail.status === 'no_data' && (
         <p className="backtest-status backtest-status--no-data">

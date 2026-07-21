@@ -138,6 +138,10 @@
   margin-bottom: 1.5rem;
 }
 
+.backtest-export-csv {
+  margin-bottom: 1rem;
+}
+
 .backtest-summary-tile {
   display: flex;
   flex-direction: column;
