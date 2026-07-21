@@ -679,6 +679,58 @@ class TestEvaluateDayShort:
         assert result.status == DayStatus.NO_TRADE
         assert result.trades == []
 
+    def test_short_breakdown_entry_gap_fill(self):
+        """Mirror of the long-side gap-fill entry: a confirming candle
+        that opens below the candidate's low records the short entry at
+        that worse open price, not the exact breakdown level."""
+        candles = [
+            m5_candle(0, 8055, 8060, 8050, 8052),  # breach above high
+            m5_candle(1, 8050, 8055, 8040, 8045),  # candidate, lower=8040
+            m5_candle(2, 8035, 8038, 8025, 8030),  # gaps below 8040
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert len(result.trades) == 1
+        assert result.trades[0].direction == Direction.SELL
+        assert result.trades[0].entry_price == 8035
+
+    def test_short_candidate_closing_back_above_h1_high_needs_fresh_breach(
+        self,
+    ):
+        """Mirror of the long-side discard rule: while waiting for a
+        breakdown, a candle that closes back above the H1 high discards
+        the pending short candidate entirely - a brand new breach and
+        reversal pair is required, not just a new candidate."""
+        candles = [
+            m5_candle(0, 8055, 8060, 8050, 8052),  # breach 1 above high
+            m5_candle(1, 8050, 8055, 8040, 8045),  # candidate1, lower=8040
+            m5_candle(2, 8055, 8065, 8048, 8060),  # closes above h1_high
+            m5_candle(3, 8050, 8058, 8035, 8045),  # candidate2, lower=8035
+            m5_candle(4, 8038, 8042, 8030, 8035),  # breaks 8035 -> entry
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert len(result.trades) == 1
+        assert result.trades[0].direction == Direction.SELL
+        assert result.trades[0].entry_price == 8035
+
+    def test_short_candidate_rolls_forward_when_not_yet_confirmed(self):
+        """Mirror of the long-side roll-forward: a candle that stays
+        below the H1 high but fails to break the current candidate's
+        low becomes the new candidate itself, rather than cancelling
+        the signal."""
+        candles = [
+            m5_candle(0, 8055, 8060, 8050, 8052),  # breach above high
+            m5_candle(1, 8050, 8055, 8040, 8045),  # candidate1, lower=8040
+            m5_candle(2, 8045, 8048, 8041, 8043),  # rolls: new candidate=8041
+            m5_candle(3, 8042, 8044, 8035, 8038),  # breaks 8041 -> entry
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert len(result.trades) == 1
+        assert result.trades[0].direction == Direction.SELL
+        assert result.trades[0].entry_price == 8041
+
 
 class TestBothDirectionsOnePositionAtATime:
     def test_long_then_short_sequential_same_day(self):

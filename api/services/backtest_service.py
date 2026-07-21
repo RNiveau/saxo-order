@@ -50,8 +50,8 @@ def _is_valid_long_entry(
     room to work: within MAX_ENTRY_DISTANCE points of the H1 low, and
     below the take-profit level (H1 high minus 10). An entry too far
     above the low, or already at/above take-profit, is not valid - it
-    would exit on the very next candle for little or no favorable move
-    despite being labeled a take-profit (added after PR review)."""
+    would exit on the very next candle for little or no favorable
+    move despite being labeled a take-profit."""
     return (
         entry_price - h1_low <= MAX_ENTRY_DISTANCE
         and entry_price < take_profit_level
