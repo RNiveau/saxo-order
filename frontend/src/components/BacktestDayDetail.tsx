@@ -5,6 +5,10 @@ import './BacktestDayDetail.css';
 
 const formatReason = (reason: string) => reason.replace(/_/g, ' ');
 const pointsClass = (points: number) => (points >= 0 ? 'positive' : 'negative');
+// Backend sends the Direction enum value ("Buy"/"Sell"); the backtest
+// speaks in long/short terms, so present it that way.
+const formatDirection = (direction: string) =>
+  direction === 'Buy' ? 'long' : 'short';
 
 interface BacktestDayDetailProps {
   detail: BacktestDayDetailData;
@@ -42,6 +46,7 @@ export function BacktestDayDetail({ detail, definition }: BacktestDayDetailProps
           <table className="backtest-trades-table">
             <thead>
               <tr>
+                <th>Direction</th>
                 <th>Entry time (Paris)</th>
                 <th>Entry price</th>
                 <th>Exit time (Paris)</th>
@@ -53,6 +58,9 @@ export function BacktestDayDetail({ detail, definition }: BacktestDayDetailProps
             <tbody>
               {detail.trades.map((trade, index) => (
                 <tr key={index}>
+                  <td className={`backtest-direction backtest-direction--${formatDirection(trade.direction)}`}>
+                    {formatDirection(trade.direction)}
+                  </td>
                   <td>{formatParisTime(trade.entry_time)}</td>
                   <td>{trade.entry_price}</td>
                   <td>{formatParisTime(trade.exit_time)}</td>

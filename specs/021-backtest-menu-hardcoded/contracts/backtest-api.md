@@ -107,11 +107,14 @@ Returns full detail for exactly one day — H1 reference levels, the 5-minute ca
       "exit_time": "2026-06-02T11:05:00",
       "exit_price": 7962.5,
       "exit_reason": "stop_loss",
+      "direction": "Buy",
       "points": -50.0
     }
   ]
 }
 ```
+
+Each trade includes `direction`, the value of `model.enum.Direction` — `"Buy"` for a long, `"Sell"` for a short (FR-024). The frontend presents these as "long"/"short". `points` is signed P&L regardless of direction (positive = a winning position).
 
 `status == "no_data"` returns `h1_high`/`h1_low`/`candles`/`trades` as `null`/empty rather than a 404 — a missing historical day is a valid, expected result for this domain (FR-004), not an API error.
 
@@ -155,8 +158,8 @@ h1_high,h1_low
 date,open,higher,lower,close
 2026-06-02T10:00:00,8009.5,8013.0,8005.0,8012.0
 
-entry_time,entry_price,exit_time,exit_price,exit_reason,points
-2026-06-02T10:20:00,8012.5,2026-06-02T11:05:00,7962.5,stop_loss,-50.0
+entry_time,entry_price,exit_time,exit_price,exit_reason,direction,points
+2026-06-02T10:20:00,8012.5,2026-06-02T11:05:00,7962.5,stop_loss,Buy,-50.0
 ```
 
 Three blocks in one file (H1 levels, candles, trades), each separated by a blank line — trades off `status == "no_data"` days produce only the (empty) candles/trades blocks with `h1_high`/`h1_low` blank.

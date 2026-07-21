@@ -4,7 +4,7 @@ import datetime
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from model.enum import DayStatus, ExitReason
+from model.enum import DayStatus, Direction, ExitReason
 from model.workflow import Candle
 
 
@@ -24,6 +24,7 @@ class Trade:
     exit_price: float
     exit_reason: ExitReason
     points: float
+    direction: Direction = Direction.BUY
 
 
 @dataclass

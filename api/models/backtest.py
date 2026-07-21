@@ -30,6 +30,7 @@ class TradeResponse(BaseModel):
     exit_time: datetime.datetime
     exit_price: float
     exit_reason: str
+    direction: str
     points: float
 
 
@@ -93,6 +94,7 @@ def _trade_to_response(trade: Trade) -> TradeResponse:
         exit_time=trade.exit_time,
         exit_price=trade.exit_price,
         exit_reason=trade.exit_reason.value,
+        direction=trade.direction.value,
         points=trade.points,
     )
 
@@ -204,6 +206,7 @@ def day_result_to_csv(day_result: DayResult) -> str:
             "exit_time",
             "exit_price",
             "exit_reason",
+            "direction",
             "points",
         ]
     )
@@ -215,6 +218,7 @@ def day_result_to_csv(day_result: DayResult) -> str:
                 trade.exit_time.isoformat(),
                 trade.exit_price,
                 trade.exit_reason.value,
+                trade.direction.value,
                 trade.points,
             ]
         )

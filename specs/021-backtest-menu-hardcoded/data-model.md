@@ -42,12 +42,13 @@ Hardcoded, not persisted — one Python constant, not a DB row.
 
 | Field | Type | Notes |
 |---|---|---|
-| `entry_time` | `datetime` | Time of the confirming (breakout) 5-minute candle, not the candidate reversal candle it broke above (FR-007) |
-| `entry_price` | `float` | The candidate reversal candle's high, or the confirming candle's open if it gapped above that high (FR-007, FR-010's gap-fill convention) |
+| `entry_time` | `datetime` | Time of the confirming (breakout) 5-minute candle, not the candidate reversal candle it broke past (FR-007 / FR-021) |
+| `entry_price` | `float` | Long: the candidate's high, or the confirming candle's open if it gapped above (FR-007). Short: the candidate's low, or the confirming candle's open if it gapped below (FR-021). Gap-fill per FR-010 |
 | `exit_time` | `datetime` | Required — a `Trade` is only ever constructed once it has closed (the implementation never stores an open position as a `Trade`), so there is no `None` case to represent |
-| `exit_price` | `float` | Per FR-010 gap-fill rule |
+| `exit_price` | `float` | Per FR-010 gap-fill rule (applies to both directions) |
 | `exit_reason` | `ExitReason` | One of the four members above |
-| `points` | `float` | `exit_price - entry_price`, rounded consistent with existing `Candle` price rounding (`round(..., 4)` per `client/client_helper.py` convention, then reported to the trader in points) |
+| `direction` | `Direction` | `Direction.BUY` for a long, `Direction.SELL` for a short (FR-024). Reuses the existing `model.enum.Direction`; defaults to `BUY` so the original long-only construction sites and tests remain valid |
+| `points` | `float` | Signed P&L in points: `exit_price - entry_price` for a long, `entry_price - exit_price` for a short (FR-024), rounded consistent with existing `Candle` price rounding (`round(..., 4)` per `client/client_helper.py` convention). Positive = winning position regardless of direction |
 
 **Validation rules** (enforced in `api/services/backtest_service.py`, not at the dataclass level — consistent with how other domain models in this codebase are built by services rather than self-validating):
 - `entry_time < exit_time` when `exit_time` is set.
@@ -115,17 +116,39 @@ BacktestDefinition (1, hardcoded) ─┬─> BacktestRunResult (per request)
 
 ## State transitions (`Trade`, within a single day's evaluation — not persisted, computed in one pass)
 
+Both directions are searched concurrently while flat, but at most one position is open at a time (FR-023). The implementation keeps two independent candidate searches (`_DirectionSearch` for `BUY` and for `SELL`); whichever confirms a valid entry first opens the single position, and both searches are reset. The long branch is unchanged from the original; the short branch is its mirror around the H1 high.
+
+**Long branch** (the breach is now measured on the close, per the 2026-07-21 clarification; the rest is the original state machine):
+
 ```
-[no position, no candidate] --(FR-006: breach then close-back >= H1 low)--> [no position, candidate = reversal candle]
-[no position, candidate] --(later candle's high does not exceed candidate's high, but stays >= H1 low, FR-006b)--> [no position, candidate = that later candle]
-[no position, candidate] --(later candle closes < H1 low, FR-006b)--> [no position, no candidate] (that candle is itself a fresh breach)
-[no position, candidate] --(later candle's high > candidate's high, i.e. breakout, entry within 20pts of H1 low and below take-profit, FR-006a/FR-007)--> [open, stop = entry-50]
-[no position, candidate] --(breakout confirmed, FR-006b, but fails FR-006a's distance/take-profit bounds)--> [no position, no candidate] (resumes searching for a fresh breach)
-[open, stop = entry-50] --(candle high >= entry+20, FR-008a)--> [open, stop = entry (break-even armed)]
-[open, stop = entry-50] --(candle low <= entry-50)--> [closed: STOP_LOSS]
-[open, stop = entry-50] --(candle high >= H1_high-10)--> [closed: TAKE_PROFIT]
-[open, stop = entry (armed)] --(candle low <= entry)--> [closed: BREAK_EVEN]
-[open, stop = entry (armed)] --(candle high >= H1_high-10)--> [closed: TAKE_PROFIT]
-[open, any state] --(session end reached)--> [closed: END_OF_DAY]
-[closed] --(FR-011: time remains)--> [no position, no candidate] --> (cycle repeats from FR-006)
+[flat, no long candidate] --(FR-006: close below H1 low then close-back >= H1 low)--> [flat, long candidate = reversal candle]
+[flat, long candidate] --(later candle high <= candidate high but close >= H1 low, FR-006b)--> [flat, long candidate = that later candle]
+[flat, long candidate] --(later candle closes < H1 low, FR-006b)--> [flat, no long candidate] (that candle is itself a fresh breach)
+[flat, long candidate] --(candle high > candidate high; entry within 20pts of H1 low and below H1_high-10, FR-006a/FR-007)--> [open LONG, stop = entry-50]
+[flat, long candidate] --(breakout confirmed but fails FR-006a bounds)--> [flat, no long candidate]
+[open LONG, stop = entry-50] --(candle high >= entry+20, FR-008a)--> [open LONG, stop = entry (armed)]
+[open LONG] --(candle low <= stop)--> [closed: STOP_LOSS / BREAK_EVEN if armed]
+[open LONG] --(candle high >= H1_high-10)--> [closed: TAKE_PROFIT]
 ```
+
+**Short branch (mirror, FR-020–FR-022):**
+
+```
+[flat, no short candidate] --(FR-020: close above H1 high then close-back <= H1 high)--> [flat, short candidate = reversal candle]
+[flat, short candidate] --(later candle low >= candidate low but close <= H1 high, FR-020)--> [flat, short candidate = that later candle]
+[flat, short candidate] --(later candle closes > H1 high, FR-020)--> [flat, no short candidate] (that candle is itself a fresh breach above the high)
+[flat, short candidate] --(candle low < candidate low; entry within 20pts of H1 high and above H1_low+10, FR-020a/FR-021)--> [open SHORT, stop = entry+50]
+[flat, short candidate] --(breakdown confirmed but fails FR-020a bounds)--> [flat, no short candidate]
+[open SHORT, stop = entry+50] --(candle low <= entry-20, FR-022)--> [open SHORT, stop = entry (armed)]
+[open SHORT] --(candle high >= stop)--> [closed: STOP_LOSS / BREAK_EVEN if armed]
+[open SHORT] --(candle low <= H1_low+10)--> [closed: TAKE_PROFIT]
+```
+
+**Shared (both directions):**
+
+```
+[open, any direction/state] --(session end reached)--> [closed: END_OF_DAY]
+[closed] --(FR-011/FR-023: time remains)--> [flat, both searches reset] --> (cycle repeats, either direction may open next)
+```
+
+A same-candle double confirmation (both a valid long and a valid short on one candle) resolves to the long (FR-023); in practice this is unreachable because the move that breaches the opposite extreme reaches the open position's take-profit first.

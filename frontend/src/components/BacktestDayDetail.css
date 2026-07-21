@@ -51,6 +51,21 @@
   color: #f85149;
 }
 
+.backtest-direction {
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+}
+
+.backtest-direction--long {
+  color: #3fb950;
+}
+
+.backtest-direction--short {
+  color: #d29922;
+}
+
 .backtest-candles-details {
   margin-top: 1rem;
 }
