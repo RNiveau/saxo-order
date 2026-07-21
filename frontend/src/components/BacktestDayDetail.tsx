@@ -26,7 +26,7 @@ export function BacktestDayDetail({ detail, definition, parameters }: BacktestDa
         <h2>{detail.date}</h2>
         <button
           className="backtest-export-csv"
-          onClick={() => backtestService.exportDayCsv(definition, detail.date)}
+          onClick={() => backtestService.exportDayCsv(definition, detail.date, parameters)}
         >
           Export CSV
         </button>
