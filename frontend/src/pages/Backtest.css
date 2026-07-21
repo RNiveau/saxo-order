@@ -140,6 +140,21 @@
 
 .backtest-export-csv {
   margin-bottom: 1rem;
+  padding: 0.5rem 1.1rem;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  background-color: #1f2937;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.backtest-export-csv:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  color: white;
 }
 
 .backtest-summary-tile {
