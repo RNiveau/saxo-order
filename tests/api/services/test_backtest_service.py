@@ -7,13 +7,15 @@ import pytest
 from api.services.backtest_service import (
     BacktestService,
     _candle_date,
+    _is_valid_long_entry,
+    _is_valid_short_entry,
     is_future_paris_date,
     is_today_not_yet_closed,
     paris_reference_window_utc,
     paris_session_end_utc,
 )
 from model import BacktestDefinition, Candle, DayResult, Trade, UnitTime
-from model.enum import DayStatus, ExitReason
+from model.enum import DayStatus, Direction, ExitReason
 from services.candles_service import CandlesService
 from utils.exception import SaxoException
 
@@ -469,29 +471,55 @@ class TestEvaluateDaySameCandleEdgeCases:
         assert trade.exit_time == candles[4].date
 
 
-class TestIsValidEntry:
-    """Direct unit tests for the entry-validity rule added after PR
+class TestIsValidLongEntry:
+    """Direct unit tests for the long entry-validity rule added after PR
     review: a breakout-reversal close only produces a trade when it is
-    within MAX_ENTRY_DISTANCE_FROM_LOW points of the H1 low and still
-    below the take-profit level."""
+    within MAX_ENTRY_DISTANCE points of the H1 low and still below the
+    take-profit level."""
 
     def test_within_distance_and_below_tp_is_valid(self):
-        assert BacktestService._is_valid_entry(8010, 8000, 8040) is True
+        assert _is_valid_long_entry(8010, 8000, 8040) is True
 
     def test_exactly_at_max_distance_is_valid(self):
-        assert BacktestService._is_valid_entry(8020, 8000, 8040) is True
+        assert _is_valid_long_entry(8020, 8000, 8040) is True
 
     def test_beyond_max_distance_is_invalid(self):
-        assert BacktestService._is_valid_entry(8021, 8000, 8040) is False
+        assert _is_valid_long_entry(8021, 8000, 8040) is False
 
     def test_at_take_profit_level_is_invalid(self):
-        assert BacktestService._is_valid_entry(8015, 8005, 8015) is False
+        assert _is_valid_long_entry(8015, 8005, 8015) is False
 
     def test_above_take_profit_level_is_invalid(self):
-        assert BacktestService._is_valid_entry(8016, 8005, 8015) is False
+        assert _is_valid_long_entry(8016, 8005, 8015) is False
 
     def test_just_below_take_profit_level_is_valid(self):
-        assert BacktestService._is_valid_entry(8014, 8005, 8015) is True
+        assert _is_valid_long_entry(8014, 8005, 8015) is True
+
+
+class TestIsValidShortEntry:
+    """Mirror of TestIsValidLongEntry for the short side: a short
+    breakdown entry is valid only when it is within MAX_ENTRY_DISTANCE
+    points below the H1 high and still above the take-profit level
+    (H1 low plus 10)."""
+
+    def test_within_distance_and_above_tp_is_valid(self):
+        # h1_high=8050, tp=8010: entry 8040 is 10pts below high, above tp
+        assert _is_valid_short_entry(8040, 8050, 8010) is True
+
+    def test_exactly_at_max_distance_is_valid(self):
+        assert _is_valid_short_entry(8030, 8050, 8010) is True
+
+    def test_beyond_max_distance_is_invalid(self):
+        assert _is_valid_short_entry(8029, 8050, 8010) is False
+
+    def test_at_take_profit_level_is_invalid(self):
+        assert _is_valid_short_entry(8010, 8025, 8010) is False
+
+    def test_below_take_profit_level_is_invalid(self):
+        assert _is_valid_short_entry(8009, 8025, 8010) is False
+
+    def test_just_above_take_profit_level_is_valid(self):
+        assert _is_valid_short_entry(8011, 8025, 8010) is True
 
 
 class TestEvaluateDayEntryValidityRule:
@@ -541,6 +569,176 @@ class TestEvaluateDayEntryValidityRule:
         assert trade.entry_price == 8015
         assert trade.exit_reason == ExitReason.END_OF_DAY
         assert trade.exit_price == 8018
+
+
+class TestEvaluateDayShort:
+    """Short side, mirror of the long-side exit tests. H1 high=8050,
+    low=8000, so the short take-profit is 8010 (low + 10) and the short
+    stop-loss sits 50 points above entry."""
+
+    def test_short_stop_loss_exit(self):
+        candles = [
+            m5_candle(0, 8055, 8060, 8050, 8052),  # breach above high
+            m5_candle(1, 8050, 8052, 8040, 8045),  # candidate, lower=8040
+            m5_candle(2, 8038, 8042, 8035, 8037),  # breakdown -> short @8038
+            m5_candle(3, 8080, 8090, 8075, 8085),  # SL: high>=8088, no gap
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.TRADED
+        assert len(result.trades) == 1
+        trade = result.trades[0]
+        assert trade.direction == Direction.SELL
+        assert trade.entry_price == 8038
+        assert trade.exit_reason == ExitReason.STOP_LOSS
+        assert trade.exit_price == 8088
+        assert trade.points == -50
+
+    def test_short_stop_loss_exit_with_gap(self):
+        candles = [
+            m5_candle(0, 8055, 8060, 8050, 8052),
+            m5_candle(1, 8050, 8052, 8040, 8045),  # candidate, lower=8040
+            m5_candle(2, 8038, 8042, 8035, 8037),  # short @8038
+            m5_candle(3, 8095, 8100, 8090, 8098),  # gap above 8088
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        trade = result.trades[0]
+        assert trade.direction == Direction.SELL
+        assert trade.exit_reason == ExitReason.STOP_LOSS
+        assert trade.exit_price == 8095
+        assert trade.points == -57
+
+    def test_short_take_profit_exit(self):
+        candles = [
+            m5_candle(0, 8055, 8060, 8050, 8052),
+            m5_candle(1, 8050, 8052, 8040, 8045),  # candidate, lower=8040
+            m5_candle(2, 8038, 8042, 8035, 8037),  # short @8038
+            m5_candle(3, 8015, 8018, 8005, 8010),  # TP: low<=8010, no gap
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        trade = result.trades[0]
+        assert trade.direction == Direction.SELL
+        assert trade.exit_reason == ExitReason.TAKE_PROFIT
+        assert trade.exit_price == 8010
+        assert trade.points == 28
+
+    def test_short_end_of_day_exit(self):
+        candles = [
+            m5_candle(0, 8055, 8060, 8050, 8052),
+            m5_candle(1, 8050, 8052, 8040, 8045),  # candidate, lower=8040
+            m5_candle(2, 8038, 8042, 8035, 8037),  # short @8038
+            m5_candle(3, 8036, 8040, 8030, 8035),  # last candle of the day
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        trade = result.trades[0]
+        assert trade.direction == Direction.SELL
+        assert trade.exit_reason == ExitReason.END_OF_DAY
+        assert trade.exit_price == 8035
+        assert trade.points == 3
+
+    def test_short_break_even_exit(self):
+        candles = [
+            m5_candle(0, 8055, 8060, 8050, 8052),
+            m5_candle(1, 8050, 8052, 8040, 8045),  # candidate, lower=8040
+            m5_candle(2, 8038, 8042, 8035, 8037),  # short @8038
+            m5_candle(3, 8035, 8040, 8016, 8030),  # arms BE (low<=8018), no TP
+            m5_candle(4, 8030, 8045, 8025, 8035),  # BE exit: high>=8038
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert len(result.trades) == 1
+        trade = result.trades[0]
+        assert trade.direction == Direction.SELL
+        assert trade.exit_reason == ExitReason.BREAK_EVEN
+        assert trade.exit_price == 8038
+        assert trade.points == 0
+
+    def test_short_reversal_without_breakdown_confirmation_no_trade(self):
+        candles = [
+            m5_candle(0, 8055, 8060, 8050, 8052),  # breach above high
+            m5_candle(1, 8050, 8052, 8040, 8045),  # candidate, lower=8040
+            m5_candle(2, 8042, 8048, 8041, 8045),  # never breaks below 8040
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.NO_TRADE
+        assert result.trades == []
+
+    def test_short_entry_too_far_below_h1_high_is_rejected(self):
+        candles = [
+            m5_candle(0, 8055, 8060, 8050, 8052),  # breach above high
+            m5_candle(1, 8050, 8055, 8025, 8045),  # candidate, lower=8025
+            # breaks below 8025 -> entry @8025, 25pts from h1_high (> 20 max)
+            m5_candle(2, 8028, 8030, 8020, 8025),
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.NO_TRADE
+        assert result.trades == []
+
+
+class TestBothDirectionsOnePositionAtATime:
+    def test_long_then_short_sequential_same_day(self):
+        """Both directions are evaluated on the same day but only one
+        position is open at a time: a long opens first, and only after
+        it closes does the short signal (a break above the H1 high and
+        reversal) open a second, opposite-direction position."""
+        candles = [
+            # Long: breach below low -> candidate -> breakout @8015 -> SL
+            m5_candle(0, 8005, 8010, 7990, 7995),
+            m5_candle(1, 8000, 8015, 7995, 8010),  # long candidate h=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # long entry @8015
+            m5_candle(3, 8000, 8005, 7950, 7955),  # long SL @7965
+            # Short: breach above high -> candidate -> breakdown @8038 -> EOD
+            m5_candle(4, 8055, 8060, 8050, 8055),  # breach above high
+            m5_candle(5, 8050, 8052, 8040, 8045),  # short candidate lower=8040
+            m5_candle(6, 8038, 8042, 8035, 8037),  # short entry @8038
+            m5_candle(7, 8035, 8045, 8030, 8040),  # end of day
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.TRADED
+        assert len(result.trades) == 2
+
+        first, second = result.trades
+        assert first.direction == Direction.BUY
+        assert first.entry_price == 8015
+        assert first.exit_reason == ExitReason.STOP_LOSS
+        assert first.exit_price == 7965
+        assert first.points == -50
+
+        assert second.direction == Direction.SELL
+        assert second.entry_price == 8038
+        assert second.exit_reason == ExitReason.END_OF_DAY
+        assert second.exit_price == 8040
+        assert second.points == -2
+
+    def test_high_breach_closing_a_long_does_not_also_open_a_short(self):
+        """Because the short reference (H1 high) sits above the long
+        take-profit (H1 high - 10), the very candle that breaks above
+        the high closes the open long on take-profit. That closing
+        candle is not re-evaluated for a new signal, so it cannot also
+        open a concurrent short - one position at a time, either side."""
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),  # long breach
+            m5_candle(1, 8000, 8015, 7995, 8010),  # long candidate h=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # long entry @8015
+            # breaks above the high (8055) -> closes the long on TP (8040),
+            # and does NOT also spawn a short from the same candle
+            m5_candle(3, 8035, 8055, 8030, 8040),
+            m5_candle(4, 8045, 8048, 8040, 8043),  # benign, flat
+            m5_candle(5, 8042, 8046, 8038, 8040),  # last candle, flat
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert len(result.trades) == 1
+        trade = result.trades[0]
+        assert trade.direction == Direction.BUY
+        assert trade.exit_reason == ExitReason.TAKE_PROFIT
+        assert trade.exit_price == 8040
 
 
 def make_trade(exit_reason, points, entry_price=8010.0):

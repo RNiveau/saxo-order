@@ -960,6 +960,7 @@ export interface BacktestTrade {
   exit_time: string;
   exit_price: number;
   exit_reason: string;
+  direction: string;
   points: number;
 }
 

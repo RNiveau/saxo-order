@@ -2,10 +2,18 @@
 
 **Feature Branch**: `021-backtest-menu-hardcoded`
 **Created**: 2026-07-14
+**Updated**: 2026-07-21 (short positions added — the backtest now trades both directions)
 **Status**: Draft
 **Input**: User description: "I want a new menu «back test» which will run hardcoded back test. I don't want to create a back test engine. All of them will be hardcoded. First one is the following: on the FRA40.I index, take the h1 candle 9am-10am with high and low has limit. then we work with 5minutes candle. if after 10am, the price is going bellow low h1, then close above the low, then we have a breakout 5min, we take a position. we sell the position when we lost 50points, or at the end of the day or if the price is going to high h1 less 10 points"
+**Update input (2026-07-21)**: "This back test is focused only on long position for now. I want the same concept in short position." — the strategy is extended symmetrically: the long side trades the reversal off the H1 low (as originally specified), and a new short side trades the mirror-image reversal off the H1 high. Both directions are evaluated on every day, with at most one position open at a time (see Clarifications, Session 2026-07-21).
 
 ## Clarifications
+
+### Session 2026-07-21 (short positions)
+
+- Q: How should the short-position capability be exposed — a direction toggle, a separate backtest, or always both directions? → A: The single "CAC40 Bougie de 9h" backtest always evaluates both long and short together; there is no direction toggle. Long-only is no longer a separate mode.
+- Q: When both directions are evaluated, can a long and a short position be open at the same time? → A: No — at most one position (long OR short) is open at any time. Whichever direction confirms a valid breakout first opens the position and holds it until it closes; the search for both directions only resumes once flat again.
+- Q: If a single 5-minute candle would confirm both a long and a short entry at once, which wins? → A: The long entry takes precedence (a deterministic tiebreak). In practice this is unreachable, because the price move that breaks the opposite extreme (the H1 high for a short, the H1 low for a long) coincides with the open position's take-profit — see the edge cases.
 
 ### Session 2026-07-14
 
@@ -35,6 +43,24 @@ A trader wants to select the "Backtest" menu, pick the hardcoded "CAC40 Bougie d
 7. **Given** a first trade from Scenario 1 that has closed (stop-loss, break-even, take-profit, or a later re-entry closing before end of day), **When** price subsequently trades below the H1 low again, a later 5-minute candle closes back above it, and a subsequent candle confirms the breakout, **Then** the system reports a second trade entered on the same day, evaluated against the same H1 high/low reference levels and the same exit rules, independently of the first trade's outcome.
 8. **Given** an open trade from Scenario 1, **When** a subsequent 5-minute candle's high reaches 20 points or more above the entry price, **Then** the system moves that trade's stop-loss up to the entry price (break-even) for evaluation of all following candles, and this adjustment happens at most once for that trade.
 9. **Given** an open trade whose stop-loss has already been moved to break-even (Scenario 8), **When** a later 5-minute candle's low reaches the entry price or below, before the take-profit or end of day is reached, **Then** the system reports the trade closed at break-even (0 points), labeled as a "break-even" exit — distinct from a stop-loss, take-profit, or end-of-day exit.
+
+---
+
+### User Story 1b - Take the mirror-image short trade off the H1 high (Priority: P1)
+
+A trader wants the same "CAC40 Bougie de 9h" backtest to also catch the short version of the setup: after 10:00, when FRA40.I trades **above** the 9:00–10:00 H1 candle's high, a later 5-minute candle closes back **at or below** that high (a reversal candidate), and a subsequent 5-minute candle's low then trades **below** that reversal candle's low (breakdown confirmation), the strategy enters a **short** (sell) position, managed with the mirror-image exits (stop-loss above entry, take-profit near the H1 low, break-even when price moves far enough in favor).
+
+**Why this priority**: The original backtest only captured long reversals off the H1 low, silently ignoring the equally common symmetric short setup off the H1 high — so it under-reported how the strategy would actually have traded. Catching both directions is core to the improved backtest's value.
+
+**Independent Test**: Run the backtest against a known historical day for FRA40.I where price broke above the 9:00–10:00 H1 high and reversed. Verify the reported short trade (entry at the reversal candle's low or the confirming candle's open on a gap, exit, exit reason, and points) matches manual calculation using the mirrored rules.
+
+**Acceptance Scenarios**:
+
+1. **Given** a trading day where, after 10:00, FRA40.I trades above the H1 high, a later 5-minute candle closes back at/below that high, and a subsequent candle's low then trades below that reversal candle's low, **When** the backtest runs, **Then** the system reports a short trade entered at the reversal candle's low (or at the confirming candle's open price if it gapped below that low), recorded with direction "short".
+2. **Given** an open short from Scenario 1, **When** price rises to a loss of 50 points from the entry (entry + 50) before any other exit, **Then** the trade closes at that stop-loss level (or the candle's open on a gap above it).
+3. **Given** an open short from Scenario 1, **When** price falls to reach the H1 low plus 10 points before the stop-loss or end of day, **Then** the trade closes at that take-profit level (or the candle's open on a gap below it).
+4. **Given** an open short from Scenario 1, **When** a 5-minute candle's low reaches 20 points or more below the entry price, **Then** the short's stop-loss moves down to the entry price (break-even) for the following candles, at most once, mirroring the long-side break-even rule.
+5. **Given** a flat day evaluating both directions, **When** a valid long breakout and a valid short breakdown are both available, **Then** at most one position is open at any time — whichever confirms first holds the floor, and the other direction is only reconsidered once the position closes.
 
 ---
 
@@ -88,6 +114,9 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 - **Break-even state does not carry across trades**: Each trade (including a same-day re-entry per FR-011) starts with its own fresh stop-loss at entry-minus-50; the break-even arming from a previous, already-closed trade has no effect on a later trade that day.
 - **Invalid date range submitted**: If the end date is before the start date, or either date is in the future, the system MUST reject the request with a validation error before evaluating any day, rather than running and returning an empty or zero-trade result.
 - **Confirmed breakout too far from the H1 low, or already at/past take-profit**: A breakout can be confirmed (FR-006b) at an entry price that ends up more than 20 points above the H1 low, or at/above the take-profit level itself (FR-006a) — for example a candidate whose high already sat far from the low, or a confirming candle that gaps up sharply. No trade is opened in this case; the strategy immediately resumes looking for a fresh breakdown below the H1 low (FR-006), the same as if no candidate had ever formed.
+- **Short side is the mirror of every long edge case (2026-07-21)**: All the long-side edge cases above have a symmetric short counterpart around the H1 high — breach-without-reversal, reversal-without-breakdown-confirmation, candidate rolling forward, candidate discarded by a fresh close above the high, repeat short after a closed trade, same-candle stop-vs-take-profit, break-even arm/breach timing, gap through the exit, and confirmed-breakdown-too-far-below-the-high (or already at/below the short take-profit). Read "above the high / below the low" and "rises / falls" swapped throughout.
+- **One position at a time across both directions (2026-07-21)**: While any position is open, neither a long nor a short signal is acted on; both searches only resume once flat. Whichever direction confirms a valid breakout first opens the position. A same-candle double confirmation resolves to the long (FR-023).
+- **Opposite breach coincides with the open position's take-profit (2026-07-21)**: Because the short reference (H1 high) sits above the long take-profit (H1 high − 10), and the long reference (H1 low) sits below the short take-profit (H1 low + 10), the price move that would arm the opposite direction is the same move that reaches the open position's take-profit. In practice this means the two directions are naturally mutually exclusive: the candle that breaks the opposite extreme closes the current position on take-profit, and that closing candle is not re-evaluated for a new signal — so a genuinely concurrent long-and-short can never arise, and the FR-023 tiebreak is a defensive rule rather than a routinely-hit path.
 
 ## Requirements *(mandatory)*
 
@@ -129,11 +158,23 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 - **FR-017**: System MUST let a trader export a range run's day-by-day summary as a downloadable CSV file, with one row per day in the results (date, status, trade count, points) — the same set of days already returned by the range run (FR-012).
 - **FR-018**: System MUST let a trader export a single day's detail (FR-015) as a downloadable CSV file, containing the H1 high/low reference levels, the sequence of 5-minute candles (date, open, high, low, close), and the day's trades (entry time/price, exit time/price, exit reason, points).
 
+#### Short positions (added 2026-07-21)
+
+These requirements extend the "CAC40 Bougie de 9h" backtest so it trades both directions. The long-side rules (FR-003 through FR-011) are unchanged; the following add the mirror-image short side and the rule that governs running both directions together. All short-side thresholds are the mirror of the long side (same 50 / 10 / 20-point magnitudes), reflected around the H1 high instead of the H1 low.
+
+- **FR-019**: The "CAC40 Bougie de 9h" backtest MUST evaluate both the long side (FR-003–FR-011) and the short side (FR-020–FR-022) on every trading day. There is no direction toggle and no long-only mode; a day's result is the combined, chronological list of whatever long and short trades the rules produced.
+- **FR-020**: System MUST recognize a short breakout-and-reversal candidate each time, after 10:00, price trades **above** the H1 high and a later 5-minute candle closes **at or below** the H1 high, provided no position is open and no short candidate is already pending. That reversal candle becomes the pending short candidate. The candidate only produces a trade once a later 5-minute candle's **low** trades **below** the candidate's low ("breakdown confirmation"). Until then, each subsequent candle is resolved, in order: (a) if its low trades below the candidate's low, the breakout is confirmed; (b) otherwise if it closes back **above** the H1 high, the candidate is discarded and this candle doubles as a fresh breach above the high; (c) otherwise it replaces the candidate (the level to watch rolls forward to this candle's low). This mirrors FR-006/FR-006b reflected around the H1 high.
+- **FR-020a**: A confirmed short breakout only produces a trade if the resulting entry price is both (a) no more than 20 points **below** the H1 high, and (b) strictly **above** the short take-profit level (H1 low plus 10 points). Otherwise no trade is opened and the search resumes for a fresh short breach above the high — the mirror of FR-006a.
+- **FR-021**: When a short breakout is confirmed and valid, system MUST record a **short (sell)** entry at the candidate reversal candle's low — or, if the confirming candle's open is **below** that low (a gap), at that open price instead. The entry time is the confirming candle's time. Mirror of FR-007.
+- **FR-022**: For an open short, system MUST evaluate each subsequent 5-minute candle for exits, closing at the first reached: **stop-loss** when price rises to or above the currently active stop level (starting at 50 points **above** the entry price); **take-profit** when price falls to reach the H1 low plus 10 points; **end of day** otherwise. While the short's stop has not moved, it MUST move down to the entry price ("break-even") the moment a candle's **low** reaches the entry price minus 20 points or more (at most once, taking effect from the next candle). The stop-vs-take-profit same-candle priority (FR-009), the gap-fill convention (FR-010), and the exit-reason labels (stop-loss / break-even / take-profit / end of day) all apply identically, mirrored around the H1 high.
+- **FR-023**: System MUST run both directions with **at most one open position at any time**. While a position (long or short) is open, no new signal of either direction is acted on; the search for both directions resumes only once the position has closed. Whichever direction confirms a valid breakout first opens the position. On the rare candle that would confirm both a long and a short entry simultaneously, the long entry takes precedence (deterministic tiebreak). Each new position starts with its own fresh (unmoved) stop, and there is no cap on the number of trades per day beyond the one-position-at-a-time constraint (extends FR-011 across both directions).
+- **FR-024**: System MUST record each trade's direction (long or short) and expose it in both the per-day detail (FR-015) and the single-day/detail responses, so a trader can tell which side each trade was on. The aggregate summary figures (FR-013) are computed on the trade's signed points result regardless of direction: a short whose exit is below its entry is a winning position, and so on. The CSV exports (FR-017/FR-018) include the trade direction column as well.
+
 ### Key Entities
 
 - **Backtest Definition**: A hardcoded strategy available in the Backtest menu (name, instrument, and fixed rule set). "CAC40 Bougie de 9h" is the first instance; the data model must not assume it is the only one.
 - **Backtest Run**: The result of executing a Backtest Definition over a UI-provided date range (a single day is the range's degenerate case) — a list of per-day outcomes plus the aggregate summary: number of days, number of trades, number of winning positions, number of losing positions, number of BE, average win, average loss, and final result. Computed on demand for the requesting trader and returned synchronously; not persisted (for now — see Assumptions).
-- **Day Result**: The outcome for a single trading day within a Backtest Run — either "no data," "no trade," or a chronological list of one or more trades, each with entry price/time, exit price/time, exit reason (stop-loss, break-even, take-profit, or end of day), and points gained or lost.
+- **Day Result**: The outcome for a single trading day within a Backtest Run — either "no data," "no trade," or a chronological list of one or more trades, each with direction (long or short), entry price/time, exit price/time, exit reason (stop-loss, break-even, take-profit, or end of day), and points gained or lost. Trades of both directions may appear in the same day's list, ordered by time; at most one is open at any moment (FR-023).
 
 ## Success Criteria *(mandatory)*
 

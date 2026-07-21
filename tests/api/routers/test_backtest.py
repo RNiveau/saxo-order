@@ -327,7 +327,7 @@ class TestGetBacktestDayCsv:
             "date,open,higher,lower,close\r\n"
             "\r\n"
             "entry_time,entry_price,exit_time,exit_price,"
-            "exit_reason,points\r\n"
+            "exit_reason,direction,points\r\n"
         )
 
 
