@@ -571,6 +571,37 @@ class TestEvaluateDayEntryValidityRule:
         assert trade.exit_price == 8018
 
 
+class TestBreachRequiresCloseOutsideRange:
+    """The initial breach is measured on the candle's close, not an
+    intrabar wick: a candle that pierces the H1 range but closes back
+    inside it does not arm a breach, so a subsequent reversal/breakout
+    sequence produces no trade."""
+
+    def test_long_wick_below_low_that_closes_inside_is_not_a_breach(self):
+        candles = [
+            # low 7990 dips below h1_low 8000 but close 8005 is inside
+            m5_candle(0, 8005, 8010, 7990, 8005),
+            m5_candle(1, 8005, 8015, 8000, 8010),  # would-be candidate
+            m5_candle(2, 8010, 8020, 8005, 8015),  # would-be breakout
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.NO_TRADE
+        assert result.trades == []
+
+    def test_short_wick_above_high_that_closes_inside_is_not_a_breach(self):
+        candles = [
+            # high 8060 pierces h1_high 8050 but close 8045 is inside
+            m5_candle(0, 8045, 8060, 8040, 8045),
+            m5_candle(1, 8045, 8050, 8035, 8040),  # would-be candidate
+            m5_candle(2, 8040, 8045, 8030, 8035),  # would-be breakdown
+        ]
+        service = make_service([h1_candle()], candles)
+        result = service.evaluate_day(DEFINITION, TRADING_DATE)
+        assert result.status == DayStatus.NO_TRADE
+        assert result.trades == []
+
+
 class TestEvaluateDayShort:
     """Short side, mirror of the long-side exit tests. H1 high=8050,
     low=8000, so the short take-profit is 8010 (low + 10) and the short

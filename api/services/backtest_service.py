@@ -183,14 +183,16 @@ class _DirectionSearch:
     """Tracks the breakout/reversal candidate search for a single
     direction while no position is open.
 
-    LONG watches for a break below the H1 low, then a reversal candle
-    closing back at/above it, confirmed by a later candle trading above
-    that reversal candle's high. SHORT is the mirror image around the
-    H1 high: a break above the high, a reversal candle closing back
-    at/below it, confirmed by a later candle trading below that candle's
-    low. The two directions are searched independently and concurrently;
-    the engine (see _evaluate_trades) enforces that only one may open a
-    position at a time.
+    LONG watches for a candle closing below the H1 low, then a reversal
+    candle closing back at/above it, confirmed by a later candle trading
+    above that reversal candle's high. SHORT is the mirror image around
+    the H1 high: a candle closing above the high, a reversal candle
+    closing back at/below it, confirmed by a later candle trading below
+    that candle's low. The breach is measured on the close (a confirmed
+    candle outside the H1 range), not an intrabar wick. The two
+    directions are searched independently and concurrently; the engine
+    (see _evaluate_trades) enforces that only one may open a position at
+    a time.
     """
 
     def __init__(
@@ -226,7 +228,7 @@ class _DirectionSearch:
     def _feed_long(self, candle: Candle) -> Optional[float]:
         if self.candidate is None:
             if not self.breached:
-                if candle.lower < self.h1_low:
+                if candle.close < self.h1_low:
                     self.breached = True
                 return None
             if candle.close >= self.h1_low:
@@ -255,7 +257,7 @@ class _DirectionSearch:
     def _feed_short(self, candle: Candle) -> Optional[float]:
         if self.candidate is None:
             if not self.breached:
-                if candle.higher > self.h1_high:
+                if candle.close > self.h1_high:
                     self.breached = True
                 return None
             if candle.close <= self.h1_high:

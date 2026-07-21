@@ -118,10 +118,10 @@ BacktestDefinition (1, hardcoded) ─┬─> BacktestRunResult (per request)
 
 Both directions are searched concurrently while flat, but at most one position is open at a time (FR-023). The implementation keeps two independent candidate searches (`_DirectionSearch` for `BUY` and for `SELL`); whichever confirms a valid entry first opens the single position, and both searches are reset. The long branch is unchanged from the original; the short branch is its mirror around the H1 high.
 
-**Long branch (unchanged):**
+**Long branch** (the breach is now measured on the close, per the 2026-07-21 clarification; the rest is the original state machine):
 
 ```
-[flat, no long candidate] --(FR-006: breach below H1 low then close-back >= H1 low)--> [flat, long candidate = reversal candle]
+[flat, no long candidate] --(FR-006: close below H1 low then close-back >= H1 low)--> [flat, long candidate = reversal candle]
 [flat, long candidate] --(later candle high <= candidate high but close >= H1 low, FR-006b)--> [flat, long candidate = that later candle]
 [flat, long candidate] --(later candle closes < H1 low, FR-006b)--> [flat, no long candidate] (that candle is itself a fresh breach)
 [flat, long candidate] --(candle high > candidate high; entry within 20pts of H1 low and below H1_high-10, FR-006a/FR-007)--> [open LONG, stop = entry-50]
@@ -134,7 +134,7 @@ Both directions are searched concurrently while flat, but at most one position i
 **Short branch (mirror, FR-020–FR-022):**
 
 ```
-[flat, no short candidate] --(FR-020: breach above H1 high then close-back <= H1 high)--> [flat, short candidate = reversal candle]
+[flat, no short candidate] --(FR-020: close above H1 high then close-back <= H1 high)--> [flat, short candidate = reversal candle]
 [flat, short candidate] --(later candle low >= candidate low but close <= H1 high, FR-020)--> [flat, short candidate = that later candle]
 [flat, short candidate] --(later candle closes > H1 high, FR-020)--> [flat, no short candidate] (that candle is itself a fresh breach above the high)
 [flat, short candidate] --(candle low < candidate low; entry within 20pts of H1 high and above H1_low+10, FR-020a/FR-021)--> [open SHORT, stop = entry+50]
