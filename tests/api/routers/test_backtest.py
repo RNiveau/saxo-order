@@ -8,6 +8,7 @@ from api.main import app
 from api.routers.backtest import get_backtest_service
 from api.services.backtest_service import BacktestService
 from model import (
+    BacktestParameters,
     BacktestRunResult,
     BacktestSummary,
     Candle,
@@ -395,6 +396,75 @@ class TestGetBacktestRunCsv:
 
         assert response.status_code == 400
         mock_backtest_service.run_range.assert_not_called()
+
+
+class TestBacktestParameters:
+    def test_omitted_params_default_to_the_strategy_thresholds(
+        self, mock_backtest_service
+    ):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+        mock_backtest_service.evaluate_day.return_value = DayResult(
+            date=datetime.date(2026, 6, 2), status=DayStatus.NO_TRADE
+        )
+
+        response = client.get(
+            "/api/backtest/day",
+            params={"definition": "B9H", "date": "2026-06-02"},
+        )
+
+        assert response.status_code == 200
+        params = mock_backtest_service.evaluate_day.call_args.args[2]
+        assert params == BacktestParameters()
+
+    def test_custom_params_are_passed_to_the_service(
+        self, mock_backtest_service
+    ):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+        mock_backtest_service.evaluate_day.return_value = DayResult(
+            date=datetime.date(2026, 6, 2), status=DayStatus.NO_TRADE
+        )
+
+        response = client.get(
+            "/api/backtest/day",
+            params={
+                "definition": "B9H",
+                "date": "2026-06-02",
+                "stop_loss_points": 40,
+                "take_profit_offset_points": 15,
+                "break_even_trigger_points": 25,
+                "max_entry_distance_points": 12,
+            },
+        )
+
+        assert response.status_code == 200
+        params = mock_backtest_service.evaluate_day.call_args.args[2]
+        assert params == BacktestParameters(
+            stop_loss_points=40,
+            take_profit_offset_points=15,
+            break_even_trigger_points=25,
+            max_entry_distance_points=12,
+        )
+
+    def test_non_positive_param_returns_422(self, mock_backtest_service):
+        mock_backtest_service.get_definition.return_value = MagicMock(
+            code="B9H"
+        )
+
+        response = client.get(
+            "/api/backtest/day",
+            params={
+                "definition": "B9H",
+                "date": "2026-06-02",
+                "stop_loss_points": 0,
+            },
+        )
+
+        assert response.status_code == 422
+        mock_backtest_service.evaluate_day.assert_not_called()
 
 
 class TestGetBacktestDefinitions:

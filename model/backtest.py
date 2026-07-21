@@ -17,6 +17,18 @@ class BacktestDefinition:
 
 
 @dataclass
+class BacktestParameters:
+    """Tunable thresholds for the "CAC40 Bougie de 9h" strategy. Defaults
+    reproduce the values originally hardcoded for spec 021, so an
+    unparametrized run behaves exactly as before."""
+
+    stop_loss_points: float = 50
+    take_profit_offset_points: float = 10
+    break_even_trigger_points: float = 20
+    max_entry_distance_points: float = 20
+
+
+@dataclass
 class Trade:
     entry_time: datetime.datetime
     entry_price: float
