@@ -139,6 +139,8 @@ Examples:
 - N/A — ephemeral, computed on demand per request, nothing persisted (Clarifications, Session 2026-07-14). (021-backtest-menu-hardcoded)
 - Python 3.12 (backend), TypeScript 5+ / React 19+ (frontend) + `anthropic` SDK (NEW, backend), FastAPI + Pydantic v2, Click, `aioboto3` (DynamoDB), `slack_sdk`, `cachetools` (TTLCache); React Router DOM v7+, Vite 7+, Axios (frontend) (023-alert-triage)
 - AWS DynamoDB — new `alert_digests` table (hash_key `run_date` String, range_key `created_at` Number, **no TTL**); existing `alerts` table unchanged (023-alert-triage)
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend — minimal changes) + FastAPI, Pydantic v2, `cachetools` (TTLCache), `googleapiclient` (Google Sheets); NEW: a GraphQL/HTTP client for Ouinex (`httpx` or `requests` — POST GraphQL + JWT auth flow); frontend Axios + React Router DOM v7+ (024-ouinex-provider)
+- AWS DynamoDB `watchlist` table (existing `exchange` attribute, unchanged schema); Google Sheets trading journal (existing "Liste d'ordre" sheet, unchanged schema). No new tables. (024-ouinex-provider)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)

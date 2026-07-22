@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 from model import (
     BacktestDefinition,
+    BacktestParameters,
     BacktestRunResult,
     BacktestSummary,
     Candle,
@@ -32,41 +33,49 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
     ),
 ]
 
-# "CAC40 Bougie de 9h" strategy thresholds — intentionally hardcoded in
-# code, not configuration: FR-002 requires each backtest to be a fixed,
-# hardcoded implementation, not a generic configurable engine.
-STOP_LOSS_POINTS = 50
-TAKE_PROFIT_OFFSET_POINTS = 10
-BREAK_EVEN_TRIGGER_POINTS = 20
-MAX_ENTRY_DISTANCE = 20
+# Candle horizons for the two Saxo fetches. Unlike the strategy
+# thresholds (now tunable via BacktestParameters), these describe the
+# fixed shape of the "CAC40 Bougie de 9h" setup - a 1-hour reference
+# window scanned with 5-minute candles - and are not exposed as
+# parameters.
 FIVE_MINUTE_HORIZON = 5
 H1_HORIZON = 60
 
+# Default thresholds, kept in one place so the free-function unit tests
+# and the dataclass agree on what "unparametrized" means.
+_DEFAULTS = BacktestParameters()
+
 
 def _is_valid_long_entry(
-    entry_price: float, h1_low: float, take_profit_level: float
+    entry_price: float,
+    h1_low: float,
+    take_profit_level: float,
+    max_entry_distance: float = _DEFAULTS.max_entry_distance_points,
 ) -> bool:
     """A long breakout entry only produces a trade when it still leaves
-    room to work: within MAX_ENTRY_DISTANCE points of the H1 low, and
-    below the take-profit level (H1 high minus 10). An entry too far
-    above the low, or already at/above take-profit, is not valid - it
-    would exit on the very next candle for little or no favorable
-    move despite being labeled a take-profit."""
+    room to work: within max_entry_distance points of the H1 low, and
+    below the take-profit level (H1 high minus the take-profit offset).
+    An entry too far above the low, or already at/above take-profit, is
+    not valid - it would exit on the very next candle for little or no
+    favorable move despite being labeled a take-profit."""
     return (
-        entry_price - h1_low <= MAX_ENTRY_DISTANCE
+        entry_price - h1_low <= max_entry_distance
         and entry_price < take_profit_level
     )
 
 
 def _is_valid_short_entry(
-    entry_price: float, h1_high: float, take_profit_level: float
+    entry_price: float,
+    h1_high: float,
+    take_profit_level: float,
+    max_entry_distance: float = _DEFAULTS.max_entry_distance_points,
 ) -> bool:
     """Mirror of _is_valid_long_entry for the short side: a short
-    breakdown entry is only valid when it is within MAX_ENTRY_DISTANCE
+    breakdown entry is only valid when it is within max_entry_distance
     points below the H1 high, and above the take-profit level (H1 low
-    plus 10)."""
+    plus the take-profit offset)."""
     return (
-        h1_high - entry_price <= MAX_ENTRY_DISTANCE
+        h1_high - entry_price <= max_entry_distance
         and entry_price > take_profit_level
     )
 
@@ -159,11 +168,13 @@ class _OpenPosition:
         entry_price: float,
         direction: Direction,
         take_profit_level: float,
+        stop_loss_points: float,
     ):
         self.entry_time = entry_time
         self.entry_price = entry_price
         self.direction = direction
         self.take_profit_level = take_profit_level
+        self.stop_loss_points = stop_loss_points
         self.be_armed = False
 
     @property
@@ -175,8 +186,8 @@ class _OpenPosition:
         if self.be_armed:
             return self.entry_price
         if self.is_long:
-            return self.entry_price - STOP_LOSS_POINTS
-        return self.entry_price + STOP_LOSS_POINTS
+            return self.entry_price - self.stop_loss_points
+        return self.entry_price + self.stop_loss_points
 
 
 class _DirectionSearch:
@@ -201,11 +212,13 @@ class _DirectionSearch:
         h1_high: float,
         h1_low: float,
         take_profit_level: float,
+        max_entry_distance: float,
     ):
         self.direction = direction
         self.h1_high = h1_high
         self.h1_low = h1_low
         self.take_profit_level = take_profit_level
+        self.max_entry_distance = max_entry_distance
         self.breached = False
         self.candidate: Optional[Candle] = None
 
@@ -243,7 +256,10 @@ class _DirectionSearch:
             entry_price = max(self.candidate.higher, candle.open)
             self.candidate = None
             if _is_valid_long_entry(
-                entry_price, self.h1_low, self.take_profit_level
+                entry_price,
+                self.h1_low,
+                self.take_profit_level,
+                self.max_entry_distance,
             ):
                 return entry_price
             return None
@@ -271,7 +287,10 @@ class _DirectionSearch:
             entry_price = min(self.candidate.lower, candle.open)
             self.candidate = None
             if _is_valid_short_entry(
-                entry_price, self.h1_high, self.take_profit_level
+                entry_price,
+                self.h1_high,
+                self.take_profit_level,
+                self.max_entry_distance,
             ):
                 return entry_price
             return None
@@ -300,9 +319,13 @@ class BacktestService:
         return None
 
     def evaluate_day(
-        self, definition: BacktestDefinition, trading_date: datetime.date
+        self,
+        definition: BacktestDefinition,
+        trading_date: datetime.date,
+        params: Optional[BacktestParameters] = None,
     ) -> DayResult:
         """Run the "CAC40 Bougie de 9h" rules for a single trading day."""
+        params = params or BacktestParameters()
         h1_start_utc, h1_end_utc = paris_reference_window_utc(trading_date)
         h1_candle = self._fetch_h1_reference_candle(
             definition.instrument, h1_start_utc, h1_end_utc
@@ -318,7 +341,7 @@ class BacktestService:
         )
         chronological = sorted(five_min_candles, key=_candle_date)
 
-        trades = self._evaluate_trades(chronological, h1_high, h1_low)
+        trades = self._evaluate_trades(chronological, h1_high, h1_low, params)
 
         status = DayStatus.TRADED if trades else DayStatus.NO_TRADE
         return DayResult(
@@ -335,8 +358,10 @@ class BacktestService:
         definition: BacktestDefinition,
         start_date: datetime.date,
         end_date: datetime.date,
+        params: Optional[BacktestParameters] = None,
     ) -> BacktestRunResult:
         """Run the backtest across every day in [start_date, end_date]."""
+        params = params or BacktestParameters()
         day_summaries: List[DayResultSummary] = []
         all_trades: List[Trade] = []
 
@@ -348,7 +373,7 @@ class BacktestService:
                 # NO_DATA - avoids two wasted Saxo calls per weekend day.
                 current += datetime.timedelta(days=1)
                 continue
-            day_result = self.evaluate_day(definition, current)
+            day_result = self.evaluate_day(definition, current, params)
             if day_result.status != DayStatus.NO_DATA:
                 day_points = round(
                     sum(trade.points for trade in day_result.trades), 4
@@ -464,6 +489,7 @@ class BacktestService:
         candles: List[Candle],
         h1_high: float,
         h1_low: float,
+        params: BacktestParameters,
     ) -> List[Trade]:
         """Evaluate both directions concurrently, with at most one
         position open at any time. The H1 high/low reference levels are
@@ -473,13 +499,21 @@ class BacktestService:
         the search for both directions only resumes once flat again."""
         trades: List[Trade] = []
         position: Optional[_OpenPosition] = None
-        long_take_profit = h1_high - TAKE_PROFIT_OFFSET_POINTS
-        short_take_profit = h1_low + TAKE_PROFIT_OFFSET_POINTS
+        long_take_profit = h1_high - params.take_profit_offset_points
+        short_take_profit = h1_low + params.take_profit_offset_points
         long_search = _DirectionSearch(
-            Direction.BUY, h1_high, h1_low, long_take_profit
+            Direction.BUY,
+            h1_high,
+            h1_low,
+            long_take_profit,
+            params.max_entry_distance_points,
         )
         short_search = _DirectionSearch(
-            Direction.SELL, h1_high, h1_low, short_take_profit
+            Direction.SELL,
+            h1_high,
+            h1_low,
+            short_take_profit,
+            params.max_entry_distance_points,
         )
 
         for candle in candles:
@@ -498,6 +532,7 @@ class BacktestService:
                         entry_price=long_entry,
                         direction=Direction.BUY,
                         take_profit_level=long_take_profit,
+                        stop_loss_points=params.stop_loss_points,
                     )
                 elif short_entry is not None:
                     position = _OpenPosition(
@@ -505,13 +540,14 @@ class BacktestService:
                         entry_price=short_entry,
                         direction=Direction.SELL,
                         take_profit_level=short_take_profit,
+                        stop_loss_points=params.stop_loss_points,
                     )
                 if position is not None:
                     long_search.reset()
                     short_search.reset()
                 continue
 
-            closed = self._resolve_exit(position, candle, candle_date)
+            closed = self._resolve_exit(position, candle, candle_date, params)
             if closed is not None:
                 trades.append(closed)
                 position = None
@@ -536,6 +572,7 @@ class BacktestService:
         position: _OpenPosition,
         candle: Candle,
         candle_date: datetime.datetime,
+        params: BacktestParameters,
     ) -> Optional[Trade]:
         """Resolve the exit conditions for an open position on a single
         candle. Checks stop-loss (or break-even) before take-profit
@@ -586,7 +623,7 @@ class BacktestService:
             )
 
         if not position.be_armed:
-            arm_threshold = BREAK_EVEN_TRIGGER_POINTS
+            arm_threshold = params.break_even_trigger_points
             if position.is_long:
                 if candle.higher >= position.entry_price + arm_threshold:
                     position.be_armed = True

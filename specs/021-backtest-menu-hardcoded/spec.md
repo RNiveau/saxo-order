@@ -2,12 +2,21 @@
 
 **Feature Branch**: `021-backtest-menu-hardcoded`
 **Created**: 2026-07-14
-**Updated**: 2026-07-21 (short positions added — the backtest now trades both directions)
+**Updated**: 2026-07-21 (short positions added — the backtest now trades both directions; strategy thresholds made tunable — see "Parametrized thresholds")
 **Status**: Draft
 **Input**: User description: "I want a new menu «back test» which will run hardcoded back test. I don't want to create a back test engine. All of them will be hardcoded. First one is the following: on the FRA40.I index, take the h1 candle 9am-10am with high and low has limit. then we work with 5minutes candle. if after 10am, the price is going bellow low h1, then close above the low, then we have a breakout 5min, we take a position. we sell the position when we lost 50points, or at the end of the day or if the price is going to high h1 less 10 points"
-**Update input (2026-07-21)**: "This back test is focused only on long position for now. I want the same concept in short position." — the strategy is extended symmetrically: the long side trades the reversal off the H1 low (as originally specified), and a new short side trades the mirror-image reversal off the H1 high. Both directions are evaluated on every day, with at most one position open at a time (see Clarifications, Session 2026-07-21).
+**Update input (2026-07-21, short positions)**: "This back test is focused only on long position for now. I want the same concept in short position." — the strategy is extended symmetrically: the long side trades the reversal off the H1 low (as originally specified), and a new short side trades the mirror-image reversal off the H1 high. Both directions are evaluated on every day, with at most one position open at a time (see Clarifications, Session 2026-07-21).
+**Update input (2026-07-21, parametrization)**: "I want to be able parametrize things of back test." — the four strategy thresholds (stop-loss, take-profit offset, break-even trigger, and max entry distance) are made tunable per run instead of being fixed constants. Their defaults reproduce the original values, so an unparametrized run is unchanged. The strategy logic itself stays hardcoded — this is not a step toward a generic backtest engine (see Clarifications and "Parametrized thresholds").
 
 ## Clarifications
+
+### Session 2026-07-21 (parametrization)
+
+- Q: Which parts of the "CAC40 Bougie de 9h" backtest become tunable — the numeric thresholds, or also the instrument, reference window, and candle horizons? → A: Only the four numeric strategy thresholds (stop-loss distance, take-profit offset, break-even trigger, and max entry distance). The instrument (FRA40.I), the 9:00–10:00 reference window, and the 5-minute/H1 candle horizons stay fixed — they define the shape of the setup, not a knob a trader tunes.
+- Q: Are the thresholds configured globally (server/config) or supplied per run? → A: Per run — each backtest request may override any subset of them; an omitted threshold falls back to its default. Nothing is persisted; a run's parameters live only for that request.
+- Q: What are the defaults, and do they change existing behavior? → A: Defaults equal the previously hardcoded values (stop-loss 50, take-profit offset 10, break-even trigger 20, max entry distance 20). A run that supplies no parameters is identical to the pre-parametrization behavior.
+- Q: Does making the thresholds tunable turn this into a generic backtest engine? → A: No. The strategy logic — reference-range derivation, breakout/reversal detection, exit ordering, one-position-at-a-time — remains fixed in code. Only the four magnitudes are inputs. The Backtest menu still offers a fixed set of hardcoded strategies, not a strategy-authoring tool (FR-002).
+- Q: Must the thresholds be positive? → A: Yes — each supplied threshold must be strictly greater than 0; a non-positive value is rejected with a validation error before any day is evaluated.
 
 ### Session 2026-07-21 (short positions)
 
@@ -124,7 +133,7 @@ A trader wants to see, for a given backtested day, the H1 opening-range high/low
 ### Functional Requirements
 
 - **FR-001**: System MUST provide a "Backtest" menu, reachable from primary navigation, listing the available hardcoded backtests by name.
-- **FR-002**: System MUST provide one hardcoded backtest, "CAC40 Bougie de 9h," selectable from the Backtest menu, implementing the rules in FR-003 through FR-011 (including FR-006a, FR-006b and FR-008a). This backtest's rules are fixed in code; the menu does not offer a generic engine for defining new strategies.
+- **FR-002**: System MUST provide one hardcoded backtest, "CAC40 Bougie de 9h," selectable from the Backtest menu, implementing the rules in FR-003 through FR-011 (including FR-006a, FR-006b and FR-008a). This backtest's *rules* (reference-range derivation, breakout/reversal detection, exit ordering, one-position-at-a-time) are fixed in code; the four numeric thresholds those rules use are tunable per run (FR-025–FR-027), defaulting to the values stated inline throughout this spec. Making those magnitudes tunable does not make this a generic engine: the menu still offers a fixed set of hardcoded strategies, not a tool for defining new ones.
 - **FR-003**: For a given trading day, system MUST derive the reference range from the FRA40.I 1-hour (H1) candle covering 9:00–10:00 Paris exchange local time (Europe/Paris, DST-aware), using its high as the upper reference level and its low as the lower reference level. These levels stay fixed for the rest of the day, across all trades taken that day.
 - **FR-004**: If the 9:00–10:00 (Paris local time) H1 candle is not available for a given day, system MUST report that day as having no data and MUST continue processing any other requested days without failing the run.
 - **FR-005**: For the period from 10:00 Paris local time to the end of the trading session, system MUST evaluate FRA40.I 5-minute candles in chronological order.
@@ -171,9 +180,22 @@ These requirements extend the "CAC40 Bougie de 9h" backtest so it trades both di
 - **FR-023**: System MUST run both directions with **at most one open position at any time**. While a position (long or short) is open, no new signal of either direction is acted on; the search for both directions resumes only once the position has closed. Whichever direction confirms a valid breakout first opens the position. On the rare candle that would confirm both a long and a short entry simultaneously, the long entry takes precedence (deterministic tiebreak). Each new position starts with its own fresh (unmoved) stop, and there is no cap on the number of trades per day beyond the one-position-at-a-time constraint (extends FR-011 across both directions).
 - **FR-024**: System MUST record each trade's direction (long or short) and expose it in both the per-day detail (FR-015) and the single-day/detail responses, so a trader can tell which side each trade was on. The aggregate summary figures (FR-013) are computed on the trade's signed points result regardless of direction: a short whose exit is below its entry is a winning position, and so on. The CSV exports (FR-017/FR-018) include the trade direction column as well.
 
+#### Parametrized thresholds (added 2026-07-21)
+
+These requirements make the "CAC40 Bougie de 9h" backtest's four numeric thresholds tunable per run. They do not change the strategy logic — every rule in FR-003–FR-024 still holds, with the fixed magnitudes those requirements state (50, 10, 20 points) reinterpreted as the *default* values of the corresponding parameters. Both directions use the same parameter values (the short side mirrors the long side, per the "Short positions" note).
+
+- **FR-025**: The backtest MUST accept, for each run (single day or range, and the matching CSV exports), an optional set of four strategy thresholds:
+  - **Stop-loss distance** — points from entry to the initial stop (FR-008 / FR-022). Default **50**.
+  - **Take-profit offset** — points inside the opposite H1 level at which take-profit sits: H1 high − offset for a long, H1 low + offset for a short (FR-008 / FR-022). Default **10**.
+  - **Break-even trigger** — favorable move (from entry) that arms the break-even stop (FR-008a / FR-022). Default **20**.
+  - **Max entry distance** — maximum distance from the H1 reference level for a confirmed breakout to be a valid entry (FR-006a / FR-020a). Default **20**.
+- **FR-026**: Any threshold a run does not supply MUST fall back to its default (FR-025), so a run that supplies none behaves exactly as the pre-parametrization backtest. The parameters are per-run inputs only — not persisted, not global configuration — consistent with the "ephemeral, not persisted" decision for Backtest Runs (Assumptions).
+- **FR-027**: The system MUST validate each supplied threshold as strictly greater than 0 and MUST reject the request with a validation error, without evaluating any day, when a threshold is non-positive — the same up-front, no-partial-work stance as the date-range validation (FR-016).
+
 ### Key Entities
 
 - **Backtest Definition**: A hardcoded strategy available in the Backtest menu (name, instrument, and fixed rule set). "CAC40 Bougie de 9h" is the first instance; the data model must not assume it is the only one.
+- **Backtest Parameters**: The four tunable thresholds a run may supply (stop-loss distance, take-profit offset, break-even trigger, max entry distance — FR-025). A per-run input with defaults reproducing the original hardcoded values; not persisted and not tied to a Backtest Definition (the same definition can be run with different parameters).
 - **Backtest Run**: The result of executing a Backtest Definition over a UI-provided date range (a single day is the range's degenerate case) — a list of per-day outcomes plus the aggregate summary: number of days, number of trades, number of winning positions, number of losing positions, number of BE, average win, average loss, and final result. Computed on demand for the requesting trader and returned synchronously; not persisted (for now — see Assumptions).
 - **Day Result**: The outcome for a single trading day within a Backtest Run — either "no data," "no trade," or a chronological list of one or more trades, each with direction (long or short), entry price/time, exit price/time, exit reason (stop-loss, break-even, take-profit, or end of day), and points gained or lost. Trades of both directions may appear in the same day's list, ordered by time; at most one is open at any moment (FR-023).
 
@@ -195,6 +217,7 @@ These requirements extend the "CAC40 Bougie de 9h" backtest so it trades both di
 - "End of day" means the close of FRA40.I's regular trading session for that day, using the last available 5-minute candle.
 - All clock times in this spec (9:00, 10:00, end of day) are Paris exchange local time (Europe/Paris), which observes daylight saving time; on the rare day where DST transition affects candle availability for the reference window, the existing "no data" handling (FR-004) applies.
 - Only one hardcoded backtest ("CAC40 Bougie de 9h") is in scope for this feature; the Backtest menu's list structure should not preclude adding further hardcoded backtests later, but no generic backtest-authoring capability is being built.
+- The four tunable thresholds (FR-025) are the only parametrized inputs; the instrument, the 9:00–10:00 Paris reference window, and the 5-minute/H1 candle horizons remain fixed in code. Every numeric magnitude stated inline in FR-003–FR-024 (50, 10, 20 points) is the *default* of the corresponding parameter — a run may override it, and all downstream rules (entry validity, exit ordering, break-even arming, the short-side mirror) use the effective per-run value. Making the magnitudes tunable is not a generic engine; the strategy's logic is unchanged (Clarifications, Session 2026-07-21 parametrization).
 - There is no upper limit on how many trades can occur in a single day beyond the natural constraint that a new trade can only start once the previous one has closed (never more than one open position at a time).
 - No order placement, paper-trading, or live-execution capability is implied — this is a historical, read-only analysis feature.
 - Backtest Run results are not persisted for this feature; each run is computed on demand and returned to the requesting trader synchronously. Saving/revisiting past runs is out of scope but not precluded for a future iteration.
