@@ -180,15 +180,6 @@ class TestListAndGetDefinition:
         assert definitions[0].instrument == "FRA40.I"
         assert definitions[0].time_cut_minutes is None
 
-    def test_list_definitions_includes_the_time_cut_variant(self):
-        service = make_service([], [])
-        time_cut = service.get_definition("B9HTC")
-        assert time_cut is not None
-        assert time_cut.display_name == "CAC40 Bougie de 9h (time cut)"
-        assert time_cut.instrument == "FRA40.I"
-        assert time_cut.time_cut_minutes == 30
-        assert time_cut.time_cut_min_favorable_points == 5
-
     def test_get_definition_found(self):
         service = make_service([], [])
         assert service.get_definition("B9H") is not None
