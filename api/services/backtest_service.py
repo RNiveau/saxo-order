@@ -37,7 +37,7 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         display_name="CAC40 Bougie de 9h (time cut)",
         instrument="FRA40.I",
         time_cut_minutes=30,
-        time_cut_min_favorable_points=5,
+        time_cut_min_favorable_points=5.0,
     ),
 ]
 
