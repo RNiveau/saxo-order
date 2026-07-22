@@ -683,8 +683,10 @@ class BacktestService:
         than N points" means the cut also fires when the best move was
         exactly N points, so the comparison is <=.
         """
-        assert position.time_cut_min_favorable_points is not None
-        assert position.time_cut_minutes is not None
+        threshold = position.time_cut_min_favorable_points
+        minutes = position.time_cut_minutes
+        if threshold is None or minutes is None:
+            return None
 
         favorable = (
             candle.higher - position.entry_price
@@ -694,13 +696,10 @@ class BacktestService:
         if favorable > position.max_favorable_points:
             position.max_favorable_points = favorable
 
-        deadline = position.entry_time + datetime.timedelta(
-            minutes=position.time_cut_minutes
-        )
+        deadline = position.entry_time + datetime.timedelta(minutes=minutes)
         if (
             candle_date >= deadline
-            and position.max_favorable_points
-            <= position.time_cut_min_favorable_points
+            and position.max_favorable_points <= threshold
         ):
             return BacktestService._close_trade(
                 position, candle_date, candle.close, ExitReason.TIME_CUT
