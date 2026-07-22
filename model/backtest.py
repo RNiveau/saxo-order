@@ -14,6 +14,12 @@ class BacktestDefinition:
     name: str
     display_name: str
     instrument: str
+    # Optional time-based cut: when both are set, a position that has
+    # never moved more than time_cut_min_favorable_points in its favor by
+    # time_cut_minutes after entry is closed at market. Left None on the
+    # plain "Bougie de 9h" so its behavior is unchanged.
+    time_cut_minutes: Optional[int] = None
+    time_cut_min_favorable_points: Optional[float] = None
 
 
 @dataclass

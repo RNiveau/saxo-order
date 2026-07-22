@@ -4,6 +4,7 @@ from model.enum_with_get_value import EnumWithGetValue
 class Strategy(EnumWithGetValue):
     IMP = "Bougie impulsive"
     B9H = "Bougie de 9h"
+    B9HTC = "Bougie de 9h (time cut)"
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
     CRANGE = "Cassure de range"
@@ -137,6 +138,7 @@ class ExitReason(EnumWithGetValue):
     BREAK_EVEN = "break_even"
     TAKE_PROFIT = "take_profit"
     END_OF_DAY = "end_of_day"
+    TIME_CUT = "time_cut"
 
 
 class DayStatus(EnumWithGetValue):

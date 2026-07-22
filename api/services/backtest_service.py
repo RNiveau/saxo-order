@@ -31,6 +31,14 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         display_name="CAC40 Bougie de 9h",
         instrument="FRA40.I",
     ),
+    BacktestDefinition(
+        code="B9HTC",
+        name=Strategy.B9HTC.value,
+        display_name="CAC40 Bougie de 9h (time cut)",
+        instrument="FRA40.I",
+        time_cut_minutes=30,
+        time_cut_min_favorable_points=5,
+    ),
 ]
 
 # Candle horizons for the two Saxo fetches. Unlike the strategy
@@ -169,6 +177,8 @@ class _OpenPosition:
         direction: Direction,
         take_profit_level: float,
         stop_loss_points: float,
+        time_cut_minutes: Optional[int] = None,
+        time_cut_min_favorable_points: Optional[float] = None,
     ):
         self.entry_time = entry_time
         self.entry_price = entry_price
@@ -176,6 +186,16 @@ class _OpenPosition:
         self.take_profit_level = take_profit_level
         self.stop_loss_points = stop_loss_points
         self.be_armed = False
+        self.time_cut_minutes = time_cut_minutes
+        self.time_cut_min_favorable_points = time_cut_min_favorable_points
+        self.max_favorable_points = 0.0
+
+    @property
+    def time_cut_enabled(self) -> bool:
+        return (
+            self.time_cut_minutes is not None
+            and self.time_cut_min_favorable_points is not None
+        )
 
     @property
     def is_long(self) -> bool:
@@ -341,7 +361,9 @@ class BacktestService:
         )
         chronological = sorted(five_min_candles, key=_candle_date)
 
-        trades = self._evaluate_trades(chronological, h1_high, h1_low, params)
+        trades = self._evaluate_trades(
+            chronological, h1_high, h1_low, params, definition
+        )
 
         status = DayStatus.TRADED if trades else DayStatus.NO_TRADE
         return DayResult(
@@ -490,6 +512,7 @@ class BacktestService:
         h1_high: float,
         h1_low: float,
         params: BacktestParameters,
+        definition: BacktestDefinition,
     ) -> List[Trade]:
         """Evaluate both directions concurrently, with at most one
         position open at any time. The H1 high/low reference levels are
@@ -533,6 +556,10 @@ class BacktestService:
                         direction=Direction.BUY,
                         take_profit_level=long_take_profit,
                         stop_loss_points=params.stop_loss_points,
+                        time_cut_minutes=definition.time_cut_minutes,
+                        time_cut_min_favorable_points=(
+                            definition.time_cut_min_favorable_points
+                        ),
                     )
                 elif short_entry is not None:
                     position = _OpenPosition(
@@ -541,6 +568,10 @@ class BacktestService:
                         direction=Direction.SELL,
                         take_profit_level=short_take_profit,
                         stop_loss_points=params.stop_loss_points,
+                        time_cut_minutes=definition.time_cut_minutes,
+                        time_cut_min_favorable_points=(
+                            definition.time_cut_min_favorable_points
+                        ),
                     )
                 if position is not None:
                     long_search.reset()
@@ -622,6 +653,11 @@ class BacktestService:
                 position, candle_date, exit_price, ExitReason.TAKE_PROFIT
             )
 
+        if position.time_cut_enabled:
+            time_cut = self._resolve_time_cut(position, candle, candle_date)
+            if time_cut is not None:
+                return time_cut
+
         if not position.be_armed:
             arm_threshold = params.break_even_trigger_points
             if position.is_long:
@@ -630,6 +666,45 @@ class BacktestService:
             elif candle.lower <= position.entry_price - arm_threshold:
                 position.be_armed = True
 
+        return None
+
+    @staticmethod
+    def _resolve_time_cut(
+        position: _OpenPosition,
+        candle: Candle,
+        candle_date: datetime.datetime,
+    ) -> Optional[Trade]:
+        """Time-based cut for the "Bougie de 9h (time cut)" variant.
+
+        Tracks the position's max favorable excursion candle by candle.
+        Once time_cut_minutes have elapsed since entry, if the trade has
+        never moved more than time_cut_min_favorable_points in its favor,
+        it is closed at market (this candle's close). "Never been higher
+        than N points" means the cut also fires when the best move was
+        exactly N points, so the comparison is <=.
+        """
+        assert position.time_cut_min_favorable_points is not None
+        assert position.time_cut_minutes is not None
+
+        favorable = (
+            candle.higher - position.entry_price
+            if position.is_long
+            else position.entry_price - candle.lower
+        )
+        if favorable > position.max_favorable_points:
+            position.max_favorable_points = favorable
+
+        deadline = position.entry_time + datetime.timedelta(
+            minutes=position.time_cut_minutes
+        )
+        if (
+            candle_date >= deadline
+            and position.max_favorable_points
+            <= position.time_cut_min_favorable_points
+        ):
+            return BacktestService._close_trade(
+                position, candle_date, candle.close, ExitReason.TIME_CUT
+            )
         return None
 
     @staticmethod
