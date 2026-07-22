@@ -8,3 +8,7 @@ class EmptyResponseException(SaxoException):
 
 class AnthropicException(Exception):
     pass
+
+
+class OuinexException(Exception):
+    pass

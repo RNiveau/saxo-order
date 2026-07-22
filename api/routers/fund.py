@@ -21,7 +21,7 @@ logger = Logger.get_logger("fund_router")
 async def get_accounts(client: SaxoClient = Depends(get_saxo_client)):
     """Get list of all available accounts including Binance."""
     try:
-        # Add Binance pseudo-account first
+        # Add crypto pseudo-accounts first
         account_list = [
             AccountInfo(
                 account_id="binance_main",
@@ -29,7 +29,14 @@ async def get_accounts(client: SaxoClient = Depends(get_saxo_client)):
                 account_name="Binance",
                 total_fund=0,
                 available_fund=0,
-            )
+            ),
+            AccountInfo(
+                account_id="ouinex_main",
+                account_key="ouinex",
+                account_name="Ouinex",
+                total_fund=0,
+                available_fund=0,
+            ),
         ]
 
         # Add Saxo accounts

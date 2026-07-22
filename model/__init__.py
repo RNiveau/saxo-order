@@ -105,6 +105,22 @@ class Account:
     client_key: str = ""
 
 
+def crypto_account() -> Account:
+    """
+    Single source of truth for the crypto journal identity.
+
+    Both Binance and Ouinex trades are written to the Google Sheet under this
+    same pseudo-account, so Ouinex rows are indistinguishable from Binance rows
+    ("map as binance").
+    """
+    return Account(
+        key="binance",
+        name="Coinbase",
+        fund=0,
+        client_key="binance",
+    )
+
+
 @dataclass
 class Underlying:
     price: float

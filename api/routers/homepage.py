@@ -57,11 +57,12 @@ async def get_homepage(
                 code = parts[0]
                 country_code = parts[1] if len(parts) > 1 else ""
                 exchange_str = item.get("exchange", "saxo")
-                exchange = (
-                    Exchange.BINANCE
-                    if exchange_str == "binance"
-                    else Exchange.SAXO
-                )
+                if exchange_str == "binance":
+                    exchange = Exchange.BINANCE
+                elif exchange_str == "ouinex":
+                    exchange = Exchange.OUINEX
+                else:
+                    exchange = Exchange.SAXO
 
                 indicators = await indicator_service.get_asset_indicators(
                     code, exchange, country_code, UnitTime.D
