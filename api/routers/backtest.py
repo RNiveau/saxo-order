@@ -133,7 +133,7 @@ async def get_backtest_day_csv(
         backtest_definition, trading_date, params
     )
     return Response(
-        content=day_result_to_csv(day_result),
+        content=day_result_to_csv(day_result, params),
         media_type="text/csv",
         headers={
             "Content-Disposition": (
@@ -158,7 +158,7 @@ async def get_backtest_run_csv(
         backtest_definition, start, end, params
     )
     return Response(
-        content=backtest_run_result_to_csv(run_result),
+        content=backtest_run_result_to_csv(run_result, params),
         media_type="text/csv",
         headers={
             "Content-Disposition": (
