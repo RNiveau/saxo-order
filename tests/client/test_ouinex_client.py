@@ -1,3 +1,4 @@
+from typing import Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -6,7 +7,9 @@ from client.ouinex_client import OuinexClient
 from utils.exception import OuinexException
 
 
-def make_response(status_code: int = 200, json_data: dict = None) -> MagicMock:
+def make_response(
+    status_code: int = 200, json_data: Optional[dict] = None
+) -> MagicMock:
     """Build a fake requests.Response with the given status and JSON body."""
     response = MagicMock()
     response.status_code = status_code
@@ -23,15 +26,16 @@ def make_response(status_code: int = 200, json_data: dict = None) -> MagicMock:
 
 
 @pytest.fixture
-def client() -> OuinexClient:
+def client_and_session() -> Tuple[OuinexClient, MagicMock]:
     """OuinexClient with a mocked GraphQL transport session."""
     ouinex = OuinexClient(
         key="api-key",
         secret="secret-key",
         graphql_url="https://live-api.ouinex.com/graphql",
     )
-    ouinex.session = MagicMock()
-    return ouinex
+    session = MagicMock()
+    ouinex.session = session
+    return ouinex, session
 
 
 SIGN_IN_OK = {
@@ -46,66 +50,86 @@ SIGN_IN_OK = {
 
 
 class TestOuinexClientAuth:
-    def test_sign_in_stores_access_token(self, client: OuinexClient):
-        client.session.post.return_value = make_response(200, SIGN_IN_OK)
+    def test_sign_in_stores_access_token(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.return_value = make_response(200, SIGN_IN_OK)
 
         client._sign_in()
 
         assert client._access_token == "jwt-token"
         assert client._token_expiry > 0
 
-    def test_sign_in_raises_on_missing_token(self, client: OuinexClient):
-        client.session.post.return_value = make_response(
+    def test_sign_in_raises_on_missing_token(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.return_value = make_response(
             200, {"data": {"signIn": {}}}
         )
 
         with pytest.raises(OuinexException):
             client._sign_in()
 
-    def test_sign_in_raises_on_graphql_error(self, client: OuinexClient):
-        client.session.post.return_value = make_response(
+    def test_sign_in_raises_on_graphql_error(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.return_value = make_response(
             200, {"errors": [{"message": "bad credentials"}]}
         )
 
         with pytest.raises(OuinexException):
             client._sign_in()
 
-    def test_ensure_token_signs_in_when_missing(self, client: OuinexClient):
-        client.session.post.return_value = make_response(200, SIGN_IN_OK)
+    def test_ensure_token_signs_in_when_missing(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.return_value = make_response(200, SIGN_IN_OK)
 
         client._ensure_token()
 
         assert client._access_token == "jwt-token"
-        assert client.session.post.call_count == 1
+        assert session.post.call_count == 1
 
-    def test_ensure_token_reuses_valid_token(self, client: OuinexClient):
-        client.session.post.return_value = make_response(200, SIGN_IN_OK)
+    def test_ensure_token_reuses_valid_token(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.return_value = make_response(200, SIGN_IN_OK)
         client._ensure_token()
-        client.session.post.reset_mock()
+        session.post.reset_mock()
 
         client._ensure_token()
 
-        client.session.post.assert_not_called()
+        session.post.assert_not_called()
 
 
 class TestOuinexClientExecute:
-    def test_execute_sends_bearer_and_returns_data(self, client: OuinexClient):
-        data_response = make_response(200, {"data": {"instruments": []}})
-        client.session.post.side_effect = [
+    def test_execute_sends_bearer_and_returns_data(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.side_effect = [
             make_response(200, SIGN_IN_OK),
-            data_response,
+            make_response(200, {"data": {"instruments": []}}),
         ]
 
         result = client._execute("query { instruments { id } }")
 
         assert result == {"instruments": []}
-        auth_call = client.session.post.call_args_list[-1]
+        auth_call = session.post.call_args_list[-1]
         assert (
             auth_call.kwargs["headers"]["Authorization"] == "Bearer jwt-token"
         )
 
-    def test_execute_refreshes_token_on_401(self, client: OuinexClient):
-        client.session.post.side_effect = [
+    def test_execute_refreshes_token_on_401(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.side_effect = [
             make_response(200, SIGN_IN_OK),
             make_response(401, {}),
             make_response(200, SIGN_IN_OK),
@@ -116,8 +140,11 @@ class TestOuinexClientExecute:
 
         assert result == {"ok": True}
 
-    def test_execute_raises_on_graphql_error(self, client: OuinexClient):
-        client.session.post.side_effect = [
+    def test_execute_raises_on_graphql_error(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.side_effect = [
             make_response(200, SIGN_IN_OK),
             make_response(200, {"errors": [{"message": "boom"}]}),
         ]
