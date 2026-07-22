@@ -102,3 +102,9 @@
   color: #f0b90b;
   border: 1px solid rgba(240, 185, 11, 0.3);
 }
+
+.exchange-badge.ouinex {
+  background: rgba(163, 113, 247, 0.15);
+  color: #a371f7;
+  border: 1px solid rgba(163, 113, 247, 0.3);
+}
