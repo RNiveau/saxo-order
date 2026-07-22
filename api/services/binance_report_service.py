@@ -194,7 +194,11 @@ class BinanceReportService:
 
         # Convert to EUR if needed
         report_order = calculate_currency(order, self.currencies_rate)
-        assert isinstance(report_order, ReportOrder)
+        if not isinstance(report_order, ReportOrder):
+            raise TypeError(
+                "calculate_currency must return a ReportOrder for a "
+                "ReportOrder input"
+            )
 
         # Create in Google Sheets
         self.gsheet_client.create_order(
@@ -251,7 +255,11 @@ class BinanceReportService:
 
         # Convert to EUR if needed
         report_order = calculate_currency(order, self.currencies_rate)
-        assert isinstance(report_order, ReportOrder)
+        if not isinstance(report_order, ReportOrder):
+            raise TypeError(
+                "calculate_currency must return a ReportOrder for a "
+                "ReportOrder input"
+            )
 
         # Update in Google Sheets
         self.gsheet_client.update_order(
