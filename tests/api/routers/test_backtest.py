@@ -284,6 +284,8 @@ class TestGetBacktestDayCsv:
             in response.headers["content-disposition"]
         )
         body = response.text
+        assert "parameter,value" in body
+        assert "stop_loss_points,50" in body
         assert "h1_high,h1_low" in body
         assert "8050.0,8000.0" in body
         assert "2026-06-02T08:00:00" in body
@@ -322,6 +324,12 @@ class TestGetBacktestDayCsv:
 
         assert response.status_code == 200
         assert response.text == (
+            "parameter,value\r\n"
+            "stop_loss_points,50\r\n"
+            "take_profit_offset_points,10\r\n"
+            "break_even_trigger_points,20\r\n"
+            "max_entry_distance_points,20\r\n"
+            "\r\n"
             "h1_high,h1_low\r\n"
             ",\r\n"
             "\r\n"
@@ -377,6 +385,8 @@ class TestGetBacktestRunCsv:
             in response.headers["content-disposition"]
         )
         body = response.text
+        assert "parameter,value" in body
+        assert "stop_loss_points,50" in body
         assert "date,status,trade_count,points" in body
         assert "2026-06-02,traded,1,30.0" in body
 

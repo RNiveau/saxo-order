@@ -3,12 +3,13 @@
 import csv
 import datetime
 import io
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel
 
 from model import (
     BacktestDefinition,
+    BacktestParameters,
     BacktestRunResult,
     BacktestSummary,
     Candle,
@@ -158,11 +159,31 @@ def backtest_run_result_to_response(
     )
 
 
-def backtest_run_result_to_csv(run_result: BacktestRunResult) -> str:
+def _write_parameters_block(writer: Any, params: BacktestParameters) -> None:
+    """Leading block echoing the run parameters so an exported CSV is
+    self-describing about the thresholds it was produced with."""
+    writer.writerow(["parameter", "value"])
+    writer.writerow(["stop_loss_points", params.stop_loss_points])
+    writer.writerow(
+        ["take_profit_offset_points", params.take_profit_offset_points]
+    )
+    writer.writerow(
+        ["break_even_trigger_points", params.break_even_trigger_points]
+    )
+    writer.writerow(
+        ["max_entry_distance_points", params.max_entry_distance_points]
+    )
+    writer.writerow([])
+
+
+def backtest_run_result_to_csv(
+    run_result: BacktestRunResult, params: BacktestParameters
+) -> str:
     """FR-017: one row per day in run_result.days (no-data days already
     excluded by BacktestService.run_range)."""
     output = io.StringIO()
     writer = csv.writer(output)
+    _write_parameters_block(writer, params)
     writer.writerow(["date", "status", "trade_count", "points"])
     for day in run_result.days:
         writer.writerow(
@@ -176,11 +197,15 @@ def backtest_run_result_to_csv(run_result: BacktestRunResult) -> str:
     return output.getvalue()
 
 
-def day_result_to_csv(day_result: DayResult) -> str:
+def day_result_to_csv(
+    day_result: DayResult, params: BacktestParameters
+) -> str:
     """FR-018: H1 levels, 5-minute candles, and trades as three blocks
     separated by a blank line."""
     output = io.StringIO()
     writer = csv.writer(output)
+
+    _write_parameters_block(writer, params)
 
     writer.writerow(["h1_high", "h1_low"])
     writer.writerow([day_result.h1_high, day_result.h1_low])
