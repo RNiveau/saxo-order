@@ -2,12 +2,21 @@
 
 Analysis of the B9H backtest strategy (spec `021-backtest-menu-hardcoded`,
 long+short per PR #645), based on real Saxo data exported via the backtest
-CSV feature (PR #644) covering 2026-01-02 to 2026-06-30. Two parts:
+CSV feature (PR #644). Three parts:
 
-1. A **parameter grid** measuring the stop-loss (SL) and take-profit (TP)
-   settings against each other, plus the time-cut ("B9HTC") variant.
-2. A **candle-by-candle trace** of the `-50.0` full-stop days under the
-   original baseline, explaining *why* those days lose.
+1. A **parameter grid** (SL × TP + time-cut variant) fitted on
+   2026-01-02 → 2026-06-30.
+2. An **out-of-sample validation** of the two headline configs on the prior
+   window 2025-06-01 → 2025-12-31.
+3. A **candle-by-candle trace** of the `-50.0` full-stop days under the
+   baseline, explaining *why* those days lose.
+
+> **Headline result:** the parameter tuning does **not** survive
+> out-of-sample. The "best" in-sample config (SL 40 / TP 5) turns a +563
+> in-sample profit into a **−114 out-of-sample loss**, and even the baseline
+> is only break-even out-of-sample (before costs). B9H as parameterized here
+> has **no validated edge** — see the out-of-sample section for the full
+> grid. Do not deploy on the strength of the in-sample grid alone.
 
 ## Baseline: SL 50 / TP 10 (2026-01-02 → 2026-06-30)
 
@@ -21,7 +30,12 @@ the 9h candle's high.
 - Monthly: Jan +238.4, Feb -46.4, Mar -25.9, Apr +39.0, May -32.0, Jun +242.5
   (Feb-Mar was the roughest stretch)
 
-## Parameter grid (measured)
+## Parameter grid — IN-SAMPLE ONLY (2026 H1)
+
+**Caveat up front:** every number in this section is fitted on the same
+2026 H1 window it is scored on. The out-of-sample section below shows these
+results do not generalize. Read this as "what the fit produced," not "what
+to trade."
 
 TP is the take-profit target expressed as points **below** the 9h high — a
 smaller number (TP 5) is a more ambitious target closer to the high. SL is
@@ -76,13 +90,65 @@ SL 40 + TP 5 (+414.08) it lands *below the untuned plain baseline* (+415.68)
 and ~150 pts under the tuned plain strategy. TP/SL tuning masks the churn
 tax but cannot remove it.
 
-### Recommendation
+### In-sample takeaway (do not act on this alone)
 
-**Adopt SL 40 / TP 5 as the new default** (+563.09, PF 1.527 — +35% net and
-best profit factor of the whole field). The time-cut concept is not viable
-in its current form; a *no-re-entry-after-cut* rule, or applying the cut
-only to the immediate-bleed signature, would need to be tried before it
-could compete.
+On 2026 H1, SL 40 / TP 5 looked best (+563.09, PF 1.527, +35% over baseline)
+and the two levers looked additive. The out-of-sample section below shows
+this was an artifact of the fit — kept here only to document what the
+in-sample grid produced.
+
+## Out-of-sample validation (2025 H2)
+
+Re-ran the two headline configs, unchanged, on the **prior** six months
+(2025-06-01 → 2025-12-31, 126 traded days) — data the parameters were never
+fitted to. This is the test that matters.
+
+### Net points (profit factor) — both configs, both windows
+
+| Config | In-sample 2026 H1 | Out-of-sample 2025 H2 |
+|---|---|---|
+| SL 50 / TP 10 (baseline) | +415.68 (1.364) | **+41.15 (1.034)** |
+| SL 40 / TP 5 (tuned) | +563.09 (1.527) | **−114.03 (0.911)** |
+| **tuning effect** | **+147** | **−155** |
+
+Two conclusions, both decisive:
+
+1. **The tuning is overfit — it inverts out-of-sample.** The SL 40 / TP 5
+   change that added +147 in-sample *subtracts* 155 out-of-sample: it goes
+   from beating the baseline to losing to it by the same magnitude, and PF
+   drops below 1.0 (0.911 = a losing system). This is the textbook signature
+   of fitting to noise. Win rate fell 58.7% → 50.8%, payoff 1.07 → 0.88.
+2. **The baseline has no real edge either.** Out-of-sample it nets just +41
+   over 7 months (PF 1.034), statistically indistinguishable from zero and
+   **negative after any realistic transaction cost** (174 trades × 0.5 pt ≈
+   −87). "Safe" config, but not a profitable one on unseen data.
+
+### Regime dependence — the same fingerprint in every run
+
+All four runs (2 configs × 2 windows) make money in only 2–3 trending months
+and bleed the rest of the time:
+
+| Run | Winning months | Everything else |
+|---|---|---|
+| 2026 H1 baseline | Jan +238, Jun +242 | net negative |
+| 2026 H1 SL40/TP5 | Jan +223, Mar +93, Jun +270 | ~flat |
+| 2025 H2 baseline | Jun +68, Dec +160 | Jul–Nov all red (−187 sum) |
+| 2025 H2 SL40/TP5 | Jun +96, Dec +187 | Jul–Nov all red (−397 sum) |
+
+The strategy is not a standalone edge; it is a bet that the index trends
+cleanly. In-sample happened to contain enough trend to net positive; H2 2025
+(a chop-and-bleed summer/autumn) did not.
+
+### Verdict
+
+**B9H as parameterized here has no validated edge. Do not deploy — and in
+particular do not adopt SL 40 / TP 5, which is actively overfit.** Raw
+parameter tuning is exhausted (it is how the false positive was produced).
+The only forward path the data supports is a **regime filter**: since every
+profitable stretch is a trending month, the strategy is worth pursuing only
+as a *conditional* system that stands aside in chop — gated on a trend/chop
+measure (MM50 slope, ADX, or ATR expansion). Next step is to test whether
+such a gate turns the losing months flat while keeping the trending ones.
 
 ## The 12 clean single-trade `-50.0` days (baseline SL 50)
 
@@ -153,15 +219,19 @@ loss. The time-cut backtest (see the parameter grid above) settled this:
   (SL 50/TP 10), and still net-negative vs baseline even with SL 40 + TP 5.
 
 So the immediate-bleed diagnosis was correct, but a naive early-exit +
-re-entry rule is the wrong remedy. The plain SL/TP tuning captures the
-loss-side gains (SL 40 cuts every full stop by 10 pts) without the churn.
+re-entry rule is the wrong remedy. (Note: the "plain SL/TP tuning" that beats
+the time-cut in-sample does not itself survive out-of-sample — see the
+out-of-sample section. The time-cut is dominated *in-sample*; that is a
+weaker claim than "viable.")
 
 ## Not yet investigated
 
+- **Regime filter** (highest priority): a trend/chop gate (MM50 slope, ADX,
+  ATR expansion) to keep the strategy flat during the losing months. Every
+  profitable stretch in every run is a trending month — this is the only
+  path the data supports.
+- A time-cut with **no re-entry after cut**, to isolate the early-exit
+  benefit from the churn cost.
 - The 5 exactly-0.0-point days.
 - The two multi-trade days that net exactly -50.0 (2026-03-19, 3 trades;
   2026-03-27, 2 trades).
-- A time-cut with **no re-entry after cut**, to isolate the early-exit
-  benefit from the churn cost.
-- Whether SL 40 / TP 5 gains hold out-of-sample (this is a single 6-month
-  in-sample fit).
