@@ -187,6 +187,10 @@ class IndicatorService:
         """
         if exchange == Exchange.BINANCE:
             return await self._get_binance_asset_indicators(code, unit_time)
+        elif exchange.is_crypto():
+            raise SaxoException(
+                f"Indicators are not supported yet for {exchange.value}"
+            )
         else:
             return await self._get_saxo_asset_indicators(
                 code, country_code, unit_time

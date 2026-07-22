@@ -13,6 +13,7 @@ from client.aws_client import AwsClient, DynamoDBClient
 from client.binance_client import BinanceClient
 from client.gsheet_client import GSheetClient
 from client.mock_saxo_client import MockSaxoClient
+from client.ouinex_client import OuinexClient
 from client.saxo_client import SaxoClient
 from services.candles_service import CandlesService
 from services.workflow_service import WorkflowService
@@ -79,6 +80,17 @@ def get_binance_client() -> BinanceClient:
     logger.debug("Using authenticated BinanceClient")
     return BinanceClient(
         key=config.binance_keys[0], secret=config.binance_keys[1]
+    )
+
+
+@lru_cache()
+def get_ouinex_client() -> OuinexClient:
+    config = get_configuration()
+    logger.debug("Using authenticated OuinexClient")
+    return OuinexClient(
+        key=config.ouinex_keys[0],
+        secret=config.ouinex_keys[1],
+        graphql_url=config.ouinex_graphql_url,
     )
 
 

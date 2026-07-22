@@ -5,7 +5,15 @@ from cachetools import TTLCache, cachedmethod
 
 from client.binance_client import BinanceClient
 from client.gsheet_client import GSheetClient
-from model import Account, Currency, Direction, ReportOrder, Signal, Strategy
+from model import (
+    Account,
+    Currency,
+    Direction,
+    ReportOrder,
+    Signal,
+    Strategy,
+    crypto_account,
+)
 from saxo_order.service import calculate_currency, calculate_taxes
 from utils.configuration import Configuration
 from utils.logger import Logger
@@ -36,12 +44,7 @@ class BinanceReportService:
         Returns:
             Account object with static Binance identifier
         """
-        return Account(
-            key="binance",
-            name="Coinbase",
-            fund=0,
-            client_key="binance",
-        )
+        return crypto_account()
 
     @cachedmethod(cache=attrgetter("_report_cache"))
     def get_orders_report(

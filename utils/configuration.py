@@ -137,6 +137,19 @@ class Configuration:
         )
 
     @property
+    def ouinex_keys(self) -> Tuple:
+        return (
+            self.secrets["ouinex_api_key"],
+            self.secrets["ouinex_secret_key"],
+        )
+
+    @property
+    def ouinex_graphql_url(self) -> str:
+        return self.config.get(
+            "ouinex_graphql_url", "https://live-api.ouinex.com/graphql"
+        )
+
+    @property
     def slack_token(self) -> str:
         return self.secrets["slack_token"]
 

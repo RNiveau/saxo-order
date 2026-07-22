@@ -120,6 +120,10 @@ class AlertType(EnumWithGetValue):
 class Exchange(EnumWithGetValue):
     SAXO = "saxo"
     BINANCE = "binance"
+    OUINEX = "ouinex"
+
+    def is_crypto(self) -> bool:
+        return self in (Exchange.BINANCE, Exchange.OUINEX)
 
 
 class Conviction(EnumWithGetValue):
