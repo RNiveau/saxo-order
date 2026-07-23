@@ -532,12 +532,17 @@ class BacktestService:
         enough lead-in to compute a 50-day MA slope on the first day.
         Fetched once per run_range. A failure degrades to an empty series
         (blank mm50_slope column) rather than aborting the whole export."""
-        weekdays = sum(
-            1
-            for n in range((end_date - start_date).days + 1)
-            if (start_date + datetime.timedelta(days=n)).weekday() < 5
+        # Daily candles are fetched counting backward from end_date, so
+        # count must reach ~60 trading days before start_date for the
+        # first day's MA50 slope. Calendar days is a safe upper bound on
+        # the range's trading days (build_candles caps at available data),
+        # so no need to exclude weekends/holidays precisely.
+        count = (
+            (end_date - start_date).days
+            + MM50_MIN_DAILY_CANDLES
+            + MM50_SLOPE_LOOKBACK
+            + 5
         )
-        count = weekdays + MM50_MIN_DAILY_CANDLES + MM50_SLOPE_LOOKBACK + 5
         reference = datetime.datetime(
             end_date.year, end_date.month, end_date.day, tzinfo=PARIS_TZ
         )
