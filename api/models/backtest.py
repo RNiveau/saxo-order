@@ -57,6 +57,8 @@ class DayResultSummaryResponse(BaseModel):
     status: str
     trade_count: int
     points: float
+    h1_high: Optional[float] = None
+    h1_low: Optional[float] = None
 
 
 class BacktestSummaryResponse(BaseModel):
@@ -129,6 +131,8 @@ def _day_result_summary_to_response(
         status=summary.status.value,
         trade_count=summary.trade_count,
         points=summary.points,
+        h1_high=summary.h1_high,
+        h1_low=summary.h1_low,
     )
 
 
@@ -184,14 +188,32 @@ def backtest_run_result_to_csv(
     output = io.StringIO()
     writer = csv.writer(output)
     _write_parameters_block(writer, params)
-    writer.writerow(["date", "status", "trade_count", "points"])
+    writer.writerow(
+        [
+            "date",
+            "status",
+            "trade_count",
+            "points",
+            "h1_high",
+            "h1_low",
+            "h1_range",
+        ]
+    )
     for day in run_result.days:
+        h1_range = (
+            round(day.h1_high - day.h1_low, 4)
+            if day.h1_high is not None and day.h1_low is not None
+            else None
+        )
         writer.writerow(
             [
                 day.date.isoformat(),
                 day.status.value,
                 day.trade_count,
                 day.points,
+                day.h1_high,
+                day.h1_low,
+                h1_range,
             ]
         )
     return output.getvalue()
