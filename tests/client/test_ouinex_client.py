@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from client.ouinex_client import OuinexClient
-from model.enum import AssetType, Exchange
+from model.enum import AssetType, Currency, Direction, Exchange
 from utils.exception import OuinexException
 
 
@@ -207,3 +207,78 @@ class TestOuinexClientSearch:
 
         assert {asset.symbol for asset in results} == {"BTCUSD", "ETHUSD"}
         assert all(asset.exchange == Exchange.OUINEX for asset in results)
+
+
+CLOSED_ORDERS_OK = {
+    "data": {
+        "closedOrders": [
+            {
+                "symbol": "BTCUSD",
+                "baseCurrency": "BTC",
+                "quoteCurrency": "USD",
+                "side": "BUY",
+                "price": 50000,
+                "quantity": 0.1,
+                "fee": 0.001,
+                "feeCurrency": "BTC",
+                "executedAt": 1700000000000,
+            },
+            {
+                "symbol": "ETHUSD",
+                "baseCurrency": "ETH",
+                "quoteCurrency": "USD",
+                "side": "SELL",
+                "price": 3000,
+                "quantity": 2,
+                "fee": 1.5,
+                "feeCurrency": "USD",
+                "executedAt": 1700000000000,
+            },
+        ]
+    }
+}
+
+
+class TestOuinexClientReport:
+    def test_get_report_all_maps_trades(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, CLOSED_ORDERS_OK),
+        ]
+
+        orders = client.get_report_all("2023/01/01", usdeur_rate=0.5)
+
+        assert len(orders) == 2
+
+        buy = orders[0]
+        assert buy.code == "BTC"
+        assert buy.direction == Direction.BUY
+        assert buy.asset_type == AssetType.CRYPTO
+        assert buy.currency == Currency.USD
+        # Buy fee paid in base asset reduces quantity
+        assert buy.quantity == pytest.approx(0.099)
+        assert buy.taxes is not None
+        assert buy.taxes.cost == pytest.approx(0.001 * (50000 * 0.5))
+
+        sell = orders[1]
+        assert sell.direction == Direction.SELL
+        # Sell fee paid in quote currency -> EUR cost
+        assert sell.taxes is not None
+        assert sell.taxes.cost == pytest.approx(1.5 * 0.5)
+
+    def test_get_report_filters_by_symbol(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, CLOSED_ORDERS_OK),
+        ]
+
+        orders = client.get_report("ETH", "2023/01/01", usdeur_rate=0.5)
+
+        assert len(orders) == 1
+        assert orders[0].code == "ETH"
