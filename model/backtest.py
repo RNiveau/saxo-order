@@ -67,6 +67,10 @@ class DayResultSummary:
     # days, which run_range excludes from the summary anyway.
     h1_high: Optional[float] = None
     h1_low: Optional[float] = None
+    # Daily MA50 slope (%) as of the close strictly before this day - a
+    # trend/chop regime measure, lookahead-safe and config-independent.
+    # None when fewer than 60 prior daily candles are available.
+    mm50_slope: Optional[float] = None
 
 
 @dataclass

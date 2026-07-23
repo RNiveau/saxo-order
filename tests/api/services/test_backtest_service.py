@@ -1188,3 +1188,83 @@ class TestBacktestParameters:
         result = service.evaluate_day(DEFINITION, TRADING_DATE, params)
         assert result.status == DayStatus.NO_TRADE
         assert result.trades == []
+
+
+def daily_candle(day: datetime.date, close: float) -> Candle:
+    return Candle(
+        lower=close - 5,
+        higher=close + 5,
+        open=close,
+        close=close,
+        ut=UnitTime.D,
+        date=datetime.datetime(day.year, day.month, day.day, 0, 0),
+    )
+
+
+def uptrend_daily_series(end_before: datetime.date, count: int) -> list:
+    """`count` daily candles ending the day before `end_before`, close
+    rising toward the most recent day (an uptrend). Returned oldest-first
+    to prove _mm50_slope_before does not rely on input ordering."""
+    series = []
+    for offset in range(1, count + 1):
+        day = end_before - datetime.timedelta(days=offset)
+        series.append(daily_candle(day, close=8000 + (count - offset)))
+    return list(reversed(series))  # oldest-first
+
+
+class TestMm50SlopeBefore:
+    TRADING_DATE = datetime.date(2026, 6, 2)
+
+    def test_none_when_fewer_than_60_prior_candles(self):
+        series = uptrend_daily_series(self.TRADING_DATE, 59)
+        assert (
+            BacktestService._mm50_slope_before(series, self.TRADING_DATE)
+            is None
+        )
+
+    def test_positive_slope_for_uptrend(self):
+        series = uptrend_daily_series(self.TRADING_DATE, 70)
+        slope = BacktestService._mm50_slope_before(series, self.TRADING_DATE)
+        assert slope is not None and slope > 0
+
+    def test_ignores_today_and_future_candles(self):
+        """A candle dated on the trading day (or later) must not affect
+        the result - the gate is computed only from strictly-prior
+        closes."""
+        series = uptrend_daily_series(self.TRADING_DATE, 70)
+        baseline = BacktestService._mm50_slope_before(
+            series, self.TRADING_DATE
+        )
+        polluted = series + [
+            daily_candle(self.TRADING_DATE, close=0.0),
+            daily_candle(
+                self.TRADING_DATE + datetime.timedelta(days=1), close=99999.0
+            ),
+        ]
+        assert (
+            BacktestService._mm50_slope_before(polluted, self.TRADING_DATE)
+            == baseline
+        )
+
+    def test_skips_dateless_candles(self):
+        series = uptrend_daily_series(self.TRADING_DATE, 70)
+        dateless = daily_candle(self.TRADING_DATE, close=0.0)
+        dateless.date = None
+        assert BacktestService._mm50_slope_before(
+            [dateless] + series, self.TRADING_DATE
+        ) == BacktestService._mm50_slope_before(series, self.TRADING_DATE)
+
+
+class TestRunRangeThreadsRegime:
+    def test_mm50_slope_populated_on_summary(self):
+        trading_date = datetime.date(2026, 6, 2)
+        service = make_service(
+            [h1_candle()], TestBacktestParameters.STOP_LOSS_CANDLES
+        )
+        service.candles_service.build_candles.return_value = (
+            uptrend_daily_series(trading_date, 70)
+        )
+        result = service.run_range(DEFINITION, trading_date, trading_date)
+        assert len(result.days) == 1
+        assert result.days[0].mm50_slope is not None
+        assert result.days[0].mm50_slope > 0
