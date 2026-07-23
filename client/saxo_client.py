@@ -46,6 +46,8 @@ class SaxoClient:
         # Cache for historical data with 30 min TTL
         # (only for horizon=30, horizon=60, horizon=1440, and horizon=10080)
         self.historical_data_cache: TTLCache = TTLCache(maxsize=256, ttl=1800)
+        # Cache for 5min intraday data with 5 min TTL (only for horizon=5)
+        self.intraday_data_cache: TTLCache = TTLCache(maxsize=256, ttl=300)
         self.session.headers.update(
             {"Authorization": f"Bearer {configuration.access_token}"}
         )
@@ -439,6 +441,18 @@ class SaxoClient:
             return 0.0
         return get_price_from_saxo_data(data[0])
 
+    def _get_historical_data_cache(self, horizon: int) -> Optional[TTLCache]:
+        """
+        Select the cache store for a given horizon.
+
+        Returns None when the horizon is not cached.
+        """
+        if horizon in [30, 60, 1440, 10080]:
+            return self.historical_data_cache
+        if horizon == 5:
+            return self.intraday_data_cache
+        return None
+
     def _get_historical_data_cache_key(
         self,
         saxo_uic: str,
@@ -482,7 +496,8 @@ class SaxoClient:
         First date is the newest and the list is sorted in a decremental way
 
         Caches data for horizon=30 (30min), horizon=60 (hourly),
-        horizon=1440 (daily), and horizon=10080 (weekly) with 30min TTL
+        horizon=1440 (daily), and horizon=10080 (weekly) with 30min TTL,
+        and horizon=5 (5min) with 5min TTL
         """
         # Convert to string if int provided (for compatibility)
         saxo_uic = str(saxo_uic)
@@ -490,17 +505,17 @@ class SaxoClient:
         # Store original date for cache key
         original_date = date
 
-        # Check cache for 30min (30), hourly (60), daily (1440), weekly (10080)
-        if horizon in [30, 60, 1440, 10080]:
+        cache = self._get_historical_data_cache(horizon)
+        if cache is not None:
             cache_key = self._get_historical_data_cache_key(
                 saxo_uic, asset_type, horizon, count, original_date
             )
 
-            if cache_key in self.historical_data_cache:
+            if cache_key in cache:
                 self.logger.debug(
                     f"Cache HIT for {saxo_uic} horizon={horizon} count={count}"
                 )
-                return self.historical_data_cache[cache_key]
+                return cache[cache_key]
 
         max_items = 1200
         if date is None:
@@ -550,11 +565,11 @@ class SaxoClient:
                 break
 
         # Store in cache if applicable
-        if horizon in [30, 60, 1440, 10080]:
+        if cache is not None:
             cache_key = self._get_historical_data_cache_key(
                 saxo_uic, asset_type, horizon, count, original_date
             )
-            self.historical_data_cache[cache_key] = data
+            cache[cache_key] = data
             self.logger.debug(
                 f"Cache STORED for {saxo_uic} horizon={horizon} count={count}"
             )

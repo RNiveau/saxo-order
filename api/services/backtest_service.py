@@ -18,11 +18,18 @@ from model import (
 )
 from model.enum import DayStatus, Direction, ExitReason
 from services.candles_service import CandlesService
+from services.indicator_service import mobile_average, slope_percentage
 from utils.exception import SaxoException
 from utils.helper import market_in_utc
 from utils.logger import Logger
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
+
+# Daily MA50 slope regime measure: MA50 needs 50 daily closes and the
+# slope is taken over a 10-candle lookback, so at least 60 prior daily
+# candles are required before a day can be scored.
+MM50_MIN_DAILY_CANDLES = 60
+MM50_SLOPE_LOOKBACK = 10
 
 BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
     BacktestDefinition(
@@ -30,6 +37,14 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         name=Strategy.B9H.value,
         display_name="CAC40 Bougie de 9h",
         instrument="FRA40.I",
+    ),
+    BacktestDefinition(
+        code="B9HTC",
+        name=Strategy.B9HTC.value,
+        display_name="CAC40 Bougie de 9h (time cut)",
+        instrument="FRA40.I",
+        time_cut_minutes=30,
+        time_cut_min_favorable_points=5.0,
     ),
 ]
 
@@ -169,6 +184,8 @@ class _OpenPosition:
         direction: Direction,
         take_profit_level: float,
         stop_loss_points: float,
+        time_cut_minutes: Optional[int] = None,
+        time_cut_min_favorable_points: Optional[float] = None,
     ):
         self.entry_time = entry_time
         self.entry_price = entry_price
@@ -176,6 +193,16 @@ class _OpenPosition:
         self.take_profit_level = take_profit_level
         self.stop_loss_points = stop_loss_points
         self.be_armed = False
+        self.time_cut_minutes = time_cut_minutes
+        self.time_cut_min_favorable_points = time_cut_min_favorable_points
+        self.max_favorable_points = 0.0
+
+    @property
+    def time_cut_enabled(self) -> bool:
+        return (
+            self.time_cut_minutes is not None
+            and self.time_cut_min_favorable_points is not None
+        )
 
     @property
     def is_long(self) -> bool:
@@ -341,7 +368,9 @@ class BacktestService:
         )
         chronological = sorted(five_min_candles, key=_candle_date)
 
-        trades = self._evaluate_trades(chronological, h1_high, h1_low, params)
+        trades = self._evaluate_trades(
+            chronological, h1_high, h1_low, params, definition
+        )
 
         status = DayStatus.TRADED if trades else DayStatus.NO_TRADE
         return DayResult(
@@ -365,6 +394,10 @@ class BacktestService:
         day_summaries: List[DayResultSummary] = []
         all_trades: List[Trade] = []
 
+        daily_candles = self._fetch_daily_candles(
+            definition.instrument, start_date, end_date
+        )
+
         current = start_date
         while current <= end_date:
             if current.weekday() >= 5:
@@ -384,6 +417,11 @@ class BacktestService:
                         status=day_result.status,
                         trade_count=len(day_result.trades),
                         points=day_points,
+                        h1_high=day_result.h1_high,
+                        h1_low=day_result.h1_low,
+                        mm50_slope=self._mm50_slope_before(
+                            daily_candles, day_result.date
+                        ),
                     )
                 )
                 all_trades.extend(day_result.trades)
@@ -484,12 +522,68 @@ class BacktestService:
             )
             return []
 
+    def _fetch_daily_candles(
+        self,
+        instrument: str,
+        start_date: datetime.date,
+        end_date: datetime.date,
+    ) -> List[Candle]:
+        """Daily (newest-first) candle series covering the run range plus
+        enough lead-in to compute a 50-day MA slope on the first day.
+        Fetched once per run_range. A failure degrades to an empty series
+        (blank mm50_slope column) rather than aborting the whole export."""
+        # Daily candles are fetched counting backward from end_date, so
+        # count must reach ~60 trading days before start_date for the
+        # first day's MA50 slope. Calendar days is a safe upper bound on
+        # the range's trading days (build_candles caps at available data),
+        # so no need to exclude weekends/holidays precisely.
+        count = (
+            (end_date - start_date).days
+            + MM50_MIN_DAILY_CANDLES
+            + MM50_SLOPE_LOOKBACK
+            + 5
+        )
+        reference = datetime.datetime(
+            end_date.year, end_date.month, end_date.day, tzinfo=PARIS_TZ
+        )
+        try:
+            return self.candles_service.build_candles(
+                instrument, UnitTime.D, EUMarket(), count, reference
+            )
+        except SaxoException as e:
+            self.logger.warning(
+                f"No daily candles for {instrument} regime measure: {e}"
+            )
+            return []
+
+    @staticmethod
+    def _mm50_slope_before(
+        daily_candles: List[Candle], trading_date: datetime.date
+    ) -> Optional[float]:
+        """Daily MA50 slope (%) as of the last close strictly before
+        trading_date (lookahead-safe: today's daily candle is never in the
+        window). Mirrors the MA50 slope used by the MM50 alert (spec 019).
+        Returns None when fewer than MM50_MIN_DAILY_CANDLES prior daily
+        candles are available."""
+        prior = [
+            candle
+            for candle in daily_candles
+            if candle.date is not None and candle.date.date() < trading_date
+        ]
+        if len(prior) < MM50_MIN_DAILY_CANDLES:
+            return None
+        prior.sort(key=_candle_date, reverse=True)
+        ma50_last = mobile_average(prior, 50)
+        ma50_first = mobile_average(prior[MM50_SLOPE_LOOKBACK:], 50)
+        return slope_percentage(0, ma50_first, MM50_SLOPE_LOOKBACK, ma50_last)
+
     def _evaluate_trades(
         self,
         candles: List[Candle],
         h1_high: float,
         h1_low: float,
         params: BacktestParameters,
+        definition: BacktestDefinition,
     ) -> List[Trade]:
         """Evaluate both directions concurrently, with at most one
         position open at any time. The H1 high/low reference levels are
@@ -533,6 +627,10 @@ class BacktestService:
                         direction=Direction.BUY,
                         take_profit_level=long_take_profit,
                         stop_loss_points=params.stop_loss_points,
+                        time_cut_minutes=definition.time_cut_minutes,
+                        time_cut_min_favorable_points=(
+                            definition.time_cut_min_favorable_points
+                        ),
                     )
                 elif short_entry is not None:
                     position = _OpenPosition(
@@ -541,6 +639,10 @@ class BacktestService:
                         direction=Direction.SELL,
                         take_profit_level=short_take_profit,
                         stop_loss_points=params.stop_loss_points,
+                        time_cut_minutes=definition.time_cut_minutes,
+                        time_cut_min_favorable_points=(
+                            definition.time_cut_min_favorable_points
+                        ),
                     )
                 if position is not None:
                     long_search.reset()
@@ -622,6 +724,11 @@ class BacktestService:
                 position, candle_date, exit_price, ExitReason.TAKE_PROFIT
             )
 
+        if position.time_cut_enabled:
+            time_cut = self._resolve_time_cut(position, candle, candle_date)
+            if time_cut is not None:
+                return time_cut
+
         if not position.be_armed:
             arm_threshold = params.break_even_trigger_points
             if position.is_long:
@@ -630,6 +737,44 @@ class BacktestService:
             elif candle.lower <= position.entry_price - arm_threshold:
                 position.be_armed = True
 
+        return None
+
+    @staticmethod
+    def _resolve_time_cut(
+        position: _OpenPosition,
+        candle: Candle,
+        candle_date: datetime.datetime,
+    ) -> Optional[Trade]:
+        """Time-based cut for the "Bougie de 9h (time cut)" variant.
+
+        Tracks the position's max favorable excursion candle by candle.
+        Once time_cut_minutes have elapsed since entry, if the trade has
+        never moved more than time_cut_min_favorable_points in its favor,
+        it is closed at market (this candle's close). "Never been higher
+        than N points" means the cut also fires when the best move was
+        exactly N points, so the comparison is <=.
+        """
+        threshold = position.time_cut_min_favorable_points
+        minutes = position.time_cut_minutes
+        if threshold is None or minutes is None:
+            return None
+
+        favorable = (
+            candle.higher - position.entry_price
+            if position.is_long
+            else position.entry_price - candle.lower
+        )
+        if favorable > position.max_favorable_points:
+            position.max_favorable_points = favorable
+
+        deadline = position.entry_time + datetime.timedelta(minutes=minutes)
+        if (
+            candle_date >= deadline
+            and position.max_favorable_points <= threshold
+        ):
+            return BacktestService._close_trade(
+                position, candle_date, candle.close, ExitReason.TIME_CUT
+            )
         return None
 
     @staticmethod

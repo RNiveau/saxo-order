@@ -3,12 +3,13 @@
 import csv
 import datetime
 import io
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel
 
 from model import (
     BacktestDefinition,
+    BacktestParameters,
     BacktestRunResult,
     BacktestSummary,
     Candle,
@@ -56,6 +57,9 @@ class DayResultSummaryResponse(BaseModel):
     status: str
     trade_count: int
     points: float
+    h1_high: Optional[float] = None
+    h1_low: Optional[float] = None
+    mm50_slope: Optional[float] = None
 
 
 class BacktestSummaryResponse(BaseModel):
@@ -128,6 +132,9 @@ def _day_result_summary_to_response(
         status=summary.status.value,
         trade_count=summary.trade_count,
         points=summary.points,
+        h1_high=summary.h1_high,
+        h1_low=summary.h1_low,
+        mm50_slope=summary.mm50_slope,
     )
 
 
@@ -158,29 +165,73 @@ def backtest_run_result_to_response(
     )
 
 
-def backtest_run_result_to_csv(run_result: BacktestRunResult) -> str:
+def _write_parameters_block(writer: Any, params: BacktestParameters) -> None:
+    """Leading block echoing the run parameters so an exported CSV is
+    self-describing about the thresholds it was produced with."""
+    writer.writerow(["parameter", "value"])
+    writer.writerow(["stop_loss_points", params.stop_loss_points])
+    writer.writerow(
+        ["take_profit_offset_points", params.take_profit_offset_points]
+    )
+    writer.writerow(
+        ["break_even_trigger_points", params.break_even_trigger_points]
+    )
+    writer.writerow(
+        ["max_entry_distance_points", params.max_entry_distance_points]
+    )
+    writer.writerow([])
+
+
+def backtest_run_result_to_csv(
+    run_result: BacktestRunResult, params: BacktestParameters
+) -> str:
     """FR-017: one row per day in run_result.days (no-data days already
     excluded by BacktestService.run_range)."""
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["date", "status", "trade_count", "points"])
+    _write_parameters_block(writer, params)
+    writer.writerow(
+        [
+            "date",
+            "status",
+            "trade_count",
+            "points",
+            "h1_high",
+            "h1_low",
+            "h1_range",
+            "mm50_slope",
+        ]
+    )
     for day in run_result.days:
+        h1_range = (
+            round(day.h1_high - day.h1_low, 4)
+            if day.h1_high is not None and day.h1_low is not None
+            else None
+        )
         writer.writerow(
             [
                 day.date.isoformat(),
                 day.status.value,
                 day.trade_count,
                 day.points,
+                day.h1_high,
+                day.h1_low,
+                h1_range,
+                day.mm50_slope,
             ]
         )
     return output.getvalue()
 
 
-def day_result_to_csv(day_result: DayResult) -> str:
+def day_result_to_csv(
+    day_result: DayResult, params: BacktestParameters
+) -> str:
     """FR-018: H1 levels, 5-minute candles, and trades as three blocks
     separated by a blank line."""
     output = io.StringIO()
     writer = csv.writer(output)
+
+    _write_parameters_block(writer, params)
 
     writer.writerow(["h1_high", "h1_low"])
     writer.writerow([day_result.h1_high, day_result.h1_low])

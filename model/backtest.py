@@ -14,6 +14,12 @@ class BacktestDefinition:
     name: str
     display_name: str
     instrument: str
+    # Optional time-based cut: when both are set, a position that has
+    # never moved more than time_cut_min_favorable_points in its favor by
+    # time_cut_minutes after entry is closed at market. Left None on the
+    # plain "Bougie de 9h" so its behavior is unchanged.
+    time_cut_minutes: Optional[int] = None
+    time_cut_min_favorable_points: Optional[float] = None
 
 
 @dataclass
@@ -55,6 +61,16 @@ class DayResultSummary:
     status: DayStatus
     trade_count: int
     points: float
+    # 9h reference candle levels for the day, carried through so a range
+    # export can expose the setup's H1 range (a regime/volatility proxy
+    # that is independent of the SL/TP parameters). None only on NO_DATA
+    # days, which run_range excludes from the summary anyway.
+    h1_high: Optional[float] = None
+    h1_low: Optional[float] = None
+    # Daily MA50 slope (%) as of the close strictly before this day - a
+    # trend/chop regime measure, lookahead-safe and config-independent.
+    # None when fewer than 60 prior daily candles are available.
+    mm50_slope: Optional[float] = None
 
 
 @dataclass

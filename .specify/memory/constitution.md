@@ -1,30 +1,31 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version Change: 1.2.0 → 1.2.1
-Action: Clarified Layered Architecture Discipline - added client encapsulation rule
+Version Change: 1.2.1 → 1.3.0
+Action: Added "No assert in Production Code" rule to Clean Code First
 
 Principles Modified:
-  I. Layered Architecture Discipline - Enforcement section
-     ADDED: "Backend: NEVER access client internals from service layer - use client methods,
-             never client.dynamodb.Table() or similar"
-     ADDED: "Backend: Clients MUST expose methods for all operations - encapsulate implementation details"
+  II. Clean Code First
+     ADDED principle point: "No assert in Production Code" - forbid assert for
+       runtime validation/type narrowing in shipped code; raise explicit exceptions
+     ADDED enforcement bullet: code reviews reject assert in non-test code
+  Development Standards / Code Quality Standards (Backend Quality)
+     ADDED bullet: no asserts in production code; assert allowed only in tests
 
 Rationale for Change:
-  - Violation found in alerting_service.py accessing dynamodb_client.dynamodb.Table() directly
-  - Breaks encapsulation and couples service layer to client implementation details
-  - Makes testing harder (must mock internal client structure, not just methods)
-  - Prevents client refactoring without cascading service layer changes
-  - Common anti-pattern that needs explicit prohibition
+  - assert statements are stripped when Python runs under -O, so any validation or
+    type narrowing they perform silently disappears in an optimized runtime
+  - The codebase already established the "raise rather than assert" convention in
+    api/services/backtest_service.py::_candle_date; this generalizes it project-wide
+  - Raised on PR #652 review (owner request) after two type-narrowing asserts were
+    added in _resolve_time_cut
 
-Previous Version (1.2.0):
-  - Expanded Domain Model Integrity with explicit exchange field requirement
-  - 5 core principles with full-stack governance
+Previous Version (1.2.1):
+  - Clarified Layered Architecture Discipline with client encapsulation rules
 
-New in 1.2.1:
-  - Clarified encapsulation requirement for client-service interaction
-  - Explicit prohibition of accessing client internals (e.g., .dynamodb.Table())
-  - Requirement that clients expose proper methods for all operations
+New in 1.3.0:
+  - Explicit prohibition of assert in production code, with explicit-exception guidance
+  - assert remains allowed in tests
 
 Templates Requiring Updates:
   ✅ plan-template.md - Constitution Check section will pick up new rule automatically
@@ -32,13 +33,13 @@ Templates Requiring Updates:
   ✅ tasks-template.md - No changes needed
 
 Follow-up TODOs:
-  - Refactor alerting_service.py to use DynamoDBClient methods instead of direct access
-  - Add get_last_run_at() and update_last_run_at() methods to DynamoDBClient
+  - None - the pre-existing assert isinstance(...) uses in report_service.py,
+    binance_report_service.py, and saxo_order/commands/get_report.py were replaced
+    with explicit TypeError guards in PR #652 alongside this amendment
 
-Rationale for PATCH version (1.2.1):
-  - Clarification of existing Layered Architecture Discipline principle
-  - No new principles added, no existing requirements removed
-  - Makes implicit encapsulation rule explicit and enforceable
+Rationale for MINOR version (1.3.0):
+  - New substantive coding rule (material expansion of guidance), not a wording fix
+  - No existing principles removed; backward compatible with all prior requirements
 -->
 
 # saxo-order Constitution
@@ -83,11 +84,13 @@ Code MUST prioritize clarity and simplicity over premature abstraction:
 2. **No Over-Engineering**: Only build what's needed - no speculative features or abstractions
 3. **Enum-Driven**: Use existing enums instead of hardcoded strings throughout the codebase
 4. **No Unnecessary Comments**: Avoid inline comments like "// Use unique account ID" or "// Send enum key directly"
+5. **No `assert` in Production Code**: Never use `assert` for runtime validation or type narrowing in shipped code - asserts are stripped when Python runs under `-O`, silently removing the check. Raise an explicit exception instead (`TypeError` for a type-invariant violation, a domain exception like `SaxoException` for data-integrity issues). `assert` remains fine in tests.
 
 **Rationale**: Clean, self-evident code reduces maintenance burden and cognitive load. Comments that explain "what" indicate unclear code; comments should explain "why" for non-obvious decisions only. Enums provide type safety and IDE autocomplete.
 
 **Enforcement**:
 - Code reviews reject unnecessary comments and hardcoded strings
+- Code reviews reject `assert` in non-test code - use explicit exceptions (asserts are stripped under `-O`)
 - Black formatter (79 char line length) and isort enforce consistent style
 - MyPy type checking required for all new code
 
@@ -178,6 +181,7 @@ Domain models and data structures MUST reflect business reality:
 - **Formatting**: Run `poetry run black .` and `poetry run isort .` before commits
 - **Type Checking**: Run `poetry run mypy .` - all new code must pass type checking
 - **Linting**: Run `poetry run flake8` - address all violations
+- **No Asserts**: Do not use `assert` in production code (stripped under `-O`) - raise explicit exceptions; `assert` is allowed only in tests
 - **Coverage**: Maintain test coverage with `poetry run pytest --cov`
 
 **Frontend Quality:**
@@ -289,4 +293,4 @@ Domain models and data structures MUST reflect business reality:
 - **CLAUDE.md** provides runtime development guidance and implementation patterns
 - When conflict arises, constitution takes precedence; update CLAUDE.md to align
 
-**Version**: 1.2.1 | **Ratified**: 2026-01-09 | **Last Amended**: 2026-01-17
+**Version**: 1.3.0 | **Ratified**: 2026-01-09 | **Last Amended**: 2026-07-22

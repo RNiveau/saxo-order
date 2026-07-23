@@ -141,6 +141,8 @@ Examples:
 - AWS DynamoDB — new `alert_digests` table (hash_key `run_date` String, range_key `created_at` Number, **no TTL**); existing `alerts` table unchanged (023-alert-triage)
 - Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend — minimal changes) + FastAPI, Pydantic v2, `cachetools` (TTLCache), `googleapiclient` (Google Sheets); NEW: a GraphQL/HTTP client for Ouinex (`httpx` or `requests` — POST GraphQL + JWT auth flow); frontend Axios + React Router DOM v7+ (024-ouinex-provider)
 - AWS DynamoDB `watchlist` table (existing `exchange` attribute, unchanged schema); Google Sheets trading journal (existing "Liste d'ordre" sheet, unchanged schema). No new tables. (024-ouinex-provider)
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) — no change from existing stack. + FastAPI + Pydantic v2 (existing), `zoneinfo` (already used by the backtest service for Paris-local math), Python stdlib `csv` (existing exports), existing `SaxoClient`/`CandlesService`; React Router DOM v7+, Axios, Vite (frontend, existing). **No new dependency.** (025-ger40-bougie-9h)
+- N/A — ephemeral, computed on demand per request, nothing persisted (inherits spec 021's decision). (025-ger40-bougie-9h)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)

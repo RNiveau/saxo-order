@@ -1,23 +1,233 @@
-# CAC40 "Bougie de 9h" (B9H) — full-stop-loss analysis
+# CAC40 "Bougie de 9h" (B9H) — stop-loss analysis & parameter tuning
 
-Analysis of the `-50.0` point (full stop-loss) trading days for the B9H
-backtest strategy (spec `021-backtest-menu-hardcoded`, long+short per PR
-#645), based on real Saxo data exported via the backtest CSV feature
-(PR #644) covering 2026-01-02 to 2026-06-30.
+Analysis of the B9H backtest strategy (spec `021-backtest-menu-hardcoded`,
+long+short per PR #645), based on real Saxo data exported via the backtest
+CSV feature (PR #644). Three parts:
 
-## 6-month range summary (2026-01-02 → 2026-06-30)
+1. A **parameter grid** (SL × TP + time-cut variant) fitted on
+   2026-01-02 → 2026-06-30.
+2. An **out-of-sample validation** of the two headline configs on the prior
+   window 2025-06-01 → 2025-12-31.
+3. A **candle-by-candle trace** of the `-50.0` full-stop days under the
+   baseline, explaining *why* those days lose.
+
+> **Headline result:** the parameter tuning does **not** survive
+> out-of-sample. The "best" in-sample config (SL 40 / TP 5) turns a +563
+> in-sample profit into a **−114 out-of-sample loss**, and even the baseline
+> is only break-even out-of-sample (before costs). B9H as parameterized here
+> has **no validated edge** — see the out-of-sample section for the full
+> grid. Do not deploy on the strength of the in-sample grid alone.
+
+## Baseline: SL 50 / TP 10 (2026-01-02 → 2026-06-30)
+
+The reference strategy: stop-loss 50 pts, take-profit target 10 pts below
+the 9h candle's high.
 
 - 125 calendar days, 98 traded, 27 no-trade
 - Net result: **+415.68 pts**
 - Win/loss/flat days (of 98 traded): 57 win / 36 loss / 5 flat
-- Avg win: +27.32, avg loss: -31.72, profit factor: 1.364
+- Avg win: +27.33, avg loss: -31.72, profit factor: 1.364
 - Monthly: Jan +238.4, Feb -46.4, Mar -25.9, Apr +39.0, May -32.0, Jun +242.5
   (Feb-Mar was the roughest stretch)
 
-## The 12 clean single-trade `-50.0` days
+## Parameter grid — IN-SAMPLE ONLY (2026 H1)
+
+**Caveat up front:** every number in this section is fitted on the same
+2026 H1 window it is scored on. The out-of-sample section below shows these
+results do not generalize. Read this as "what the fit produced," not "what
+to trade."
+
+TP is the take-profit target expressed as points **below** the 9h high — a
+smaller number (TP 5) is a more ambitious target closer to the high. SL is
+the full stop-loss distance. All runs cover the same 98 traded days.
+
+### Plain strategy — SL × TP (net pts / profit factor)
+
+| | **TP 10** | **TP 5** |
+|---|---|---|
+| **SL 50** | 415.68 · 1.364 *(baseline)* | 496.64 · 1.436 |
+| **SL 40** | 472.12 · 1.437 | **563.09 · 1.527** |
+
+Isolated lever effects:
+
+- **TP 5** (holding SL): **+80.96** at SL 50, **+90.97** at SL 40. Raises
+  avg win 27.33 → 30.22 with essentially unchanged losses. The stronger of
+  the two levers.
+- **SL 40** (holding TP): **+56.44** at TP 10, **+66.45** at TP 5. Cuts
+  avg loss 31.72 → 28.12. The secondary lever.
+
+The two are **additive with mild positive synergy**: baseline → SL 40 / TP 5
+is +147.41, versus 137 for the sum of the isolated effects (~+10 pts
+interaction). They touch opposite sides of the ledger (TP the wins, SL the
+losses) so they compound cleanly.
+
+Full monthly breakdown:
+
+| Variant | Net | PF | Jan | Feb | Mar | Apr | May | Jun |
+|---|---|---|---|---|---|---|---|---|
+| SL 50 · TP 10 (base) | 415.68 | 1.364 | +238.4 | -46.4 | -25.9 | +39.0 | -32.0 | +242.5 |
+| SL 50 · TP 5 | 496.64 | 1.436 | +253.3 | -51.0 | +13.2 | -8.6 | -2.0 | +291.7 |
+| SL 40 · TP 10 | 472.12 | 1.437 | +208.1 | -8.3 | +54.1 | +46.0 | -49.2 | +221.2 |
+| **SL 40 · TP 5** | **563.09** | **1.527** | +223.0 | -12.8 | +93.2 | +8.4 | -19.2 | +270.5 |
+
+### Time-cut variant ("B9HTC") — dominated at every setting
+
+The time-cut (spec 021 variant, "Bougie de 9h time cut") is the
+confirmation-timeout idea realized: if price hasn't followed through soon
+after entry, cut the trade early and allow re-entry.
+
+| Variant | Net | PF | W/L/F | Trades |
+|---|---|---|---|---|
+| Time-cut · SL 50 · TP 10 | 249.74 | 1.223 | 51/42/5 | ~150 |
+| Time-cut · SL 40 · TP 5 | 414.08 | 1.402 | 49/43/6 | 196 |
+
+The time-cut **does** rescue the "immediate bleed" full-stop days (02-03
+-50→-17.6, 04-17 -50→-4.3, 03-20 -50→-25.9, 06-15 -50→-10.9), exactly as
+the trace below predicts. But its re-entry churn creates **new** losses that
+blow past the stop floor (05-07 → -62.6 across 3 trades, 05-18 → -67.8,
+04-10 → -60.8, 04-14 → -58.0), and March/May crater. Even fully tuned with
+SL 40 + TP 5 (+414.08) it lands *below the untuned plain baseline* (+415.68)
+and ~150 pts under the tuned plain strategy. TP/SL tuning masks the churn
+tax but cannot remove it.
+
+### In-sample takeaway (do not act on this alone)
+
+On 2026 H1, SL 40 / TP 5 looked best (+563.09, PF 1.527, +35% over baseline)
+and the two levers looked additive. The out-of-sample section below shows
+this was an artifact of the fit — kept here only to document what the
+in-sample grid produced.
+
+## Out-of-sample validation (2025 H2)
+
+Re-ran the two headline configs, unchanged, on the **prior** six months
+(2025-06-01 → 2025-12-31, 126 traded days) — data the parameters were never
+fitted to. This is the test that matters.
+
+### Net points (profit factor) — both configs, both windows
+
+| Config | In-sample 2026 H1 | Out-of-sample 2025 H2 |
+|---|---|---|
+| SL 50 / TP 10 (baseline) | +415.68 (1.364) | **+41.15 (1.034)** |
+| SL 40 / TP 5 (tuned) | +563.09 (1.527) | **−114.03 (0.911)** |
+| **tuning effect** | **+147** | **−155** |
+
+Two conclusions, both decisive:
+
+1. **The tuning is overfit — it inverts out-of-sample.** The SL 40 / TP 5
+   change that added +147 in-sample *subtracts* 155 out-of-sample: it goes
+   from beating the baseline to losing to it by the same magnitude, and PF
+   drops below 1.0 (0.911 = a losing system). This is the textbook signature
+   of fitting to noise. Win rate fell 58.7% → 50.8%, payoff 1.07 → 0.88.
+2. **The baseline has no real edge either.** Out-of-sample it nets just +41
+   over 7 months (PF 1.034), statistically indistinguishable from zero and
+   **negative after any realistic transaction cost** (174 trades × 0.5 pt ≈
+   −87). "Safe" config, but not a profitable one on unseen data.
+
+### Regime dependence — the same fingerprint in every run
+
+All four runs (2 configs × 2 windows) make money in only 2–3 trending months
+and bleed the rest of the time:
+
+| Run | Winning months | Everything else |
+|---|---|---|
+| 2026 H1 baseline | Jan +238, Jun +242 | net negative |
+| 2026 H1 SL40/TP5 | Jan +223, Mar +93, Jun +270 | ~flat |
+| 2025 H2 baseline | Jun +68, Dec +160 | Jul–Nov all red (−187 sum) |
+| 2025 H2 SL40/TP5 | Jun +96, Dec +187 | Jul–Nov all red (−397 sum) |
+
+The strategy is not a standalone edge; it is a bet that the index trends
+cleanly. In-sample happened to contain enough trend to net positive; H2 2025
+(a chop-and-bleed summer/autumn) did not.
+
+### Verdict
+
+**B9H as parameterized here has no validated edge. Do not deploy — and in
+particular do not adopt SL 40 / TP 5, which is actively overfit.** Raw
+parameter tuning is exhausted (it is how the false positive was produced).
+The only forward path the data supports is a **regime filter**: since every
+profitable stretch is a trending month, the strategy is worth pursuing only
+as a *conditional* system that stands aside in chop — gated on a trend/chop
+measure (MM50 slope, ADX, or ATR expansion). Next step is to test whether
+such a gate turns the losing months flat while keeping the trending ones.
+
+## Regime filter #1: 9h candle range — tested, rejected as a standalone gate
+
+First filter candidate. Enabled by the `h1_range` column added to the range
+CSV export (PR #656): the 9h reference-candle width (`h1_high - h1_low`),
+config-independent, exported for the full 13 months (2025-06-01 →
+2026-06-30, baseline SL 50 / TP 10, 224 traded days, net +456.8). The
+hypothesis: narrow 9h mornings = chop = false breakouts = losses; wide =
+trend = profit.
+
+**The signal is real and directionally consistent.** In *both* windows the
+narrower-half days underperform the wider-half days (no sign-flip):
+
+| | below-median range | above-median range |
+|---|---|---|
+| 2025 H2 (choppy) | −138 (63d, −2.2/d) | +179 (63d, +2.8/d) |
+| 2026 H1 (trending) | +170 (49d, +3.5/d) | +245 (49d, +5.0/d) |
+
+Pooled it is an inverted-U, not monotonic: the mid-range tercile is best
+(+554), the *widest* tercile only +125 — extreme-range mornings are
+gap/whipsaw days, not clean trends.
+
+**But it fails as a standalone gate — every threshold helps one window and
+hurts the other.** "Trade only if 9h range ≥ T", per window (unfiltered:
+H2 +41, H1 +416):
+
+| T | 2025 H2 net | 2026 H1 net |
+|---|---|---|
+| 30 | +228 | +297 |
+| 33 | +316 | +341 |
+| 35 | +297 | +386 |
+| 40 | +78 | +239 |
+
+Every threshold *improves* the choppy window and *degrades* the trending
+one. The cause is decisive: the narrowest-third days **lost −275 in 2025 H2**
+(−6.4/day) but **made +75 in 2026 H1** (+2.5/day). Narrow mornings only lose
+money once the broader regime is already choppy; in a trending regime they
+still win, just less. Any gate that rescues H2 discards real profit in H1 —
+exactly the window-inconsistency this analysis pre-committed to rejecting.
+
+**Conclusion.** The 9h range is a *trade-quality / expectancy* axis, not the
+*regime* axis. It says "is this a high- or low-conviction morning," not "are
+we in a trending or choppy month," and low-conviction mornings are only
+dangerous once the regime is already choppy. Range and regime are
+orthogonal, and the strategy's problem is regime. Rejected as the fix; it
+correctly redirects at a genuine trend/chop measure (below).
+
+## Next step (spec): daily trend/chop gate column
+
+The regime axis needs a *daily* trend measure, computed from the daily
+(horizon 1440) FRA40.I close series — the 9h range was a tempting but wrong
+proxy for it. Proposed as another additive export column, same pattern as
+`h1_range` (PR #656):
+
+- **Measure (lead):** MM50 slope magnitude on the daily close — reuse
+  `mobile_average` + `slope_percentage` in `services/indicator_service.py`
+  (spec 019). Gate on `|slope|` (direction-agnostic: B9H is long+short).
+  Fallback/secondary: ADX(14) (needs new Wilder-smoothing code) and/or
+  daily ATR expansion.
+- **Lookahead safety (critical):** compute strictly from daily closes
+  *before* the trading day (up to the prior session close). No same-day
+  candle in the window, or the gate is untradeable.
+- **Where:** `BacktestService.run_range` fetches the daily series once for
+  the range, computes the per-day regime value, and threads it into
+  `DayResultSummary` → a new CSV column (e.g. `mm50_slope_pct`), mirroring
+  how `h1_high`/`h1_low`/`h1_range` are already carried.
+- **Tests:** unit-test the indicator wiring and the new CSV column (mirror
+  the `h1_range` test in `tests/api/routers/test_backtest.py`).
+- **Acceptance bar (reuse the discipline that killed range):** lock the
+  threshold on one window, test untouched on the other; try ≤3 conventional
+  thresholds only; require improvement in **both** windows on total P&L —
+  the exact bar the 9h-range gate just failed. A gate that helps one window
+  and hurts the other is rejected.
+
+## The 12 clean single-trade `-50.0` days (baseline SL 50)
 
 Every day below is a single-trade day that hit stop-loss for exactly
--50.0 points. All 12 were hand-traced candle-by-candle against the
+-50.0 points under the baseline. All 12 were hand-traced candle-by-candle
+against the
 breach → candidate → breakout/breakdown confirmation → entry → exit state
 machine and confirmed to match their CSV exports exactly.
 
@@ -66,29 +276,35 @@ before stopping out), it reverses through the entry, not just through a
 would only have saved the 3 near-miss cases (~25% of these losses); it
 would not touch the other 9.
 
-## Open idea: confirmation-timeout stop
+## Confirmation-timeout stop — hypothesis confirmed, but net-negative
 
-Proposed next strategy variant: if within N candles (e.g. 3-6 M5 candles
-/ 15-30 min) after entry, price hasn't moved some minimal amount in the
-trade's favor (e.g. +8-10 pts), exit early at a smaller loss instead of
-waiting for the full -50 stop.
+The trace above motivated a confirmation-timeout ("time-cut") variant: if
+price hasn't followed through soon after entry, exit early at a smaller
+loss. The time-cut backtest (see the parameter grid above) settled this:
 
-- Would directly target the 8 "immediate bleed" cases (67% of traced
-  losses), which show ~0 pts favorable movement from minute one.
-- Would **not** help the 4 "near-miss" cases — those already show real
-  early follow-through before reversing; they need the BE-threshold
-  fix instead, not a no-follow-through filter.
-- **Untested risk**: this analysis only looked at losing trades. If
-  winning trades also often sit flat or dip slightly against entry for
-  the first 15-30 minutes before eventually working, a confirmation-
-  timeout rule would silently cut winners short too. Need to check
-  winning-day CSVs (or re-run the backtest with the rule as a flag) for
-  contrast before committing to specific parameters.
+- **Confirmed** on the loss side: the time-cut rescues the 8 "immediate
+  bleed" days (~0 pts favorable movement from entry) and leaves the 4
+  "near-miss" days near their full stop — exactly the split the trace
+  predicted.
+- **But it loses overall.** The predicted "untested risk" materialized:
+  allowing re-entry churns the strategy into fresh multi-trade losses that
+  exceed the stop floor, and it cuts into winners too. Net -166 vs baseline
+  (SL 50/TP 10), and still net-negative vs baseline even with SL 40 + TP 5.
+
+So the immediate-bleed diagnosis was correct, but a naive early-exit +
+re-entry rule is the wrong remedy. (Note: the "plain SL/TP tuning" that beats
+the time-cut in-sample does not itself survive out-of-sample — see the
+out-of-sample section. The time-cut is dominated *in-sample*; that is a
+weaker claim than "viable.")
 
 ## Not yet investigated
 
+- **Daily trend/chop gate** (highest priority): see the "Next step (spec)"
+  section above. The 9h-range proxy has been tested and rejected; the open
+  work is the true daily trend measure (MM50 slope / ADX), which needs a
+  daily-series export column.
+- A time-cut with **no re-entry after cut**, to isolate the early-exit
+  benefit from the churn cost.
 - The 5 exactly-0.0-point days.
 - The two multi-trade days that net exactly -50.0 (2026-03-19, 3 trades;
   2026-03-27, 2 trades).
-- Winning trades' early post-entry price behavior, for contrast against
-  the confirmation-timeout idea above.
