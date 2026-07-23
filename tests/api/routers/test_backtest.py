@@ -8,6 +8,7 @@ from api.main import app
 from api.routers.backtest import get_backtest_service
 from api.services.backtest_service import BacktestService
 from model import (
+    BacktestDefinition,
     BacktestParameters,
     BacktestRunResult,
     BacktestSummary,
@@ -20,6 +21,18 @@ from model import (
 from model.enum import DayStatus, ExitReason
 
 client = TestClient(app)
+
+
+def _b9h_definition() -> BacktestDefinition:
+    """A real CAC40 definition (default thresholds 50/10/20/20) so the
+    router's per-definition parameter resolution and CSV parameter block
+    see concrete numbers rather than MagicMock attributes."""
+    return BacktestDefinition(
+        code="B9H",
+        name="Bougie de 9h",
+        display_name="CAC40 Bougie de 9h",
+        instrument="FRA40.I",
+    )
 
 
 @pytest.fixture
@@ -38,9 +51,7 @@ class TestGetBacktestDay:
     def test_traded_day_with_trades_and_candles_returns_200(
         self, mock_backtest_service
     ):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
         mock_backtest_service.evaluate_day.return_value = DayResult(
             date=datetime.date(2026, 6, 2),
             status=DayStatus.TRADED,
@@ -82,9 +93,7 @@ class TestGetBacktestDay:
         assert body["trades"][0]["points"] == -50.0
 
     def test_invalid_date_format_returns_400(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
 
         response = client.get(
             "/api/backtest/day",
@@ -95,9 +104,7 @@ class TestGetBacktestDay:
         mock_backtest_service.evaluate_day.assert_not_called()
 
     def test_future_date_returns_400(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
         future_date = (
             datetime.date.today() + datetime.timedelta(days=30)
         ).isoformat()
@@ -113,9 +120,7 @@ class TestGetBacktestDay:
     def test_today_not_yet_closed_returns_400(
         self, mock_backtest_service, mocker
     ):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
         mocker.patch(
             "api.routers.backtest.is_today_not_yet_closed", return_value=True
         )
@@ -132,9 +137,7 @@ class TestGetBacktestDay:
     def test_today_after_close_returns_200(
         self, mock_backtest_service, mocker
     ):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
         mocker.patch(
             "api.routers.backtest.is_today_not_yet_closed", return_value=False
         )
@@ -164,9 +167,7 @@ class TestGetBacktestDay:
 
 class TestGetBacktestRun:
     def test_populated_range_returns_200(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
         mock_backtest_service.run_range.return_value = BacktestRunResult(
             summary=BacktestSummary(
                 definition_code="B9H",
@@ -208,9 +209,7 @@ class TestGetBacktestRun:
         assert body["days"][0]["points"] == 30.0
 
     def test_end_before_start_returns_400(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
 
         response = client.get(
             "/api/backtest/run",
@@ -242,9 +241,7 @@ class TestGetBacktestRun:
 
 class TestGetBacktestDayCsv:
     def test_traded_day_returns_csv(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
         mock_backtest_service.evaluate_day.return_value = DayResult(
             date=datetime.date(2026, 6, 2),
             status=DayStatus.TRADED,
@@ -292,9 +289,7 @@ class TestGetBacktestDayCsv:
         assert "stop_loss" in body
 
     def test_invalid_date_format_returns_400(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
 
         response = client.get(
             "/api/backtest/day/csv",
@@ -310,9 +305,7 @@ class TestGetBacktestDayCsv:
         """Pins the empty-block contract for a no_data day: h1_high/
         h1_low render as blank cells (not "None"), and the candles/
         trades blocks are present but have no rows."""
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
         mock_backtest_service.evaluate_day.return_value = DayResult(
             date=datetime.date(2026, 6, 2), status=DayStatus.NO_DATA
         )
@@ -342,9 +335,7 @@ class TestGetBacktestDayCsv:
 
 class TestGetBacktestRunCsv:
     def test_populated_range_returns_csv(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
         mock_backtest_service.run_range.return_value = BacktestRunResult(
             summary=BacktestSummary(
                 definition_code="B9H",
@@ -393,9 +384,7 @@ class TestGetBacktestRunCsv:
         assert "2026-06-02,traded,1,30.0,8050.0,8000.0,50.0" in body
 
     def test_end_before_start_returns_400(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
 
         response = client.get(
             "/api/backtest/run/csv",
@@ -414,9 +403,7 @@ class TestBacktestParameters:
     def test_omitted_params_default_to_the_strategy_thresholds(
         self, mock_backtest_service
     ):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
         mock_backtest_service.evaluate_day.return_value = DayResult(
             date=datetime.date(2026, 6, 2), status=DayStatus.NO_TRADE
         )
@@ -433,9 +420,7 @@ class TestBacktestParameters:
     def test_custom_params_are_passed_to_the_service(
         self, mock_backtest_service
     ):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
         mock_backtest_service.evaluate_day.return_value = DayResult(
             date=datetime.date(2026, 6, 2), status=DayStatus.NO_TRADE
         )
@@ -462,9 +447,7 @@ class TestBacktestParameters:
         )
 
     def test_non_positive_param_returns_422(self, mock_backtest_service):
-        mock_backtest_service.get_definition.return_value = MagicMock(
-            code="B9H"
-        )
+        mock_backtest_service.get_definition.return_value = _b9h_definition()
 
         response = client.get(
             "/api/backtest/day",
@@ -482,11 +465,7 @@ class TestBacktestParameters:
 class TestGetBacktestDefinitions:
     def test_returns_definitions_list(self, mock_backtest_service):
         mock_backtest_service.list_definitions.return_value = [
-            MagicMock(
-                code="B9H",
-                display_name="CAC40 Bougie de 9h",
-                instrument="FRA40.I",
-            )
+            _b9h_definition()
         ]
 
         response = client.get("/api/backtest/definitions")
@@ -498,5 +477,12 @@ class TestGetBacktestDefinitions:
                 "code": "B9H",
                 "display_name": "CAC40 Bougie de 9h",
                 "instrument": "FRA40.I",
+                "double_take_profit": False,
+                "default_parameters": {
+                    "stop_loss_points": 50.0,
+                    "take_profit_offset_points": 10.0,
+                    "break_even_trigger_points": 20.0,
+                    "max_entry_distance_points": 20.0,
+                },
             }
         ]

@@ -174,11 +174,19 @@ class TestListAndGetDefinition:
     def test_list_definitions_returns_the_hardcoded_backtests(self):
         service = make_service([], [])
         definitions = service.list_definitions()
-        assert len(definitions) == 2
+        assert len(definitions) == 3
         assert definitions[0].code == "B9H"
         assert definitions[0].display_name == "CAC40 Bougie de 9h"
         assert definitions[0].instrument == "FRA40.I"
         assert definitions[0].time_cut_minutes is None
+        codes = [definition.code for definition in definitions]
+        assert codes == ["B9H", "B9HTC", "G9H"]
+        g9h = definitions[2]
+        assert g9h.instrument == "GER40.I"
+        assert g9h.double_take_profit is True
+        assert g9h.first_target_fraction == 0.5
+        assert g9h.stop_from_reference_level is True
+        assert g9h.default_parameters.stop_loss_points == 150
 
     def test_get_definition_found(self):
         service = make_service([], [])

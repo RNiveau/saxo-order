@@ -5,6 +5,7 @@ class Strategy(EnumWithGetValue):
     IMP = "Bougie impulsive"
     B9H = "Bougie de 9h"
     B9HTC = "Bougie de 9h (time cut)"
+    G9H = "Bougie de 9h GER40"
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
     CRANGE = "Cassure de range"

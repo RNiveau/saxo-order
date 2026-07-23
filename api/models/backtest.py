@@ -19,10 +19,19 @@ from model import (
 )
 
 
+class BacktestParametersResponse(BaseModel):
+    stop_loss_points: float
+    take_profit_offset_points: float
+    break_even_trigger_points: float
+    max_entry_distance_points: float
+
+
 class BacktestDefinitionResponse(BaseModel):
     code: str
     display_name: str
     instrument: str
+    double_take_profit: bool = False
+    default_parameters: BacktestParametersResponse
 
 
 class TradeResponse(BaseModel):
@@ -83,10 +92,18 @@ class BacktestRunResponse(BaseModel):
 def backtest_definition_to_response(
     definition: BacktestDefinition,
 ) -> BacktestDefinitionResponse:
+    defaults = definition.default_parameters
     return BacktestDefinitionResponse(
         code=definition.code,
         display_name=definition.display_name,
         instrument=definition.instrument,
+        double_take_profit=definition.double_take_profit,
+        default_parameters=BacktestParametersResponse(
+            stop_loss_points=defaults.stop_loss_points,
+            take_profit_offset_points=defaults.take_profit_offset_points,
+            break_even_trigger_points=defaults.break_even_trigger_points,
+            max_entry_distance_points=defaults.max_entry_distance_points,
+        ),
     )
 
 
