@@ -18,11 +18,18 @@ from model import (
 )
 from model.enum import DayStatus, Direction, ExitReason
 from services.candles_service import CandlesService
+from services.indicator_service import mobile_average, slope_percentage
 from utils.exception import SaxoException
 from utils.helper import market_in_utc
 from utils.logger import Logger
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
+
+# Daily MA50 slope regime measure: MA50 needs 50 daily closes and the
+# slope is taken over a 10-candle lookback, so at least 60 prior daily
+# candles are required before a day can be scored.
+MM50_MIN_DAILY_CANDLES = 60
+MM50_SLOPE_LOOKBACK = 10
 
 BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
     BacktestDefinition(
@@ -387,6 +394,10 @@ class BacktestService:
         day_summaries: List[DayResultSummary] = []
         all_trades: List[Trade] = []
 
+        daily_candles = self._fetch_daily_candles(
+            definition.instrument, start_date, end_date
+        )
+
         current = start_date
         while current <= end_date:
             if current.weekday() >= 5:
@@ -408,6 +419,9 @@ class BacktestService:
                         points=day_points,
                         h1_high=day_result.h1_high,
                         h1_low=day_result.h1_low,
+                        mm50_slope=self._mm50_slope_before(
+                            daily_candles, day_result.date
+                        ),
                     )
                 )
                 all_trades.extend(day_result.trades)
@@ -507,6 +521,56 @@ class BacktestService:
                 f"{start_utc} and {end_utc}: {e}"
             )
             return []
+
+    def _fetch_daily_candles(
+        self,
+        instrument: str,
+        start_date: datetime.date,
+        end_date: datetime.date,
+    ) -> List[Candle]:
+        """Daily (newest-first) candle series covering the run range plus
+        enough lead-in to compute a 50-day MA slope on the first day.
+        Fetched once per run_range. A failure degrades to an empty series
+        (blank mm50_slope column) rather than aborting the whole export."""
+        weekdays = sum(
+            1
+            for n in range((end_date - start_date).days + 1)
+            if (start_date + datetime.timedelta(days=n)).weekday() < 5
+        )
+        count = weekdays + MM50_MIN_DAILY_CANDLES + MM50_SLOPE_LOOKBACK + 5
+        reference = datetime.datetime(
+            end_date.year, end_date.month, end_date.day, tzinfo=PARIS_TZ
+        )
+        try:
+            return self.candles_service.build_candles(
+                instrument, UnitTime.D, EUMarket(), count, reference
+            )
+        except SaxoException as e:
+            self.logger.warning(
+                f"No daily candles for {instrument} regime measure: {e}"
+            )
+            return []
+
+    @staticmethod
+    def _mm50_slope_before(
+        daily_candles: List[Candle], trading_date: datetime.date
+    ) -> Optional[float]:
+        """Daily MA50 slope (%) as of the last close strictly before
+        trading_date (lookahead-safe: today's daily candle is never in the
+        window). Mirrors the MA50 slope used by the MM50 alert (spec 019).
+        Returns None when fewer than MM50_MIN_DAILY_CANDLES prior daily
+        candles are available."""
+        prior = [
+            candle
+            for candle in daily_candles
+            if candle.date is not None and candle.date.date() < trading_date
+        ]
+        if len(prior) < MM50_MIN_DAILY_CANDLES:
+            return None
+        prior.sort(key=_candle_date, reverse=True)
+        ma50_last = mobile_average(prior, 50)
+        ma50_first = mobile_average(prior[MM50_SLOPE_LOOKBACK:], 50)
+        return slope_percentage(0, ma50_first, MM50_SLOPE_LOOKBACK, ma50_last)
 
     def _evaluate_trades(
         self,
