@@ -406,6 +406,8 @@ class BacktestService:
                         status=day_result.status,
                         trade_count=len(day_result.trades),
                         points=day_points,
+                        h1_high=day_result.h1_high,
+                        h1_low=day_result.h1_low,
                     )
                 )
                 all_trades.extend(day_result.trades)

@@ -365,6 +365,8 @@ class TestGetBacktestRunCsv:
                     status=DayStatus.TRADED,
                     trade_count=1,
                     points=30.0,
+                    h1_high=8050.0,
+                    h1_low=8000.0,
                 )
             ],
         )
@@ -387,8 +389,8 @@ class TestGetBacktestRunCsv:
         body = response.text
         assert "parameter,value" in body
         assert "stop_loss_points,50" in body
-        assert "date,status,trade_count,points" in body
-        assert "2026-06-02,traded,1,30.0" in body
+        assert "date,status,trade_count,points,h1_high,h1_low,h1_range" in body
+        assert "2026-06-02,traded,1,30.0,8050.0,8000.0,50.0" in body
 
     def test_end_before_start_returns_400(self, mock_backtest_service):
         mock_backtest_service.get_definition.return_value = MagicMock(

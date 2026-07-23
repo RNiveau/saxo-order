@@ -61,6 +61,12 @@ class DayResultSummary:
     status: DayStatus
     trade_count: int
     points: float
+    # 9h reference candle levels for the day, carried through so a range
+    # export can expose the setup's H1 range (a regime/volatility proxy
+    # that is independent of the SL/TP parameters). None only on NO_DATA
+    # days, which run_range excludes from the summary anyway.
+    h1_high: Optional[float] = None
+    h1_low: Optional[float] = None
 
 
 @dataclass
