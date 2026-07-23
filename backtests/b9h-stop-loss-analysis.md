@@ -150,6 +150,79 @@ as a *conditional* system that stands aside in chop — gated on a trend/chop
 measure (MM50 slope, ADX, or ATR expansion). Next step is to test whether
 such a gate turns the losing months flat while keeping the trending ones.
 
+## Regime filter #1: 9h candle range — tested, rejected as a standalone gate
+
+First filter candidate. Enabled by the `h1_range` column added to the range
+CSV export (PR #656): the 9h reference-candle width (`h1_high - h1_low`),
+config-independent, exported for the full 13 months (2025-06-01 →
+2026-06-30, baseline SL 50 / TP 10, 224 traded days, net +456.8). The
+hypothesis: narrow 9h mornings = chop = false breakouts = losses; wide =
+trend = profit.
+
+**The signal is real and directionally consistent.** In *both* windows the
+narrower-half days underperform the wider-half days (no sign-flip):
+
+| | below-median range | above-median range |
+|---|---|---|
+| 2025 H2 (choppy) | −138 (63d, −2.2/d) | +179 (63d, +2.8/d) |
+| 2026 H1 (trending) | +170 (49d, +3.5/d) | +245 (49d, +5.0/d) |
+
+Pooled it is an inverted-U, not monotonic: the mid-range tercile is best
+(+554), the *widest* tercile only +125 — extreme-range mornings are
+gap/whipsaw days, not clean trends.
+
+**But it fails as a standalone gate — every threshold helps one window and
+hurts the other.** "Trade only if 9h range ≥ T", per window (unfiltered:
+H2 +41, H1 +416):
+
+| T | 2025 H2 net | 2026 H1 net |
+|---|---|---|
+| 30 | +228 | +297 |
+| 33 | +316 | +341 |
+| 35 | +297 | +386 |
+| 40 | +78 | +239 |
+
+Every threshold *improves* the choppy window and *degrades* the trending
+one. The cause is decisive: the narrowest-third days **lost −275 in 2025 H2**
+(−6.4/day) but **made +75 in 2026 H1** (+2.5/day). Narrow mornings only lose
+money once the broader regime is already choppy; in a trending regime they
+still win, just less. Any gate that rescues H2 discards real profit in H1 —
+exactly the window-inconsistency this analysis pre-committed to rejecting.
+
+**Conclusion.** The 9h range is a *trade-quality / expectancy* axis, not the
+*regime* axis. It says "is this a high- or low-conviction morning," not "are
+we in a trending or choppy month," and low-conviction mornings are only
+dangerous once the regime is already choppy. Range and regime are
+orthogonal, and the strategy's problem is regime. Rejected as the fix; it
+correctly redirects at a genuine trend/chop measure (below).
+
+## Next step (spec): daily trend/chop gate column
+
+The regime axis needs a *daily* trend measure, computed from the daily
+(horizon 1440) FRA40.I close series — the 9h range was a tempting but wrong
+proxy for it. Proposed as another additive export column, same pattern as
+`h1_range` (PR #656):
+
+- **Measure (lead):** MM50 slope magnitude on the daily close — reuse
+  `mobile_average` + `slope_percentage` in `services/indicator_service.py`
+  (spec 019). Gate on `|slope|` (direction-agnostic: B9H is long+short).
+  Fallback/secondary: ADX(14) (needs new Wilder-smoothing code) and/or
+  daily ATR expansion.
+- **Lookahead safety (critical):** compute strictly from daily closes
+  *before* the trading day (up to the prior session close). No same-day
+  candle in the window, or the gate is untradeable.
+- **Where:** `BacktestService.run_range` fetches the daily series once for
+  the range, computes the per-day regime value, and threads it into
+  `DayResultSummary` → a new CSV column (e.g. `mm50_slope_pct`), mirroring
+  how `h1_high`/`h1_low`/`h1_range` are already carried.
+- **Tests:** unit-test the indicator wiring and the new CSV column (mirror
+  the `h1_range` test in `tests/api/routers/test_backtest.py`).
+- **Acceptance bar (reuse the discipline that killed range):** lock the
+  threshold on one window, test untouched on the other; try ≤3 conventional
+  thresholds only; require improvement in **both** windows on total P&L —
+  the exact bar the 9h-range gate just failed. A gate that helps one window
+  and hurts the other is rejected.
+
 ## The 12 clean single-trade `-50.0` days (baseline SL 50)
 
 Every day below is a single-trade day that hit stop-loss for exactly
@@ -226,10 +299,10 @@ weaker claim than "viable.")
 
 ## Not yet investigated
 
-- **Regime filter** (highest priority): a trend/chop gate (MM50 slope, ADX,
-  ATR expansion) to keep the strategy flat during the losing months. Every
-  profitable stretch in every run is a trending month — this is the only
-  path the data supports.
+- **Daily trend/chop gate** (highest priority): see the "Next step (spec)"
+  section above. The 9h-range proxy has been tested and rejected; the open
+  work is the true daily trend measure (MM50 slope / ADX), which needs a
+  daily-series export column.
 - A time-cut with **no re-entry after cut**, to isolate the early-exit
   benefit from the churn cost.
 - The 5 exactly-0.0-point days.
