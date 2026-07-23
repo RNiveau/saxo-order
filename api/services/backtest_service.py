@@ -230,6 +230,9 @@ class _OpenPosition:
         stop_loss_points: float,
         time_cut_minutes: Optional[int] = None,
         time_cut_min_favorable_points: Optional[float] = None,
+        double: bool = False,
+        first_target_level: Optional[float] = None,
+        initial_stop_price: Optional[float] = None,
     ):
         self.entry_time = entry_time
         self.entry_price = entry_price
@@ -240,6 +243,18 @@ class _OpenPosition:
         self.time_cut_minutes = time_cut_minutes
         self.time_cut_min_favorable_points = time_cut_min_favorable_points
         self.max_favorable_points = 0.0
+        # Double take-profit / two-lot state (GER40). double gates the
+        # split-exit path; first_target_level is TP1 (H1 midpoint); once
+        # the first lot fills, first_target_taken flips and banked_points
+        # holds lot A's realised P&L, added to the runner's leg at close.
+        self.double = double
+        self.first_target_level = first_target_level
+        self.first_target_taken = False
+        self.banked_points = 0.0
+        # Absolute initial stop level. When set (GER40, stop measured from
+        # the H1 reference level) it overrides the entry-relative stop; both
+        # lots share it until break-even moves the stop to entry.
+        self.initial_stop_price = initial_stop_price
 
     @property
     def time_cut_enabled(self) -> bool:
@@ -256,6 +271,8 @@ class _OpenPosition:
     def stop_level(self) -> float:
         if self.be_armed:
             return self.entry_price
+        if self.initial_stop_price is not None:
+            return self.initial_stop_price
         if self.is_long:
             return self.entry_price - self.stop_loss_points
         return self.entry_price + self.stop_loss_points
@@ -481,7 +498,18 @@ class BacktestService:
         losing: List[Trade] = []
         be_trades: List[Trade] = []
         for trade in trades:
-            if trade.exit_reason == ExitReason.BREAK_EVEN:
+            if definition.double_take_profit:
+                # Two-lot positions are classified by the sign of their
+                # net points (FR-G08): a TP1-then-break-even runner closes
+                # BREAK_EVEN but banks a net gain, so it counts as a win;
+                # only a genuinely flat position (net 0) is a break-even.
+                if trade.points > 0:
+                    winning.append(trade)
+                elif trade.points < 0:
+                    losing.append(trade)
+                else:
+                    be_trades.append(trade)
+            elif trade.exit_reason == ExitReason.BREAK_EVEN:
                 be_trades.append(trade)
             elif trade.points > 0:
                 winning.append(trade)
@@ -577,6 +605,23 @@ class BacktestService:
         position: Optional[_OpenPosition] = None
         long_take_profit = h1_high - params.take_profit_offset_points
         short_take_profit = h1_low + params.take_profit_offset_points
+
+        # Double take-profit / two-lot setup (GER40). first_target is the
+        # H1 midpoint (TP1); the stop, when measured from the reference
+        # level, sits stop_loss_points beyond the H1 low/high (shared by
+        # both lots). Both stay None on the single-lot CAC40 backtests.
+        double = definition.double_take_profit
+        first_target: Optional[float] = None
+        if double and definition.first_target_fraction is not None:
+            first_target = h1_low + definition.first_target_fraction * (
+                h1_high - h1_low
+            )
+        long_stop_price: Optional[float] = None
+        short_stop_price: Optional[float] = None
+        if definition.stop_from_reference_level:
+            long_stop_price = h1_low - params.stop_loss_points
+            short_stop_price = h1_high + params.stop_loss_points
+
         long_search = _DirectionSearch(
             Direction.BUY,
             h1_high,
@@ -613,6 +658,9 @@ class BacktestService:
                         time_cut_min_favorable_points=(
                             definition.time_cut_min_favorable_points
                         ),
+                        double=double,
+                        first_target_level=first_target,
+                        initial_stop_price=long_stop_price,
                     )
                 elif short_entry is not None:
                     position = _OpenPosition(
@@ -625,6 +673,9 @@ class BacktestService:
                         time_cut_min_favorable_points=(
                             definition.time_cut_min_favorable_points
                         ),
+                        double=double,
+                        first_target_level=first_target,
+                        initial_stop_price=short_stop_price,
                     )
                 if position is not None:
                     long_search.reset()
@@ -640,8 +691,13 @@ class BacktestService:
 
         if position is not None and candles:
             last_candle = candles[-1]
+            close = (
+                self._close_double_trade
+                if position.double
+                else self._close_trade
+            )
             trades.append(
-                self._close_trade(
+                close(
                     position,
                     _candle_date(last_candle),
                     last_candle.close,
@@ -663,6 +719,11 @@ class BacktestService:
         (FR-009), and only arms the break-even stop when neither exit
         triggered. Returns the closed Trade, or None if the position
         stays open."""
+        if position.double:
+            return self._resolve_exit_double(
+                position, candle, candle_date, params
+            )
+
         stop_level = position.stop_level
         take_profit_level = position.take_profit_level
 
@@ -721,6 +782,105 @@ class BacktestService:
 
         return None
 
+    def _resolve_exit_double(
+        self,
+        position: _OpenPosition,
+        candle: Candle,
+        candle_date: datetime.datetime,
+        params: BacktestParameters,
+    ) -> Optional[Trade]:
+        """Exit resolution for a two-lot / double-take-profit position
+        (GER40). While both lots are open they share one stop; a stop hit
+        closes both (the "SL is x2" loss). The first lot takes profit at
+        the H1 midpoint (TP1); when it fills, the runner's stop moves to
+        break-even and the runner then targets the full take-profit (TP2)
+        or that break-even stop. Stop is checked before take-profit on the
+        same candle (conservative, FR-009/FR-G05)."""
+        stop_level = position.stop_level
+        first_target = position.first_target_level
+
+        if position.is_long:
+            stop_hit = candle.lower <= stop_level
+            tp1_hit = (
+                first_target is not None and candle.higher >= first_target
+            )
+            tp2_hit = candle.higher >= position.take_profit_level
+        else:
+            stop_hit = candle.higher >= stop_level
+            tp1_hit = first_target is not None and candle.lower <= first_target
+            tp2_hit = candle.lower <= position.take_profit_level
+
+        if stop_hit:
+            exit_price = self._stop_fill(position, candle, stop_level)
+            reason = (
+                ExitReason.BREAK_EVEN
+                if position.be_armed
+                else ExitReason.STOP_LOSS
+            )
+            return self._close_double_trade(
+                position, candle_date, exit_price, reason
+            )
+
+        if (
+            not position.first_target_taken
+            and tp1_hit
+            and first_target is not None
+        ):
+            tp1_fill = self._target_fill(position, candle, first_target)
+            leg = (
+                tp1_fill - position.entry_price
+                if position.is_long
+                else position.entry_price - tp1_fill
+            )
+            position.banked_points += leg
+            position.first_target_taken = True
+            position.be_armed = True
+            if tp2_hit:
+                tp2_fill = self._target_fill(
+                    position, candle, position.take_profit_level
+                )
+                return self._close_double_trade(
+                    position, candle_date, tp2_fill, ExitReason.TAKE_PROFIT
+                )
+            return None
+
+        if position.first_target_taken and tp2_hit:
+            tp2_fill = self._target_fill(
+                position, candle, position.take_profit_level
+            )
+            return self._close_double_trade(
+                position, candle_date, tp2_fill, ExitReason.TAKE_PROFIT
+            )
+
+        if not position.be_armed:
+            arm = params.break_even_trigger_points
+            if position.is_long:
+                if candle.higher >= position.entry_price + arm:
+                    position.be_armed = True
+            elif candle.lower <= position.entry_price - arm:
+                position.be_armed = True
+
+        return None
+
+    @staticmethod
+    def _stop_fill(
+        position: _OpenPosition, candle: Candle, level: float
+    ) -> float:
+        """Gap-fill for a stop-type exit: the candle open when it gapped
+        through the level, else the level itself (FR-010)."""
+        if position.is_long:
+            return candle.open if candle.open <= level else level
+        return candle.open if candle.open >= level else level
+
+    @staticmethod
+    def _target_fill(
+        position: _OpenPosition, candle: Candle, level: float
+    ) -> float:
+        """Gap-fill for a take-profit-type exit (mirror of _stop_fill)."""
+        if position.is_long:
+            return candle.open if candle.open >= level else level
+        return candle.open if candle.open <= level else level
+
     @staticmethod
     def _resolve_time_cut(
         position: _OpenPosition,
@@ -770,6 +930,38 @@ class BacktestService:
             points = exit_price - position.entry_price
         else:
             points = position.entry_price - exit_price
+        return Trade(
+            entry_time=position.entry_time,
+            entry_price=position.entry_price,
+            exit_time=exit_time,
+            exit_price=round(exit_price, 4),
+            exit_reason=exit_reason,
+            direction=position.direction,
+            points=round(points, 4),
+        )
+
+    @staticmethod
+    def _close_double_trade(
+        position: _OpenPosition,
+        exit_time: datetime.datetime,
+        exit_price: float,
+        exit_reason: ExitReason,
+    ) -> Trade:
+        """Aggregate a two-lot position into one Trade whose points is the
+        sum of both lots (FR-G07). Before the first lot takes profit both
+        lots exit at exit_price (2x the leg - the "SL is x2" loss);
+        afterwards only the runner remains, added to the first lot's
+        banked points. exit_price/exit_reason reflect the runner's final
+        exit, so points need not equal exit_price - entry_price here."""
+        leg = (
+            exit_price - position.entry_price
+            if position.is_long
+            else position.entry_price - exit_price
+        )
+        if position.first_target_taken:
+            points = position.banked_points + leg
+        else:
+            points = 2 * leg
         return Trade(
             entry_time=position.entry_time,
             entry_price=position.entry_price,

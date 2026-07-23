@@ -35,6 +35,26 @@ def _b9h_definition() -> BacktestDefinition:
     )
 
 
+def _g9h_definition() -> BacktestDefinition:
+    """The real GER40 double-TP definition (defaults 150/10/50/40) so
+    per-definition parameter resolution can be asserted at the router."""
+    return BacktestDefinition(
+        code="G9H",
+        name="Bougie de 9h GER40",
+        display_name="GER40 Bougie de 9h",
+        instrument="GER40.I",
+        default_parameters=BacktestParameters(
+            stop_loss_points=150,
+            take_profit_offset_points=10,
+            break_even_trigger_points=50,
+            max_entry_distance_points=40,
+        ),
+        double_take_profit=True,
+        first_target_fraction=0.5,
+        stop_from_reference_level=True,
+    )
+
+
 @pytest.fixture
 def mock_backtest_service():
     service = MagicMock(spec=BacktestService)
@@ -332,6 +352,44 @@ class TestGetBacktestDayCsv:
             "exit_reason,direction,points\r\n"
         )
 
+    def test_g9h_day_csv_echoes_ger40_params_and_aggregated_trade(
+        self, mock_backtest_service
+    ):
+        mock_backtest_service.get_definition.return_value = _g9h_definition()
+        mock_backtest_service.evaluate_day.return_value = DayResult(
+            date=datetime.date(2026, 6, 2),
+            status=DayStatus.TRADED,
+            h1_high=8050.0,
+            h1_low=8000.0,
+            candles=[],
+            trades=[
+                Trade(
+                    entry_time=datetime.datetime(2026, 6, 2, 8, 20),
+                    entry_price=8015.0,
+                    exit_time=datetime.datetime(2026, 6, 2, 9, 0),
+                    exit_price=8040.0,
+                    exit_reason=ExitReason.TAKE_PROFIT,
+                    points=35.0,
+                )
+            ],
+        )
+
+        response = client.get(
+            "/api/backtest/day/csv",
+            params={"definition": "G9H", "date": "2026-06-02"},
+        )
+
+        assert response.status_code == 200
+        body = response.text
+        # resolved GER40 defaults in the leading parameter block
+        assert "stop_loss_points,150" in body
+        assert "break_even_trigger_points,50" in body
+        assert "max_entry_distance_points,40" in body
+        # the aggregated two-lot position as a single trade row (net points)
+        assert "8015.0" in body
+        assert "take_profit" in body
+        assert "35.0" in body
+
 
 class TestGetBacktestRunCsv:
     def test_populated_range_returns_csv(self, mock_backtest_service):
@@ -460,6 +518,55 @@ class TestBacktestParameters:
 
         assert response.status_code == 422
         mock_backtest_service.evaluate_day.assert_not_called()
+
+    def test_g9h_omitted_params_default_to_ger40_thresholds(
+        self, mock_backtest_service
+    ):
+        mock_backtest_service.get_definition.return_value = _g9h_definition()
+        mock_backtest_service.evaluate_day.return_value = DayResult(
+            date=datetime.date(2026, 6, 2), status=DayStatus.NO_TRADE
+        )
+
+        response = client.get(
+            "/api/backtest/day",
+            params={"definition": "G9H", "date": "2026-06-02"},
+        )
+
+        assert response.status_code == 200
+        params = mock_backtest_service.evaluate_day.call_args.args[2]
+        assert params == BacktestParameters(
+            stop_loss_points=150,
+            take_profit_offset_points=10,
+            break_even_trigger_points=50,
+            max_entry_distance_points=40,
+        )
+
+    def test_g9h_override_falls_back_to_ger40_for_omitted(
+        self, mock_backtest_service
+    ):
+        mock_backtest_service.get_definition.return_value = _g9h_definition()
+        mock_backtest_service.evaluate_day.return_value = DayResult(
+            date=datetime.date(2026, 6, 2), status=DayStatus.NO_TRADE
+        )
+
+        response = client.get(
+            "/api/backtest/day",
+            params={
+                "definition": "G9H",
+                "date": "2026-06-02",
+                "stop_loss_points": 120,
+            },
+        )
+
+        assert response.status_code == 200
+        params = mock_backtest_service.evaluate_day.call_args.args[2]
+        # overridden stop, GER40 defaults for the three omitted thresholds
+        assert params == BacktestParameters(
+            stop_loss_points=120,
+            take_profit_offset_points=10,
+            break_even_trigger_points=50,
+            max_entry_distance_points=40,
+        )
 
 
 class TestGetBacktestDefinitions:
