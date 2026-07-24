@@ -95,7 +95,7 @@ async def get_backtest_day(
     """Run the backtest for a single day and return full trade detail."""
     backtest_definition = _resolve_definition(backtest_service, definition)
     trading_date = _parse_date(date)
-    day_result = backtest_service.evaluate_day(
+    day_result = await backtest_service.evaluate_day(
         backtest_definition, trading_date, params
     )
     return day_result_to_response(day_result)
@@ -113,7 +113,7 @@ async def get_backtest_run(
     summary plus a compact per-day list."""
     backtest_definition = _resolve_definition(backtest_service, definition)
     start, end = _parse_range(start_date, end_date)
-    run_result = backtest_service.run_range(
+    run_result = await backtest_service.run_range(
         backtest_definition, start, end, params
     )
     return backtest_run_result_to_response(run_result)
@@ -129,7 +129,7 @@ async def get_backtest_day_csv(
     """CSV export of a single day's detail (FR-018)."""
     backtest_definition = _resolve_definition(backtest_service, definition)
     trading_date = _parse_date(date)
-    day_result = backtest_service.evaluate_day(
+    day_result = await backtest_service.evaluate_day(
         backtest_definition, trading_date, params
     )
     return Response(
@@ -154,7 +154,7 @@ async def get_backtest_run_csv(
     """CSV export of a range run's day-by-day summary (FR-017)."""
     backtest_definition = _resolve_definition(backtest_service, definition)
     start, end = _parse_range(start_date, end_date)
-    run_result = backtest_service.run_range(
+    run_result = await backtest_service.run_range(
         backtest_definition, start, end, params
     )
     return Response(

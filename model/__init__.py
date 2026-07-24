@@ -7,6 +7,7 @@ from model.backtest import (  # noqa: F401
     BacktestParameters,
     BacktestRunResult,
     BacktestSummary,
+    CachedDayCandles,
     DayResult,
     DayResultSummary,
     Trade,
