@@ -30,7 +30,7 @@ Add a "Backtest" menu that runs one hardcoded strategy — "CAC40 Bougie de 9h" 
 | I. Layered Architecture Discipline | New router (`api/routers/backtest.py`) stays thin; business logic (breakout/exit rules, aggregation) lives in a new `api/services/backtest_service.py`; new historical-candle fetch logic lives in `services/candles_service.py` (Service layer), which alone talks to `client/saxo_client.py`; new domain types live in `model/` with no external deps; frontend keeps API calls in `frontend/src/services/api.ts` only. | PASS |
 | II. Clean Code First | Reuses `Strategy.B9H` instead of a new hardcoded name; new `ExitReason`/`DayStatus` enums instead of string literals; no speculative generic "backtest engine" is built (FR-002 explicitly forbids it). | PASS |
 | III. Configuration-Driven Design | Strategy thresholds default in code but are tunable per request via `BacktestParameters` (FR-025, added 2026-07-21) rather than living in `config.yml` — appropriate, since they are per-run analysis inputs, not deployment configuration or external-integration settings. No new external integration or credential is introduced, so no new config surface is needed. | PASS |
-| IV. Safe Deployment Practices | The candle cache (added 2026-07-24, FR-032–FR-036) requires one new Pulumi-managed DynamoDB table (`backtest_candle_cache`), following the existing `pulumi/dynamodb.py` pattern (e.g. `alert_digests_table`) and existing IAM grants (`pulumi/iam.py`); no new Lambda or external integration. Everything else remains additive within the existing API/frontend deployment. | PASS |
+| IV. Safe Deployment Practices | The candle cache (added 2026-07-24, FR-036–FR-040) requires one new Pulumi-managed DynamoDB table (`backtest_candle_cache`), following the existing `pulumi/dynamodb.py` pattern (e.g. `alert_digests_table`) and existing IAM grants (`pulumi/iam.py`); no new Lambda or external integration. Everything else remains additive within the existing API/frontend deployment. | PASS |
 | V. Domain Model Integrity | New `UnitTime.M5` follows the existing enum pattern; 5-minute/H1 historical fetches for closed past days sidestep the "current day/hour not returned" Saxo limitation correctly (research.md §2) rather than ignoring it; `Candle` objects are used for all candle data outside the client layer; `exchange`/`country_code` concerns don't apply (FRA40.I is a single hardcoded Saxo instrument, not a general asset lookup). | PASS |
 
 No violations requiring justification (the earlier hardcoded-thresholds exception was resolved when the thresholds became per-run parameters — see Complexity Tracking).
@@ -83,7 +83,7 @@ api/
 ├── services/
 │   └── backtest_service.py        # NEW: breakout/exit rule engine + aggregation;
                                     #      + candle-cache lookup/store around the
-                                    #      per-day candle fetch (FR-032–FR-036,
+                                    #      per-day candle fetch (FR-036–FR-040,
                                     #      added 2026-07-24)
 ├── dependencies.py                # + get_backtest_service()
 └── main.py                        # + app.include_router(backtest.router)
