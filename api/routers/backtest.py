@@ -111,7 +111,7 @@ async def get_backtest_day(
     backtest_definition = _resolve_definition(backtest_service, definition)
     params = _resolve_params(backtest_definition, overrides)
     trading_date = _parse_date(date)
-    day_result = backtest_service.evaluate_day(
+    day_result = await backtest_service.evaluate_day(
         backtest_definition, trading_date, params
     )
     return day_result_to_response(day_result)
@@ -130,7 +130,7 @@ async def get_backtest_run(
     backtest_definition = _resolve_definition(backtest_service, definition)
     params = _resolve_params(backtest_definition, overrides)
     start, end = _parse_range(start_date, end_date)
-    run_result = backtest_service.run_range(
+    run_result = await backtest_service.run_range(
         backtest_definition, start, end, params
     )
     return backtest_run_result_to_response(run_result)
@@ -147,7 +147,7 @@ async def get_backtest_day_csv(
     backtest_definition = _resolve_definition(backtest_service, definition)
     params = _resolve_params(backtest_definition, overrides)
     trading_date = _parse_date(date)
-    day_result = backtest_service.evaluate_day(
+    day_result = await backtest_service.evaluate_day(
         backtest_definition, trading_date, params
     )
     return Response(
@@ -173,7 +173,7 @@ async def get_backtest_run_csv(
     backtest_definition = _resolve_definition(backtest_service, definition)
     params = _resolve_params(backtest_definition, overrides)
     start, end = _parse_range(start_date, end_date)
-    run_result = backtest_service.run_range(
+    run_result = await backtest_service.run_range(
         backtest_definition, start, end, params
     )
     return Response(

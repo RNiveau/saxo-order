@@ -6,6 +6,7 @@ class Strategy(EnumWithGetValue):
     B9H = "Bougie de 9h"
     B9HTC = "Bougie de 9h (time cut)"
     G9H = "Bougie de 9h GER40"
+    B9HWS = "Bougie de 9h (wide-range structural stop)"
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
     CRANGE = "Cassure de range"

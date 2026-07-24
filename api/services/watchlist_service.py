@@ -55,10 +55,15 @@ class WatchlistService:
         else:
             code = asset_symbol
 
-        if exchange == "binance":
+        try:
+            exchange_enum = Exchange.get_value(exchange)
+        except ValueError:
+            exchange_enum = Exchange.SAXO
+
+        if exchange_enum.is_crypto():
             indicators = await self.indicator_service.get_asset_indicators(
                 code=code,
-                exchange=Exchange.BINANCE,
+                exchange=exchange_enum,
                 country_code="",
                 unit_time=UnitTime.D,
             )

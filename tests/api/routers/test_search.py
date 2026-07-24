@@ -3,7 +3,11 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_binance_client, get_saxo_client
+from api.dependencies import (
+    get_binance_client,
+    get_ouinex_client,
+    get_saxo_client,
+)
 from api.main import app
 from model import AssetType
 from model.asset import Asset
@@ -36,6 +40,19 @@ def mock_binance_client():
         return mock_client
 
     app.dependency_overrides[get_binance_client] = override_get_binance_client
+    yield mock_client
+
+
+@pytest.fixture(autouse=True)
+def mock_ouinex_client():
+    """Mock OuinexClient for testing."""
+    mock_client = MagicMock()
+    mock_client.search.return_value = []
+
+    def override_get_ouinex_client():
+        return mock_client
+
+    app.dependency_overrides[get_ouinex_client] = override_get_ouinex_client
     yield mock_client
 
 
@@ -190,3 +207,62 @@ class TestSearchEndpoint:
         data = response.json()
         assert data["total"] == 3
         assert len(data["results"]) == 3
+
+    def test_search_includes_ouinex_results(
+        self, mock_saxo_client, mock_binance_client, mock_ouinex_client
+    ):
+        """Search results include Ouinex items alongside other providers."""
+        mock_saxo_client.search.return_value = []
+        mock_ouinex_client.search.return_value = [
+            Asset(
+                symbol="BTCUSD",
+                description="BTC/USD",
+                asset_type=AssetType.CRYPTO,
+                exchange=Exchange.OUINEX,
+                identifier=42,
+            )
+        ]
+
+        response = client.get("/api/search?keyword=btc")
+
+        assert response.status_code == 200
+        data = response.json()
+        exchanges = [item["exchange"] for item in data["results"]]
+        assert "ouinex" in exchanges
+        ouinex_item = next(
+            item for item in data["results"] if item["exchange"] == "ouinex"
+        )
+        assert ouinex_item["asset_type"] == "Crypto"
+
+    def test_search_ouinex_failure_keeps_other_results(
+        self, mock_saxo_client, mock_binance_client, mock_ouinex_client
+    ):
+        """A Ouinex client error must not break Saxo/Binance results."""
+        mock_saxo_client.search.return_value = [
+            Asset(
+                symbol="AAPL:xnas",
+                description="Apple Inc.",
+                asset_type=AssetType.STOCK,
+                exchange=Exchange.SAXO,
+                identifier=211,
+            )
+        ]
+        mock_binance_client.search.return_value = [
+            Asset(
+                symbol="BTCUSDT",
+                description="BTC/USDT",
+                asset_type=AssetType.CRYPTO,
+                exchange=Exchange.BINANCE,
+                identifier=None,
+            )
+        ]
+        mock_ouinex_client.search.side_effect = Exception("Ouinex down")
+
+        response = client.get("/api/search?keyword=test")
+
+        assert response.status_code == 200
+        data = response.json()
+        exchanges = {item["exchange"] for item in data["results"]}
+        assert "saxo" in exchanges
+        assert "binance" in exchanges
+        assert "ouinex" not in exchanges

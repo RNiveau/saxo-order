@@ -1,9 +1,11 @@
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 
+from model.asset import Asset
+from model.enum import AssetType, Exchange
 from utils.exception import OuinexException
 from utils.logger import Logger
 
@@ -13,6 +15,17 @@ mutation SignIn($apiKey: String!, $secretKey: String!) {
     accessToken
     refreshToken
     expiresIn
+  }
+}
+"""
+
+INSTRUMENTS_QUERY = """
+query Instruments {
+  instruments {
+    id
+    symbol
+    baseCurrency
+    quoteCurrency
   }
 }
 """
@@ -106,3 +119,48 @@ class OuinexClient:
             raise OuinexException(f"Ouinex GraphQL error: {payload['errors']}")
 
         return payload.get("data") or {}
+
+    def _map_instrument_to_asset(self, instrument: Dict[str, Any]) -> Asset:
+        base = instrument.get("baseCurrency", "")
+        quote = instrument.get("quoteCurrency", "")
+        symbol = instrument.get("symbol") or f"{base}{quote}"
+        identifier = instrument.get("id")
+        return Asset(
+            symbol=symbol,
+            description=f"{base}/{quote}",
+            asset_type=AssetType.CRYPTO,
+            exchange=Exchange.OUINEX,
+            identifier=int(identifier) if identifier is not None else None,
+        )
+
+    def search(self, keyword: str) -> List[Asset]:
+        """
+        Search Ouinex instruments by keyword.
+
+        Fetches the instrument list via the `instruments` GraphQL query and
+        filters client-side against the symbol and base/quote currencies,
+        mirroring the Binance search behavior.
+
+        Args:
+            keyword: Search keyword to match against symbol or currencies
+
+        Returns:
+            List of Asset objects tagged Exchange.OUINEX / AssetType.CRYPTO
+        """
+        data = self._execute(INSTRUMENTS_QUERY)
+        keyword_lower = keyword.lower()
+
+        results = []
+        for instrument in data.get("instruments", []):
+            base = instrument.get("baseCurrency", "")
+            quote = instrument.get("quoteCurrency", "")
+            symbol = instrument.get("symbol") or f"{base}{quote}"
+
+            if (
+                keyword_lower in symbol.lower()
+                or keyword_lower in base.lower()
+                or keyword_lower in quote.lower()
+            ):
+                results.append(self._map_instrument_to_asset(instrument))
+
+        return results

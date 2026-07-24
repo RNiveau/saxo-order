@@ -7,6 +7,7 @@ from api.models.watchlist import WatchlistTag
 from api.services.watchlist_service import WatchlistService
 from client.aws_client import DynamoDBClient
 from model import Currency
+from model.enum import Exchange
 
 
 @pytest.fixture
@@ -388,6 +389,36 @@ class TestWatchlistServiceFiltering:
         # Assert: Empty result
         assert result.total == 0
         assert len(result.items) == 0
+
+    async def test_ouinex_item_tagged_crypto_and_priced_usd(
+        self, watchlist_service, mock_dynamodb_client, mock_indicator_service
+    ):
+        """A ouinex exchange item is priced via crypto indicators in USD."""
+        mock_dynamodb_client.get_watchlist.return_value = [
+            {
+                "id": "ouinex1",
+                "asset_symbol": "BTCUSD",
+                "description": "BTC/USD",
+                "country_code": "",
+                "added_at": "2024-01-01T00:00:00Z",
+                "labels": ["crypto", "short-term"],
+                "asset_identifier": None,
+                "asset_type": None,
+                "exchange": "ouinex",
+            },
+        ]
+        mock_dynamodb_client.get_tradingview_link.return_value = None
+
+        result = await watchlist_service.get_all_watchlist()
+
+        assert result.total == 1
+        item = result.items[0]
+        assert item.currency == Currency.USD
+        assert item.exchange == "ouinex"
+        assert item.current_price == 100.0
+
+        _, kwargs = mock_indicator_service.get_asset_indicators.call_args
+        assert kwargs["exchange"] == Exchange.OUINEX
 
     async def test_get_long_term_positions_enriches_prices(
         self, watchlist_service, mock_dynamodb_client, mock_indicator_service

@@ -56,6 +56,14 @@ class BacktestDefinition:
     # a short) rather than that distance from the entry price. GER40 sets
     # this True; CAC40 measures its stop from entry (False).
     stop_from_reference_level: bool = False
+    # Wide-range structural-stop variant (spec 021, US1d): when
+    # min_h1_range_points is set, days whose H1 range (high - low) is not
+    # strictly greater than it are not traded; when structural_stop is True,
+    # the fixed stop-loss distance is replaced by a stop that fires when a
+    # 5-minute candle closes beyond the H1 level while break-even is unarmed.
+    # Left None/False on the other backtests so their behavior is unchanged.
+    min_h1_range_points: Optional[float] = None
+    structural_stop: bool = False
 
     def __post_init__(self) -> None:
         # The double take-profit exit path does not evaluate the time cut,
@@ -85,6 +93,7 @@ class DayResult:
     status: DayStatus
     h1_high: Optional[float] = None
     h1_low: Optional[float] = None
+    h1_open: Optional[float] = None
     candles: List[Candle] = field(default_factory=list)
     trades: List[Trade] = field(default_factory=list)
 
@@ -101,6 +110,20 @@ class DayResultSummary:
     # days, which run_range excludes from the summary anyway.
     h1_high: Optional[float] = None
     h1_low: Optional[float] = None
+    # Daily MA50 slope (%) as of the close strictly before this day - a
+    # trend/chop regime measure, lookahead-safe and config-independent.
+    # None when fewer than 60 prior daily candles are available.
+    mm50_slope: Optional[float] = None
+    # Daily ADX(14) as of the close strictly before this day - a
+    # direction-agnostic trend/chop strength measure, lookahead-safe and
+    # config-independent. None when fewer than 42 prior daily candles exist.
+    adx14: Optional[float] = None
+    # 9h reference candle open, and the overnight gap (9h open - the prior
+    # daily close). A same-day, pre-trade shock/impulse signal, lookahead-
+    # safe and config-independent. overnight_gap is None when there is no
+    # prior daily candle to measure against.
+    h1_open: Optional[float] = None
+    overnight_gap: Optional[float] = None
 
 
 @dataclass
@@ -122,3 +145,15 @@ class BacktestSummary:
 class BacktestRunResult:
     summary: BacktestSummary
     days: List[DayResultSummary] = field(default_factory=list)
+
+
+@dataclass
+class CachedDayCandles:
+    """Raw Saxo candle data cached for one (backtest definition, trading
+    date) pair (FR-036-FR-040). Never holds a computed Trade/DayResult -
+    only the H1 reference candle and 5-minute session candles a day's
+    strategy evaluation is run against."""
+
+    has_data: bool
+    h1_candle: Optional[Candle] = None
+    m5_candles: List[Candle] = field(default_factory=list)

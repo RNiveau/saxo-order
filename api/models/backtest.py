@@ -68,6 +68,10 @@ class DayResultSummaryResponse(BaseModel):
     points: float
     h1_high: Optional[float] = None
     h1_low: Optional[float] = None
+    mm50_slope: Optional[float] = None
+    adx14: Optional[float] = None
+    h1_open: Optional[float] = None
+    overnight_gap: Optional[float] = None
 
 
 class BacktestSummaryResponse(BaseModel):
@@ -150,6 +154,10 @@ def _day_result_summary_to_response(
         points=summary.points,
         h1_high=summary.h1_high,
         h1_low=summary.h1_low,
+        mm50_slope=summary.mm50_slope,
+        adx14=summary.adx14,
+        h1_open=summary.h1_open,
+        overnight_gap=summary.overnight_gap,
     )
 
 
@@ -214,6 +222,10 @@ def backtest_run_result_to_csv(
             "h1_high",
             "h1_low",
             "h1_range",
+            "mm50_slope",
+            "adx14",
+            "h1_open",
+            "overnight_gap",
         ]
     )
     for day in run_result.days:
@@ -231,6 +243,10 @@ def backtest_run_result_to_csv(
                 day.h1_high,
                 day.h1_low,
                 h1_range,
+                day.mm50_slope,
+                day.adx14,
+                day.h1_open,
+                day.overnight_gap,
             ]
         )
     return output.getvalue()

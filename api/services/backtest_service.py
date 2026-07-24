@@ -2,11 +2,13 @@ import datetime
 from typing import List, Optional
 from zoneinfo import ZoneInfo
 
+from client.aws_client import DynamoDBClient, DynamoDBOperationError
 from model import (
     BacktestDefinition,
     BacktestParameters,
     BacktestRunResult,
     BacktestSummary,
+    CachedDayCandles,
     Candle,
     DayResult,
     DayResultSummary,
@@ -18,11 +20,27 @@ from model import (
 )
 from model.enum import DayStatus, Direction, ExitReason
 from services.candles_service import CandlesService
+from services.indicator_service import (
+    adx,
+    mobile_average,
+    slope_percentage,
+)
 from utils.exception import SaxoException
 from utils.helper import market_in_utc
 from utils.logger import Logger
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
+
+# Daily MA50 slope regime measure: MA50 needs 50 daily closes and the
+# slope is taken over a 10-candle lookback, so at least 60 prior daily
+# candles are required before a day can be scored.
+MM50_MIN_DAILY_CANDLES = 60
+MM50_SLOPE_LOOKBACK = 10
+
+# Daily ADX regime measure: Wilder's double smoothing needs period * 3
+# prior daily candles (matches services.indicator_service.adx).
+ADX_PERIOD = 14
+ADX_MIN_DAILY_CANDLES = ADX_PERIOD * 3
 
 BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
     BacktestDefinition(
@@ -54,7 +72,32 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         first_target_fraction=0.5,
         stop_from_reference_level=True,
     ),
+    BacktestDefinition(
+        code="B9HWS",
+        name=Strategy.B9HWS.value,
+        display_name="CAC40 Bougie de 9h (wide-range structural stop)",
+        instrument="FRA40.I",
+        min_h1_range_points=40.0,
+        structural_stop=True,
+    ),
 ]
+
+# Bump whenever a change to a BacktestDefinition's instrument, 9h
+# reference window, or session windows would change what candles are
+# fetched under the same code (e.g. re-pointing a definition at a
+# different instrument). Without this, an edited definition would
+# otherwise keep serving cache entries fetched under its old shape
+# forever - there is no TTL on the candle cache (FR-040).
+CACHE_SCHEMA_VERSION = 1
+
+
+def _cache_key(definition: BacktestDefinition) -> str:
+    """Cache key for the raw-candle cache (FR-036), covering not just
+    the definition's code but also its instrument and the schema
+    version, so a definition edit or a strategy-shape change can
+    invalidate old entries just by bumping CACHE_SCHEMA_VERSION."""
+    return f"{definition.code}:{definition.instrument}:v{CACHE_SCHEMA_VERSION}"
+
 
 # Candle horizons for the two Saxo fetches. Unlike the strategy
 # thresholds (now tunable via BacktestParameters), these describe the
@@ -249,6 +292,9 @@ class _OpenPosition:
         double: bool = False,
         first_target_level: Optional[float] = None,
         initial_stop_price: Optional[float] = None,
+        h1_high: Optional[float] = None,
+        h1_low: Optional[float] = None,
+        structural_stop: bool = False,
     ):
         self.entry_time = entry_time
         self.entry_price = entry_price
@@ -271,6 +317,11 @@ class _OpenPosition:
         # the H1 reference level) it overrides the entry-relative stop; both
         # lots share it until break-even moves the stop to entry.
         self.initial_stop_price = initial_stop_price
+        # Wide-range structural-stop variant (spec 021, US1d): the H1
+        # reference levels and the flag enabling the close-beyond-level stop.
+        self.h1_high = h1_high
+        self.h1_low = h1_low
+        self.structural_stop = structural_stop
 
     @property
     def time_cut_enabled(self) -> bool:
@@ -416,9 +467,14 @@ class _DirectionSearch:
 class BacktestService:
     """Runs the hardcoded backtests exposed by the Backtest menu."""
 
-    def __init__(self, candles_service: CandlesService):
+    def __init__(
+        self,
+        candles_service: CandlesService,
+        dynamodb_client: DynamoDBClient,
+    ):
         self.logger = Logger.get_logger("backtest_service")
         self.candles_service = candles_service
+        self.dynamodb_client = dynamodb_client
 
     def list_definitions(self) -> List[BacktestDefinition]:
         return BACKTEST_DEFINITIONS
@@ -429,29 +485,151 @@ class BacktestService:
                 return definition
         return None
 
-    def evaluate_day(
+    async def evaluate_day(
         self,
         definition: BacktestDefinition,
         trading_date: datetime.date,
         params: Optional[BacktestParameters] = None,
     ) -> DayResult:
-        """Run the "CAC40 Bougie de 9h" rules for a single trading day."""
+        """Run the "CAC40 Bougie de 9h" rules for a single trading day.
+
+        Before fetching from Saxo, checks the raw-candle cache for this
+        (definition, trading_date) pair (FR-036); on a miss, fetches as
+        before and stores the result under that key (FR-037/FR-038) so a
+        later request for the same pair skips Saxo entirely. The
+        strategy evaluation (_evaluate_from_candles) always runs fresh
+        against those candles, cached or not (FR-039). A transient Saxo
+        fetch failure (as opposed to a genuine "no data") is never
+        written to the cache, so it doesn't permanently poison later
+        runs over the same day."""
         params = params or BacktestParameters()
-        h1_start_utc, h1_end_utc = paris_reference_window_utc(trading_date)
-        h1_candle = self._fetch_h1_reference_candle(
-            definition.instrument, h1_start_utc, h1_end_utc
+        cached = await self._get_cached_candles(
+            _cache_key(definition), trading_date
         )
-        if h1_candle is None:
+
+        if cached is not None and cached.has_data and cached.h1_candle is None:
+            # _get_cached_candles already guards against this, but a
+            # cache problem must never break a backtest - fall through
+            # to a fresh fetch instead of failing the request.
+            self.logger.warning(
+                f"Cached backtest entry for {_cache_key(definition)}/"
+                f"{trading_date} has has_data=True but no h1_candle; "
+                "treating as a miss"
+            )
+            cached = None
+
+        if cached is not None:
+            if not cached.has_data:
+                return DayResult(date=trading_date, status=DayStatus.NO_DATA)
+            cached_h1_candle = cached.h1_candle
+            if cached_h1_candle is not None:
+                return self._evaluate_from_candles(
+                    definition,
+                    trading_date,
+                    params,
+                    cached_h1_candle,
+                    cached.m5_candles,
+                )
+
+        h1_start_utc, h1_end_utc = paris_reference_window_utc(trading_date)
+        try:
+            fetched_h1_candle = self._fetch_h1_reference_candle(
+                definition.instrument, h1_start_utc, h1_end_utc
+            )
+        except SaxoException as e:
+            self.logger.warning(
+                f"H1 fetch failed for {definition.instrument} on "
+                f"{trading_date}, not caching: {e}"
+            )
+            return DayResult(date=trading_date, status=DayStatus.NO_DATA)
+        if fetched_h1_candle is None:
+            await self._store_candles(
+                _cache_key(definition), trading_date, has_data=False
+            )
             return DayResult(date=trading_date, status=DayStatus.NO_DATA)
 
+        # Wide-range variant (FR-033): skip the 5-minute fetch entirely
+        # on a day whose H1 range doesn't clear the threshold - the day
+        # is a NO_TRADE regardless of what the 5-minute candles hold.
+        if self._is_below_min_range(
+            definition, fetched_h1_candle.higher, fetched_h1_candle.lower
+        ):
+            await self._store_candles(
+                _cache_key(definition),
+                trading_date,
+                has_data=True,
+                h1_candle=fetched_h1_candle,
+                m5_candles=[],
+            )
+            return self._evaluate_from_candles(
+                definition, trading_date, params, fetched_h1_candle, []
+            )
+
+        session_end_utc = paris_session_end_utc(trading_date)
+        try:
+            five_min_candles = self._fetch_five_minute_candles(
+                definition.instrument, h1_end_utc, session_end_utc
+            )
+        except SaxoException as e:
+            self.logger.warning(
+                f"5-minute fetch failed for {definition.instrument} on "
+                f"{trading_date}, not caching: {e}"
+            )
+            five_min_candles = []
+        else:
+            await self._store_candles(
+                _cache_key(definition),
+                trading_date,
+                has_data=True,
+                h1_candle=fetched_h1_candle,
+                m5_candles=five_min_candles,
+            )
+
+        return self._evaluate_from_candles(
+            definition,
+            trading_date,
+            params,
+            fetched_h1_candle,
+            five_min_candles,
+        )
+
+    @staticmethod
+    def _is_below_min_range(
+        definition: BacktestDefinition, h1_high: float, h1_low: float
+    ) -> bool:
+        """Wide-range variant (FR-033): whether the day's H1 range fails
+        to clear the definition's threshold. Always False for
+        definitions without one (min_h1_range_points is None)."""
+        return (
+            definition.min_h1_range_points is not None
+            and h1_high - h1_low <= definition.min_h1_range_points
+        )
+
+    def _evaluate_from_candles(
+        self,
+        definition: BacktestDefinition,
+        trading_date: datetime.date,
+        params: BacktestParameters,
+        h1_candle: Candle,
+        five_min_candles: List[Candle],
+    ) -> DayResult:
+        """Shared tail of evaluate_day once the day's H1/5-minute candles
+        are known, whether from the cache or a fresh Saxo fetch: applies
+        the wide-range filter (FR-033) then runs the strategy. Pure/no
+        I/O, so it's reused unchanged by both the cache-hit and
+        cache-miss paths."""
         h1_high = h1_candle.higher
         h1_low = h1_candle.lower
-        session_end_utc = paris_session_end_utc(trading_date)
-        five_min_candles = self._fetch_five_minute_candles(
-            definition.instrument, h1_end_utc, session_end_utc
-        )
-        chronological = sorted(five_min_candles, key=_candle_date)
+        if self._is_below_min_range(definition, h1_high, h1_low):
+            return DayResult(
+                date=trading_date,
+                status=DayStatus.NO_TRADE,
+                h1_high=h1_high,
+                h1_low=h1_low,
+                h1_open=h1_candle.open,
+            )
 
+        chronological = sorted(five_min_candles, key=_candle_date)
         trades = self._evaluate_trades(
             chronological, h1_high, h1_low, params, definition
         )
@@ -462,11 +640,12 @@ class BacktestService:
             status=status,
             h1_high=h1_high,
             h1_low=h1_low,
+            h1_open=h1_candle.open,
             candles=chronological,
             trades=trades,
         )
 
-    def run_range(
+    async def run_range(
         self,
         definition: BacktestDefinition,
         start_date: datetime.date,
@@ -478,6 +657,10 @@ class BacktestService:
         day_summaries: List[DayResultSummary] = []
         all_trades: List[Trade] = []
 
+        daily_candles = self._fetch_daily_candles(
+            definition.instrument, start_date, end_date
+        )
+
         current = start_date
         while current <= end_date:
             if current.weekday() >= 5:
@@ -486,7 +669,7 @@ class BacktestService:
                 # NO_DATA - avoids two wasted Saxo calls per weekend day.
                 current += datetime.timedelta(days=1)
                 continue
-            day_result = self.evaluate_day(definition, current, params)
+            day_result = await self.evaluate_day(definition, current, params)
             if day_result.status != DayStatus.NO_DATA:
                 day_points = round(
                     sum(trade.points for trade in day_result.trades), 4
@@ -499,6 +682,16 @@ class BacktestService:
                         points=day_points,
                         h1_high=day_result.h1_high,
                         h1_low=day_result.h1_low,
+                        mm50_slope=self._mm50_slope_before(
+                            daily_candles, day_result.date
+                        ),
+                        adx14=self._adx_before(daily_candles, day_result.date),
+                        h1_open=day_result.h1_open,
+                        overnight_gap=self._overnight_gap(
+                            daily_candles,
+                            day_result.date,
+                            day_result.h1_open,
+                        ),
                     )
                 )
                 all_trades.extend(day_result.trades)
@@ -571,20 +764,19 @@ class BacktestService:
         h1_start_utc: datetime.datetime,
         h1_end_utc: datetime.datetime,
     ) -> Optional[Candle]:
-        try:
-            candles = self.candles_service.get_candles_in_window(
-                instrument,
-                UnitTime.H1,
-                H1_HORIZON,
-                h1_start_utc,
-                h1_end_utc,
-            )
-        except SaxoException as e:
-            self.logger.warning(
-                f"No H1 reference candle for {instrument} on "
-                f"{h1_start_utc.date()}: {e}"
-            )
-            return None
+        """Returns None only when Saxo genuinely has no H1 candle for this
+        window (a real "no data" day, safe to cache as such). A
+        SaxoException (expired token, rate limit, network blip) is a
+        transient fetch failure, not "no data" - it propagates so the
+        caller never mistakes one for the other and caches it
+        permanently."""
+        candles = self.candles_service.get_candles_in_window(
+            instrument,
+            UnitTime.H1,
+            H1_HORIZON,
+            h1_start_utc,
+            h1_end_utc,
+        )
         if not candles:
             return None
         return sorted(candles, key=_candle_date)[0]
@@ -595,20 +787,112 @@ class BacktestService:
         start_utc: datetime.datetime,
         end_utc: datetime.datetime,
     ) -> List[Candle]:
+        """An empty result is a genuine (cacheable) "no candles"; a
+        SaxoException is a transient fetch failure and propagates - see
+        _fetch_h1_reference_candle."""
+        return self.candles_service.get_candles_in_window(
+            instrument,
+            UnitTime.M5,
+            FIVE_MINUTE_HORIZON,
+            start_utc,
+            end_utc,
+        )
+
+    def _fetch_daily_candles(
+        self,
+        instrument: str,
+        start_date: datetime.date,
+        end_date: datetime.date,
+    ) -> List[Candle]:
+        """Daily (newest-first) candle series covering the run range plus
+        enough lead-in to compute a 50-day MA slope on the first day.
+        Fetched once per run_range. A failure degrades to an empty series
+        (blank mm50_slope column) rather than aborting the whole export."""
+        # Daily candles are fetched counting backward from end_date, so
+        # count must reach ~60 trading days before start_date for the
+        # first day's MA50 slope. Calendar days is a safe upper bound on
+        # the range's trading days (build_candles caps at available data),
+        # so no need to exclude weekends/holidays precisely.
+        count = (
+            (end_date - start_date).days
+            + MM50_MIN_DAILY_CANDLES
+            + MM50_SLOPE_LOOKBACK
+            + 5
+        )
+        reference = datetime.datetime(
+            end_date.year, end_date.month, end_date.day, tzinfo=PARIS_TZ
+        )
         try:
-            return self.candles_service.get_candles_in_window(
-                instrument,
-                UnitTime.M5,
-                FIVE_MINUTE_HORIZON,
-                start_utc,
-                end_utc,
+            return self.candles_service.build_candles(
+                instrument, UnitTime.D, EUMarket(), count, reference
             )
         except SaxoException as e:
             self.logger.warning(
-                f"No 5-minute candles for {instrument} between "
-                f"{start_utc} and {end_utc}: {e}"
+                f"No daily candles for {instrument} regime measure: {e}"
             )
             return []
+
+    @staticmethod
+    def _mm50_slope_before(
+        daily_candles: List[Candle], trading_date: datetime.date
+    ) -> Optional[float]:
+        """Daily MA50 slope (%) as of the last close strictly before
+        trading_date (lookahead-safe: today's daily candle is never in the
+        window). Mirrors the MA50 slope used by the MM50 alert (spec 019).
+        Returns None when fewer than MM50_MIN_DAILY_CANDLES prior daily
+        candles are available."""
+        prior = [
+            candle
+            for candle in daily_candles
+            if candle.date is not None and candle.date.date() < trading_date
+        ]
+        if len(prior) < MM50_MIN_DAILY_CANDLES:
+            return None
+        prior.sort(key=_candle_date, reverse=True)
+        ma50_last = mobile_average(prior, 50)
+        ma50_first = mobile_average(prior[MM50_SLOPE_LOOKBACK:], 50)
+        return slope_percentage(0, ma50_first, MM50_SLOPE_LOOKBACK, ma50_last)
+
+    @staticmethod
+    def _adx_before(
+        daily_candles: List[Candle], trading_date: datetime.date
+    ) -> Optional[float]:
+        """Daily ADX(14) as of the last close strictly before trading_date
+        (lookahead-safe, same window discipline as _mm50_slope_before).
+        Returns None when fewer than ADX_MIN_DAILY_CANDLES prior daily
+        candles are available."""
+        prior = [
+            candle
+            for candle in daily_candles
+            if candle.date is not None and candle.date.date() < trading_date
+        ]
+        if len(prior) < ADX_MIN_DAILY_CANDLES:
+            return None
+        prior.sort(key=_candle_date, reverse=True)
+        return adx(prior, ADX_PERIOD)
+
+    @staticmethod
+    def _overnight_gap(
+        daily_candles: List[Candle],
+        trading_date: datetime.date,
+        h1_open: Optional[float],
+    ) -> Optional[float]:
+        """Overnight gap = 9h open - the prior daily close. A same-day,
+        pre-trade shock signal (the 9h open is known at 09:00, before any
+        entry). Lookahead-safe: the prior close is the latest daily candle
+        strictly before trading_date. None when the 9h open or a prior
+        daily candle is missing."""
+        if h1_open is None:
+            return None
+        prior = [
+            candle
+            for candle in daily_candles
+            if candle.date is not None and candle.date.date() < trading_date
+        ]
+        if not prior:
+            return None
+        prior_close = max(prior, key=_candle_date).close
+        return round(h1_open - prior_close, 4)
 
     def _evaluate_trades(
         self,
@@ -686,6 +970,9 @@ class BacktestService:
                         double=double,
                         first_target_level=first_target,
                         initial_stop_price=long_stop_price,
+                        h1_high=h1_high,
+                        h1_low=h1_low,
+                        structural_stop=definition.structural_stop,
                     )
                 elif short_entry is not None:
                     position = _OpenPosition(
@@ -701,6 +988,9 @@ class BacktestService:
                         double=double,
                         first_target_level=first_target,
                         initial_stop_price=short_stop_price,
+                        h1_high=h1_high,
+                        h1_low=h1_low,
+                        structural_stop=definition.structural_stop,
                     )
                 if position is not None:
                     long_search.reset()
@@ -748,7 +1038,10 @@ class BacktestService:
             return self._resolve_exit_double(
                 position, candle, candle_date, params
             )
-
+        if position.structural_stop and not position.be_armed:
+            return self._resolve_structural_exit(
+                position, candle, candle_date, params
+            )
         stop_level = position.stop_level
         take_profit_level = position.take_profit_level
 
@@ -769,24 +1062,14 @@ class BacktestService:
             return self._close_trade(position, candle_date, exit_price, reason)
 
         if take_profit_hit:
-            exit_price = self._target_fill(position, candle, take_profit_level)
-            return self._close_trade(
-                position, candle_date, exit_price, ExitReason.TAKE_PROFIT
-            )
+            return self._take_profit_exit(position, candle, candle_date)
 
         if position.time_cut_enabled:
             time_cut = self._resolve_time_cut(position, candle, candle_date)
             if time_cut is not None:
                 return time_cut
 
-        if not position.be_armed:
-            arm_threshold = params.break_even_trigger_points
-            if position.is_long:
-                if candle.higher >= position.entry_price + arm_threshold:
-                    position.be_armed = True
-            elif candle.lower <= position.entry_price - arm_threshold:
-                position.be_armed = True
-
+        self._arm_break_even(position, candle, params)
         return None
 
     def _resolve_exit_double(
@@ -859,15 +1142,79 @@ class BacktestService:
                 position, candle_date, tp2_fill, ExitReason.TAKE_PROFIT
             )
 
-        if not position.be_armed:
-            arm = params.break_even_trigger_points
-            if position.is_long:
-                if candle.higher >= position.entry_price + arm:
-                    position.be_armed = True
-            elif candle.lower <= position.entry_price - arm:
-                position.be_armed = True
-
+        self._arm_break_even(position, candle, params)
         return None
+
+    def _resolve_structural_exit(
+        self,
+        position: _OpenPosition,
+        candle: Candle,
+        candle_date: datetime.datetime,
+        params: BacktestParameters,
+    ) -> Optional[Trade]:
+        """Exit resolution for the wide-range structural-stop variant while
+        break-even is unarmed (FR-034/FR-035). Take-profit is reached
+        intrabar (before the candle's close), so it is resolved first; the
+        structural stop then fires when the candle *closes* beyond the H1
+        level on the losing side (below the H1 low for a long, above the H1
+        high for a short), filling at that close with a stop-loss reason (no
+        gap-fill - it is a market/close exit). Break-even arms as usual;
+        once armed, _resolve_exit routes to the base logic instead."""
+        if position.is_long:
+            take_profit_hit = candle.higher >= position.take_profit_level
+        else:
+            take_profit_hit = candle.lower <= position.take_profit_level
+        if take_profit_hit:
+            return self._take_profit_exit(position, candle, candle_date)
+
+        if position.is_long:
+            structural_hit = (
+                position.h1_low is not None and candle.close < position.h1_low
+            )
+        else:
+            structural_hit = (
+                position.h1_high is not None
+                and candle.close > position.h1_high
+            )
+        if structural_hit:
+            return self._close_trade(
+                position, candle_date, candle.close, ExitReason.STOP_LOSS
+            )
+
+        self._arm_break_even(position, candle, params)
+        return None
+
+    @staticmethod
+    def _take_profit_exit(
+        position: _OpenPosition,
+        candle: Candle,
+        candle_date: datetime.datetime,
+    ) -> Trade:
+        """Close a position at take-profit, applying the FR-010 gap-fill
+        convention (fill at the candle open when it gapped past the level)."""
+        exit_price = BacktestService._target_fill(
+            position, candle, position.take_profit_level
+        )
+        return BacktestService._close_trade(
+            position, candle_date, exit_price, ExitReason.TAKE_PROFIT
+        )
+
+    @staticmethod
+    def _arm_break_even(
+        position: _OpenPosition,
+        candle: Candle,
+        params: BacktestParameters,
+    ) -> None:
+        """Arm the break-even stop the first time a candle reaches entry ±
+        the break-even trigger (FR-008a); takes effect on later candles."""
+        if position.be_armed:
+            return
+        arm_threshold = params.break_even_trigger_points
+        if position.is_long:
+            if candle.higher >= position.entry_price + arm_threshold:
+                position.be_armed = True
+        elif candle.lower <= position.entry_price - arm_threshold:
+            position.be_armed = True
 
     @staticmethod
     def _stop_fill(
@@ -883,7 +1230,8 @@ class BacktestService:
     def _target_fill(
         position: _OpenPosition, candle: Candle, level: float
     ) -> float:
-        """Gap-fill for a take-profit-type exit (mirror of _stop_fill)."""
+        """Gap-fill for a take-profit-type exit (mirror of _stop_fill),
+        for an arbitrary target level (TP1 midpoint or the full TP)."""
         if position.is_long:
             return candle.open if candle.open >= level else level
         return candle.open if candle.open <= level else level
@@ -978,3 +1326,78 @@ class BacktestService:
             direction=position.direction,
             points=round(points, 4),
         )
+
+    async def _get_cached_candles(
+        self, cache_key: str, trading_date: datetime.date
+    ) -> Optional[CachedDayCandles]:
+        """Look up the raw-candle cache for (cache_key, trading_date)
+        (FR-036). Returns None on a cache miss, or on a DynamoDB failure
+        (including no active resource - local/dev without AWS, see
+        get_dynamodb_client_best_effort) - in every such case the caller
+        falls back to fetching from Saxo, so a cache outage never
+        breaks a backtest run."""
+        try:
+            item = await self.dynamodb_client.get_cached_backtest_candles(
+                cache_key, trading_date.isoformat()
+            )
+        except (DynamoDBOperationError, RuntimeError) as e:
+            self.logger.warning(
+                f"Backtest candle cache lookup failed for "
+                f"{cache_key}/{trading_date}: {e}"
+            )
+            return None
+        if item is None:
+            return None
+
+        try:
+            has_data = bool(item["has_data"])
+            if not has_data:
+                return CachedDayCandles(has_data=False)
+            return CachedDayCandles(
+                has_data=True,
+                h1_candle=Candle.from_dict(item["h1_candle"]),
+                m5_candles=[
+                    Candle.from_dict(c) for c in item.get("m5_candles", [])
+                ],
+            )
+        except (KeyError, ValueError, TypeError) as e:
+            # A cache problem must never break a backtest: an item
+            # written under an earlier schema (or otherwise malformed)
+            # is treated as a miss, the same as if nothing were cached.
+            self.logger.warning(
+                f"Malformed backtest cache item for "
+                f"{cache_key}/{trading_date}: {e}"
+            )
+            return None
+
+    async def _store_candles(
+        self,
+        cache_key: str,
+        trading_date: datetime.date,
+        has_data: bool,
+        h1_candle: Optional[Candle] = None,
+        m5_candles: Optional[List[Candle]] = None,
+    ) -> None:
+        """Store the raw candles fetched for (cache_key, trading_date)
+        so a later request for the same pair is served from the cache
+        (FR-037/FR-038). A DynamoDB failure (including no active
+        resource - local/dev without AWS) degrades to "not cached this
+        time" rather than failing the backtest - caching is a cost
+        optimization, not a correctness requirement."""
+        try:
+            await self.dynamodb_client.store_backtest_candles(
+                cache_key,
+                trading_date.isoformat(),
+                has_data,
+                h1_candle.to_dict() if h1_candle is not None else None,
+                (
+                    [c.to_dict() for c in m5_candles]
+                    if m5_candles is not None
+                    else None
+                ),
+            )
+        except (DynamoDBOperationError, RuntimeError) as e:
+            self.logger.warning(
+                f"Backtest candle cache store failed for "
+                f"{cache_key}/{trading_date}: {e}"
+            )

@@ -435,6 +435,72 @@ def true_range(candles: List[Candle]) -> float:
     return max(tr, tr2, tr3)
 
 
+def _directional_index(atr: float, plus_sm: float, minus_sm: float) -> float:
+    """DX from Wilder-smoothed TR/+DM/-DM sums (guards zero denominators)."""
+    if atr == 0:
+        return 0.0
+    plus_di = 100 * plus_sm / atr
+    minus_di = 100 * minus_sm / atr
+    denominator = plus_di + minus_di
+    if denominator == 0:
+        return 0.0
+    return 100 * abs(plus_di - minus_di) / denominator
+
+
+def adx(candles: List[Candle], period: int = 14) -> float:
+    """Wilder's Average Directional Index - a direction-agnostic trend/chop
+    strength measure (high = trending, low = chopping).
+
+    Candles are newest-first (index 0 is the most recent), matching the rest
+    of this module. Returns the latest ADX value. Needs period * 3 candles
+    for the double Wilder smoothing (the same minimum as average_true_range).
+    """
+    if len(candles) < period * 3:
+        Logger.get_logger("adx").error(
+            f"Missing candles to calculate an adx {len(candles)},"
+            f" needed {period * 3}"
+        )
+        raise SaxoException("Missing candles")
+    true_ranges: List[float] = []
+    plus_dms: List[float] = []
+    minus_dms: List[float] = []
+    for i in range(0, len(candles) - 1):
+        current = candles[i]
+        previous = candles[i + 1]
+        up_move = current.higher - previous.higher
+        down_move = previous.lower - current.lower
+        plus_dms.append(
+            up_move if up_move > down_move and up_move > 0 else 0.0
+        )
+        minus_dms.append(
+            down_move if down_move > up_move and down_move > 0 else 0.0
+        )
+        true_ranges.append(true_range(candles[i:]))
+    # reverse to chronological (oldest-first) for forward Wilder smoothing
+    true_ranges.reverse()
+    plus_dms.reverse()
+    minus_dms.reverse()
+
+    atr = sum(true_ranges[:period])
+    plus_sm = sum(plus_dms[:period])
+    minus_sm = sum(minus_dms[:period])
+    directional_indices: List[float] = [
+        _directional_index(atr, plus_sm, minus_sm)
+    ]
+    for i in range(period, len(true_ranges)):
+        atr = atr - atr / period + true_ranges[i]
+        plus_sm = plus_sm - plus_sm / period + plus_dms[i]
+        minus_sm = minus_sm - minus_sm / period + minus_dms[i]
+        directional_indices.append(_directional_index(atr, plus_sm, minus_sm))
+
+    adx_value = sum(directional_indices[:period]) / period
+    for i in range(period, len(directional_indices)):
+        adx_value = (
+            adx_value * (period - 1) + directional_indices[i]
+        ) / period
+    return round(adx_value, 5)
+
+
 def inside_bar(candles: List[Candle]) -> bool:
     if len(candles) < 2:
         Logger.get_logger("inside_bar").error(

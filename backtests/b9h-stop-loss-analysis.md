@@ -11,12 +11,19 @@ CSV feature (PR #644). Three parts:
 3. A **candle-by-candle trace** of the `-50.0` full-stop days under the
    baseline, explaining *why* those days lose.
 
-> **Headline result:** the parameter tuning does **not** survive
-> out-of-sample. The "best" in-sample config (SL 40 / TP 5) turns a +563
-> in-sample profit into a **−114 out-of-sample loss**, and even the baseline
-> is only break-even out-of-sample (before costs). B9H as parameterized here
-> has **no validated edge** — see the out-of-sample section for the full
-> grid. Do not deploy on the strength of the in-sample grid alone.
+> **Definitive result (four windows, ~2 years):** B9H has **no edge and is
+> a net loser.** Baseline (SL 50 / TP 10) across 2024, 2025 H1, 2025 H2 and
+> 2026 H1 nets **−305 points**. The single profitable window (2026 H1,
+> +416) — which the early sections of this doc treat as the reference — is
+> **an outlier**, outweighed by 2025 H1 alone (−701). Parameter tuning
+> (SL 40 / TP 5) is overfit (inverts out-of-sample), and no regime gate
+> rescues it: the best one (ADX-avoid) still leaves the strategy net
+> negative outside 2026 H1. The one robust, replicated finding is that B9H
+> is **anti-trend** — it loses on strong-trend days in all four windows —
+> but that is a true fact about a losing strategy, not a path to profit.
+> **Do not deploy.** See "Four-window verdict" below; the sections above it
+> are the investigation trail that led here (and some of their interim
+> conclusions are corrected there).
 
 ## Baseline: SL 50 / TP 10 (2026-01-02 → 2026-06-30)
 
@@ -150,6 +157,254 @@ as a *conditional* system that stands aside in chop — gated on a trend/chop
 measure (MM50 slope, ADX, or ATR expansion). Next step is to test whether
 such a gate turns the losing months flat while keeping the trending ones.
 
+## Regime filter #1: 9h candle range — tested, rejected as a standalone gate
+
+First filter candidate. Enabled by the `h1_range` column added to the range
+CSV export (PR #656): the 9h reference-candle width (`h1_high - h1_low`),
+config-independent, exported for the full 13 months (2025-06-01 →
+2026-06-30, baseline SL 50 / TP 10, 224 traded days, net +456.8). The
+hypothesis: narrow 9h mornings = chop = false breakouts = losses; wide =
+trend = profit.
+
+**The signal is real and directionally consistent.** In *both* windows the
+narrower-half days underperform the wider-half days (no sign-flip):
+
+| | below-median range | above-median range |
+|---|---|---|
+| 2025 H2 (choppy) | −138 (63d, −2.2/d) | +179 (63d, +2.8/d) |
+| 2026 H1 (trending) | +170 (49d, +3.5/d) | +245 (49d, +5.0/d) |
+
+Pooled it is an inverted-U, not monotonic: the mid-range tercile is best
+(+554), the *widest* tercile only +125 — extreme-range mornings are
+gap/whipsaw days, not clean trends.
+
+**But it fails as a standalone gate — every threshold helps one window and
+hurts the other.** "Trade only if 9h range ≥ T", per window (unfiltered:
+H2 +41, H1 +416):
+
+| T | 2025 H2 net | 2026 H1 net |
+|---|---|---|
+| 30 | +228 | +297 |
+| 33 | +316 | +341 |
+| 35 | +297 | +386 |
+| 40 | +78 | +239 |
+
+Every threshold *improves* the choppy window and *degrades* the trending
+one. The cause is decisive: the narrowest-third days **lost −275 in 2025 H2**
+(−6.4/day) but **made +75 in 2026 H1** (+2.5/day). Narrow mornings only lose
+money once the broader regime is already choppy; in a trending regime they
+still win, just less. Any gate that rescues H2 discards real profit in H1 —
+exactly the window-inconsistency this analysis pre-committed to rejecting.
+
+**Conclusion.** The 9h range is a *trade-quality / expectancy* axis, not the
+*regime* axis. It says "is this a high- or low-conviction morning," not "are
+we in a trending or choppy month," and low-conviction mornings are only
+dangerous once the regime is already choppy. Range and regime are
+orthogonal, and the strategy's problem is regime. Rejected as the fix; it
+correctly redirects at a genuine trend/chop measure (below).
+
+## Regime filter #2: daily MM50 slope — tested, rejected (sign-inverts)
+
+The daily trend measure the 9h range was a poor proxy for. Enabled by the
+`mm50_slope` column added to the range export (PR #657): the daily MA50
+slope (%) as of the close *strictly before* each trading day
+(lookahead-safe, reusing `mobile_average`/`slope_percentage`, same formula
+as the MM50 alert in spec 019). Config-independent; exported for the full
+13 months. Hypothesis: trade only when trending (`|slope| ≥ T`), stand
+aside in chop.
+
+**It fails the both-windows bar — worse than the range did.** "Trade only
+if `|slope| ≥ T`", vs unfiltered (H2 +41, H1 +416):
+
+| T | 2025 H2 | 2026 H1 |
+|---|---|---|
+| 1 | +57 | +306 |
+| 2 | +86 | +161 |
+| 3 | +157 | +92 |
+| 4 | +223 | +71 |
+| 5 | +245 | −7 |
+
+Every threshold *improves* the choppy window and *degrades* the trending
+one — same helps-one-hurts-the-other signature as the range gate.
+
+**And the underlying relationship inverts sign between windows**, which is
+the damning part. Per-day expectancy by `|slope|` tercile:
+
+| | flat slope | mid | steep |
+|---|---|---|---|
+| 2025 H2 | −2.88/d | +1.93/d | +1.93/d |
+| 2026 H1 | **+11.40/d** | −1.90/d | +3.44/d |
+
+In 2025 H2 flat MM50 is the *worst* bucket; in 2026 H1 it is by far the
+*best* (+365 over 32 days — the single most profitable bucket in the whole
+dataset, and exactly what a trend gate discards). The 9h range at least
+kept a consistent direction; the MM50 slope is not even directionally
+stable, so it is not a usable filter.
+
+**What this tells us (not a dead end).** The "profits come from trending
+months" narrative does not survive contact with an actual trend indicator:
+the most profitable H1 days had a *flat* 50-day slope — the opposite of
+trending. The 50-day MA is too laggy to describe the intraday-relevant
+regime, and the real axis is probably not long-trend at all. Evidence so
+far:
+
+- SL/TP tuning — overfit, inverts out-of-sample.
+- 9h-range gate — window-inconsistent on totals.
+- MM50-slope gate — sign-inverts between windows.
+
+The MM50 failure is diagnostic: stop testing slow trailing trend, and try a
+measure that (a) reacts on a shorter horizon and (b) captures a *different*
+property than a moving-average level.
+
+## Regime filter #3: daily ADX(14) — tested, rejected (same inversion + no shared band)
+
+The direction-agnostic trend/chop classifier (`adx14` column, PR #661),
+computed lookahead-safe from daily bars strictly before each day. Gate
+tested at the pre-committed ADX ∈ {20, 25, 30}, vs unfiltered
+(H2 +41, H1 +416):
+
+| T | 2025 H2 | 2026 H1 |
+|---|---|---|
+| 20 | 0.0 (drops all 126) | −37 |
+| 25 | 0.0 (drops all 126) | −49 |
+| 30 | 0.0 (drops all 126) | +70 |
+
+Improves **neither** window at any threshold. Rejected. Two structural
+problems:
+
+1. **The windows occupy different ADX bands.** ADX range is 8–34 (median
+   14.7), and **2025 H2 never reaches ADX 20**. So an absolute "trend gate"
+   doesn't filter H2 — it deletes the entire window (net → 0, worse than the
+   +41 it started at). Absolute thresholds are meaningless when one window
+   never enters the gated band. General warning for any fixed-cutoff gate on
+   only two windows.
+2. **Same sign-inversion as MM50.** Expectancy by ADX tercile:
+
+   | | low ADX | mid | high ADX |
+   |---|---|---|---|
+   | 2025 H2 | −0.33/d | −0.66/d | +1.97/d |
+   | 2026 H1 | +9.96/d | +6.96/d | −4.02/d |
+
+   In 2026 H1, *more* trend strength is *worse* (high-ADX loses −4/day,
+   low-ADX makes +10/day); in 2025 H2 the opposite. The trend-strength →
+   P&L relationship flips sign between windows.
+
+## Four-window verdict (definitive)
+
+The sections above were built on two windows (2026 H1 in-sample, 2025 H2
+out-of-sample). Two more full windows were then exported with the same
+regime columns — **2024** (full year) and **2025 H1** (Jan–May, the gap
+between them) — turning this into a four-window / ~2-year test. That
+settles it, and it also **corrects two interim conclusions above.**
+
+### Baseline P&L by window (SL 50 / TP 10)
+
+| Window | Net | Note |
+|---|---|---|
+| 2024 | −61 | losing |
+| 2025 H1 | **−701** | catastrophic (incl. the April tariff crash) |
+| 2025 H2 | +41 | break-even |
+| 2026 H1 | +416 | the one good window |
+| **Total** | **−305** | **net loser over ~2 years** |
+
+**The strategy loses money.** 2026 H1 — the reference window for the whole
+early analysis — is a single **outlier**, outweighed by 2025 H1 alone. The
++416 was the false positive; the held-out windows exposed it, which is
+exactly what out-of-sample testing is for.
+
+### Correction 1: the strategy is anti-trend, and it *replicates*
+
+Interim sections #2/#3 called the MM50 and ADX relationships "sign-
+inverting between windows / not usable." That was **partly a gate-direction
+error**: those gates were tested as *"trade only when trending"* (`≥ T`),
+which is backwards for an anti-trend strategy. With the correct direction
+and four windows, the finding is robust, not inverting:
+
+- In **all four** windows, high trend strength (high ADX / steep MM50 slope)
+  is the losing bucket; calm/flat days are least-bad. Cleanest example —
+  2024 `|MM50 slope|`: flat +160 net, steep **−327** (monotonic).
+- The apparent 2025 H2 "inversion" was an artifact: that window never
+  exceeds ADX ~20, so it has no trend-strength range to measure.
+
+B9H reliably gets run over on strong-trend days (the big directional moves
+blow through the 9h breakout levels to the far stop). This is a **real,
+replicated property** — of a losing strategy.
+
+### Correction 2: the anti-trend gate "loses less", it does not create edge
+
+Gating in the correct direction (**stand aside when ADX ≥ T**) is the only
+filter that never *hurts* a window across all four — technically the best
+cross-window result in the investigation:
+
+| ADX gate | 2024 | 2025 H1 | 2025 H2 | 2026 H1 | total |
+|---|---|---|---|---|---|
+| unfiltered | −61 | −701 | +41 | +416 | **−305** |
+| ADX < 20 | +64 | −166 | +41 | +453 | +391 |
+| ADX < 25 | +185 | −353 | +41 | +465 | +338 |
+
+But this does not make B9H tradeable:
+
+- **2025 H1 stays deeply negative even gated** (−353 to −166). No threshold
+  makes it positive — 85 losing trades, not a few bad days.
+- Even in 2025 H1 the **calm (low-ADX) tercile still lost** (−2.1/day), so
+  "avoid trends and you're fine" is false — the calm days had no edge either.
+- The gated total (+338) is **entirely 2026 H1**: strip that one window and
+  the *gated* strategy nets **−127** over the other three. The gate
+  optimizes a losing system; it does not manufacture an edge.
+- The threshold (~25) was still chosen in-sample, and all figures are
+  pre-cost.
+
+### Conclusion
+
+**B9H has no validated edge. Do not deploy.** Four windows / ~2 years:
+net-negative unfiltered, and net-negative even under the best regime gate
+once the single outlier window is excluded. Parameter tuning is overfit;
+regime gating only reduces losses. The anti-trend behaviour is a robust,
+useful *fact* to carry forward (any future variant should expect to be hurt
+by trend strength), but it does not rescue this one.
+
+The intraday **overnight-gap** column was built and merged (PR #664,
+`overnight_gap`) as the planned next test, but with the strategy now shown
+net-negative across four windows, testing it further would be optimising a
+loser — not pursued. The column remains available if a materially different
+strategy variant is proposed later.
+
+## Variant: wide-range + structural stop (B9HWS) — tested, rejected
+
+A strategy variant (spec 021 US1d, `B9HWS`, PRs #666/#668/#669) built to
+test two ideas together: trade only days whose 9h range > 40 pts, and
+replace the fixed 50-pt stop with a structural stop (exit when a 5-minute
+candle closes back beyond the H1 level while break-even is unarmed). Run
+over 2025 H2 + 2026 H1:
+
+| | 2025 H2 | 2026 H1 | Total |
+|---|---|---|---|
+| B9HWS | +141 | **−129** | **+11** |
+| Base (SL 50 / TP 10) | +41 | +416 | +457 |
+| Δ | +100 | **−545** | **−446** |
+
+**It destroys the one profitable window.** 2026 H1 swings from +416 to −129
+(−545), while it modestly helps the choppy 2025 H2 (+41 → +141) — the same
+helps-the-chop / hurts-the-trend pattern seen throughout, but with a
+catastrophic "hurt." Net across both windows: +11 vs the base's +457.
+
+Both rule changes are the wrong sign for the window that actually earns:
+
+1. **The range > 40 filter removes H1's good days.** Consistent with regime
+   filter #1 (wide-range gate degrades 2026 H1): H1's profitable days are
+   the narrower-range ones, so filtering to > 40 pts throws them away (only
+   48 of 98 days traded).
+2. **The structural stop craters the win rate.** 2026 H1 win rate collapses
+   61% → 28% (2025 H2: 55% → 39%), with more trades on fewer days. Because
+   entry sits ≤ 20 pts above the H1 low (FR-006a), a "close below H1 low"
+   fires constantly and re-enters — a *tighter, noisier* stop than the fixed
+   50, not the "let it breathe" stop intended; it gets whipsawed.
+
+Rejected. Consistent with the four-window verdict — nothing that helps the
+choppy tape survives contact with 2026 H1. (Result covers 2 of the 4
+windows; the −545 destruction of the sole profitable window cannot be
+salvaged by the two losing windows, so the conclusion is already robust.)
+
 ## The 12 clean single-trade `-50.0` days (baseline SL 50)
 
 Every day below is a single-trade day that hit stop-loss for exactly
@@ -224,14 +479,15 @@ the time-cut in-sample does not itself survive out-of-sample — see the
 out-of-sample section. The time-cut is dominated *in-sample*; that is a
 weaker claim than "viable.")
 
-## Not yet investigated
+## Not pursued (investigation closed)
 
-- **Regime filter** (highest priority): a trend/chop gate (MM50 slope, ADX,
-  ATR expansion) to keep the strategy flat during the losing months. Every
-  profitable stretch in every run is a trending month — this is the only
-  path the data supports.
-- A time-cut with **no re-entry after cut**, to isolate the early-exit
-  benefit from the churn cost.
-- The 5 exactly-0.0-point days.
-- The two multi-trade days that net exactly -50.0 (2026-03-19, 3 trades;
-  2026-03-27, 2 trades).
+The four-window verdict closed the strategy as net-negative, so the
+remaining threads below are **not worth pursuing on B9H as-is** — they would
+optimise a losing system. Kept only as pointers if a materially different
+variant is ever proposed:
+
+- Intraday **overnight-gap** gate (`overnight_gap` column shipped in
+  PR #664, unused).
+- A time-cut with **no re-entry after cut**.
+- The 5 exactly-0.0-point days and the two multi-trade −50.0 days
+  (2026-03-19, 2026-03-27).

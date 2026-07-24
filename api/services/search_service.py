@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from client.binance_client import BinanceClient
+from client.ouinex_client import OuinexClient
 from client.saxo_client import SaxoClient
 from model.asset import Asset
 from utils.logger import Logger
@@ -9,9 +10,15 @@ logger = Logger.get_logger("search_service")
 
 
 class SearchService:
-    def __init__(self, saxo_client: SaxoClient, binance_client: BinanceClient):
+    def __init__(
+        self,
+        saxo_client: SaxoClient,
+        binance_client: BinanceClient,
+        ouinex_client: OuinexClient,
+    ):
         self.saxo_client = saxo_client
         self.binance_client = binance_client
+        self.ouinex_client = ouinex_client
 
     def search_instruments(
         self, keyword: str, asset_type: Optional[str] = None
@@ -41,5 +48,11 @@ class SearchService:
             results.extend(binance_results)
         except Exception as e:
             logger.error(f"Binance search error: {e}")
+
+        try:
+            ouinex_results = self.ouinex_client.search(keyword=keyword)
+            results.extend(ouinex_results)
+        except Exception as e:
+            logger.error(f"Ouinex search error: {e}")
 
         return results

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from client.ouinex_client import OuinexClient
+from model.enum import AssetType, Exchange
 from utils.exception import OuinexException
 
 
@@ -151,3 +152,58 @@ class TestOuinexClientExecute:
 
         with pytest.raises(OuinexException):
             client._execute("query { ok }")
+
+
+INSTRUMENTS_OK = {
+    "data": {
+        "instruments": [
+            {
+                "id": 1,
+                "symbol": "BTCUSD",
+                "baseCurrency": "BTC",
+                "quoteCurrency": "USD",
+            },
+            {
+                "id": 2,
+                "symbol": "ETHUSD",
+                "baseCurrency": "ETH",
+                "quoteCurrency": "USD",
+            },
+        ]
+    }
+}
+
+
+class TestOuinexClientSearch:
+    def test_search_returns_crypto_assets(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, INSTRUMENTS_OK),
+        ]
+
+        results = client.search("btc")
+
+        assert len(results) == 1
+        asset = results[0]
+        assert asset.symbol == "BTCUSD"
+        assert asset.description == "BTC/USD"
+        assert asset.exchange == Exchange.OUINEX
+        assert asset.asset_type == AssetType.CRYPTO
+        assert asset.identifier == 1
+
+    def test_search_matches_quote_currency(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, INSTRUMENTS_OK),
+        ]
+
+        results = client.search("usd")
+
+        assert {asset.symbol for asset in results} == {"BTCUSD", "ETHUSD"}
+        assert all(asset.exchange == Exchange.OUINEX for asset in results)

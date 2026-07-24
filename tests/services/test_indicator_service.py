@@ -12,6 +12,7 @@ from model import (
     UnitTime,
 )
 from services.indicator_service import (
+    adx,
     apply_linear_function,
     average_true_range,
     bollinger_bands,
@@ -26,6 +27,7 @@ from services.indicator_service import (
     number_of_day_between_dates,
     slope_percentage,
 )
+from utils.exception import SaxoException
 
 
 def _make_candles(closes: List[float]) -> List[Candle]:
@@ -683,3 +685,60 @@ class TestIndicatorService:
     def test_mm50_touch_returns_none_when_fewer_than_sixty_candles(self):
         candles = _make_candles([100.0] * 59)
         assert mm50_touch(candles) is None
+
+
+def _trending_daily(count: int, step: float = 5.0) -> List[Candle]:
+    """Newest-first steady uptrend: the more recent the bar (smaller
+    index), the higher its price."""
+    base = datetime.datetime(2026, 1, 1)
+    candles = []
+    for i in range(count):
+        close = 8000 + step * (count - i)
+        candles.append(
+            Candle(
+                lower=close - 2,
+                higher=close + 2,
+                open=close,
+                close=close,
+                ut=UnitTime.D,
+                date=base - datetime.timedelta(days=i),
+            )
+        )
+    return candles
+
+
+def _choppy_daily(count: int) -> List[Candle]:
+    """Newest-first sideways chop: close alternates around a flat mean, so
+    +DM and -DM roughly cancel and ADX stays low."""
+    base = datetime.datetime(2026, 1, 1)
+    candles = []
+    for i in range(count):
+        close = 8000 + (3 if i % 2 == 0 else -3)
+        candles.append(
+            Candle(
+                lower=close - 2,
+                higher=close + 2,
+                open=close,
+                close=close,
+                ut=UnitTime.D,
+                date=base - datetime.timedelta(days=i),
+            )
+        )
+    return candles
+
+
+class TestAdx:
+    def test_high_for_strong_uptrend(self):
+        # a one-directional trend drives DX toward 100
+        assert adx(_trending_daily(60)) > 40
+
+    def test_low_for_chop(self):
+        assert adx(_choppy_daily(60)) < 25
+
+    def test_trend_scores_higher_than_chop(self):
+        assert adx(_trending_daily(60)) > adx(_choppy_daily(60))
+
+    def test_raises_when_insufficient_candles(self):
+        # period * 3 = 42 required; 41 is one short
+        with pytest.raises(SaxoException):
+            adx(_trending_daily(41))
