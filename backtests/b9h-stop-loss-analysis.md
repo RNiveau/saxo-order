@@ -196,32 +196,78 @@ dangerous once the regime is already choppy. Range and regime are
 orthogonal, and the strategy's problem is regime. Rejected as the fix; it
 correctly redirects at a genuine trend/chop measure (below).
 
-## Next step (spec): daily trend/chop gate column
+## Regime filter #2: daily MM50 slope — tested, rejected (sign-inverts)
 
-The regime axis needs a *daily* trend measure, computed from the daily
-(horizon 1440) FRA40.I close series — the 9h range was a tempting but wrong
-proxy for it. Proposed as another additive export column, same pattern as
-`h1_range` (PR #656):
+The daily trend measure the 9h range was a poor proxy for. Enabled by the
+`mm50_slope` column added to the range export (PR #657): the daily MA50
+slope (%) as of the close *strictly before* each trading day
+(lookahead-safe, reusing `mobile_average`/`slope_percentage`, same formula
+as the MM50 alert in spec 019). Config-independent; exported for the full
+13 months. Hypothesis: trade only when trending (`|slope| ≥ T`), stand
+aside in chop.
 
-- **Measure (lead):** MM50 slope magnitude on the daily close — reuse
-  `mobile_average` + `slope_percentage` in `services/indicator_service.py`
-  (spec 019). Gate on `|slope|` (direction-agnostic: B9H is long+short).
-  Fallback/secondary: ADX(14) (needs new Wilder-smoothing code) and/or
-  daily ATR expansion.
-- **Lookahead safety (critical):** compute strictly from daily closes
-  *before* the trading day (up to the prior session close). No same-day
-  candle in the window, or the gate is untradeable.
-- **Where:** `BacktestService.run_range` fetches the daily series once for
-  the range, computes the per-day regime value, and threads it into
-  `DayResultSummary` → a new CSV column (e.g. `mm50_slope_pct`), mirroring
-  how `h1_high`/`h1_low`/`h1_range` are already carried.
-- **Tests:** unit-test the indicator wiring and the new CSV column (mirror
-  the `h1_range` test in `tests/api/routers/test_backtest.py`).
-- **Acceptance bar (reuse the discipline that killed range):** lock the
-  threshold on one window, test untouched on the other; try ≤3 conventional
-  thresholds only; require improvement in **both** windows on total P&L —
-  the exact bar the 9h-range gate just failed. A gate that helps one window
-  and hurts the other is rejected.
+**It fails the both-windows bar — worse than the range did.** "Trade only
+if `|slope| ≥ T`", vs unfiltered (H2 +41, H1 +416):
+
+| T | 2025 H2 | 2026 H1 |
+|---|---|---|
+| 1 | +57 | +306 |
+| 2 | +86 | +161 |
+| 3 | +157 | +92 |
+| 4 | +223 | +71 |
+| 5 | +245 | −7 |
+
+Every threshold *improves* the choppy window and *degrades* the trending
+one — same helps-one-hurts-the-other signature as the range gate.
+
+**And the underlying relationship inverts sign between windows**, which is
+the damning part. Per-day expectancy by `|slope|` tercile:
+
+| | flat slope | mid | steep |
+|---|---|---|---|
+| 2025 H2 | −2.88/d | +1.93/d | +1.93/d |
+| 2026 H1 | **+11.40/d** | −1.90/d | +3.44/d |
+
+In 2025 H2 flat MM50 is the *worst* bucket; in 2026 H1 it is by far the
+*best* (+365 over 32 days — the single most profitable bucket in the whole
+dataset, and exactly what a trend gate discards). The 9h range at least
+kept a consistent direction; the MM50 slope is not even directionally
+stable, so it is not a usable filter.
+
+**What this tells us (not a dead end).** The "profits come from trending
+months" narrative does not survive contact with an actual trend indicator:
+the most profitable H1 days had a *flat* 50-day slope — the opposite of
+trending. The 50-day MA is too laggy to describe the intraday-relevant
+regime, and the real axis is probably not long-trend at all. Evidence so
+far:
+
+- SL/TP tuning — overfit, inverts out-of-sample.
+- 9h-range gate — window-inconsistent on totals.
+- MM50-slope gate — sign-inverts between windows.
+
+The MM50 failure is diagnostic: stop testing slow trailing trend, and try a
+measure that (a) reacts on a shorter horizon and (b) captures a *different*
+property than a moving-average level.
+
+## Next step (spec): ADX(14) daily gate column
+
+The next measure to test, chosen against *why* MM50 failed:
+
+- **Measure:** ADX(14) on the daily close (direction-agnostic trend/chop
+  classifier). Rationale: (a) ~2–3 week horizon fixes the MM50 lag; (b) it
+  measures directional *persistence*, a different property than the MA-slope
+  level and the 9h raw range already rejected; (c) it is the textbook
+  trend/chop indicator. Needs new Wilder-smoothing code (DI+/DI−/ADX).
+  Alternatives, ranked lower: MM20/MM7 slope (cheap, isolates the lag
+  variable only), daily ATR/range-expansion (risks re-testing the 9h-range
+  volatility axis).
+- **Lookahead safety (critical):** compute strictly from daily bars *before*
+  the trading day, exactly as `mm50_slope` does.
+- **Where:** additive export column `adx14`, mirroring how `mm50_slope` is
+  fetched in `run_range` and threaded through `DayResultSummary` → CSV.
+- **Acceptance bar (unchanged):** lock the threshold on one window, test the
+  other; ≤3 conventional thresholds (ADX 20/25/30); require improvement in
+  **both** windows on total P&L. Helps-one-hurts-the-other is rejected.
 
 ## The 12 clean single-trade `-50.0` days (baseline SL 50)
 
@@ -299,10 +345,9 @@ weaker claim than "viable.")
 
 ## Not yet investigated
 
-- **Daily trend/chop gate** (highest priority): see the "Next step (spec)"
-  section above. The 9h-range proxy has been tested and rejected; the open
-  work is the true daily trend measure (MM50 slope / ADX), which needs a
-  daily-series export column.
+- **ADX(14) daily gate** (highest priority): see the "Next step (spec)"
+  section above. The 9h-range and MM50-slope proxies have both been tested
+  and rejected; ADX is the next measure, chosen against why MM50 failed.
 - A time-cut with **no re-entry after cut**, to isolate the early-exit
   benefit from the churn cost.
 - The 5 exactly-0.0-point days.
