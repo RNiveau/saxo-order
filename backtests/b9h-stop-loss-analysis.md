@@ -249,25 +249,81 @@ The MM50 failure is diagnostic: stop testing slow trailing trend, and try a
 measure that (a) reacts on a shorter horizon and (b) captures a *different*
 property than a moving-average level.
 
-## Next step (spec): ADX(14) daily gate column
+## Regime filter #3: daily ADX(14) — tested, rejected (same inversion + no shared band)
 
-The next measure to test, chosen against *why* MM50 failed:
+The direction-agnostic trend/chop classifier (`adx14` column, PR #661),
+computed lookahead-safe from daily bars strictly before each day. Gate
+tested at the pre-committed ADX ∈ {20, 25, 30}, vs unfiltered
+(H2 +41, H1 +416):
 
-- **Measure:** ADX(14) on the daily close (direction-agnostic trend/chop
-  classifier). Rationale: (a) ~2–3 week horizon fixes the MM50 lag; (b) it
-  measures directional *persistence*, a different property than the MA-slope
-  level and the 9h raw range already rejected; (c) it is the textbook
-  trend/chop indicator. Needs new Wilder-smoothing code (DI+/DI−/ADX).
-  Alternatives, ranked lower: MM20/MM7 slope (cheap, isolates the lag
-  variable only), daily ATR/range-expansion (risks re-testing the 9h-range
-  volatility axis).
-- **Lookahead safety (critical):** compute strictly from daily bars *before*
-  the trading day, exactly as `mm50_slope` does.
-- **Where:** additive export column `adx14`, mirroring how `mm50_slope` is
-  fetched in `run_range` and threaded through `DayResultSummary` → CSV.
-- **Acceptance bar (unchanged):** lock the threshold on one window, test the
-  other; ≤3 conventional thresholds (ADX 20/25/30); require improvement in
-  **both** windows on total P&L. Helps-one-hurts-the-other is rejected.
+| T | 2025 H2 | 2026 H1 |
+|---|---|---|
+| 20 | 0.0 (drops all 126) | −37 |
+| 25 | 0.0 (drops all 126) | −49 |
+| 30 | 0.0 (drops all 126) | +70 |
+
+Improves **neither** window at any threshold. Rejected. Two structural
+problems:
+
+1. **The windows occupy different ADX bands.** ADX range is 8–34 (median
+   14.7), and **2025 H2 never reaches ADX 20**. So an absolute "trend gate"
+   doesn't filter H2 — it deletes the entire window (net → 0, worse than the
+   +41 it started at). Absolute thresholds are meaningless when one window
+   never enters the gated band. General warning for any fixed-cutoff gate on
+   only two windows.
+2. **Same sign-inversion as MM50.** Expectancy by ADX tercile:
+
+   | | low ADX | mid | high ADX |
+   |---|---|---|---|
+   | 2025 H2 | −0.33/d | −0.66/d | +1.97/d |
+   | 2026 H1 | +9.96/d | +6.96/d | −4.02/d |
+
+   In 2026 H1, *more* trend strength is *worse* (high-ADX loses −4/day,
+   low-ADX makes +10/day); in 2025 H2 the opposite. The trend-strength →
+   P&L relationship flips sign between windows.
+
+## The strategy is anti-trend (three measures agree)
+
+This is the load-bearing finding of the regime work. Three independent
+trend/strength measures now agree on the same thing in the profitable
+window (2026 H1):
+
+- MM50 slope: **flat** slope was the best bucket (+11.4/day).
+- ADX(14): **low** ADX was the best bucket (+10.0/day); high ADX *lost*.
+
+**Trend strength is negatively correlated with B9H returns in the window
+where it makes money.** The "profits come from trending months" story we
+started with is contradicted by two independent trend indicators. B9H is
+not a trend strategy — it appears to profit in quiet, low-directional-
+strength tape and get run over on strong directional days (the big trend
+days blow through the 9h breakout levels straight to the far stop).
+
+This reframes the search but does **not** hand us a gate: the sign still
+flips between windows, and H2 has no ADX range to exploit. A consistent
+narrative-buster, not a usable filter.
+
+## Next step (spec): intraday overnight-gap column
+
+Three daily trend measures have now failed the same way, so the axis that
+matters is almost certainly **same-day**, not multi-day. Next measure:
+
+- **Measure:** overnight gap = 9h open − prior daily close, a same-day
+  shock/impulse signal known at 09:00 (before any trade → lookahead-safe).
+  It is orthogonal to everything tested (a shock measure, not a trailing
+  trend or the morning's own range). Hypothesis, from the anti-trend
+  finding: **large-|gap| ("shock open") days are the bleed regime; small-gap
+  (quiet open) days are where the edge lives.**
+- **Normalize, don't use a raw cutoff.** The ADX result showed absolute
+  thresholds fail when the two windows sit in different bands. Express the
+  gap as a within-window-relative quantity (percentile or z-score vs recent
+  gaps, or gap ÷ ATR) so a threshold means the same thing in both windows.
+- **Where:** export `h1_open` (we already have high/low) and compute the gap
+  against the daily series already fetched for `mm50_slope`/`adx14`.
+- **Acceptance bar (unchanged):** must improve **both** windows on total P&L.
+- **Honest caveat:** four measures have now been tested on the same 12
+  months — each new one raises false-positive risk, and the gap may invert
+  between windows like the trend measures did. This is pre-registered as the
+  intraday test; a pass on 12 months is suggestive, not validated.
 
 ## The 12 clean single-trade `-50.0` days (baseline SL 50)
 
@@ -345,9 +401,9 @@ weaker claim than "viable.")
 
 ## Not yet investigated
 
-- **ADX(14) daily gate** (highest priority): see the "Next step (spec)"
-  section above. The 9h-range and MM50-slope proxies have both been tested
-  and rejected; ADX is the next measure, chosen against why MM50 failed.
+- **Intraday overnight-gap gate** (highest priority): see the "Next step
+  (spec)" section above. Three daily measures (9h range, MM50 slope, ADX)
+  are now tested and rejected; the intraday same-day axis is next.
 - A time-cut with **no re-entry after cut**, to isolate the early-exit
   benefit from the churn cost.
 - The 5 exactly-0.0-point days.
