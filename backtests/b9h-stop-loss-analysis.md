@@ -369,6 +369,42 @@ net-negative across four windows, testing it further would be optimising a
 loser — not pursued. The column remains available if a materially different
 strategy variant is proposed later.
 
+## Variant: wide-range + structural stop (B9HWS) — tested, rejected
+
+A strategy variant (spec 021 US1d, `B9HWS`, PRs #666/#668/#669) built to
+test two ideas together: trade only days whose 9h range > 40 pts, and
+replace the fixed 50-pt stop with a structural stop (exit when a 5-minute
+candle closes back beyond the H1 level while break-even is unarmed). Run
+over 2025 H2 + 2026 H1:
+
+| | 2025 H2 | 2026 H1 | Total |
+|---|---|---|---|
+| B9HWS | +141 | **−129** | **+11** |
+| Base (SL 50 / TP 10) | +41 | +416 | +457 |
+| Δ | +100 | **−545** | **−446** |
+
+**It destroys the one profitable window.** 2026 H1 swings from +416 to −129
+(−545), while it modestly helps the choppy 2025 H2 (+41 → +141) — the same
+helps-the-chop / hurts-the-trend pattern seen throughout, but with a
+catastrophic "hurt." Net across both windows: +11 vs the base's +457.
+
+Both rule changes are the wrong sign for the window that actually earns:
+
+1. **The range > 40 filter removes H1's good days.** Consistent with regime
+   filter #1 (wide-range gate degrades 2026 H1): H1's profitable days are
+   the narrower-range ones, so filtering to > 40 pts throws them away (only
+   48 of 98 days traded).
+2. **The structural stop craters the win rate.** 2026 H1 win rate collapses
+   61% → 28% (2025 H2: 55% → 39%), with more trades on fewer days. Because
+   entry sits ≤ 20 pts above the H1 low (FR-006a), a "close below H1 low"
+   fires constantly and re-enters — a *tighter, noisier* stop than the fixed
+   50, not the "let it breathe" stop intended; it gets whipsawed.
+
+Rejected. Consistent with the four-window verdict — nothing that helps the
+choppy tape survives contact with 2026 H1. (Result covers 2 of the 4
+windows; the −545 destruction of the sole profitable window cannot be
+salvaged by the two losing windows, so the conclusion is already robust.)
+
 ## The 12 clean single-trade `-50.0` days (baseline SL 50)
 
 Every day below is a single-trade day that hit stop-loss for exactly
