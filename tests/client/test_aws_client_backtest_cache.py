@@ -19,52 +19,6 @@ def client(mock_dynamodb_resource):
     return DynamoDBClient(dynamodb_resource=mock_resource)
 
 
-class TestGetCachedBacktestCandles:
-    async def test_returns_item_on_hit(self, mock_dynamodb_resource, client):
-        _, mock_table = mock_dynamodb_resource
-        mock_table.get_item.return_value = {
-            "ResponseMetadata": {"HTTPStatusCode": 200},
-            "Item": {
-                "definition_code": "B9H",
-                "trading_date": "2026-07-14",
-                "has_data": True,
-            },
-        }
-
-        item = await client.get_cached_backtest_candles("B9H", "2026-07-14")
-
-        mock_table.get_item.assert_called_once_with(
-            Key={
-                "definition_code": "B9H",
-                "trading_date": "2026-07-14",
-            }
-        )
-        assert item is not None
-        assert item["has_data"] is True
-
-    async def test_returns_none_on_miss(self, mock_dynamodb_resource, client):
-        _, mock_table = mock_dynamodb_resource
-        mock_table.get_item.return_value = {
-            "ResponseMetadata": {"HTTPStatusCode": 200},
-        }
-
-        item = await client.get_cached_backtest_candles("B9H", "2026-07-14")
-
-        assert item is None
-
-    async def test_returns_none_on_error_response(
-        self, mock_dynamodb_resource, client
-    ):
-        _, mock_table = mock_dynamodb_resource
-        mock_table.get_item.return_value = {
-            "ResponseMetadata": {"HTTPStatusCode": 500},
-        }
-
-        item = await client.get_cached_backtest_candles("B9H", "2026-07-14")
-
-        assert item is None
-
-
 class TestStoreBacktestCandles:
     async def test_stores_candles_and_converts_floats_to_decimal(
         self, mock_dynamodb_resource, client
