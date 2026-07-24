@@ -387,6 +387,7 @@ class BacktestService:
             status=status,
             h1_high=h1_high,
             h1_low=h1_low,
+            h1_open=h1_candle.open,
             candles=chronological,
             trades=trades,
         )
@@ -432,6 +433,12 @@ class BacktestService:
                             daily_candles, day_result.date
                         ),
                         adx14=self._adx_before(daily_candles, day_result.date),
+                        h1_open=day_result.h1_open,
+                        overnight_gap=self._overnight_gap(
+                            daily_candles,
+                            day_result.date,
+                            day_result.h1_open,
+                        ),
                     )
                 )
                 all_trades.extend(day_result.trades)
@@ -604,6 +611,29 @@ class BacktestService:
             return None
         prior.sort(key=_candle_date, reverse=True)
         return adx(prior, ADX_PERIOD)
+
+    @staticmethod
+    def _overnight_gap(
+        daily_candles: List[Candle],
+        trading_date: datetime.date,
+        h1_open: Optional[float],
+    ) -> Optional[float]:
+        """Overnight gap = 9h open - the prior daily close. A same-day,
+        pre-trade shock signal (the 9h open is known at 09:00, before any
+        entry). Lookahead-safe: the prior close is the latest daily candle
+        strictly before trading_date. None when the 9h open or a prior
+        daily candle is missing."""
+        if h1_open is None:
+            return None
+        prior = [
+            candle
+            for candle in daily_candles
+            if candle.date is not None and candle.date.date() < trading_date
+        ]
+        if not prior:
+            return None
+        prior_close = max(prior, key=_candle_date).close
+        return round(h1_open - prior_close, 4)
 
     def _evaluate_trades(
         self,
