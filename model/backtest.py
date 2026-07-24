@@ -71,6 +71,10 @@ class DayResultSummary:
     # trend/chop regime measure, lookahead-safe and config-independent.
     # None when fewer than 60 prior daily candles are available.
     mm50_slope: Optional[float] = None
+    # Daily ADX(14) as of the close strictly before this day - a
+    # direction-agnostic trend/chop strength measure, lookahead-safe and
+    # config-independent. None when fewer than 42 prior daily candles exist.
+    adx14: Optional[float] = None
 
 
 @dataclass

@@ -60,6 +60,7 @@ class DayResultSummaryResponse(BaseModel):
     h1_high: Optional[float] = None
     h1_low: Optional[float] = None
     mm50_slope: Optional[float] = None
+    adx14: Optional[float] = None
 
 
 class BacktestSummaryResponse(BaseModel):
@@ -135,6 +136,7 @@ def _day_result_summary_to_response(
         h1_high=summary.h1_high,
         h1_low=summary.h1_low,
         mm50_slope=summary.mm50_slope,
+        adx14=summary.adx14,
     )
 
 
@@ -200,6 +202,7 @@ def backtest_run_result_to_csv(
             "h1_low",
             "h1_range",
             "mm50_slope",
+            "adx14",
         ]
     )
     for day in run_result.days:
@@ -218,6 +221,7 @@ def backtest_run_result_to_csv(
                 day.h1_low,
                 h1_range,
                 day.mm50_slope,
+                day.adx14,
             ]
         )
     return output.getvalue()
