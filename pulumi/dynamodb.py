@@ -118,8 +118,8 @@ def backtest_candle_cache_table() -> aws.dynamodb.Table:
         range_key="trading_date",
         name="backtest_candle_cache",
         billing_mode="PAY_PER_REQUEST",
-        stream_enabled=True,
-        stream_view_type="NEW_AND_OLD_IMAGES",
+        # No stream: nothing consumes one, and it's a paid feature on a
+        # table whose entire purpose is cost reduction.
         # No TTL (FR-040): a closed historical trading day's candles
         # never change once cached.
     )

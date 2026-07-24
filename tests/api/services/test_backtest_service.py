@@ -1408,7 +1408,9 @@ class TestWideRangeStructuralStop:
     async def test_narrow_range_day_takes_no_trades(self):
         narrow = h1_candle(higher=8030.0, lower=8000.0)  # range 30 <= 40
         service = make_service([narrow], self.ENTRY_CANDLES)
-        result = await service.evaluate_day(WIDE_RANGE_DEFINITION, TRADING_DATE)
+        result = await service.evaluate_day(
+            WIDE_RANGE_DEFINITION, TRADING_DATE
+        )
         assert result.status == DayStatus.NO_TRADE
         assert result.trades == []
         assert result.h1_high == 8030.0 and result.h1_low == 8000.0
@@ -1417,7 +1419,9 @@ class TestWideRangeStructuralStop:
         # strictly greater than 40 required -> a range of exactly 40 is out
         at_threshold = h1_candle(higher=8040.0, lower=8000.0)
         service = make_service([at_threshold], self.ENTRY_CANDLES)
-        result = await service.evaluate_day(WIDE_RANGE_DEFINITION, TRADING_DATE)
+        result = await service.evaluate_day(
+            WIDE_RANGE_DEFINITION, TRADING_DATE
+        )
         assert result.status == DayStatus.NO_TRADE
 
     async def test_narrow_range_day_skips_the_five_minute_fetch(self):
@@ -1435,7 +1439,9 @@ class TestWideRangeStructuralStop:
         candles_service.get_candles_in_window.side_effect = side_effect
         service = BacktestService(candles_service)
 
-        result = await service.evaluate_day(WIDE_RANGE_DEFINITION, TRADING_DATE)
+        result = await service.evaluate_day(
+            WIDE_RANGE_DEFINITION, TRADING_DATE
+        )
 
         assert result.status == DayStatus.NO_TRADE
 
@@ -1445,7 +1451,9 @@ class TestWideRangeStructuralStop:
             m5_candle(3, 8000, 8005, 7950, 7955),
         ]
         service = make_service([h1_candle()], candles)
-        result = await service.evaluate_day(WIDE_RANGE_DEFINITION, TRADING_DATE)
+        result = await service.evaluate_day(
+            WIDE_RANGE_DEFINITION, TRADING_DATE
+        )
         assert result.status == DayStatus.TRADED
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.STOP_LOSS
@@ -1461,7 +1469,9 @@ class TestWideRangeStructuralStop:
             m5_candle(3, 8090, 8110, 8085, 8095),
         ]
         service = make_service([h1_candle()], short_candles)
-        result = await service.evaluate_day(WIDE_RANGE_DEFINITION, TRADING_DATE)
+        result = await service.evaluate_day(
+            WIDE_RANGE_DEFINITION, TRADING_DATE
+        )
         trade = result.trades[0]
         assert trade.direction == Direction.SELL
         assert trade.exit_reason == ExitReason.STOP_LOSS
@@ -1477,7 +1487,9 @@ class TestWideRangeStructuralStop:
             m5_candle(4, 8020, 8022, 7990, 7995),
         ]
         service = make_service([h1_candle()], candles)
-        result = await service.evaluate_day(WIDE_RANGE_DEFINITION, TRADING_DATE)
+        result = await service.evaluate_day(
+            WIDE_RANGE_DEFINITION, TRADING_DATE
+        )
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.BREAK_EVEN
         assert trade.exit_price == 8015.0
@@ -1489,7 +1501,9 @@ class TestWideRangeStructuralStop:
             m5_candle(3, 8016, 8045, 7990, 7995),
         ]
         service = make_service([h1_candle()], candles)
-        result = await service.evaluate_day(WIDE_RANGE_DEFINITION, TRADING_DATE)
+        result = await service.evaluate_day(
+            WIDE_RANGE_DEFINITION, TRADING_DATE
+        )
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.TAKE_PROFIT
         assert trade.exit_price == 8040.0
@@ -1499,7 +1513,9 @@ class TestWideRangeStructuralStop:
             m5_candle(3, 8016, 8045, 8014, 8042),  # high 8045 >= TP 8040
         ]
         service = make_service([h1_candle()], candles)
-        result = await service.evaluate_day(WIDE_RANGE_DEFINITION, TRADING_DATE)
+        result = await service.evaluate_day(
+            WIDE_RANGE_DEFINITION, TRADING_DATE
+        )
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.TAKE_PROFIT
         assert trade.exit_price == 8040.0
@@ -1507,9 +1523,10 @@ class TestWideRangeStructuralStop:
 
 class TestBacktestCandleCache:
     """FR-036-FR-040: the raw-candle cache is a capability of
-    BacktestService itself, keyed by (definition.code, trading_date) -
-    these tests exercise it directly against a mocked DynamoDBClient,
-    independently of the CandlesService-fetch tests above."""
+    BacktestService itself, keyed by (definition code, instrument,
+    schema version, trading_date) - these tests exercise it directly
+    against a mocked DynamoDBClient, independently of the
+    CandlesService-fetch tests above."""
 
     def _service(self, dynamodb_client):
         candles_service = MagicMock(spec=CandlesService)
@@ -1555,6 +1572,21 @@ class TestBacktestCandleCache:
         candles_service.get_candles_in_window.assert_not_called()
         assert result.status == DayStatus.NO_DATA
 
+    async def test_cache_key_covers_code_instrument_and_version(self):
+        dynamodb_client = MagicMock(spec=DynamoDBClient)
+        dynamodb_client.get_cached_backtest_candles = AsyncMock(
+            return_value=None
+        )
+        dynamodb_client.store_backtest_candles = AsyncMock()
+        service, _ = self._service(dynamodb_client)
+
+        await service.evaluate_day(DEFINITION, TRADING_DATE)
+
+        dynamodb_client.get_cached_backtest_candles.assert_called_once_with(
+            f"{DEFINITION.code}:{DEFINITION.instrument}:v1",
+            TRADING_DATE.isoformat(),
+        )
+
     async def test_cache_miss_fetches_and_stores(self):
         dynamodb_client = MagicMock(spec=DynamoDBClient)
         dynamodb_client.get_cached_backtest_candles = AsyncMock(
@@ -1568,7 +1600,7 @@ class TestBacktestCandleCache:
         candles_service.get_candles_in_window.assert_called()
         dynamodb_client.store_backtest_candles.assert_called_once()
         args = dynamodb_client.store_backtest_candles.call_args[0]
-        assert args[0] == DEFINITION.code
+        assert args[0] == f"{DEFINITION.code}:{DEFINITION.instrument}:v1"
         assert args[1] == TRADING_DATE.isoformat()
         assert args[2] is True
 
@@ -1586,8 +1618,74 @@ class TestBacktestCandleCache:
 
         assert result.status == DayStatus.NO_DATA
         dynamodb_client.store_backtest_candles.assert_called_once_with(
-            DEFINITION.code, TRADING_DATE.isoformat(), False, None, None
+            f"{DEFINITION.code}:{DEFINITION.instrument}:v1",
+            TRADING_DATE.isoformat(),
+            False,
+            None,
+            None,
         )
+
+    async def test_h1_fetch_failure_is_not_cached(self):
+        """A transient Saxo failure (expired token, rate limit, network
+        blip) must never be persisted as a permanent NO_DATA - only a
+        genuine empty result from Saxo is cacheable."""
+        dynamodb_client = MagicMock(spec=DynamoDBClient)
+        dynamodb_client.get_cached_backtest_candles = AsyncMock(
+            return_value=None
+        )
+        dynamodb_client.store_backtest_candles = AsyncMock()
+        candles_service = MagicMock(spec=CandlesService)
+        candles_service.get_candles_in_window.side_effect = SaxoException(
+            "boom"
+        )
+        service = BacktestService(candles_service, dynamodb_client)
+
+        result = await service.evaluate_day(DEFINITION, TRADING_DATE)
+
+        assert result.status == DayStatus.NO_DATA
+        dynamodb_client.store_backtest_candles.assert_not_called()
+
+    async def test_m5_fetch_failure_is_not_cached(self):
+        """Mirror of the H1 case: a transient failure on the 5-minute
+        fetch must not be persisted as a permanent has_data=True/empty
+        NO_TRADE - only a genuine empty Saxo result is cacheable."""
+        dynamodb_client = MagicMock(spec=DynamoDBClient)
+        dynamodb_client.get_cached_backtest_candles = AsyncMock(
+            return_value=None
+        )
+        dynamodb_client.store_backtest_candles = AsyncMock()
+        candles_service = MagicMock(spec=CandlesService)
+
+        def side_effect(code, ut, horizon, start, end):
+            if ut == UnitTime.H1:
+                return [h1_candle()]
+            raise SaxoException("boom")
+
+        candles_service.get_candles_in_window.side_effect = side_effect
+        service = BacktestService(candles_service, dynamodb_client)
+
+        result = await service.evaluate_day(DEFINITION, TRADING_DATE)
+
+        assert result.status == DayStatus.NO_TRADE
+        assert result.h1_high == H1_HIGH
+        dynamodb_client.store_backtest_candles.assert_not_called()
+
+    async def test_malformed_cache_item_falls_back_to_saxo(self):
+        """An item written under an earlier/different schema (missing
+        the expected keys) must be treated as a miss, not raise - a
+        cache problem must never break a backtest."""
+        dynamodb_client = MagicMock(spec=DynamoDBClient)
+        dynamodb_client.get_cached_backtest_candles = AsyncMock(
+            return_value={"has_data": True}
+        )
+        dynamodb_client.store_backtest_candles = AsyncMock()
+        service, candles_service = self._service(dynamodb_client)
+
+        result = await service.evaluate_day(DEFINITION, TRADING_DATE)
+
+        candles_service.get_candles_in_window.assert_called()
+        dynamodb_client.store_backtest_candles.assert_called_once()
+        assert result.h1_high == H1_HIGH
 
     async def test_no_dynamodb_client_falls_back_to_saxo_every_time(self):
         service, candles_service = self._service(None)
@@ -1623,5 +1721,6 @@ class TestBacktestCandleCache:
         await service.evaluate_day(TIME_CUT_DEFINITION, TRADING_DATE)
 
         dynamodb_client.get_cached_backtest_candles.assert_called_once_with(
-            TIME_CUT_DEFINITION.code, TRADING_DATE.isoformat()
+            f"{TIME_CUT_DEFINITION.code}:{TIME_CUT_DEFINITION.instrument}:v1",
+            TRADING_DATE.isoformat(),
         )
