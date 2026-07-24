@@ -55,6 +55,14 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         time_cut_minutes=30,
         time_cut_min_favorable_points=5.0,
     ),
+    BacktestDefinition(
+        code="B9HWS",
+        name=Strategy.B9HWS.value,
+        display_name="CAC40 Bougie de 9h (wide-range structural stop)",
+        instrument="FRA40.I",
+        min_h1_range_points=40.0,
+        structural_stop=True,
+    ),
 ]
 
 # Candle horizons for the two Saxo fetches. Unlike the strategy
@@ -195,6 +203,9 @@ class _OpenPosition:
         stop_loss_points: float,
         time_cut_minutes: Optional[int] = None,
         time_cut_min_favorable_points: Optional[float] = None,
+        h1_high: Optional[float] = None,
+        h1_low: Optional[float] = None,
+        structural_stop: bool = False,
     ):
         self.entry_time = entry_time
         self.entry_price = entry_price
@@ -205,6 +216,9 @@ class _OpenPosition:
         self.time_cut_minutes = time_cut_minutes
         self.time_cut_min_favorable_points = time_cut_min_favorable_points
         self.max_favorable_points = 0.0
+        self.h1_high = h1_high
+        self.h1_low = h1_low
+        self.structural_stop = structural_stop
 
     @property
     def time_cut_enabled(self) -> bool:
@@ -371,6 +385,21 @@ class BacktestService:
 
         h1_high = h1_candle.higher
         h1_low = h1_candle.lower
+        # Wide-range variant (FR-033): a day is only eligible for trades
+        # when its H1 range is strictly greater than the threshold. On a
+        # narrower day, take no trades and perform no candidate search - the
+        # H1 candle exists, so this is a NO_TRADE day, not NO_DATA.
+        if (
+            definition.min_h1_range_points is not None
+            and h1_high - h1_low <= definition.min_h1_range_points
+        ):
+            return DayResult(
+                date=trading_date,
+                status=DayStatus.NO_TRADE,
+                h1_high=h1_high,
+                h1_low=h1_low,
+                h1_open=h1_candle.open,
+            )
         session_end_utc = paris_session_end_utc(trading_date)
         five_min_candles = self._fetch_five_minute_candles(
             definition.instrument, h1_end_utc, session_end_utc
@@ -689,6 +718,9 @@ class BacktestService:
                         time_cut_min_favorable_points=(
                             definition.time_cut_min_favorable_points
                         ),
+                        h1_high=h1_high,
+                        h1_low=h1_low,
+                        structural_stop=definition.structural_stop,
                     )
                 elif short_entry is not None:
                     position = _OpenPosition(
@@ -701,6 +733,9 @@ class BacktestService:
                         time_cut_min_favorable_points=(
                             definition.time_cut_min_favorable_points
                         ),
+                        h1_high=h1_high,
+                        h1_low=h1_low,
+                        structural_stop=definition.structural_stop,
                     )
                 if position is not None:
                     long_search.reset()
@@ -739,6 +774,10 @@ class BacktestService:
         (FR-009), and only arms the break-even stop when neither exit
         triggered. Returns the closed Trade, or None if the position
         stays open."""
+        if position.structural_stop and not position.be_armed:
+            return self._resolve_structural_exit(
+                position, candle, candle_date, params
+            )
         stop_level = position.stop_level
         take_profit_level = position.take_profit_level
 
@@ -766,36 +805,96 @@ class BacktestService:
             return self._close_trade(position, candle_date, exit_price, reason)
 
         if take_profit_hit:
-            if position.is_long:
-                exit_price = (
-                    candle.open
-                    if candle.open >= take_profit_level
-                    else take_profit_level
-                )
-            else:
-                exit_price = (
-                    candle.open
-                    if candle.open <= take_profit_level
-                    else take_profit_level
-                )
-            return self._close_trade(
-                position, candle_date, exit_price, ExitReason.TAKE_PROFIT
-            )
+            return self._take_profit_exit(position, candle, candle_date)
 
         if position.time_cut_enabled:
             time_cut = self._resolve_time_cut(position, candle, candle_date)
             if time_cut is not None:
                 return time_cut
 
-        if not position.be_armed:
-            arm_threshold = params.break_even_trigger_points
-            if position.is_long:
-                if candle.higher >= position.entry_price + arm_threshold:
-                    position.be_armed = True
-            elif candle.lower <= position.entry_price - arm_threshold:
-                position.be_armed = True
-
+        self._arm_break_even(position, candle, params)
         return None
+
+    def _resolve_structural_exit(
+        self,
+        position: _OpenPosition,
+        candle: Candle,
+        candle_date: datetime.datetime,
+        params: BacktestParameters,
+    ) -> Optional[Trade]:
+        """Exit resolution for the wide-range structural-stop variant while
+        break-even is unarmed (FR-034/FR-035). Take-profit is reached
+        intrabar (before the candle's close), so it is resolved first; the
+        structural stop then fires when the candle *closes* beyond the H1
+        level on the losing side (below the H1 low for a long, above the H1
+        high for a short), filling at that close with a stop-loss reason (no
+        gap-fill - it is a market/close exit). Break-even arms as usual;
+        once armed, _resolve_exit routes to the base logic instead."""
+        if position.is_long:
+            take_profit_hit = candle.higher >= position.take_profit_level
+        else:
+            take_profit_hit = candle.lower <= position.take_profit_level
+        if take_profit_hit:
+            return self._take_profit_exit(position, candle, candle_date)
+
+        if position.is_long:
+            structural_hit = (
+                position.h1_low is not None and candle.close < position.h1_low
+            )
+        else:
+            structural_hit = (
+                position.h1_high is not None
+                and candle.close > position.h1_high
+            )
+        if structural_hit:
+            return self._close_trade(
+                position, candle_date, candle.close, ExitReason.STOP_LOSS
+            )
+
+        self._arm_break_even(position, candle, params)
+        return None
+
+    @staticmethod
+    def _take_profit_exit(
+        position: _OpenPosition,
+        candle: Candle,
+        candle_date: datetime.datetime,
+    ) -> Trade:
+        """Close a position at take-profit, applying the FR-010 gap-fill
+        convention (fill at the candle open when it gapped past the level)."""
+        take_profit_level = position.take_profit_level
+        if position.is_long:
+            exit_price = (
+                candle.open
+                if candle.open >= take_profit_level
+                else take_profit_level
+            )
+        else:
+            exit_price = (
+                candle.open
+                if candle.open <= take_profit_level
+                else take_profit_level
+            )
+        return BacktestService._close_trade(
+            position, candle_date, exit_price, ExitReason.TAKE_PROFIT
+        )
+
+    @staticmethod
+    def _arm_break_even(
+        position: _OpenPosition,
+        candle: Candle,
+        params: BacktestParameters,
+    ) -> None:
+        """Arm the break-even stop the first time a candle reaches entry ±
+        the break-even trigger (FR-008a); takes effect on later candles."""
+        if position.be_armed:
+            return
+        arm_threshold = params.break_even_trigger_points
+        if position.is_long:
+            if candle.higher >= position.entry_price + arm_threshold:
+                position.be_armed = True
+        elif candle.lower <= position.entry_price - arm_threshold:
+            position.be_armed = True
 
     @staticmethod
     def _resolve_time_cut(

@@ -20,6 +20,14 @@ class BacktestDefinition:
     # plain "Bougie de 9h" so its behavior is unchanged.
     time_cut_minutes: Optional[int] = None
     time_cut_min_favorable_points: Optional[float] = None
+    # Wide-range structural-stop variant (spec 021, US1d): when
+    # min_h1_range_points is set, days whose H1 range (high - low) is not
+    # strictly greater than it are not traded; when structural_stop is True,
+    # the fixed stop-loss distance is replaced by a stop that fires when a
+    # 5-minute candle closes beyond the H1 level while break-even is unarmed.
+    # Left None/False on the other backtests so their behavior is unchanged.
+    min_h1_range_points: Optional[float] = None
+    structural_stop: bool = False
 
 
 @dataclass
