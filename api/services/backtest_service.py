@@ -377,7 +377,7 @@ class BacktestService:
     def __init__(
         self,
         candles_service: CandlesService,
-        dynamodb_client: Optional[DynamoDBClient] = None,
+        dynamodb_client: DynamoDBClient,
     ):
         self.logger = Logger.get_logger("backtest_service")
         self.candles_service = candles_service
@@ -1085,17 +1085,16 @@ class BacktestService:
         self, cache_key: str, trading_date: datetime.date
     ) -> Optional[CachedDayCandles]:
         """Look up the raw-candle cache for (cache_key, trading_date)
-        (FR-036). Returns None on a cache miss, or when no
-        DynamoDBClient is available (local/test usage, or a DynamoDB
-        failure) - in every such case the caller falls back to fetching
-        from Saxo, so a cache outage never breaks a backtest run."""
-        if self.dynamodb_client is None:
-            return None
+        (FR-036). Returns None on a cache miss, or on a DynamoDB failure
+        (including no active resource - local/dev without AWS, see
+        get_dynamodb_client_best_effort) - in every such case the caller
+        falls back to fetching from Saxo, so a cache outage never
+        breaks a backtest run."""
         try:
             item = await self.dynamodb_client.get_cached_backtest_candles(
                 cache_key, trading_date.isoformat()
             )
-        except DynamoDBOperationError as e:
+        except (DynamoDBOperationError, RuntimeError) as e:
             self.logger.warning(
                 f"Backtest candle cache lookup failed for "
                 f"{cache_key}/{trading_date}: {e}"
@@ -1135,12 +1134,10 @@ class BacktestService:
     ) -> None:
         """Store the raw candles fetched for (cache_key, trading_date)
         so a later request for the same pair is served from the cache
-        (FR-037/FR-038). A missing DynamoDBClient or a DynamoDB failure
-        degrades to "not cached this time" rather than failing the
-        backtest - caching is a cost optimization, not a correctness
-        requirement."""
-        if self.dynamodb_client is None:
-            return
+        (FR-037/FR-038). A DynamoDB failure (including no active
+        resource - local/dev without AWS) degrades to "not cached this
+        time" rather than failing the backtest - caching is a cost
+        optimization, not a correctness requirement."""
         try:
             await self.dynamodb_client.store_backtest_candles(
                 cache_key,
@@ -1153,7 +1150,7 @@ class BacktestService:
                     else None
                 ),
             )
-        except DynamoDBOperationError as e:
+        except (DynamoDBOperationError, RuntimeError) as e:
             self.logger.warning(
                 f"Backtest candle cache store failed for "
                 f"{cache_key}/{trading_date}: {e}"

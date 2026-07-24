@@ -74,6 +74,18 @@ def get_dynamodb_client_optional(request: Request) -> Optional[DynamoDBClient]:
     return None
 
 
+def get_dynamodb_client_best_effort(request: Request) -> DynamoDBClient:
+    """Always returns a DynamoDBClient, even outside an AWS context -
+    unlike get_dynamodb_client, it never raises, and unlike
+    get_dynamodb_client_optional, it's never None. Its underlying
+    resource may be unset (local/dev without AWS), in which case any
+    actual DynamoDB call raises RuntimeError; for a caller that treats
+    DynamoDB as a best-effort cache rather than a hard dependency (e.g.
+    BacktestService's candle cache), that's expected and caught there."""
+    dynamodb = getattr(request.app.state, "dynamodb", None)
+    return DynamoDBClient(dynamodb_resource=dynamodb)
+
+
 @lru_cache()
 def get_binance_client() -> BinanceClient:
     config = get_configuration()
@@ -126,9 +138,7 @@ def get_trade_republic_service() -> TradeRepublicService:
 
 
 def get_backtest_service(
-    dynamodb_client: Optional[DynamoDBClient] = Depends(
-        get_dynamodb_client_optional
-    ),
+    dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client_best_effort),
 ) -> BacktestService:
     candles_service = get_candles_service()
     return BacktestService(candles_service, dynamodb_client)

@@ -56,6 +56,13 @@ TRADING_DATE = datetime.date(2026, 6, 2)
 H1_HIGH = 8050.0
 H1_LOW = 8000.0
 
+# A real DynamoDBClient with no active resource - dynamodb_client is a
+# required BacktestService constructor param (not Optional), but calls
+# through it still degrade to a cache miss/no-op (RuntimeError, caught
+# in _get_cached_candles/_store_candles), the same as in local/dev
+# usage without AWS. Used wherever a test doesn't care about caching.
+NO_CACHE_CLIENT = DynamoDBClient(dynamodb_resource=None)
+
 
 def h1_candle(higher=H1_HIGH, lower=H1_LOW):
     return Candle(
@@ -93,7 +100,7 @@ def make_service(h1_candles, m5_candles, raise_on_h1=False, raise_on_m5=False):
         return m5_candles
 
     candles_service.get_candles_in_window.side_effect = side_effect
-    return BacktestService(candles_service)
+    return BacktestService(candles_service, NO_CACHE_CLIENT)
 
 
 class TestTimezoneHelpers:
@@ -994,7 +1001,9 @@ def make_trade(exit_reason, points, entry_price=8010.0):
 
 class TestRunRange:
     async def test_aggregates_across_days_and_excludes_no_data(self, mocker):
-        service = BacktestService(MagicMock(spec=CandlesService))
+        service = BacktestService(
+            MagicMock(spec=CandlesService), NO_CACHE_CLIENT
+        )
         day1 = datetime.date(2026, 6, 1)
         day2 = datetime.date(2026, 6, 2)
         day3 = datetime.date(2026, 6, 3)
@@ -1047,7 +1056,9 @@ class TestRunRange:
         """Saturday/Sunday never trade, so run_range must not spend a
         fetch resolving them to NO_DATA - it should skip evaluate_day
         for those dates entirely."""
-        service = BacktestService(MagicMock(spec=CandlesService))
+        service = BacktestService(
+            MagicMock(spec=CandlesService), NO_CACHE_CLIENT
+        )
         friday = datetime.date(2026, 6, 5)
         monday = datetime.date(2026, 6, 8)
         evaluate_day = mocker.patch.object(
@@ -1065,7 +1076,9 @@ class TestRunRange:
         assert result.summary.number_of_days == 2
 
     async def test_empty_range_returns_all_zero_summary(self, mocker):
-        service = BacktestService(MagicMock(spec=CandlesService))
+        service = BacktestService(
+            MagicMock(spec=CandlesService), NO_CACHE_CLIENT
+        )
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
             service,
@@ -1091,7 +1104,9 @@ class TestRunRange:
         break-even mechanism (e.g. an end-of-day close landing exactly
         on the entry price) counts as a losing position, not a win or
         a BE (per spec.md Assumptions)."""
-        service = BacktestService(MagicMock(spec=CandlesService))
+        service = BacktestService(
+            MagicMock(spec=CandlesService), NO_CACHE_CLIENT
+        )
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
             service,
@@ -1118,7 +1133,9 @@ class TestRunRange:
         loss, and its points are excluded from average_loss - only
         final_result reflects the actual value (resolved explicitly
         after PR review, see spec.md Assumptions)."""
-        service = BacktestService(MagicMock(spec=CandlesService))
+        service = BacktestService(
+            MagicMock(spec=CandlesService), NO_CACHE_CLIENT
+        )
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
             service,
@@ -1147,7 +1164,9 @@ class TestRunRange:
         same-candle EOD test) is classified as a losing position, not a
         win or a BE - only break-even-mechanism exits get the "BE"
         label (documented in spec.md Assumptions)."""
-        service = BacktestService(MagicMock(spec=CandlesService))
+        service = BacktestService(
+            MagicMock(spec=CandlesService), NO_CACHE_CLIENT
+        )
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
             service,
@@ -1437,7 +1456,7 @@ class TestWideRangeStructuralStop:
             raise AssertionError("m5 candles must not be fetched")
 
         candles_service.get_candles_in_window.side_effect = side_effect
-        service = BacktestService(candles_service)
+        service = BacktestService(candles_service, NO_CACHE_CLIENT)
 
         result = await service.evaluate_day(
             WIDE_RANGE_DEFINITION, TRADING_DATE
@@ -1687,8 +1706,12 @@ class TestBacktestCandleCache:
         dynamodb_client.store_backtest_candles.assert_called_once()
         assert result.h1_high == H1_HIGH
 
-    async def test_no_dynamodb_client_falls_back_to_saxo_every_time(self):
-        service, candles_service = self._service(None)
+    async def test_no_active_resource_falls_back_to_saxo_every_time(self):
+        """dynamodb_client is a required parameter (not Optional), but a
+        DynamoDBClient with no active resource - local/dev usage
+        without AWS, see get_dynamodb_client_best_effort - degrades to
+        a cache miss/no-op every time, exactly like a DynamoDB failure."""
+        service, candles_service = self._service(NO_CACHE_CLIENT)
 
         result = await service.evaluate_day(DEFINITION, TRADING_DATE)
 
