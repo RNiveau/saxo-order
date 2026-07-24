@@ -125,10 +125,13 @@ def get_trade_republic_service() -> TradeRepublicService:
     return TradeRepublicService(gsheet_client)
 
 
-@lru_cache()
-def get_backtest_service() -> BacktestService:
+def get_backtest_service(
+    dynamodb_client: Optional[DynamoDBClient] = Depends(
+        get_dynamodb_client_optional
+    ),
+) -> BacktestService:
     candles_service = get_candles_service()
-    return BacktestService(candles_service)
+    return BacktestService(candles_service, dynamodb_client)
 
 
 def get_asset_details_service(

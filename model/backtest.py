@@ -111,3 +111,15 @@ class BacktestSummary:
 class BacktestRunResult:
     summary: BacktestSummary
     days: List[DayResultSummary] = field(default_factory=list)
+
+
+@dataclass
+class CachedDayCandles:
+    """Raw Saxo candle data cached for one (backtest definition, trading
+    date) pair (FR-036-FR-040). Never holds a computed Trade/DayResult -
+    only the H1 reference candle and 5-minute session candles a day's
+    strategy evaluation is run against."""
+
+    has_data: bool
+    h1_candle: Optional[Candle] = None
+    m5_candles: List[Candle] = field(default_factory=list)

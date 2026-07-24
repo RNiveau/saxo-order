@@ -105,3 +105,21 @@ def alert_digests_table() -> aws.dynamodb.Table:
         stream_enabled=True,
         stream_view_type="NEW_AND_OLD_IMAGES",
     )
+
+
+def backtest_candle_cache_table() -> aws.dynamodb.Table:
+    return aws.dynamodb.Table(
+        "backtest_candle_cache",
+        attributes=[
+            aws.dynamodb.TableAttributeArgs(name="definition_code", type="S"),
+            aws.dynamodb.TableAttributeArgs(name="trading_date", type="S"),
+        ],
+        hash_key="definition_code",
+        range_key="trading_date",
+        name="backtest_candle_cache",
+        billing_mode="PAY_PER_REQUEST",
+        stream_enabled=True,
+        stream_view_type="NEW_AND_OLD_IMAGES",
+        # No TTL (FR-040): a closed historical trading day's candles
+        # never change once cached.
+    )
