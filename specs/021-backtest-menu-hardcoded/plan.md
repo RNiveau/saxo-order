@@ -107,3 +107,36 @@ tests/
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |---|---|---|
 | ~~Strategy thresholds (50pt stop, 10pt take-profit offset, 20pt break-even trigger, 9:00–10:00 window) hardcoded in `api/services/backtest_service.py` rather than `config.yml`~~ **Resolved 2026-07-21** | Originally justified by FR-002 ("I don't want to create a back test engine"). Superseded: the three numeric thresholds plus max-entry-distance became per-run parameters (`BacktestParameters`, FR-025), defaulting to the original constants; they are analysis inputs, not deployment configuration, so this is no longer a Configuration-Driven Design exception. The instrument and 9:00–10:00 window remain hardcoded per FR-002. | N/A — no longer a violation |
+
+---
+
+## Increment (2026-07-24): User Story 1d — Wide-range structural-stop variant
+
+Adds a third hardcoded backtest, **"CAC40 Bougie de 9h (wide-range structural stop)"** (US1d, FR-032–FR-035). Reuses the base strategy end-to-end and changes exactly two things: a 9h-range entry filter and the stop-loss mechanism. No new API endpoints, no new CSV columns, no frontend logic changes — the variant surfaces automatically through the definition-driven menu (FR-001) and exports with the existing columns.
+
+### Technical Context (delta only)
+
+- **Language/stack**: unchanged (Python 3.11 backend; FastAPI; existing `BacktestService`).
+- **New dependencies**: none.
+- **Storage / API / frontend**: no changes — `list_definitions()` already drives the menu and CSV/JSON responses handle any definition generically.
+- **Data model**: `BacktestDefinition` gains two optional, variant-scoped fields (`min_h1_range_points`, `structural_stop`), mirroring how the time-cut added `time_cut_*`. The base and time-cut definitions leave them unset/false, so their behaviour is unchanged.
+
+### Design
+
+1. **Range filter (FR-033)** — enforced in `evaluate_day`, before any candidate search: if `definition.min_h1_range_points` is set and `h1_high − h1_low ≤ 40`, return a `NO_TRADE` day (H1 levels/open present, no trades). Days with range > 40 fall through to the unchanged `_evaluate_trades`.
+2. **Structural stop (FR-034/FR-035)** — localized to the *break-even-unarmed* branch of the exit path. The open position carries `h1_low`/`h1_high` and the `structural_stop` flag. While unarmed and structural:
+   - take-profit is resolved first (it is reached intrabar, i.e. before the candle's close);
+   - otherwise, if the candle **closes** beyond the H1 level on the losing side (below H1 low for a long, above H1 high for a short), the trade exits at that candle's **close** with the `STOP_LOSS` reason (no FR-010 gap-fill — it is a market/close exit);
+   - break-even still arms at +20 favorable. Once armed, the stop becomes the entry price and control falls through to the **existing** base logic (entry-level break-even, base FR-009 stop-before-take-profit ordering). The structural stop no longer applies once armed.
+   The tunable stop-loss distance (default 50) is unused by this variant; the other three thresholds apply unchanged.
+
+### Files touched
+
+- `model/enum.py` — new `Strategy.B9HWS` value.
+- `model/backtest.py` — two new optional `BacktestDefinition` fields.
+- `api/services/backtest_service.py` — register the third definition; range filter in `evaluate_day`; structural-stop branch in `_OpenPosition`/`_resolve_exit`.
+- `tests/api/services/test_backtest_service.py` — variant tests.
+
+### Quality gates
+
+Same as Phase 6: black/isort/flake8/mypy clean, `poetry run pytest` green, and SC-007 hand-verified on a real wide-range FRA40.I day.
