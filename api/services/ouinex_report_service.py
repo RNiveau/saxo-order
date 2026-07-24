@@ -1,0 +1,243 @@
+from operator import attrgetter
+from typing import Dict, List, Optional
+
+from cachetools import TTLCache, cachedmethod
+
+from client.gsheet_client import GSheetClient
+from client.ouinex_client import OuinexClient
+from model import (
+    Account,
+    Currency,
+    Direction,
+    ReportOrder,
+    Signal,
+    Strategy,
+    crypto_account,
+)
+from saxo_order.service import calculate_currency, calculate_taxes
+from utils.configuration import Configuration
+from utils.logger import Logger
+
+logger = Logger.get_logger("ouinex_report_service")
+
+
+class OuinexReportService:
+    """Service for handling Ouinex trading report operations.
+
+    Mirrors BinanceReportService. Journal writes reuse the shared crypto
+    pseudo-account so Ouinex rows are indistinguishable from Binance rows
+    ("map as binance").
+    """
+
+    def __init__(self, client: OuinexClient, configuration: Configuration):
+        self.client = client
+        self.configuration = configuration
+        self.currencies_rate = configuration.currencies_rate
+        self.gsheet_client = GSheetClient(
+            key_path=configuration.gsheet_creds_path,
+            spreadsheet_id=configuration.spreadsheet_id,
+        )
+        # Cache for report data with 5 min TTL
+        self._report_cache: TTLCache[str, List[ReportOrder]] = TTLCache(
+            maxsize=128, ttl=300
+        )
+
+    def _get_ouinex_account(self) -> Account:
+        """
+        Return the shared crypto pseudo-account (the "map as binance"
+        identity).
+        """
+        return crypto_account()
+
+    @cachedmethod(cache=attrgetter("_report_cache"))
+    def get_orders_report(
+        self, account_id: str, from_date: str
+    ) -> List[ReportOrder]:
+        """
+        Get orders report for Ouinex from a given date.
+
+        Args:
+            account_id: Ouinex account ID (should be "ouinex_main")
+            from_date: Start date in YYYY-MM-DD format
+
+        Returns:
+            List of ReportOrder objects
+        """
+        logger.debug(
+            f"Cache MISS for get_orders_report({account_id}, {from_date}) "
+            f"- fetching from Ouinex API"
+        )
+        orders = self.client.get_report_all(
+            from_date, self.currencies_rate["usdeur"]
+        )
+
+        return orders
+
+    def convert_order_to_eur(
+        self, order: ReportOrder
+    ) -> tuple[float, float, Optional[float], Optional[float]]:
+        """
+        Convert order prices to EUR if needed.
+
+        Returns:
+            Tuple of (price_eur, total_eur, price_original, total_original)
+        """
+        if order.currency == Currency.EURO:
+            return (
+                order.price,
+                order.price * order.quantity,
+                None,
+                None,
+            )
+
+        # Convert to EUR
+        converted_order = calculate_currency(order, self.currencies_rate)
+        return (
+            converted_order.price,
+            converted_order.price * order.quantity,
+            order.price,
+            order.price * order.quantity,
+        )
+
+    def calculate_summary(self, orders: List[ReportOrder]) -> Dict:
+        """
+        Calculate summary statistics for orders.
+
+        Args:
+            orders: List of ReportOrder objects
+
+        Returns:
+            Dictionary with summary statistics
+        """
+        total_orders = len(orders)
+        total_volume_eur = 0.0
+        total_fees_eur = 0.0
+        buy_orders = 0
+        buy_volume_eur = 0.0
+        sell_orders = 0
+        sell_volume_eur = 0.0
+
+        for order in orders:
+            # Convert to EUR
+            price_eur, total_eur, _, _ = self.convert_order_to_eur(order)
+            total_volume_eur += total_eur
+
+            taxes = calculate_taxes(order)
+            total_fees_eur += taxes.cost + taxes.taxes
+
+            # Count by direction
+            if order.direction and order.direction == Direction.BUY:
+                buy_orders += 1
+                buy_volume_eur += total_eur
+            else:
+                sell_orders += 1
+                sell_volume_eur += total_eur
+
+        return {
+            "total_orders": total_orders,
+            "total_volume_eur": round(total_volume_eur, 2),
+            "total_fees_eur": round(total_fees_eur, 2),
+            "buy_orders": buy_orders,
+            "buy_volume_eur": round(buy_volume_eur, 2),
+            "sell_orders": sell_orders,
+            "sell_volume_eur": round(sell_volume_eur, 2),
+        }
+
+    def create_gsheet_order(
+        self,
+        account_id: str,
+        order: ReportOrder,
+        stop: Optional[float] = None,
+        objective: Optional[float] = None,
+        strategy: Strategy = None,  # type: ignore
+        signal: Signal = None,  # type: ignore
+        comment: Optional[str] = None,
+    ):
+        """
+        Create a new order entry in Google Sheets under the crypto identity.
+
+        Raises:
+            ValueError: If strategy or signal is not provided
+        """
+        if not strategy:
+            raise ValueError(
+                "Strategy is required when creating a new position"
+            )
+        if not signal:
+            raise ValueError("Signal is required when creating a new position")
+
+        account = self._get_ouinex_account()
+
+        # Update order with user inputs
+        order.stop = stop
+        order.objective = objective
+        order.strategy = strategy.value  # type: ignore
+        order.signal = signal.value  # type: ignore
+        order.comment = comment
+        order.open_position = True
+
+        # Calculate taxes
+        order.taxes = calculate_taxes(order)
+
+        # Convert to EUR if needed
+        report_order = calculate_currency(order, self.currencies_rate)
+        if not isinstance(report_order, ReportOrder):
+            raise TypeError(
+                "calculate_currency must return a ReportOrder for a "
+                "ReportOrder input"
+            )
+
+        # Create in Google Sheets
+        self.gsheet_client.create_order(
+            account=account, order=report_order, original_order=order
+        )
+
+    def update_gsheet_order(
+        self,
+        account_id: str,
+        order: ReportOrder,
+        line_number: int,
+        close: bool = False,
+        stopped: bool = False,
+        be_stopped: bool = False,
+        stop: Optional[float] = None,
+        objective: Optional[float] = None,
+        strategy: Optional[Strategy] = None,
+        signal: Optional[Signal] = None,
+        comment: Optional[str] = None,
+    ):
+        """
+        Update an existing order entry in Google Sheets.
+        """
+        # Update order with user inputs
+        if stop is not None:
+            order.stop = stop
+        if objective is not None:
+            order.objective = objective
+        if strategy is not None:
+            order.strategy = strategy.value  # type: ignore
+        if signal is not None:
+            order.signal = signal.value  # type: ignore
+        if comment is not None:
+            order.comment = comment
+
+        # Position is closed if close=True, regardless of stopped/be_stopped
+        order.open_position = not close
+        order.stopped = stopped
+        order.be_stopped = be_stopped
+        order.taxes = calculate_taxes(order)
+
+        # Convert to EUR if needed
+        report_order = calculate_currency(order, self.currencies_rate)
+        if not isinstance(report_order, ReportOrder):
+            raise TypeError(
+                "calculate_currency must return a ReportOrder for a "
+                "ReportOrder input"
+            )
+
+        # Update in Google Sheets
+        self.gsheet_client.update_order(
+            order=report_order,
+            original_order=order,
+            line_to_update=line_number,
+        )
