@@ -369,6 +369,8 @@ class TestGetBacktestRunCsv:
                     h1_low=8000.0,
                     mm50_slope=1.2345,
                     adx14=27.5,
+                    h1_open=8020.0,
+                    overnight_gap=-12.5,
                 )
             ],
         )
@@ -393,10 +395,11 @@ class TestGetBacktestRunCsv:
         assert "stop_loss_points,50" in body
         assert (
             "date,status,trade_count,points,h1_high,h1_low,h1_range,"
-            "mm50_slope,adx14" in body
+            "mm50_slope,adx14,h1_open,overnight_gap" in body
         )
         assert (
-            "2026-06-02,traded,1,30.0,8050.0,8000.0,50.0,1.2345,27.5" in body
+            "2026-06-02,traded,1,30.0,8050.0,8000.0,50.0,1.2345,27.5,"
+            "8020.0,-12.5" in body
         )
 
     def test_end_before_start_returns_400(self, mock_backtest_service):

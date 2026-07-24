@@ -1270,6 +1270,58 @@ class TestRunRangeThreadsRegime:
         assert result.days[0].mm50_slope > 0
         assert result.days[0].adx14 is not None
         assert result.days[0].adx14 > 0
+        # h1_candle() opens at 8020; latest prior daily close is 8069
+        assert result.days[0].h1_open == 8020.0
+        assert result.days[0].overnight_gap == round(8020.0 - 8069.0, 4)
+
+
+class TestOvernightGap:
+    TRADING_DATE = datetime.date(2026, 6, 2)
+
+    def test_gap_is_open_minus_prior_daily_close(self):
+        series = uptrend_daily_series(self.TRADING_DATE, 70)
+        # latest prior daily close in the series is 8069
+        gap = BacktestService._overnight_gap(
+            series, self.TRADING_DATE, h1_open=8100.0
+        )
+        assert gap == 31.0
+
+    def test_none_when_no_prior_candle(self):
+        assert (
+            BacktestService._overnight_gap(
+                [], self.TRADING_DATE, h1_open=8100.0
+            )
+            is None
+        )
+
+    def test_none_when_h1_open_missing(self):
+        series = uptrend_daily_series(self.TRADING_DATE, 70)
+        assert (
+            BacktestService._overnight_gap(
+                series, self.TRADING_DATE, h1_open=None
+            )
+            is None
+        )
+
+    def test_ignores_today_and_future_candles(self):
+        """The gap is measured against the prior close only; a candle dated
+        on the trading day or later must not become the reference."""
+        series = uptrend_daily_series(self.TRADING_DATE, 70)
+        baseline = BacktestService._overnight_gap(
+            series, self.TRADING_DATE, h1_open=8100.0
+        )
+        polluted = series + [
+            daily_candle(self.TRADING_DATE, close=0.0),
+            daily_candle(
+                self.TRADING_DATE + datetime.timedelta(days=1), close=99999.0
+            ),
+        ]
+        assert (
+            BacktestService._overnight_gap(
+                polluted, self.TRADING_DATE, h1_open=8100.0
+            )
+            == baseline
+        )
 
 
 class TestAdxBefore:

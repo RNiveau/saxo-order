@@ -51,6 +51,7 @@ class DayResult:
     status: DayStatus
     h1_high: Optional[float] = None
     h1_low: Optional[float] = None
+    h1_open: Optional[float] = None
     candles: List[Candle] = field(default_factory=list)
     trades: List[Trade] = field(default_factory=list)
 
@@ -75,6 +76,12 @@ class DayResultSummary:
     # direction-agnostic trend/chop strength measure, lookahead-safe and
     # config-independent. None when fewer than 42 prior daily candles exist.
     adx14: Optional[float] = None
+    # 9h reference candle open, and the overnight gap (9h open - the prior
+    # daily close). A same-day, pre-trade shock/impulse signal, lookahead-
+    # safe and config-independent. overnight_gap is None when there is no
+    # prior daily candle to measure against.
+    h1_open: Optional[float] = None
+    overnight_gap: Optional[float] = None
 
 
 @dataclass
