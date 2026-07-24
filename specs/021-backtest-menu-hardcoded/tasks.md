@@ -193,3 +193,34 @@ Task: "Style the single-day result view in frontend/src/pages/Backtest.css"
 - [US1]/[US2]/[US3] labels map every story-phase task back to spec.md's priorities for traceability
 - FR-002's "no generic engine" constraint keeps the strategy *logic*, instrument, and 9–10 window fixed in code; the four numeric thresholds became per-run parameters (`BacktestParameters`, FR-025, added 2026-07-21), defaulting to 50/10/20/20 — see plan.md's Complexity Tracking (resolved) and the "Parametrized thresholds" requirements
 - Commit after each task or logical group; stop at any checkpoint to validate a story independently before continuing
+
+---
+
+## Increment (2026-07-24) — Phase 7: User Story 1d — Wide-range structural stop (Priority: P2)
+
+**Goal**: A third hardcoded backtest that trades only days whose 9h H1 range exceeds 40 points and replaces the fixed 50-point stop with a structural stop (a 5-minute candle closing back beyond the H1 level while break-even is unarmed); break-even and take-profit are unchanged.
+
+**Independent Test**: Run the variant over a range — days with H1 range ≤ 40 report "no trade"; on a wide-range day a pre-break-even 5-minute close below the H1 low exits at that close with a stop-loss reason, where the base backtest instead runs to its entry-minus-50 stop (SC-007).
+
+### Foundational (model + enum)
+
+- [ ] T034 [US1d] Add `B9HWS = "Bougie de 9h (wide-range structural stop)"` to the `Strategy` enum in `model/enum.py`.
+- [ ] T035 [US1d] Add `min_h1_range_points: Optional[float] = None` and `structural_stop: bool = False` fields to `BacktestDefinition` in `model/backtest.py` (keep the existing time-cut fields; the data model must not assume a single variant).
+
+### Tests (write before/with implementation)
+
+- [ ] T036 [P] [US1d] Service tests in `tests/api/services/test_backtest_service.py`: (a) H1 range ≤ 40 → `NO_TRADE`, zero trades, no candidate search; (b) H1 range > 40 → trades evaluated as in base; (c) unarmed long, a 5-minute candle closes below H1 low → exit at that candle's close, `STOP_LOSS`; (d) mirror short closes above H1 high → `STOP_LOSS` at close; (e) break-even armed (+20) then pullback to entry → `BREAK_EVEN` (structural stop no longer applies); (f) unarmed candle whose high reaches take-profit and whose close is below H1 low → `TAKE_PROFIT` wins; (g) a plain take-profit still exits normally.
+- [ ] T037 [P] [US1d] Definition-list test: `list_definitions()` returns three definitions including `B9HWS`, with `min_h1_range_points == 40.0` and `structural_stop is True`.
+
+### Implementation
+
+- [ ] T038 [US1d] Register the third definition in `BACKTEST_DEFINITIONS` (`api/services/backtest_service.py`): code `B9HWS`, name `Strategy.B9HWS.value`, display `CAC40 Bougie de 9h (wide-range structural stop)`, instrument `FRA40.I`, `min_h1_range_points=40.0`, `structural_stop=True`.
+- [ ] T039 [US1d] Range filter in `evaluate_day` (FR-033): when `definition.min_h1_range_points` is set and `h1_high - h1_low <= definition.min_h1_range_points`, return a `NO_TRADE` `DayResult` carrying the H1 levels/open but performing no candidate search and holding no trades.
+- [ ] T040 [US1d] Structural stop (FR-034/FR-035) in `_OpenPosition` + `_resolve_exit`: carry `h1_low`/`h1_high`/`structural_stop` on the open position; while break-even is unarmed and `structural_stop` is set, resolve take-profit first (intrabar), then a structural stop when `candle.close` is beyond the H1 level (below H1 low for a long, above H1 high for a short), exiting at `candle.close` with `STOP_LOSS` (no FR-010 gap-fill); once break-even arms, fall through to the existing entry-level break-even logic and base FR-009 ordering.
+
+### Checkpoint & polish
+
+- [ ] T041 [US1d] Confirm the variant appears in the Backtest menu (the frontend list is definition-driven — no code change expected) and exports with the existing CSV columns; note any missing wiring.
+- [ ] T042 [P] [US1d] Run black/isort/flake8/mypy and `poetry run pytest` on the changed backend files; hand-verify SC-007 on a real wide-range FRA40.I day per `quickstart.md`.
+
+**Checkpoint**: The wide-range structural-stop variant is selectable, its two rule changes are covered by tests, and the original two backtests are unaffected.
