@@ -1268,3 +1268,32 @@ class TestRunRangeThreadsRegime:
         assert len(result.days) == 1
         assert result.days[0].mm50_slope is not None
         assert result.days[0].mm50_slope > 0
+        assert result.days[0].adx14 is not None
+        assert result.days[0].adx14 > 0
+
+
+class TestAdxBefore:
+    TRADING_DATE = datetime.date(2026, 6, 2)
+
+    def test_none_when_fewer_than_42_prior_candles(self):
+        series = uptrend_daily_series(self.TRADING_DATE, 41)
+        assert BacktestService._adx_before(series, self.TRADING_DATE) is None
+
+    def test_high_adx_for_uptrend(self):
+        series = uptrend_daily_series(self.TRADING_DATE, 60)
+        value = BacktestService._adx_before(series, self.TRADING_DATE)
+        assert value is not None and value > 40
+
+    def test_ignores_today_and_future_candles(self):
+        series = uptrend_daily_series(self.TRADING_DATE, 60)
+        baseline = BacktestService._adx_before(series, self.TRADING_DATE)
+        polluted = series + [
+            daily_candle(self.TRADING_DATE, close=0.0),
+            daily_candle(
+                self.TRADING_DATE + datetime.timedelta(days=1), close=99999.0
+            ),
+        ]
+        assert (
+            BacktestService._adx_before(polluted, self.TRADING_DATE)
+            == baseline
+        )

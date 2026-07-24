@@ -18,7 +18,11 @@ from model import (
 )
 from model.enum import DayStatus, Direction, ExitReason
 from services.candles_service import CandlesService
-from services.indicator_service import mobile_average, slope_percentage
+from services.indicator_service import (
+    adx,
+    mobile_average,
+    slope_percentage,
+)
 from utils.exception import SaxoException
 from utils.helper import market_in_utc
 from utils.logger import Logger
@@ -30,6 +34,11 @@ PARIS_TZ = ZoneInfo("Europe/Paris")
 # candles are required before a day can be scored.
 MM50_MIN_DAILY_CANDLES = 60
 MM50_SLOPE_LOOKBACK = 10
+
+# Daily ADX regime measure: Wilder's double smoothing needs period * 3
+# prior daily candles (matches services.indicator_service.adx).
+ADX_PERIOD = 14
+ADX_MIN_DAILY_CANDLES = ADX_PERIOD * 3
 
 BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
     BacktestDefinition(
@@ -422,6 +431,7 @@ class BacktestService:
                         mm50_slope=self._mm50_slope_before(
                             daily_candles, day_result.date
                         ),
+                        adx14=self._adx_before(daily_candles, day_result.date),
                     )
                 )
                 all_trades.extend(day_result.trades)
@@ -576,6 +586,24 @@ class BacktestService:
         ma50_last = mobile_average(prior, 50)
         ma50_first = mobile_average(prior[MM50_SLOPE_LOOKBACK:], 50)
         return slope_percentage(0, ma50_first, MM50_SLOPE_LOOKBACK, ma50_last)
+
+    @staticmethod
+    def _adx_before(
+        daily_candles: List[Candle], trading_date: datetime.date
+    ) -> Optional[float]:
+        """Daily ADX(14) as of the last close strictly before trading_date
+        (lookahead-safe, same window discipline as _mm50_slope_before).
+        Returns None when fewer than ADX_MIN_DAILY_CANDLES prior daily
+        candles are available."""
+        prior = [
+            candle
+            for candle in daily_candles
+            if candle.date is not None and candle.date.date() < trading_date
+        ]
+        if len(prior) < ADX_MIN_DAILY_CANDLES:
+            return None
+        prior.sort(key=_candle_date, reverse=True)
+        return adx(prior, ADX_PERIOD)
 
     def _evaluate_trades(
         self,
