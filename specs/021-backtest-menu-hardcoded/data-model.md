@@ -1,6 +1,6 @@
 # Data Model: Backtest Menu with Hardcoded "CAC40 Bougie de 9h" Backtest
 
-All entities below are in-memory / request-response only (see research.md §6 — no persistence). Nothing is written to DynamoDB or any other store; there is no lifecycle beyond the duration of a single API request.
+All entities below are in-memory / request-response only (see research.md §6 — no persistence of computed results). Nothing about the computed `Trade`/`DayResult`/summary output is written to DynamoDB or any other store; there is no lifecycle beyond the duration of a single API request. The one exception, added 2026-07-24, is the `BacktestCandleCache` entity at the end of this document: it persists the *raw Saxo candle data* a day's evaluation depends on, so repeated runs skip the Saxo call, while the strategy computation itself is still redone fresh every request (research.md §8).
 
 ## New enums (`model/enum.py`, `model/workflow.py`)
 
@@ -167,3 +167,20 @@ Both directions are searched concurrently while flat, but at most one position i
 A same-candle double confirmation (both a valid long and a valid short on one candle) resolves to the long (FR-023); in practice this is unreachable because the move that breaches the opposite extreme reaches the open position's take-profit first.
 
 The numeric magnitudes in the diagrams above (`entry-50`, `entry+50`, `H1_high-10`, `H1_low+10`, `entry+20`, `entry-20`, "within 20pts") show the **default** thresholds; each is the corresponding `BacktestParameters` field (FR-025), so a parametrized run substitutes its own values — e.g. `stop = entry - stop_loss_points`, take-profit at `H1_high - take_profit_offset_points`, break-even armed at `entry + break_even_trigger_points`, entry valid within `max_entry_distance_points` of the H1 level. The state machine is otherwise identical.
+
+## `BacktestCandleCache` (persisted, added 2026-07-24 — FR-032–FR-036)
+
+The one entity in this feature that is actually written to DynamoDB. One item per (backtest definition code, trading date) pair, storing the raw Saxo candle data that pair's day evaluation depends on — never the computed `Trade`/`DayResult`/summary (research.md §8, Clarifications Session 2026-07-24).
+
+| Field | Type | Notes |
+|---|---|---|
+| `definition_code` | `str` (hash key) | `BacktestDefinition.code` (e.g. `"B9H"`) — each hardcoded backtest caches its candles separately, even where two definitions share the same underlying instrument/day |
+| `trading_date` | `str`, ISO date (range key) | The trading day this entry's candles cover |
+| `has_data` | `bool` | `False` when no 9:00–10:00 H1 reference candle was available for this day (FR-004/FR-034); when `False`, `h1_candle` and `m5_candles` are absent |
+| `h1_candle` | `Optional[Dict]` | The 9:00–10:00 H1 reference candle (open/high/low/close/date), serialized the same way `Candle` fields are stored elsewhere in this codebase (`Decimal` for prices, per `DynamoDBClient._convert_floats_to_decimal`) |
+| `m5_candles` | `Optional[List[Dict]]` | The 5-minute candles from 10:00 Paris local to end of day, same serialization as `h1_candle` |
+| `cached_at` | `int` | Unix timestamp of first write, for observability only — not used for expiry (no TTL, FR-036) |
+
+**No TTL attribute** — entries never expire (FR-036); a bad entry is corrected by manually deleting that item, not through any feature capability.
+
+**Read/write path**: `api/services/backtest_service.py` calls `DynamoDBClient.get_cached_backtest_candles(definition_code, trading_date)` before fetching candles for a day; on a hit, it reconstructs the `Candle` objects (`model.workflow.Candle`) directly from the cached fields instead of calling `CandlesService.get_candles_in_window`. On a miss, it fetches from Saxo as today, then calls `DynamoDBClient.store_backtest_candles(...)` (or a `has_data=False` variant, FR-034) before proceeding to `evaluate_day`, which is unchanged and always runs against the resulting `Candle` list.
