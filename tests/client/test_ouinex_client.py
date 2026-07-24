@@ -269,6 +269,42 @@ class TestOuinexClientReport:
         assert sell.taxes is not None
         assert sell.taxes.cost == pytest.approx(1.5 * 0.5)
 
+    def test_buy_fee_in_base_asset_reduces_quantity_and_costs_eur(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        # Real example: buy 550 XRP @ 1.1430 USDC, fee 0.5390 XRP.
+        # Final quantity received is 550 - 0.539 = 549.461 XRP and the fee
+        # is reported in EUR at the trade price.
+        client, session = client_and_session
+        xrp_trade = {
+            "data": {
+                "closedOrders": [
+                    {
+                        "symbol": "XRP/USDC",
+                        "baseCurrency": "XRP",
+                        "quoteCurrency": "USDC",
+                        "side": "BUY",
+                        "price": 1.1430,
+                        "quantity": 550,
+                        "fee": 0.5390,
+                        "feeCurrency": "XRP",
+                        "executedAt": 1700000000000,
+                    }
+                ]
+            }
+        }
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, xrp_trade),
+        ]
+
+        orders = client.get_report_all("2023/01/01", usdeur_rate=0.9)
+
+        order = orders[0]
+        assert order.quantity == pytest.approx(549.461)
+        assert order.taxes is not None
+        assert order.taxes.cost == pytest.approx(0.5390 * 1.1430 * 0.9)
+
     def test_get_report_filters_by_symbol(
         self, client_and_session: Tuple[OuinexClient, MagicMock]
     ):

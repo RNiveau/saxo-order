@@ -197,12 +197,15 @@ class OuinexClient:
             return
 
         fee_currency = trade.get("feeCurrency", "")
-        if order.direction == Direction.BUY and fee_currency == order.name:
-            order.quantity -= fee
-            order.taxes = Taxes(
-                cost=fee * (order.price * usdeur_rate), taxes=0
-            )
+        if fee_currency == order.name:
+            # Fee charged in the base asset (e.g. 0.539 XRP on an XRP buy):
+            # it reduces the quantity actually received and is valued in EUR
+            # at the trade price.
+            if order.direction == Direction.BUY:
+                order.quantity -= fee
+            order.taxes = Taxes(cost=fee * order.price * usdeur_rate, taxes=0)
         else:
+            # Fee charged in the quote/cash currency: already a cash amount.
             order.taxes = Taxes(cost=fee * usdeur_rate, taxes=0)
 
     def _map_trade_to_order(
