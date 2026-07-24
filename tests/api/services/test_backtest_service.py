@@ -1416,3 +1416,62 @@ class TestBuildSummaryDoubleTakeProfit:
         # CAC40: a BREAK_EVEN exit is a BE regardless of its points sign.
         assert summary.number_of_be == 1
         assert summary.number_of_winning_positions == 0
+
+
+class TestDoubleTakeProfitEntryValidity:
+    """FR-G03 regression (PR #659 review #1): on a narrow H1 range an entry
+    within max_entry_distance of the reference level can land past the TP1
+    midpoint. Such an entry must be rejected - otherwise TP1 fires on the
+    first candle, banks a loss as a take-profit, and discards the 150-pt
+    structural stop. With H1 8000-8050 the midpoint (TP1) is 8025."""
+
+    def test_long_entry_past_the_midpoint_is_rejected(self):
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),  # breach
+            m5_candle(1, 8000, 8030, 7995, 8010),  # candidate, higher=8030
+            m5_candle(2, 8020, 8035, 8015, 8025),  # breakout -> entry @8030
+        ]
+        # entry 8030 > TP1 8025 -> not a valid double-TP entry
+        result = _run_ger(candles)
+        assert result.status == DayStatus.NO_TRADE
+        assert result.trades == []
+
+    def test_long_entry_below_the_midpoint_still_trades(self):
+        candles = [
+            m5_candle(0, 8005, 8010, 7990, 7995),  # breach
+            m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+            m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+            m5_candle(3, 8020, 8030, 8018, 8028),  # TP1 @8025
+        ]
+        # entry 8015 < TP1 8025 -> valid, first lot takes real profit
+        result = _run_ger(candles)
+        assert result.status == DayStatus.TRADED
+        assert result.trades[0].entry_price == 8015
+
+    def test_short_entry_past_the_midpoint_is_rejected(self):
+        candles = [
+            m5_candle(0, 8045, 8060, 8040, 8055),  # breach above high
+            m5_candle(1, 8050, 8055, 8020, 8040),  # candidate, lower=8020
+            m5_candle(2, 8030, 8035, 8015, 8020),  # breakdown -> entry @8020
+        ]
+        # entry 8020 < TP1 8025 (past the midpoint on the short side)
+        result = _run_ger(candles)
+        assert result.status == DayStatus.NO_TRADE
+        assert result.trades == []
+
+
+class TestBacktestDefinitionValidation:
+    def test_double_take_profit_with_time_cut_is_rejected(self):
+        """PR #659 review #3: the double-TP exit path does not evaluate the
+        time cut, so combining them would silently ignore the cut. The
+        definition must refuse to be constructed."""
+        with pytest.raises(ValueError):
+            BacktestDefinition(
+                code="BAD",
+                name="bad",
+                display_name="bad",
+                instrument="GER40.I",
+                double_take_profit=True,
+                time_cut_minutes=30,
+                time_cut_min_favorable_points=5.0,
+            )

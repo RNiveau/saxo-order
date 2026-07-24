@@ -20,6 +20,12 @@
   margin-bottom: 1rem;
 }
 
+.backtest-double-tp-note {
+  color: #d29922;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
 .backtest-trades-table,
 .backtest-candles-table {
   width: 100%;

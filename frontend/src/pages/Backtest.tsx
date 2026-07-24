@@ -279,6 +279,7 @@ export function Backtest() {
           detail={dayResult}
           definition={selectedDefinition}
           parameters={appliedParams}
+          doubleTakeProfit={selectedDef?.double_take_profit}
         />
       )}
 
@@ -366,6 +367,7 @@ export function Backtest() {
                 detail={drilldown}
                 definition={selectedDefinition}
                 parameters={appliedParams}
+                doubleTakeProfit={selectedDef?.double_take_profit}
               />
             </div>
           )}

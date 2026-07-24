@@ -110,17 +110,28 @@ def _is_valid_long_entry(
     h1_low: float,
     take_profit_level: float,
     max_entry_distance: float = _DEFAULTS.max_entry_distance_points,
+    first_target: Optional[float] = None,
 ) -> bool:
     """A long breakout entry only produces a trade when it still leaves
     room to work: within max_entry_distance points of the H1 low, and
     below the take-profit level (H1 high minus the take-profit offset).
     An entry too far above the low, or already at/above take-profit, is
     not valid - it would exit on the very next candle for little or no
-    favorable move despite being labeled a take-profit."""
-    return (
+    favorable move despite being labeled a take-profit.
+
+    For a double take-profit setup, first_target (the H1 midpoint, TP1)
+    is also required to sit strictly above the entry: on a narrow H1
+    range an otherwise-valid entry (within max_entry_distance of the low)
+    can open past the midpoint, which would fire TP1 immediately, bank a
+    loss as a take-profit, and discard the structural stop - so such an
+    entry is rejected, mirroring the take_profit_level guard."""
+    valid = (
         entry_price - h1_low <= max_entry_distance
         and entry_price < take_profit_level
     )
+    if first_target is not None:
+        valid = valid and entry_price < first_target
+    return valid
 
 
 def _is_valid_short_entry(
@@ -128,15 +139,20 @@ def _is_valid_short_entry(
     h1_high: float,
     take_profit_level: float,
     max_entry_distance: float = _DEFAULTS.max_entry_distance_points,
+    first_target: Optional[float] = None,
 ) -> bool:
     """Mirror of _is_valid_long_entry for the short side: a short
     breakdown entry is only valid when it is within max_entry_distance
     points below the H1 high, and above the take-profit level (H1 low
-    plus the take-profit offset)."""
-    return (
+    plus the take-profit offset). For a double take-profit setup,
+    first_target (TP1) must also sit strictly below the entry."""
+    valid = (
         h1_high - entry_price <= max_entry_distance
         and entry_price > take_profit_level
     )
+    if first_target is not None:
+        valid = valid and entry_price > first_target
+    return valid
 
 
 def _eu_market_in_utc(trading_date: datetime.date) -> Market:
@@ -301,12 +317,17 @@ class _DirectionSearch:
         h1_low: float,
         take_profit_level: float,
         max_entry_distance: float,
+        first_target_level: Optional[float] = None,
     ):
         self.direction = direction
         self.h1_high = h1_high
         self.h1_low = h1_low
         self.take_profit_level = take_profit_level
         self.max_entry_distance = max_entry_distance
+        # TP1 (H1 midpoint) for double take-profit definitions; None for
+        # single-lot ones. When set, a valid entry must sit on the
+        # favorable side of it (see _is_valid_long_entry / _short).
+        self.first_target_level = first_target_level
         self.breached = False
         self.candidate: Optional[Candle] = None
 
@@ -348,6 +369,7 @@ class _DirectionSearch:
                 self.h1_low,
                 self.take_profit_level,
                 self.max_entry_distance,
+                self.first_target_level,
             ):
                 return entry_price
             return None
@@ -379,6 +401,7 @@ class _DirectionSearch:
                 self.h1_high,
                 self.take_profit_level,
                 self.max_entry_distance,
+                self.first_target_level,
             ):
                 return entry_price
             return None
@@ -628,6 +651,7 @@ class BacktestService:
             h1_low,
             long_take_profit,
             params.max_entry_distance_points,
+            first_target,
         )
         short_search = _DirectionSearch(
             Direction.SELL,
@@ -635,6 +659,7 @@ class BacktestService:
             h1_low,
             short_take_profit,
             params.max_entry_distance_points,
+            first_target,
         )
 
         for candle in candles:
@@ -735,14 +760,7 @@ class BacktestService:
             take_profit_hit = candle.lower <= take_profit_level
 
         if stop_hit:
-            if position.is_long:
-                exit_price = (
-                    candle.open if candle.open <= stop_level else stop_level
-                )
-            else:
-                exit_price = (
-                    candle.open if candle.open >= stop_level else stop_level
-                )
+            exit_price = self._stop_fill(position, candle, stop_level)
             reason = (
                 ExitReason.BREAK_EVEN
                 if position.be_armed
@@ -751,18 +769,7 @@ class BacktestService:
             return self._close_trade(position, candle_date, exit_price, reason)
 
         if take_profit_hit:
-            if position.is_long:
-                exit_price = (
-                    candle.open
-                    if candle.open >= take_profit_level
-                    else take_profit_level
-                )
-            else:
-                exit_price = (
-                    candle.open
-                    if candle.open <= take_profit_level
-                    else take_profit_level
-                )
+            exit_price = self._target_fill(position, candle, take_profit_level)
             return self._close_trade(
                 position, candle_date, exit_price, ExitReason.TAKE_PROFIT
             )

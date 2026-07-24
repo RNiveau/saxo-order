@@ -57,6 +57,16 @@ class BacktestDefinition:
     # this True; CAC40 measures its stop from entry (False).
     stop_from_reference_level: bool = False
 
+    def __post_init__(self) -> None:
+        # The double take-profit exit path does not evaluate the time cut,
+        # so combining the two would silently ignore the cut. Reject it at
+        # construction (registration) time rather than shipping a no-op.
+        if self.double_take_profit and self.time_cut_minutes is not None:
+            raise ValueError(
+                "double_take_profit is not supported together with a time "
+                f"cut (definition {self.code!r})"
+            )
+
 
 @dataclass
 class Trade:
