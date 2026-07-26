@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 from api.routers.backtest import get_backtest_service
-from api.services.backtest_service import BacktestService
+from api.services.backtest import BacktestService
 from model import (
     BacktestDefinition,
     BacktestParameters,

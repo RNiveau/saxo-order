@@ -12,7 +12,7 @@ import random
 from typing import List, Tuple
 from unittest.mock import MagicMock
 
-from api.services.backtest_service import paris_reference_window_utc
+from api.services.backtest import paris_reference_window_utc
 from model import Candle, UnitTime
 from services.candles_service import CandlesService
 

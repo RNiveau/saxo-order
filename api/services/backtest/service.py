@@ -1,86 +1,37 @@
 import datetime
 from typing import List, Optional
-from zoneinfo import ZoneInfo
 
+from api.services.backtest.analytics import (
+    DAILY_CANDLES_LEAD_IN,
+    adx_before,
+    mm50_slope_before,
+    overnight_gap,
+)
+from api.services.backtest.calendar import (
+    PARIS_TZ,
+    paris_reference_window_utc,
+    paris_session_end_utc,
+)
+from api.services.backtest.candles import candle_date
+from api.services.backtest.definitions import get_definition, list_definitions
+from api.services.backtest.statistics import build_summary
 from client.aws_client import DynamoDBClient, DynamoDBOperationError
 from model import (
     BacktestDefinition,
     BacktestParameters,
     BacktestRunResult,
-    BacktestSummary,
     CachedDayCandles,
     Candle,
     DayResult,
     DayResultSummary,
     EUMarket,
-    Market,
-    Strategy,
     Trade,
     UnitTime,
 )
 from model.enum import DayStatus, Direction, ExitReason
 from services.candles_service import CandlesService
-from services.indicator_service import (
-    adx,
-    mobile_average,
-    slope_percentage,
-)
 from utils.exception import SaxoException
-from utils.helper import market_in_utc
 from utils.logger import Logger
-
-PARIS_TZ = ZoneInfo("Europe/Paris")
-
-# Daily MA50 slope regime measure: MA50 needs 50 daily closes and the
-# slope is taken over a 10-candle lookback, so at least 60 prior daily
-# candles are required before a day can be scored.
-MM50_MIN_DAILY_CANDLES = 60
-MM50_SLOPE_LOOKBACK = 10
-
-# Daily ADX regime measure: Wilder's double smoothing needs period * 3
-# prior daily candles (matches services.indicator_service.adx).
-ADX_PERIOD = 14
-ADX_MIN_DAILY_CANDLES = ADX_PERIOD * 3
-
-BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
-    BacktestDefinition(
-        code="B9H",
-        name=Strategy.B9H.value,
-        display_name="CAC40 Bougie de 9h",
-        instrument="FRA40.I",
-    ),
-    BacktestDefinition(
-        code="B9HTC",
-        name=Strategy.B9HTC.value,
-        display_name="CAC40 Bougie de 9h (time cut)",
-        instrument="FRA40.I",
-        time_cut_minutes=30,
-        time_cut_min_favorable_points=5.0,
-    ),
-    BacktestDefinition(
-        code="G9H",
-        name=Strategy.G9H.value,
-        display_name="GER40 Bougie de 9h",
-        instrument="GER40.I",
-        default_parameters=BacktestParameters(
-            stop_loss_points=150,
-            take_profit_offset_points=10,
-            break_even_trigger_points=50,
-            max_entry_distance_points=40,
-        ),
-        double_take_profit=True,
-        first_target_fraction=0.5,
-        stop_from_reference_level=True,
-    ),
-    BacktestDefinition(
-        code="B9HWS",
-        name=Strategy.B9HWS.value,
-        display_name="CAC40 Bougie de 9h (wide-range structural stop)",
-        instrument="FRA40.I",
-        min_h1_range_points=40.0,
-        structural_stop=True,
-    ),
-]
 
 # Bump whenever a change to a BacktestDefinition's instrument, 9h
 # reference window, or session windows would change what candles are
@@ -110,42 +61,6 @@ H1_HORIZON = 60
 # Default thresholds, kept in one place so the free-function unit tests
 # and the dataclass agree on what "unparametrized" means.
 _DEFAULTS = BacktestParameters()
-
-
-def resolve_parameters(
-    definition: BacktestDefinition,
-    stop_loss_points: Optional[float] = None,
-    take_profit_offset_points: Optional[float] = None,
-    break_even_trigger_points: Optional[float] = None,
-    max_entry_distance_points: Optional[float] = None,
-) -> BacktestParameters:
-    """Merge per-run overrides onto the definition's default thresholds.
-    An omitted (None) override falls back to definition.default_parameters,
-    so each definition keeps its own defaults - CAC40 50/10/20/20, GER40
-    150/10/50/40."""
-    defaults = definition.default_parameters
-    return BacktestParameters(
-        stop_loss_points=(
-            stop_loss_points
-            if stop_loss_points is not None
-            else defaults.stop_loss_points
-        ),
-        take_profit_offset_points=(
-            take_profit_offset_points
-            if take_profit_offset_points is not None
-            else defaults.take_profit_offset_points
-        ),
-        break_even_trigger_points=(
-            break_even_trigger_points
-            if break_even_trigger_points is not None
-            else defaults.break_even_trigger_points
-        ),
-        max_entry_distance_points=(
-            max_entry_distance_points
-            if max_entry_distance_points is not None
-            else defaults.max_entry_distance_points
-        ),
-    )
 
 
 def _is_valid_long_entry(
@@ -196,87 +111,6 @@ def _is_valid_short_entry(
     if first_target is not None:
         valid = valid and entry_price > first_target
     return valid
-
-
-def _eu_market_in_utc(trading_date: datetime.date) -> Market:
-    reference = datetime.datetime(
-        trading_date.year,
-        trading_date.month,
-        trading_date.day,
-        tzinfo=PARIS_TZ,
-    )
-    return market_in_utc(EUMarket(), reference)
-
-
-def paris_reference_window_utc(
-    trading_date: datetime.date,
-) -> tuple[datetime.datetime, datetime.datetime]:
-    """9:00-10:00 Paris local time for trading_date, as naive UTC bounds."""
-    utc_market = _eu_market_in_utc(trading_date)
-    start = datetime.datetime(
-        trading_date.year,
-        trading_date.month,
-        trading_date.day,
-        utc_market.open_hour,
-        utc_market.open_minutes,
-    )
-    end = start + datetime.timedelta(hours=1)
-    return (start, end)
-
-
-def paris_session_end_utc(trading_date: datetime.date) -> datetime.datetime:
-    """End of FRA40.I's regular trading session (Euronext Paris close,
-    17:30 local, from EUMarket.close_hour/end_minute), as a naive UTC
-    datetime."""
-    utc_market = _eu_market_in_utc(trading_date)
-    return datetime.datetime(
-        trading_date.year,
-        trading_date.month,
-        trading_date.day,
-        utc_market.close_hour,
-        utc_market.end_minute,
-    )
-
-
-def is_future_paris_date(
-    d: datetime.date, now: Optional[datetime.datetime] = None
-) -> bool:
-    current = (now or datetime.datetime.now(PARIS_TZ)).astimezone(PARIS_TZ)
-    return d > current.date()
-
-
-def is_today_not_yet_closed(
-    d: datetime.date, now: Optional[datetime.datetime] = None
-) -> bool:
-    """True if d is today (Paris) and the regular session hasn't ended
-    yet - the backtest only operates on already-closed historical days,
-    and Saxo won't return a complete H1/5-minute series for a session
-    still in progress."""
-    current = (now or datetime.datetime.now(PARIS_TZ)).astimezone(PARIS_TZ)
-    if d != current.date():
-        return False
-    market = EUMarket()
-    session_end_local = datetime.datetime(
-        d.year,
-        d.month,
-        d.day,
-        market.close_hour,
-        market.end_minute,
-        tzinfo=PARIS_TZ,
-    )
-    return current < session_end_local
-
-
-def _candle_date(candle: Candle) -> datetime.datetime:
-    """Candles from get_candles_in_window always carry a date (it is
-    part of that method's window filter); raise rather than assert so
-    a violation surfaces as a normal exception instead of silently
-    passing through under `-O` or crashing with a bare AssertionError."""
-    if candle.date is None:
-        raise SaxoException(
-            "Candle from get_candles_in_window is missing a date"
-        )
-    return candle.date
 
 
 class _OpenPosition:
@@ -477,13 +311,10 @@ class BacktestService:
         self.dynamodb_client = dynamodb_client
 
     def list_definitions(self) -> List[BacktestDefinition]:
-        return BACKTEST_DEFINITIONS
+        return list_definitions()
 
     def get_definition(self, code: str) -> Optional[BacktestDefinition]:
-        for definition in BACKTEST_DEFINITIONS:
-            if definition.code == code:
-                return definition
-        return None
+        return get_definition(code)
 
     async def evaluate_day(
         self,
@@ -629,7 +460,7 @@ class BacktestService:
                 h1_open=h1_candle.open,
             )
 
-        chronological = sorted(five_min_candles, key=_candle_date)
+        chronological = sorted(five_min_candles, key=candle_date)
         trades = self._evaluate_trades(
             chronological, h1_high, h1_low, params, definition
         )
@@ -682,12 +513,12 @@ class BacktestService:
                         points=day_points,
                         h1_high=day_result.h1_high,
                         h1_low=day_result.h1_low,
-                        mm50_slope=self._mm50_slope_before(
+                        mm50_slope=mm50_slope_before(
                             daily_candles, day_result.date
                         ),
-                        adx14=self._adx_before(daily_candles, day_result.date),
+                        adx14=adx_before(daily_candles, day_result.date),
                         h1_open=day_result.h1_open,
-                        overnight_gap=self._overnight_gap(
+                        overnight_gap=overnight_gap(
                             daily_candles,
                             day_result.date,
                             day_result.h1_open,
@@ -697,66 +528,10 @@ class BacktestService:
                 all_trades.extend(day_result.trades)
             current += datetime.timedelta(days=1)
 
-        summary = self._build_summary(
+        summary = build_summary(
             definition, start_date, end_date, all_trades, len(day_summaries)
         )
         return BacktestRunResult(summary=summary, days=day_summaries)
-
-    @staticmethod
-    def _build_summary(
-        definition: BacktestDefinition,
-        start_date: datetime.date,
-        end_date: datetime.date,
-        trades: List[Trade],
-        number_of_days: int,
-    ) -> BacktestSummary:
-        winning: List[Trade] = []
-        losing: List[Trade] = []
-        be_trades: List[Trade] = []
-        for trade in trades:
-            if definition.double_take_profit:
-                # Two-lot positions are classified by the sign of their
-                # net points (FR-G08): a TP1-then-break-even runner closes
-                # BREAK_EVEN but banks a net gain, so it counts as a win;
-                # only a genuinely flat position (net 0) is a break-even.
-                if trade.points > 0:
-                    winning.append(trade)
-                elif trade.points < 0:
-                    losing.append(trade)
-                else:
-                    be_trades.append(trade)
-            elif trade.exit_reason == ExitReason.BREAK_EVEN:
-                be_trades.append(trade)
-            elif trade.points > 0:
-                winning.append(trade)
-            else:
-                losing.append(trade)
-
-        average_win = (
-            round(sum(t.points for t in winning) / len(winning), 4)
-            if winning
-            else None
-        )
-        average_loss = (
-            round(-sum(t.points for t in losing) / len(losing), 4)
-            if losing
-            else None
-        )
-        final_result = round(sum(t.points for t in trades), 4)
-
-        return BacktestSummary(
-            definition_code=definition.code,
-            start_date=start_date,
-            end_date=end_date,
-            number_of_days=number_of_days,
-            number_of_trades=len(trades),
-            number_of_winning_positions=len(winning),
-            number_of_losing_positions=len(losing),
-            number_of_be=len(be_trades),
-            average_win=average_win,
-            average_loss=average_loss,
-            final_result=final_result,
-        )
 
     def _fetch_h1_reference_candle(
         self,
@@ -779,7 +554,7 @@ class BacktestService:
         )
         if not candles:
             return None
-        return sorted(candles, key=_candle_date)[0]
+        return sorted(candles, key=candle_date)[0]
 
     def _fetch_five_minute_candles(
         self,
@@ -813,12 +588,7 @@ class BacktestService:
         # first day's MA50 slope. Calendar days is a safe upper bound on
         # the range's trading days (build_candles caps at available data),
         # so no need to exclude weekends/holidays precisely.
-        count = (
-            (end_date - start_date).days
-            + MM50_MIN_DAILY_CANDLES
-            + MM50_SLOPE_LOOKBACK
-            + 5
-        )
+        count = (end_date - start_date).days + DAILY_CANDLES_LEAD_IN
         reference = datetime.datetime(
             end_date.year, end_date.month, end_date.day, tzinfo=PARIS_TZ
         )
@@ -831,68 +601,6 @@ class BacktestService:
                 f"No daily candles for {instrument} regime measure: {e}"
             )
             return []
-
-    @staticmethod
-    def _mm50_slope_before(
-        daily_candles: List[Candle], trading_date: datetime.date
-    ) -> Optional[float]:
-        """Daily MA50 slope (%) as of the last close strictly before
-        trading_date (lookahead-safe: today's daily candle is never in the
-        window). Mirrors the MA50 slope used by the MM50 alert (spec 019).
-        Returns None when fewer than MM50_MIN_DAILY_CANDLES prior daily
-        candles are available."""
-        prior = [
-            candle
-            for candle in daily_candles
-            if candle.date is not None and candle.date.date() < trading_date
-        ]
-        if len(prior) < MM50_MIN_DAILY_CANDLES:
-            return None
-        prior.sort(key=_candle_date, reverse=True)
-        ma50_last = mobile_average(prior, 50)
-        ma50_first = mobile_average(prior[MM50_SLOPE_LOOKBACK:], 50)
-        return slope_percentage(0, ma50_first, MM50_SLOPE_LOOKBACK, ma50_last)
-
-    @staticmethod
-    def _adx_before(
-        daily_candles: List[Candle], trading_date: datetime.date
-    ) -> Optional[float]:
-        """Daily ADX(14) as of the last close strictly before trading_date
-        (lookahead-safe, same window discipline as _mm50_slope_before).
-        Returns None when fewer than ADX_MIN_DAILY_CANDLES prior daily
-        candles are available."""
-        prior = [
-            candle
-            for candle in daily_candles
-            if candle.date is not None and candle.date.date() < trading_date
-        ]
-        if len(prior) < ADX_MIN_DAILY_CANDLES:
-            return None
-        prior.sort(key=_candle_date, reverse=True)
-        return adx(prior, ADX_PERIOD)
-
-    @staticmethod
-    def _overnight_gap(
-        daily_candles: List[Candle],
-        trading_date: datetime.date,
-        h1_open: Optional[float],
-    ) -> Optional[float]:
-        """Overnight gap = 9h open - the prior daily close. A same-day,
-        pre-trade shock signal (the 9h open is known at 09:00, before any
-        entry). Lookahead-safe: the prior close is the latest daily candle
-        strictly before trading_date. None when the 9h open or a prior
-        daily candle is missing."""
-        if h1_open is None:
-            return None
-        prior = [
-            candle
-            for candle in daily_candles
-            if candle.date is not None and candle.date.date() < trading_date
-        ]
-        if not prior:
-            return None
-        prior_close = max(prior, key=_candle_date).close
-        return round(h1_open - prior_close, 4)
 
     def _evaluate_trades(
         self,
@@ -947,7 +655,7 @@ class BacktestService:
         )
 
         for candle in candles:
-            candle_date = _candle_date(candle)
+            candle_time = candle_date(candle)
             if position is None:
                 long_entry = long_search.feed(candle)
                 short_entry = short_search.feed(candle)
@@ -958,7 +666,7 @@ class BacktestService:
                 # as a deterministic tiebreak.
                 if long_entry is not None:
                     position = _OpenPosition(
-                        entry_time=candle_date,
+                        entry_time=candle_time,
                         entry_price=long_entry,
                         direction=Direction.BUY,
                         take_profit_level=long_take_profit,
@@ -976,7 +684,7 @@ class BacktestService:
                     )
                 elif short_entry is not None:
                     position = _OpenPosition(
-                        entry_time=candle_date,
+                        entry_time=candle_time,
                         entry_price=short_entry,
                         direction=Direction.SELL,
                         take_profit_level=short_take_profit,
@@ -997,7 +705,7 @@ class BacktestService:
                     short_search.reset()
                 continue
 
-            closed = self._resolve_exit(position, candle, candle_date, params)
+            closed = self._resolve_exit(position, candle, candle_time, params)
             if closed is not None:
                 trades.append(closed)
                 position = None
@@ -1014,7 +722,7 @@ class BacktestService:
             trades.append(
                 close(
                     position,
-                    _candle_date(last_candle),
+                    candle_date(last_candle),
                     last_candle.close,
                     ExitReason.END_OF_DAY,
                 )
@@ -1026,7 +734,7 @@ class BacktestService:
         self,
         position: _OpenPosition,
         candle: Candle,
-        candle_date: datetime.datetime,
+        candle_time: datetime.datetime,
         params: BacktestParameters,
     ) -> Optional[Trade]:
         """Resolve the exit conditions for an open position on a single
@@ -1036,11 +744,11 @@ class BacktestService:
         stays open."""
         if position.double:
             return self._resolve_exit_double(
-                position, candle, candle_date, params
+                position, candle, candle_time, params
             )
         if position.structural_stop and not position.be_armed:
             return self._resolve_structural_exit(
-                position, candle, candle_date, params
+                position, candle, candle_time, params
             )
         stop_level = position.stop_level
         take_profit_level = position.take_profit_level
@@ -1059,13 +767,13 @@ class BacktestService:
                 if position.be_armed
                 else ExitReason.STOP_LOSS
             )
-            return self._close_trade(position, candle_date, exit_price, reason)
+            return self._close_trade(position, candle_time, exit_price, reason)
 
         if take_profit_hit:
-            return self._take_profit_exit(position, candle, candle_date)
+            return self._take_profit_exit(position, candle, candle_time)
 
         if position.time_cut_enabled:
-            time_cut = self._resolve_time_cut(position, candle, candle_date)
+            time_cut = self._resolve_time_cut(position, candle, candle_time)
             if time_cut is not None:
                 return time_cut
 
@@ -1076,7 +784,7 @@ class BacktestService:
         self,
         position: _OpenPosition,
         candle: Candle,
-        candle_date: datetime.datetime,
+        candle_time: datetime.datetime,
         params: BacktestParameters,
     ) -> Optional[Trade]:
         """Exit resolution for a two-lot / double-take-profit position
@@ -1108,7 +816,7 @@ class BacktestService:
                 else ExitReason.STOP_LOSS
             )
             return self._close_double_trade(
-                position, candle_date, exit_price, reason
+                position, candle_time, exit_price, reason
             )
 
         if (
@@ -1130,7 +838,7 @@ class BacktestService:
                     position, candle, position.take_profit_level
                 )
                 return self._close_double_trade(
-                    position, candle_date, tp2_fill, ExitReason.TAKE_PROFIT
+                    position, candle_time, tp2_fill, ExitReason.TAKE_PROFIT
                 )
             return None
 
@@ -1139,7 +847,7 @@ class BacktestService:
                 position, candle, position.take_profit_level
             )
             return self._close_double_trade(
-                position, candle_date, tp2_fill, ExitReason.TAKE_PROFIT
+                position, candle_time, tp2_fill, ExitReason.TAKE_PROFIT
             )
 
         self._arm_break_even(position, candle, params)
@@ -1149,7 +857,7 @@ class BacktestService:
         self,
         position: _OpenPosition,
         candle: Candle,
-        candle_date: datetime.datetime,
+        candle_time: datetime.datetime,
         params: BacktestParameters,
     ) -> Optional[Trade]:
         """Exit resolution for the wide-range structural-stop variant while
@@ -1165,7 +873,7 @@ class BacktestService:
         else:
             take_profit_hit = candle.lower <= position.take_profit_level
         if take_profit_hit:
-            return self._take_profit_exit(position, candle, candle_date)
+            return self._take_profit_exit(position, candle, candle_time)
 
         if position.is_long:
             structural_hit = (
@@ -1178,7 +886,7 @@ class BacktestService:
             )
         if structural_hit:
             return self._close_trade(
-                position, candle_date, candle.close, ExitReason.STOP_LOSS
+                position, candle_time, candle.close, ExitReason.STOP_LOSS
             )
 
         self._arm_break_even(position, candle, params)
@@ -1188,7 +896,7 @@ class BacktestService:
     def _take_profit_exit(
         position: _OpenPosition,
         candle: Candle,
-        candle_date: datetime.datetime,
+        candle_time: datetime.datetime,
     ) -> Trade:
         """Close a position at take-profit, applying the FR-010 gap-fill
         convention (fill at the candle open when it gapped past the level)."""
@@ -1196,7 +904,7 @@ class BacktestService:
             position, candle, position.take_profit_level
         )
         return BacktestService._close_trade(
-            position, candle_date, exit_price, ExitReason.TAKE_PROFIT
+            position, candle_time, exit_price, ExitReason.TAKE_PROFIT
         )
 
     @staticmethod
@@ -1240,7 +948,7 @@ class BacktestService:
     def _resolve_time_cut(
         position: _OpenPosition,
         candle: Candle,
-        candle_date: datetime.datetime,
+        candle_time: datetime.datetime,
     ) -> Optional[Trade]:
         """Time-based cut for the "Bougie de 9h (time cut)" variant.
 
@@ -1266,11 +974,11 @@ class BacktestService:
 
         deadline = position.entry_time + datetime.timedelta(minutes=minutes)
         if (
-            candle_date >= deadline
+            candle_time >= deadline
             and position.max_favorable_points <= threshold
         ):
             return BacktestService._close_trade(
-                position, candle_date, candle.close, ExitReason.TIME_CUT
+                position, candle_time, candle.close, ExitReason.TIME_CUT
             )
         return None
 

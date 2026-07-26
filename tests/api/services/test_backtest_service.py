@@ -1,164 +1,33 @@
 import datetime
 from unittest.mock import AsyncMock, MagicMock
-from zoneinfo import ZoneInfo
 
-import pytest
 
-from api.services.backtest_service import (
-    BacktestService,
-    _candle_date,
+from api.services.backtest import BacktestService
+from api.services.backtest.service import (
     _is_valid_long_entry,
     _is_valid_short_entry,
-    is_future_paris_date,
-    is_today_not_yet_closed,
-    paris_reference_window_utc,
-    paris_session_end_utc,
 )
 from client.aws_client import DynamoDBClient, DynamoDBOperationError
-from model import (
-    BacktestDefinition,
-    BacktestParameters,
-    Candle,
-    DayResult,
-    Trade,
-    UnitTime,
-)
+from model import BacktestParameters, DayResult, Trade, UnitTime
 from model.enum import DayStatus, Direction, ExitReason
 from services.candles_service import CandlesService
+from tests.api.services.backtest.helpers import (
+    DEFINITION,
+    GER_DEFINITION,
+    GER_PARAMS,
+    H1_HIGH,
+    H1_LOW,
+    NO_CACHE_CLIENT,
+    TIME_CUT_DEFINITION,
+    TRADING_DATE,
+    WIDE_RANGE_DEFINITION,
+    h1_candle,
+    m5_candle,
+    make_service,
+    run_ger,
+    uptrend_daily_series,
+)
 from utils.exception import SaxoException
-
-PARIS_TZ = ZoneInfo("Europe/Paris")
-
-DEFINITION = BacktestDefinition(
-    code="B9H",
-    name="Bougie de 9h",
-    display_name="CAC40 Bougie de 9h",
-    instrument="FRA40.I",
-)
-TIME_CUT_DEFINITION = BacktestDefinition(
-    code="B9HTC",
-    name="Bougie de 9h (time cut)",
-    display_name="CAC40 Bougie de 9h (time cut)",
-    instrument="FRA40.I",
-    time_cut_minutes=30,
-    time_cut_min_favorable_points=5.0,
-)
-WIDE_RANGE_DEFINITION = BacktestDefinition(
-    code="B9HWS",
-    name="Bougie de 9h (wide-range structural stop)",
-    display_name="CAC40 Bougie de 9h (wide-range structural stop)",
-    instrument="FRA40.I",
-    min_h1_range_points=40.0,
-    structural_stop=True,
-)
-TRADING_DATE = datetime.date(2026, 6, 2)
-
-H1_HIGH = 8050.0
-H1_LOW = 8000.0
-
-# A real DynamoDBClient with no active resource - dynamodb_client is a
-# required BacktestService constructor param (not Optional), but calls
-# through it still degrade to a cache miss/no-op (RuntimeError, caught
-# in _get_cached_candles/_store_candles), the same as in local/dev
-# usage without AWS. Used wherever a test doesn't care about caching.
-NO_CACHE_CLIENT = DynamoDBClient(dynamodb_resource=None)
-
-
-def h1_candle(higher=H1_HIGH, lower=H1_LOW):
-    return Candle(
-        lower=lower,
-        higher=higher,
-        open=8020.0,
-        close=8030.0,
-        ut=UnitTime.H1,
-        date=datetime.datetime(2026, 6, 2, 7, 0),
-    )
-
-
-def m5_candle(minute_offset, open, higher, lower, close):
-    return Candle(
-        lower=lower,
-        higher=higher,
-        open=open,
-        close=close,
-        ut=UnitTime.M5,
-        date=datetime.datetime(2026, 6, 2, 8, 0)
-        + datetime.timedelta(minutes=5 * minute_offset),
-    )
-
-
-def make_service(h1_candles, m5_candles, raise_on_h1=False, raise_on_m5=False):
-    candles_service = MagicMock(spec=CandlesService)
-
-    def side_effect(code, ut, horizon, start, end):
-        if ut == UnitTime.H1:
-            if raise_on_h1:
-                raise SaxoException("boom")
-            return h1_candles
-        if raise_on_m5:
-            raise SaxoException("boom")
-        return m5_candles
-
-    candles_service.get_candles_in_window.side_effect = side_effect
-    return BacktestService(candles_service, NO_CACHE_CLIENT)
-
-
-class TestTimezoneHelpers:
-    def test_reference_window_cest_summer(self):
-        start, end = paris_reference_window_utc(datetime.date(2026, 6, 2))
-        assert start == datetime.datetime(2026, 6, 2, 7, 0)
-        assert end == datetime.datetime(2026, 6, 2, 8, 0)
-
-    def test_reference_window_cet_winter(self):
-        start, end = paris_reference_window_utc(datetime.date(2026, 1, 15))
-        assert start == datetime.datetime(2026, 1, 15, 8, 0)
-        assert end == datetime.datetime(2026, 1, 15, 9, 0)
-
-    def test_session_end_cest_summer(self):
-        assert paris_session_end_utc(
-            datetime.date(2026, 6, 2)
-        ) == datetime.datetime(2026, 6, 2, 15, 30)
-
-    def test_session_end_cet_winter(self):
-        assert paris_session_end_utc(
-            datetime.date(2026, 1, 15)
-        ) == datetime.datetime(2026, 1, 15, 16, 30)
-
-    def test_is_future_paris_date(self):
-        now = datetime.datetime(2026, 6, 2, 10, 0, tzinfo=PARIS_TZ)
-        assert is_future_paris_date(datetime.date(2026, 6, 3), now=now)
-        assert not is_future_paris_date(datetime.date(2026, 6, 2), now=now)
-        assert not is_future_paris_date(datetime.date(2026, 6, 1), now=now)
-
-    def test_today_before_session_close_is_not_yet_closed(self):
-        now = datetime.datetime(2026, 6, 2, 10, 0, tzinfo=PARIS_TZ)
-        assert is_today_not_yet_closed(datetime.date(2026, 6, 2), now=now)
-
-    def test_today_after_session_close_is_closed(self):
-        now = datetime.datetime(2026, 6, 2, 18, 0, tzinfo=PARIS_TZ)
-        assert not is_today_not_yet_closed(datetime.date(2026, 6, 2), now=now)
-
-    def test_other_day_is_never_not_yet_closed(self):
-        now = datetime.datetime(2026, 6, 2, 10, 0, tzinfo=PARIS_TZ)
-        assert not is_today_not_yet_closed(datetime.date(2026, 6, 1), now=now)
-        assert not is_today_not_yet_closed(datetime.date(2026, 6, 3), now=now)
-
-
-class TestCandleDate:
-    def test_returns_the_candle_date(self):
-        candle = m5_candle(0, 8005, 8010, 7995, 8000)
-        assert _candle_date(candle) == candle.date
-
-    def test_raises_saxo_exception_when_date_is_missing(self):
-        """get_candles_in_window always filters out dateless candles
-        before this is called, so this path shouldn't be reachable in
-        practice - but it must not be a bare assert (stripped under
-        -O, and an AssertionError is the wrong exception type for a
-        data-integrity problem from a Saxo response)."""
-        candle = m5_candle(0, 8005, 8010, 7995, 8000)
-        candle.date = None
-        with pytest.raises(SaxoException):
-            _candle_date(candle)
 
 
 class TestEvaluateDayNoData:
@@ -184,45 +53,6 @@ class TestEvaluateDayNoData:
         assert result.status == DayStatus.NO_TRADE
         assert result.h1_high == H1_HIGH
         assert result.h1_low == H1_LOW
-
-
-class TestListAndGetDefinition:
-    def test_list_definitions_returns_the_hardcoded_backtests(self):
-        service = make_service([], [])
-        definitions = service.list_definitions()
-        assert len(definitions) == 4
-        assert definitions[0].code == "B9H"
-        assert definitions[0].display_name == "CAC40 Bougie de 9h"
-        assert definitions[0].instrument == "FRA40.I"
-        assert definitions[0].time_cut_minutes is None
-        codes = [definition.code for definition in definitions]
-        assert codes == ["B9H", "B9HTC", "G9H", "B9HWS"]
-        g9h = service.get_definition("G9H")
-        assert g9h is not None
-        assert g9h.instrument == "GER40.I"
-        assert g9h.double_take_profit is True
-        assert g9h.first_target_fraction == 0.5
-        assert g9h.stop_from_reference_level is True
-        assert g9h.default_parameters.stop_loss_points == 150
-
-    def test_wide_range_structural_definition_is_registered(self):
-        service = make_service([], [])
-        definition = service.get_definition("B9HWS")
-        assert definition is not None
-        assert (
-            definition.display_name
-            == "CAC40 Bougie de 9h (wide-range structural stop)"
-        )
-        assert definition.min_h1_range_points == 40.0
-        assert definition.structural_stop is True
-
-    def test_get_definition_found(self):
-        service = make_service([], [])
-        assert service.get_definition("B9H") is not None
-
-    def test_get_definition_not_found(self):
-        service = make_service([], [])
-        assert service.get_definition("NOPE") is None
 
 
 class TestEvaluateDayNoTrade:
@@ -1256,71 +1086,6 @@ class TestBacktestParameters:
         assert result.trades == []
 
 
-def daily_candle(day: datetime.date, close: float) -> Candle:
-    return Candle(
-        lower=close - 5,
-        higher=close + 5,
-        open=close,
-        close=close,
-        ut=UnitTime.D,
-        date=datetime.datetime(day.year, day.month, day.day, 0, 0),
-    )
-
-
-def uptrend_daily_series(end_before: datetime.date, count: int) -> list:
-    """`count` daily candles ending the day before `end_before`, close
-    rising toward the most recent day (an uptrend). Returned oldest-first
-    to prove _mm50_slope_before does not rely on input ordering."""
-    series = []
-    for offset in range(1, count + 1):
-        day = end_before - datetime.timedelta(days=offset)
-        series.append(daily_candle(day, close=8000 + (count - offset)))
-    return list(reversed(series))  # oldest-first
-
-
-class TestMm50SlopeBefore:
-    TRADING_DATE = datetime.date(2026, 6, 2)
-
-    def test_none_when_fewer_than_60_prior_candles(self):
-        series = uptrend_daily_series(self.TRADING_DATE, 59)
-        assert (
-            BacktestService._mm50_slope_before(series, self.TRADING_DATE)
-            is None
-        )
-
-    def test_positive_slope_for_uptrend(self):
-        series = uptrend_daily_series(self.TRADING_DATE, 70)
-        slope = BacktestService._mm50_slope_before(series, self.TRADING_DATE)
-        assert slope is not None and slope > 0
-
-    def test_ignores_today_and_future_candles(self):
-        """A candle dated on the trading day (or later) must not affect
-        the result - the gate is computed only from strictly-prior
-        closes."""
-        series = uptrend_daily_series(self.TRADING_DATE, 70)
-        baseline = BacktestService._mm50_slope_before(
-            series, self.TRADING_DATE
-        )
-        polluted = series + [
-            daily_candle(self.TRADING_DATE, close=0.0),
-            daily_candle(
-                self.TRADING_DATE + datetime.timedelta(days=1), close=99999.0
-            ),
-        ]
-        assert (
-            BacktestService._mm50_slope_before(polluted, self.TRADING_DATE)
-            == baseline
-        )
-
-    def test_skips_dateless_candles(self):
-        series = uptrend_daily_series(self.TRADING_DATE, 70)
-        dateless = daily_candle(self.TRADING_DATE, close=0.0)
-        dateless.date = None
-        assert BacktestService._mm50_slope_before(
-            [dateless] + series, self.TRADING_DATE
-        ) == BacktestService._mm50_slope_before(series, self.TRADING_DATE)
-
-
 class TestRunRangeThreadsRegime:
     async def test_mm50_slope_populated_on_summary(self):
         trading_date = datetime.date(2026, 6, 2)
@@ -1341,82 +1106,6 @@ class TestRunRangeThreadsRegime:
         # h1_candle() opens at 8020; latest prior daily close is 8069
         assert result.days[0].h1_open == 8020.0
         assert result.days[0].overnight_gap == round(8020.0 - 8069.0, 4)
-
-
-class TestOvernightGap:
-    TRADING_DATE = datetime.date(2026, 6, 2)
-
-    def test_gap_is_open_minus_prior_daily_close(self):
-        series = uptrend_daily_series(self.TRADING_DATE, 70)
-        # latest prior daily close in the series is 8069
-        gap = BacktestService._overnight_gap(
-            series, self.TRADING_DATE, h1_open=8100.0
-        )
-        assert gap == 31.0
-
-    def test_none_when_no_prior_candle(self):
-        assert (
-            BacktestService._overnight_gap(
-                [], self.TRADING_DATE, h1_open=8100.0
-            )
-            is None
-        )
-
-    def test_none_when_h1_open_missing(self):
-        series = uptrend_daily_series(self.TRADING_DATE, 70)
-        assert (
-            BacktestService._overnight_gap(
-                series, self.TRADING_DATE, h1_open=None
-            )
-            is None
-        )
-
-    def test_ignores_today_and_future_candles(self):
-        """The gap is measured against the prior close only; a candle dated
-        on the trading day or later must not become the reference."""
-        series = uptrend_daily_series(self.TRADING_DATE, 70)
-        baseline = BacktestService._overnight_gap(
-            series, self.TRADING_DATE, h1_open=8100.0
-        )
-        polluted = series + [
-            daily_candle(self.TRADING_DATE, close=0.0),
-            daily_candle(
-                self.TRADING_DATE + datetime.timedelta(days=1), close=99999.0
-            ),
-        ]
-        assert (
-            BacktestService._overnight_gap(
-                polluted, self.TRADING_DATE, h1_open=8100.0
-            )
-            == baseline
-        )
-
-
-class TestAdxBefore:
-    TRADING_DATE = datetime.date(2026, 6, 2)
-
-    def test_none_when_fewer_than_42_prior_candles(self):
-        series = uptrend_daily_series(self.TRADING_DATE, 41)
-        assert BacktestService._adx_before(series, self.TRADING_DATE) is None
-
-    def test_high_adx_for_uptrend(self):
-        series = uptrend_daily_series(self.TRADING_DATE, 60)
-        value = BacktestService._adx_before(series, self.TRADING_DATE)
-        assert value is not None and value > 40
-
-    def test_ignores_today_and_future_candles(self):
-        series = uptrend_daily_series(self.TRADING_DATE, 60)
-        baseline = BacktestService._adx_before(series, self.TRADING_DATE)
-        polluted = series + [
-            daily_candle(self.TRADING_DATE, close=0.0),
-            daily_candle(
-                self.TRADING_DATE + datetime.timedelta(days=1), close=99999.0
-            ),
-        ]
-        assert (
-            BacktestService._adx_before(polluted, self.TRADING_DATE)
-            == baseline
-        )
 
 
 class TestWideRangeStructuralStop:
@@ -1758,34 +1447,6 @@ class TestBacktestCandleCache:
         )
 
 
-GER_DEFINITION = BacktestDefinition(
-    code="G9H",
-    name="Bougie de 9h GER40",
-    display_name="GER40 Bougie de 9h",
-    instrument="GER40.I",
-    default_parameters=BacktestParameters(
-        stop_loss_points=150,
-        take_profit_offset_points=10,
-        break_even_trigger_points=50,
-        max_entry_distance_points=40,
-    ),
-    double_take_profit=True,
-    first_target_fraction=0.5,
-    stop_from_reference_level=True,
-)
-GER_PARAMS = BacktestParameters(
-    stop_loss_points=150,
-    take_profit_offset_points=10,
-    break_even_trigger_points=50,
-    max_entry_distance_points=40,
-)
-
-
-async def _run_ger(m5_candles, higher=H1_HIGH, lower=H1_LOW):
-    service = make_service([h1_candle(higher=higher, lower=lower)], m5_candles)
-    return await service.evaluate_day(GER_DEFINITION, TRADING_DATE, GER_PARAMS)
-
-
 class TestEvaluateDayDoubleTakeProfit:
     """GER40 double take-profit / two-lot engine. With H1 8000-8050:
     TP1 (midpoint) = 8025, TP2 (long) = 8040, stop (long) = 7850,
@@ -1803,7 +1464,7 @@ class TestEvaluateDayDoubleTakeProfit:
             m5_candle(3, 8020, 8030, 8018, 8028),  # TP1 @8025 (lot A)
             m5_candle(4, 8030, 8045, 8028, 8042),  # TP2 @8040 (runner)
         ]
-        result = await _run_ger(candles)
+        result = await run_ger(candles)
         assert result.status == DayStatus.TRADED
         assert len(result.trades) == 1
         trade = result.trades[0]
@@ -1817,7 +1478,7 @@ class TestEvaluateDayDoubleTakeProfit:
         candles = self.ENTRY_CANDLES + [
             m5_candle(3, 8010, 8012, 7840, 7845),  # low <= stop 7850
         ]
-        result = await _run_ger(candles)
+        result = await run_ger(candles)
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.STOP_LOSS
         assert trade.exit_price == 7850
@@ -1828,7 +1489,7 @@ class TestEvaluateDayDoubleTakeProfit:
             m5_candle(3, 8020, 8030, 8018, 8028),  # TP1 @8025, runner -> BE
             m5_candle(4, 8020, 8022, 8010, 8012),  # runner low <= entry 8015
         ]
-        result = await _run_ger(candles)
+        result = await run_ger(candles)
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.BREAK_EVEN
         assert trade.exit_price == 8015
@@ -1838,7 +1499,7 @@ class TestEvaluateDayDoubleTakeProfit:
         candles = self.ENTRY_CANDLES + [
             m5_candle(3, 8020, 8045, 8018, 8042),  # reaches both 8025 and 8040
         ]
-        result = await _run_ger(candles)
+        result = await run_ger(candles)
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.TAKE_PROFIT
         assert trade.exit_price == 8040
@@ -1851,7 +1512,7 @@ class TestEvaluateDayDoubleTakeProfit:
             m5_candle(3, 8020, 8070, 8018, 8065),  # high >= entry+50 -> arm BE
             m5_candle(4, 8060, 8062, 8010, 8012),  # low <= entry -> BE stop
         ]
-        result = await _run_ger(candles, higher=8200.0, lower=8000.0)
+        result = await run_ger(candles, higher=8200.0, lower=8000.0)
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.BREAK_EVEN
         assert trade.exit_price == 8015
@@ -1861,7 +1522,7 @@ class TestEvaluateDayDoubleTakeProfit:
         candles = self.ENTRY_CANDLES + [
             m5_candle(3, 8016, 8020, 8014, 8018),  # last candle, no TP/stop
         ]
-        result = await _run_ger(candles)
+        result = await run_ger(candles)
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.END_OF_DAY
         assert trade.exit_price == 8018
@@ -1872,7 +1533,7 @@ class TestEvaluateDayDoubleTakeProfit:
             m5_candle(3, 8020, 8030, 8018, 8028),  # TP1 @8025
             m5_candle(4, 8026, 8030, 8024, 8028),  # last candle, runner open
         ]
-        result = await _run_ger(candles)
+        result = await run_ger(candles)
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.END_OF_DAY
         assert trade.exit_price == 8028
@@ -1887,7 +1548,7 @@ class TestEvaluateDayDoubleTakeProfit:
             m5_candle(3, 8034, 8038, 8020, 8024),  # TP1 @8025 (lot A)
             m5_candle(4, 8020, 8024, 8005, 8008),  # TP2 @8010 (runner)
         ]
-        result = await _run_ger(candles)
+        result = await run_ger(candles)
         trade = result.trades[0]
         assert trade.direction == Direction.SELL
         assert trade.entry_price == 8035
@@ -1911,64 +1572,12 @@ class TestEvaluateDayDoubleTakeProfit:
             m5_candle(7, 8020, 8030, 8018, 8028),  # TP1 @8025
             m5_candle(8, 8030, 8045, 8028, 8042),  # TP2 @8040
         ]
-        result = await _run_ger(candles)
+        result = await run_ger(candles)
         assert len(result.trades) == 2
         assert result.trades[0].exit_reason == ExitReason.STOP_LOSS
         assert result.trades[0].points == -330
         assert result.trades[1].exit_reason == ExitReason.TAKE_PROFIT
         assert result.trades[1].points == 33  # (8025-8016) + (8040-8016)
-
-
-def _closed_trade(points, exit_reason, direction=Direction.BUY):
-    return Trade(
-        entry_time=datetime.datetime(2026, 6, 2, 8, 20),
-        entry_price=8015.0,
-        exit_time=datetime.datetime(2026, 6, 2, 9, 0),
-        exit_price=8015.0 + points,
-        exit_reason=exit_reason,
-        direction=direction,
-        points=points,
-    )
-
-
-class TestBuildSummaryDoubleTakeProfit:
-    """FR-G08: a two-lot position is classified by the sign of its net
-    points, not by the runner's exit mechanism. A TP1-then-break-even
-    runner closes BREAK_EVEN yet banks a net gain -> a winning position."""
-
-    TRADES = [
-        _closed_trade(35, ExitReason.TAKE_PROFIT),  # full winner
-        _closed_trade(10, ExitReason.BREAK_EVEN),  # TP1 then BE -> win
-        _closed_trade(-330, ExitReason.STOP_LOSS),  # both lots stop -> loss
-        _closed_trade(0, ExitReason.BREAK_EVEN),  # genuinely flat -> BE
-    ]
-
-    def test_double_tp_classifies_by_net_points_sign(self):
-        summary = BacktestService._build_summary(
-            GER_DEFINITION,
-            TRADING_DATE,
-            TRADING_DATE,
-            self.TRADES,
-            number_of_days=4,
-        )
-        assert summary.number_of_trades == 4
-        assert summary.number_of_winning_positions == 2  # 35 and 10
-        assert summary.number_of_losing_positions == 1  # -330
-        assert summary.number_of_be == 1  # the flat 0
-        assert summary.average_win == 22.5  # (35 + 10) / 2
-        assert summary.average_loss == 330.0
-        assert summary.final_result == -285.0
-
-    def test_non_double_definition_still_buckets_break_even_by_mechanism(self):
-        summary = BacktestService._build_summary(
-            DEFINITION,
-            TRADING_DATE,
-            TRADING_DATE,
-            [_closed_trade(10, ExitReason.BREAK_EVEN)],
-            number_of_days=1,
-        )
-        assert summary.number_of_be == 1
-        assert summary.number_of_winning_positions == 0
 
 
 class TestDoubleTakeProfitEntryValidity:
@@ -1982,7 +1591,7 @@ class TestDoubleTakeProfitEntryValidity:
             m5_candle(1, 8000, 8030, 7995, 8010),  # candidate, higher=8030
             m5_candle(2, 8020, 8035, 8015, 8025),  # breakout -> entry @8030
         ]
-        result = await _run_ger(candles)  # entry 8030 > TP1 8025 -> rejected
+        result = await run_ger(candles)  # entry 8030 > TP1 8025 -> rejected
         assert result.status == DayStatus.NO_TRADE
         assert result.trades == []
 
@@ -1993,7 +1602,7 @@ class TestDoubleTakeProfitEntryValidity:
             m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
             m5_candle(3, 8020, 8030, 8018, 8028),  # TP1 @8025
         ]
-        result = await _run_ger(candles)  # entry 8015 < TP1 8025 -> valid
+        result = await run_ger(candles)  # entry 8015 < TP1 8025 -> valid
         assert result.status == DayStatus.TRADED
         assert result.trades[0].entry_price == 8015
 
@@ -2003,22 +1612,6 @@ class TestDoubleTakeProfitEntryValidity:
             m5_candle(1, 8050, 8055, 8020, 8040),  # candidate, lower=8020
             m5_candle(2, 8030, 8035, 8015, 8020),  # breakdown -> entry @8020
         ]
-        result = await _run_ger(candles)  # entry 8020 < TP1 8025 (past mid)
+        result = await run_ger(candles)  # entry 8020 < TP1 8025 (past mid)
         assert result.status == DayStatus.NO_TRADE
         assert result.trades == []
-
-
-class TestBacktestDefinitionValidation:
-    def test_double_take_profit_with_time_cut_is_rejected(self):
-        """PR #659 review #3: the double-TP exit path does not evaluate the
-        time cut, so combining them would silently ignore the cut."""
-        with pytest.raises(ValueError):
-            BacktestDefinition(
-                code="BAD",
-                name="bad",
-                display_name="bad",
-                instrument="GER40.I",
-                double_take_profit=True,
-                time_cut_minutes=30,
-                time_cut_min_favorable_points=5.0,
-            )

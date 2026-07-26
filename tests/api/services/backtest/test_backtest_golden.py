@@ -20,7 +20,7 @@ from typing import Any, Dict
 
 import pytest
 
-from api.services.backtest_service import (
+from api.services.backtest import (
     BACKTEST_DEFINITIONS,
     BacktestService,
     resolve_parameters,
