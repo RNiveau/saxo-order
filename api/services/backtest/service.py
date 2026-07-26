@@ -16,6 +16,8 @@ from api.services.backtest.definitions import (
     list_definitions,
 )
 from api.services.backtest.entry import DirectionSearch
+from api.services.backtest.policies import resolve_exit
+from api.services.backtest.rules import build_exit_chain
 from api.services.backtest.position import Position
 from api.services.backtest.side import LONG, SHORT, Side
 from api.services.backtest.statistics import build_summary
@@ -223,6 +225,7 @@ class BacktestService:
         the search for both directions only resumes once flat again."""
         trades: List[Trade] = []
         position: Optional[Position] = None
+        chain = build_exit_chain(definition, params)
 
         # TP1 (the H1 midpoint) for double take-profit definitions; None
         # on the single-lot ones, where it is not consulted.
@@ -278,7 +281,7 @@ class BacktestService:
                     self._reset(searches)
                 continue
 
-            closed = self._resolve_exit(position, candle, candle_time, params)
+            closed = resolve_exit(chain, position, candle, candle_time)
             if closed is not None:
                 trades.append(closed)
                 position = None
@@ -354,192 +357,3 @@ class BacktestService:
             h1_low=h1_low,
             structural_stop=definition.structural_stop,
         )
-
-    def _resolve_exit(
-        self,
-        position: Position,
-        candle: Candle,
-        candle_time: datetime.datetime,
-        params: BacktestParameters,
-    ) -> Optional[Trade]:
-        """Resolve the exit conditions for an open position on a single
-        candle. Checks stop-loss (or break-even) before take-profit
-        (FR-009), and only arms the break-even stop when neither exit
-        triggered. Returns the closed Trade, or None if the position
-        stays open."""
-        if position.double:
-            return self._resolve_exit_double(
-                position, candle, candle_time, params
-            )
-        if position.structural_stop and not position.be_armed:
-            return self._resolve_structural_exit(
-                position, candle, candle_time, params
-            )
-        side = position.side
-
-        if side.receded(position.stop_level, candle):
-            return self._stop_exit(position, candle, candle_time)
-
-        if side.reached(position.take_profit_level, candle):
-            return self._take_profit_exit(position, candle, candle_time)
-
-        if position.time_cut_enabled:
-            time_cut = self._resolve_time_cut(position, candle, candle_time)
-            if time_cut is not None:
-                return time_cut
-
-        self._arm_break_even(position, candle, params)
-        return None
-
-    def _resolve_exit_double(
-        self,
-        position: Position,
-        candle: Candle,
-        candle_time: datetime.datetime,
-        params: BacktestParameters,
-    ) -> Optional[Trade]:
-        """Exit resolution for a two-lot / double-take-profit position
-        (GER40). While both lots are open they share one stop; a stop hit
-        closes both (the "SL is x2" loss). The first lot takes profit at
-        the H1 midpoint (TP1); when it fills, the runner's stop moves to
-        break-even and the runner then targets the full take-profit (TP2)
-        or that break-even stop. Stop is checked before take-profit on the
-        same candle (conservative, FR-009/FR-G05)."""
-        side = position.side
-        first_target = position.first_target_level
-
-        if side.receded(position.stop_level, candle):
-            return self._stop_exit(position, candle, candle_time)
-
-        tp2_hit = side.reached(position.take_profit_level, candle)
-
-        if (
-            not position.first_target_taken
-            and first_target is not None
-            and side.reached(first_target, candle)
-        ):
-            tp1_fill = side.target_fill(first_target, candle)
-            position.banked_points += side.favorable(
-                tp1_fill, position.entry_price
-            )
-            position.first_target_taken = True
-            position.be_armed = True
-            if tp2_hit:
-                return self._take_profit_exit(position, candle, candle_time)
-            return None
-
-        if position.first_target_taken and tp2_hit:
-            return self._take_profit_exit(position, candle, candle_time)
-
-        self._arm_break_even(position, candle, params)
-        return None
-
-    def _resolve_structural_exit(
-        self,
-        position: Position,
-        candle: Candle,
-        candle_time: datetime.datetime,
-        params: BacktestParameters,
-    ) -> Optional[Trade]:
-        """Exit resolution for the wide-range structural-stop variant while
-        break-even is unarmed (FR-034/FR-035). Take-profit is reached
-        intrabar (before the candle's close), so it is resolved first; the
-        structural stop then fires when the candle *closes* beyond the H1
-        level on the losing side, filling at that close with a stop-loss
-        reason (no gap-fill - it is a market/close exit). Break-even arms as
-        usual; once armed, _resolve_exit routes to the base logic instead."""
-        side = position.side
-        if side.reached(position.take_profit_level, candle):
-            return self._take_profit_exit(position, candle, candle_time)
-
-        level = position.structural_level
-        if level is not None and side.closed_beyond(level, candle):
-            return position.close(
-                candle_time, candle.close, ExitReason.STOP_LOSS
-            )
-
-        self._arm_break_even(position, candle, params)
-        return None
-
-    @staticmethod
-    def _stop_exit(
-        position: Position,
-        candle: Candle,
-        candle_time: datetime.datetime,
-    ) -> Trade:
-        """Close a position at its stop, applying the FR-010 gap-fill
-        convention. An armed break-even stop is reported as such."""
-        exit_price = position.side.stop_fill(position.stop_level, candle)
-        reason = (
-            ExitReason.BREAK_EVEN
-            if position.be_armed
-            else ExitReason.STOP_LOSS
-        )
-        return position.close(candle_time, exit_price, reason)
-
-    @staticmethod
-    def _take_profit_exit(
-        position: Position,
-        candle: Candle,
-        candle_time: datetime.datetime,
-    ) -> Trade:
-        """Close a position at take-profit, applying the FR-010 gap-fill
-        convention (fill at the candle open when it gapped past the
-        level)."""
-        exit_price = position.side.target_fill(
-            position.take_profit_level, candle
-        )
-        return position.close(candle_time, exit_price, ExitReason.TAKE_PROFIT)
-
-    @staticmethod
-    def _arm_break_even(
-        position: Position,
-        candle: Candle,
-        params: BacktestParameters,
-    ) -> None:
-        """Arm the break-even stop the first time a candle reaches entry
-        plus the break-even trigger in the position's favor (FR-008a);
-        takes effect on later candles."""
-        if position.be_armed:
-            return
-        arm_level = position.break_even_arm_level(
-            params.break_even_trigger_points
-        )
-        if position.side.reached(arm_level, candle):
-            position.be_armed = True
-
-    @staticmethod
-    def _resolve_time_cut(
-        position: Position,
-        candle: Candle,
-        candle_time: datetime.datetime,
-    ) -> Optional[Trade]:
-        """Time-based cut for the "Bougie de 9h (time cut)" variant.
-
-        Tracks the position's max favorable excursion candle by candle.
-        Once time_cut_minutes have elapsed since entry, if the trade has
-        never moved more than time_cut_min_favorable_points in its favor,
-        it is closed at market (this candle's close). "Never been higher
-        than N points" means the cut also fires when the best move was
-        exactly N points, so the comparison is <=.
-        """
-        threshold = position.time_cut_min_favorable_points
-        minutes = position.time_cut_minutes
-        if threshold is None or minutes is None:
-            return None
-
-        favorable = position.side.favorable(
-            position.side.extreme(candle), position.entry_price
-        )
-        if favorable > position.max_favorable_points:
-            position.max_favorable_points = favorable
-
-        deadline = position.entry_time + datetime.timedelta(minutes=minutes)
-        if (
-            candle_time >= deadline
-            and position.max_favorable_points <= threshold
-        ):
-            return position.close(
-                candle_time, candle.close, ExitReason.TIME_CUT
-            )
-        return None

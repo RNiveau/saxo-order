@@ -131,6 +131,18 @@ def closed_trade(points, exit_reason, direction=Direction.BUY) -> Trade:
     )
 
 
+def stop_loss_candles():
+    """A breach / candidate / breakout sequence that enters long at 8015
+    and stops out on the next candle - the shared "one plain losing
+    trade" fixture."""
+    return [
+        m5_candle(0, 8005, 8010, 7990, 7995),  # breach
+        m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+        m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+        m5_candle(3, 8000, 8005, 7950, 7955),  # stop hit, no gap
+    ]
+
+
 def make_service(h1_candles, m5_candles, raise_on_h1=False, raise_on_m5=False):
     candles_service = MagicMock(spec=CandlesService)
 
@@ -167,6 +179,7 @@ __all__ = [
     "h1_candle",
     "m5_candle",
     "make_service",
+    "stop_loss_candles",
     "run_ger",
     "uptrend_daily_series",
     "ExitReason",
