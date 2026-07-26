@@ -2,10 +2,6 @@ import datetime
 from unittest.mock import MagicMock
 
 from api.services.backtest import BacktestService
-from api.services.backtest.service import (
-    _is_valid_long_entry,
-    _is_valid_short_entry,
-)
 from model import BacktestParameters, DayResult, Trade, UnitTime
 from model.enum import DayStatus, Direction, ExitReason
 from services.candles_service import CandlesService
@@ -352,57 +348,6 @@ class TestEvaluateDaySameCandleEdgeCases:
         assert trade.exit_reason == ExitReason.BREAK_EVEN
         assert trade.exit_price == 8015
         assert trade.exit_time == candles[4].date
-
-
-class TestIsValidLongEntry:
-    """Direct unit tests for the long entry-validity rule added after PR
-    review: a breakout-reversal close only produces a trade when it is
-    within MAX_ENTRY_DISTANCE points of the H1 low and still below the
-    take-profit level."""
-
-    def test_within_distance_and_below_tp_is_valid(self):
-        assert _is_valid_long_entry(8010, 8000, 8040) is True
-
-    def test_exactly_at_max_distance_is_valid(self):
-        assert _is_valid_long_entry(8020, 8000, 8040) is True
-
-    def test_beyond_max_distance_is_invalid(self):
-        assert _is_valid_long_entry(8021, 8000, 8040) is False
-
-    def test_at_take_profit_level_is_invalid(self):
-        assert _is_valid_long_entry(8015, 8005, 8015) is False
-
-    def test_above_take_profit_level_is_invalid(self):
-        assert _is_valid_long_entry(8016, 8005, 8015) is False
-
-    def test_just_below_take_profit_level_is_valid(self):
-        assert _is_valid_long_entry(8014, 8005, 8015) is True
-
-
-class TestIsValidShortEntry:
-    """Mirror of TestIsValidLongEntry for the short side: a short
-    breakdown entry is valid only when it is within MAX_ENTRY_DISTANCE
-    points below the H1 high and still above the take-profit level
-    (H1 low plus 10)."""
-
-    def test_within_distance_and_above_tp_is_valid(self):
-        # h1_high=8050, tp=8010: entry 8040 is 10pts below high, above tp
-        assert _is_valid_short_entry(8040, 8050, 8010) is True
-
-    def test_exactly_at_max_distance_is_valid(self):
-        assert _is_valid_short_entry(8030, 8050, 8010) is True
-
-    def test_beyond_max_distance_is_invalid(self):
-        assert _is_valid_short_entry(8029, 8050, 8010) is False
-
-    def test_at_take_profit_level_is_invalid(self):
-        assert _is_valid_short_entry(8010, 8025, 8010) is False
-
-    def test_below_take_profit_level_is_invalid(self):
-        assert _is_valid_short_entry(8009, 8025, 8010) is False
-
-    def test_just_above_take_profit_level_is_valid(self):
-        assert _is_valid_short_entry(8011, 8025, 8010) is True
 
 
 class TestEvaluateDayEntryValidityRule:

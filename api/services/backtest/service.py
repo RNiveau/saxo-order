@@ -15,6 +15,9 @@ from api.services.backtest.definitions import (
     is_below_min_range,
     list_definitions,
 )
+from api.services.backtest.entry import DirectionSearch
+from api.services.backtest.position import Position
+from api.services.backtest.side import LONG, SHORT, Side
 from api.services.backtest.statistics import build_summary
 from client.aws_client import DynamoDBClient
 from model import (
@@ -28,249 +31,10 @@ from model import (
     Trade,
     UnitTime,
 )
-from model.enum import DayStatus, Direction, ExitReason
+from model.enum import DayStatus, ExitReason
 from services.candles_service import CandlesService
 from utils.exception import SaxoException
 from utils.logger import Logger
-
-# Default thresholds, kept in one place so the free-function unit tests
-# and the dataclass agree on what "unparametrized" means.
-_DEFAULTS = BacktestParameters()
-
-
-def _is_valid_long_entry(
-    entry_price: float,
-    h1_low: float,
-    take_profit_level: float,
-    max_entry_distance: float = _DEFAULTS.max_entry_distance_points,
-    first_target: Optional[float] = None,
-) -> bool:
-    """A long breakout entry only produces a trade when it still leaves
-    room to work: within max_entry_distance points of the H1 low, and
-    below the take-profit level (H1 high minus the take-profit offset).
-    An entry too far above the low, or already at/above take-profit, is
-    not valid - it would exit on the very next candle for little or no
-    favorable move despite being labeled a take-profit.
-
-    For a double take-profit setup, first_target (the H1 midpoint, TP1)
-    is also required to sit strictly above the entry: on a narrow H1
-    range an otherwise-valid entry (within max_entry_distance of the low)
-    can open past the midpoint, which would fire TP1 immediately, bank a
-    loss as a take-profit, and discard the structural stop - so such an
-    entry is rejected, mirroring the take_profit_level guard."""
-    valid = (
-        entry_price - h1_low <= max_entry_distance
-        and entry_price < take_profit_level
-    )
-    if first_target is not None:
-        valid = valid and entry_price < first_target
-    return valid
-
-
-def _is_valid_short_entry(
-    entry_price: float,
-    h1_high: float,
-    take_profit_level: float,
-    max_entry_distance: float = _DEFAULTS.max_entry_distance_points,
-    first_target: Optional[float] = None,
-) -> bool:
-    """Mirror of _is_valid_long_entry for the short side: a short
-    breakdown entry is only valid when it is within max_entry_distance
-    points below the H1 high, and above the take-profit level (H1 low
-    plus the take-profit offset). For a double take-profit setup,
-    first_target (TP1) must also sit strictly below the entry."""
-    valid = (
-        h1_high - entry_price <= max_entry_distance
-        and entry_price > take_profit_level
-    )
-    if first_target is not None:
-        valid = valid and entry_price > first_target
-    return valid
-
-
-class _OpenPosition:
-    def __init__(
-        self,
-        entry_time: datetime.datetime,
-        entry_price: float,
-        direction: Direction,
-        take_profit_level: float,
-        stop_loss_points: float,
-        time_cut_minutes: Optional[int] = None,
-        time_cut_min_favorable_points: Optional[float] = None,
-        double: bool = False,
-        first_target_level: Optional[float] = None,
-        initial_stop_price: Optional[float] = None,
-        h1_high: Optional[float] = None,
-        h1_low: Optional[float] = None,
-        structural_stop: bool = False,
-    ):
-        self.entry_time = entry_time
-        self.entry_price = entry_price
-        self.direction = direction
-        self.take_profit_level = take_profit_level
-        self.stop_loss_points = stop_loss_points
-        self.be_armed = False
-        self.time_cut_minutes = time_cut_minutes
-        self.time_cut_min_favorable_points = time_cut_min_favorable_points
-        self.max_favorable_points = 0.0
-        # Double take-profit / two-lot state (GER40). double gates the
-        # split-exit path; first_target_level is TP1 (H1 midpoint); once
-        # the first lot fills, first_target_taken flips and banked_points
-        # holds lot A's realised P&L, added to the runner's leg at close.
-        self.double = double
-        self.first_target_level = first_target_level
-        self.first_target_taken = False
-        self.banked_points = 0.0
-        # Absolute initial stop level. When set (GER40, stop measured from
-        # the H1 reference level) it overrides the entry-relative stop; both
-        # lots share it until break-even moves the stop to entry.
-        self.initial_stop_price = initial_stop_price
-        # Wide-range structural-stop variant (spec 021, US1d): the H1
-        # reference levels and the flag enabling the close-beyond-level stop.
-        self.h1_high = h1_high
-        self.h1_low = h1_low
-        self.structural_stop = structural_stop
-
-    @property
-    def time_cut_enabled(self) -> bool:
-        return (
-            self.time_cut_minutes is not None
-            and self.time_cut_min_favorable_points is not None
-        )
-
-    @property
-    def is_long(self) -> bool:
-        return self.direction == Direction.BUY
-
-    @property
-    def stop_level(self) -> float:
-        if self.be_armed:
-            return self.entry_price
-        if self.initial_stop_price is not None:
-            return self.initial_stop_price
-        if self.is_long:
-            return self.entry_price - self.stop_loss_points
-        return self.entry_price + self.stop_loss_points
-
-
-class _DirectionSearch:
-    """Tracks the breakout/reversal candidate search for a single
-    direction while no position is open.
-
-    LONG watches for a candle closing below the H1 low, then a reversal
-    candle closing back at/above it, confirmed by a later candle trading
-    above that reversal candle's high. SHORT is the mirror image around
-    the H1 high: a candle closing above the high, a reversal candle
-    closing back at/below it, confirmed by a later candle trading below
-    that candle's low. The breach is measured on the close (a confirmed
-    candle outside the H1 range), not an intrabar wick. The two
-    directions are searched independently and concurrently; the engine
-    (see _evaluate_trades) enforces that only one may open a position at
-    a time.
-    """
-
-    def __init__(
-        self,
-        direction: Direction,
-        h1_high: float,
-        h1_low: float,
-        take_profit_level: float,
-        max_entry_distance: float,
-        first_target_level: Optional[float] = None,
-    ):
-        self.direction = direction
-        self.h1_high = h1_high
-        self.h1_low = h1_low
-        self.take_profit_level = take_profit_level
-        self.max_entry_distance = max_entry_distance
-        # TP1 (H1 midpoint) for double take-profit definitions; None for
-        # single-lot ones. When set, a valid entry must sit on the
-        # favorable side of it (see _is_valid_long_entry / _short).
-        self.first_target_level = first_target_level
-        self.breached = False
-        self.candidate: Optional[Candle] = None
-
-    @property
-    def is_long(self) -> bool:
-        return self.direction == Direction.BUY
-
-    def reset(self) -> None:
-        self.breached = False
-        self.candidate = None
-
-    def feed(self, candle: Candle) -> Optional[float]:
-        """Advance the search by one candle. Returns a valid entry price
-        when this candle confirms a tradeable breakout, otherwise None
-        (updating the internal breach/candidate state)."""
-        if self.is_long:
-            return self._feed_long(candle)
-        return self._feed_short(candle)
-
-    def _feed_long(self, candle: Candle) -> Optional[float]:
-        if self.candidate is None:
-            if not self.breached:
-                if candle.close < self.h1_low:
-                    self.breached = True
-                return None
-            if candle.close >= self.h1_low:
-                self.candidate = candle
-                self.breached = False
-            return None
-
-        # candidate is the reversal candle awaiting breakout
-        # confirmation: only a later candle trading above its high
-        # confirms the reversal has momentum.
-        if candle.higher > self.candidate.higher:
-            entry_price = max(self.candidate.higher, candle.open)
-            self.candidate = None
-            if _is_valid_long_entry(
-                entry_price,
-                self.h1_low,
-                self.take_profit_level,
-                self.max_entry_distance,
-                self.first_target_level,
-            ):
-                return entry_price
-            return None
-        if candle.close < self.h1_low:
-            self.candidate = None
-            self.breached = True
-            return None
-        self.candidate = candle
-        return None
-
-    def _feed_short(self, candle: Candle) -> Optional[float]:
-        if self.candidate is None:
-            if not self.breached:
-                if candle.close > self.h1_high:
-                    self.breached = True
-                return None
-            if candle.close <= self.h1_high:
-                self.candidate = candle
-                self.breached = False
-            return None
-
-        # mirror of _feed_long: a later candle trading below the
-        # reversal candle's low confirms the downside breakout.
-        if candle.lower < self.candidate.lower:
-            entry_price = min(self.candidate.lower, candle.open)
-            self.candidate = None
-            if _is_valid_short_entry(
-                entry_price,
-                self.h1_high,
-                self.take_profit_level,
-                self.max_entry_distance,
-                self.first_target_level,
-            ):
-                return entry_price
-            return None
-        if candle.close > self.h1_high:
-            self.candidate = None
-            self.breached = True
-            return None
-        self.candidate = candle
-        return None
 
 
 class BacktestService:
@@ -458,111 +222,72 @@ class BacktestService:
         breakout first opens the position and holds it until it closes;
         the search for both directions only resumes once flat again."""
         trades: List[Trade] = []
-        position: Optional[_OpenPosition] = None
-        long_take_profit = h1_high - params.take_profit_offset_points
-        short_take_profit = h1_low + params.take_profit_offset_points
+        position: Optional[Position] = None
 
-        # Double take-profit / two-lot setup (GER40). first_target is the
-        # H1 midpoint (TP1); the stop, when measured from the reference
-        # level, sits stop_loss_points beyond the H1 low/high (shared by
-        # both lots). Both stay None on the single-lot CAC40 backtests.
-        double = definition.double_take_profit
+        # TP1 (the H1 midpoint) for double take-profit definitions; None
+        # on the single-lot ones, where it is not consulted.
         first_target: Optional[float] = None
-        if double and definition.first_target_fraction is not None:
+        if (
+            definition.double_take_profit
+            and definition.first_target_fraction is not None
+        ):
             first_target = h1_low + definition.first_target_fraction * (
                 h1_high - h1_low
             )
-        long_stop_price: Optional[float] = None
-        short_stop_price: Optional[float] = None
-        if definition.stop_from_reference_level:
-            long_stop_price = h1_low - params.stop_loss_points
-            short_stop_price = h1_high + params.stop_loss_points
 
-        long_search = _DirectionSearch(
-            Direction.BUY,
-            h1_high,
-            h1_low,
-            long_take_profit,
-            params.max_entry_distance_points,
-            first_target,
-        )
-        short_search = _DirectionSearch(
-            Direction.SELL,
-            h1_high,
-            h1_low,
-            short_take_profit,
-            params.max_entry_distance_points,
-            first_target,
-        )
+        searches = {
+            side: DirectionSearch(
+                side,
+                h1_high,
+                h1_low,
+                self._take_profit_level(side, h1_high, h1_low, params),
+                params.max_entry_distance_points,
+                first_target,
+            )
+            for side in (LONG, SHORT)
+        }
 
         for candle in candles:
             candle_time = candle_date(candle)
             if position is None:
-                long_entry = long_search.feed(candle)
-                short_entry = short_search.feed(candle)
-                # One position at a time, either side: whichever
-                # direction confirms first opens. On the rare candle
-                # that would confirm both (opposing candidates pending,
-                # an engulfing candle), the long entry takes precedence
-                # as a deterministic tiebreak.
-                if long_entry is not None:
-                    position = _OpenPosition(
-                        entry_time=candle_time,
-                        entry_price=long_entry,
-                        direction=Direction.BUY,
-                        take_profit_level=long_take_profit,
-                        stop_loss_points=params.stop_loss_points,
-                        time_cut_minutes=definition.time_cut_minutes,
-                        time_cut_min_favorable_points=(
-                            definition.time_cut_min_favorable_points
-                        ),
-                        double=double,
-                        first_target_level=first_target,
-                        initial_stop_price=long_stop_price,
-                        h1_high=h1_high,
-                        h1_low=h1_low,
-                        structural_stop=definition.structural_stop,
-                    )
-                elif short_entry is not None:
-                    position = _OpenPosition(
-                        entry_time=candle_time,
-                        entry_price=short_entry,
-                        direction=Direction.SELL,
-                        take_profit_level=short_take_profit,
-                        stop_loss_points=params.stop_loss_points,
-                        time_cut_minutes=definition.time_cut_minutes,
-                        time_cut_min_favorable_points=(
-                            definition.time_cut_min_favorable_points
-                        ),
-                        double=double,
-                        first_target_level=first_target,
-                        initial_stop_price=short_stop_price,
-                        h1_high=h1_high,
-                        h1_low=h1_low,
-                        structural_stop=definition.structural_stop,
-                    )
+                # One position at a time, either side: whichever direction
+                # confirms first opens. On the rare candle that would
+                # confirm both (opposing candidates pending, an engulfing
+                # candle), the long entry takes precedence as a
+                # deterministic tiebreak - hence the fixed LONG, SHORT
+                # iteration order.
+                entries = {
+                    side: search.feed(candle)
+                    for side, search in searches.items()
+                }
+                for side in (LONG, SHORT):
+                    entry_price = entries[side]
+                    if entry_price is not None:
+                        position = self._open_position(
+                            side,
+                            candle_time,
+                            entry_price,
+                            h1_high,
+                            h1_low,
+                            first_target,
+                            params,
+                            definition,
+                        )
+                        break
                 if position is not None:
-                    long_search.reset()
-                    short_search.reset()
+                    self._reset(searches)
                 continue
 
             closed = self._resolve_exit(position, candle, candle_time, params)
             if closed is not None:
                 trades.append(closed)
                 position = None
-                long_search.reset()
-                short_search.reset()
+                self._reset(searches)
 
         if position is not None and candles:
             last_candle = candles[-1]
-            close = (
-                self._close_double_trade
-                if position.double
-                else self._close_trade
-            )
             trades.append(
-                close(
-                    position,
+                position.close(
                     candle_date(last_candle),
                     last_candle.close,
                     ExitReason.END_OF_DAY,
@@ -571,9 +296,68 @@ class BacktestService:
 
         return trades
 
+    @staticmethod
+    def _reset(searches) -> None:
+        for search in searches.values():
+            search.reset()
+
+    @staticmethod
+    def _take_profit_level(
+        side: Side,
+        h1_high: float,
+        h1_low: float,
+        params: BacktestParameters,
+    ) -> float:
+        """The take-profit sits inside the far end of the H1 range: the
+        H1 high minus the offset for a long, the H1 low plus it for a
+        short."""
+        far_level = side.reference_level(h1_low, h1_high)
+        return far_level - side.sign * params.take_profit_offset_points
+
+    @staticmethod
+    def _open_position(
+        side: Side,
+        candle_time: datetime.datetime,
+        entry_price: float,
+        h1_high: float,
+        h1_low: float,
+        first_target: Optional[float],
+        params: BacktestParameters,
+        definition: BacktestDefinition,
+    ) -> Position:
+        # A stop measured from the reference level (GER40) sits
+        # stop_loss_points beyond the H1 level the side trades off, and is
+        # shared by both lots; otherwise the stop is entry-relative and
+        # Position derives it itself.
+        initial_stop_price: Optional[float] = None
+        if definition.stop_from_reference_level:
+            initial_stop_price = (
+                side.reference_level(h1_high, h1_low)
+                - side.sign * params.stop_loss_points
+            )
+        return Position(
+            entry_time=candle_time,
+            entry_price=entry_price,
+            side=side,
+            take_profit_level=BacktestService._take_profit_level(
+                side, h1_high, h1_low, params
+            ),
+            stop_loss_points=params.stop_loss_points,
+            time_cut_minutes=definition.time_cut_minutes,
+            time_cut_min_favorable_points=(
+                definition.time_cut_min_favorable_points
+            ),
+            double=definition.double_take_profit,
+            first_target_level=first_target,
+            initial_stop_price=initial_stop_price,
+            h1_high=h1_high,
+            h1_low=h1_low,
+            structural_stop=definition.structural_stop,
+        )
+
     def _resolve_exit(
         self,
-        position: _OpenPosition,
+        position: Position,
         candle: Candle,
         candle_time: datetime.datetime,
         params: BacktestParameters,
@@ -591,26 +375,12 @@ class BacktestService:
             return self._resolve_structural_exit(
                 position, candle, candle_time, params
             )
-        stop_level = position.stop_level
-        take_profit_level = position.take_profit_level
+        side = position.side
 
-        if position.is_long:
-            stop_hit = candle.lower <= stop_level
-            take_profit_hit = candle.higher >= take_profit_level
-        else:
-            stop_hit = candle.higher >= stop_level
-            take_profit_hit = candle.lower <= take_profit_level
+        if side.receded(position.stop_level, candle):
+            return self._stop_exit(position, candle, candle_time)
 
-        if stop_hit:
-            exit_price = self._stop_fill(position, candle, stop_level)
-            reason = (
-                ExitReason.BREAK_EVEN
-                if position.be_armed
-                else ExitReason.STOP_LOSS
-            )
-            return self._close_trade(position, candle_time, exit_price, reason)
-
-        if take_profit_hit:
+        if side.reached(position.take_profit_level, candle):
             return self._take_profit_exit(position, candle, candle_time)
 
         if position.time_cut_enabled:
@@ -623,7 +393,7 @@ class BacktestService:
 
     def _resolve_exit_double(
         self,
-        position: _OpenPosition,
+        position: Position,
         candle: Candle,
         candle_time: datetime.datetime,
         params: BacktestParameters,
@@ -635,68 +405,38 @@ class BacktestService:
         break-even and the runner then targets the full take-profit (TP2)
         or that break-even stop. Stop is checked before take-profit on the
         same candle (conservative, FR-009/FR-G05)."""
-        stop_level = position.stop_level
+        side = position.side
         first_target = position.first_target_level
 
-        if position.is_long:
-            stop_hit = candle.lower <= stop_level
-            tp1_hit = (
-                first_target is not None and candle.higher >= first_target
-            )
-            tp2_hit = candle.higher >= position.take_profit_level
-        else:
-            stop_hit = candle.higher >= stop_level
-            tp1_hit = first_target is not None and candle.lower <= first_target
-            tp2_hit = candle.lower <= position.take_profit_level
+        if side.receded(position.stop_level, candle):
+            return self._stop_exit(position, candle, candle_time)
 
-        if stop_hit:
-            exit_price = self._stop_fill(position, candle, stop_level)
-            reason = (
-                ExitReason.BREAK_EVEN
-                if position.be_armed
-                else ExitReason.STOP_LOSS
-            )
-            return self._close_double_trade(
-                position, candle_time, exit_price, reason
-            )
+        tp2_hit = side.reached(position.take_profit_level, candle)
 
         if (
             not position.first_target_taken
-            and tp1_hit
             and first_target is not None
+            and side.reached(first_target, candle)
         ):
-            tp1_fill = self._target_fill(position, candle, first_target)
-            leg = (
-                tp1_fill - position.entry_price
-                if position.is_long
-                else position.entry_price - tp1_fill
+            tp1_fill = side.target_fill(first_target, candle)
+            position.banked_points += side.favorable(
+                tp1_fill, position.entry_price
             )
-            position.banked_points += leg
             position.first_target_taken = True
             position.be_armed = True
             if tp2_hit:
-                tp2_fill = self._target_fill(
-                    position, candle, position.take_profit_level
-                )
-                return self._close_double_trade(
-                    position, candle_time, tp2_fill, ExitReason.TAKE_PROFIT
-                )
+                return self._take_profit_exit(position, candle, candle_time)
             return None
 
         if position.first_target_taken and tp2_hit:
-            tp2_fill = self._target_fill(
-                position, candle, position.take_profit_level
-            )
-            return self._close_double_trade(
-                position, candle_time, tp2_fill, ExitReason.TAKE_PROFIT
-            )
+            return self._take_profit_exit(position, candle, candle_time)
 
         self._arm_break_even(position, candle, params)
         return None
 
     def _resolve_structural_exit(
         self,
-        position: _OpenPosition,
+        position: Position,
         candle: Candle,
         candle_time: datetime.datetime,
         params: BacktestParameters,
@@ -705,89 +445,72 @@ class BacktestService:
         break-even is unarmed (FR-034/FR-035). Take-profit is reached
         intrabar (before the candle's close), so it is resolved first; the
         structural stop then fires when the candle *closes* beyond the H1
-        level on the losing side (below the H1 low for a long, above the H1
-        high for a short), filling at that close with a stop-loss reason (no
-        gap-fill - it is a market/close exit). Break-even arms as usual;
-        once armed, _resolve_exit routes to the base logic instead."""
-        if position.is_long:
-            take_profit_hit = candle.higher >= position.take_profit_level
-        else:
-            take_profit_hit = candle.lower <= position.take_profit_level
-        if take_profit_hit:
+        level on the losing side, filling at that close with a stop-loss
+        reason (no gap-fill - it is a market/close exit). Break-even arms as
+        usual; once armed, _resolve_exit routes to the base logic instead."""
+        side = position.side
+        if side.reached(position.take_profit_level, candle):
             return self._take_profit_exit(position, candle, candle_time)
 
-        if position.is_long:
-            structural_hit = (
-                position.h1_low is not None and candle.close < position.h1_low
-            )
-        else:
-            structural_hit = (
-                position.h1_high is not None
-                and candle.close > position.h1_high
-            )
-        if structural_hit:
-            return self._close_trade(
-                position, candle_time, candle.close, ExitReason.STOP_LOSS
+        level = position.structural_level
+        if level is not None and side.closed_beyond(level, candle):
+            return position.close(
+                candle_time, candle.close, ExitReason.STOP_LOSS
             )
 
         self._arm_break_even(position, candle, params)
         return None
 
     @staticmethod
+    def _stop_exit(
+        position: Position,
+        candle: Candle,
+        candle_time: datetime.datetime,
+    ) -> Trade:
+        """Close a position at its stop, applying the FR-010 gap-fill
+        convention. An armed break-even stop is reported as such."""
+        exit_price = position.side.stop_fill(position.stop_level, candle)
+        reason = (
+            ExitReason.BREAK_EVEN
+            if position.be_armed
+            else ExitReason.STOP_LOSS
+        )
+        return position.close(candle_time, exit_price, reason)
+
+    @staticmethod
     def _take_profit_exit(
-        position: _OpenPosition,
+        position: Position,
         candle: Candle,
         candle_time: datetime.datetime,
     ) -> Trade:
         """Close a position at take-profit, applying the FR-010 gap-fill
-        convention (fill at the candle open when it gapped past the level)."""
-        exit_price = BacktestService._target_fill(
-            position, candle, position.take_profit_level
+        convention (fill at the candle open when it gapped past the
+        level)."""
+        exit_price = position.side.target_fill(
+            position.take_profit_level, candle
         )
-        return BacktestService._close_trade(
-            position, candle_time, exit_price, ExitReason.TAKE_PROFIT
-        )
+        return position.close(candle_time, exit_price, ExitReason.TAKE_PROFIT)
 
     @staticmethod
     def _arm_break_even(
-        position: _OpenPosition,
+        position: Position,
         candle: Candle,
         params: BacktestParameters,
     ) -> None:
-        """Arm the break-even stop the first time a candle reaches entry ±
-        the break-even trigger (FR-008a); takes effect on later candles."""
+        """Arm the break-even stop the first time a candle reaches entry
+        plus the break-even trigger in the position's favor (FR-008a);
+        takes effect on later candles."""
         if position.be_armed:
             return
-        arm_threshold = params.break_even_trigger_points
-        if position.is_long:
-            if candle.higher >= position.entry_price + arm_threshold:
-                position.be_armed = True
-        elif candle.lower <= position.entry_price - arm_threshold:
+        arm_level = position.break_even_arm_level(
+            params.break_even_trigger_points
+        )
+        if position.side.reached(arm_level, candle):
             position.be_armed = True
 
     @staticmethod
-    def _stop_fill(
-        position: _OpenPosition, candle: Candle, level: float
-    ) -> float:
-        """Gap-fill for a stop-type exit: the candle open when it gapped
-        through the level, else the level itself (FR-010)."""
-        if position.is_long:
-            return candle.open if candle.open <= level else level
-        return candle.open if candle.open >= level else level
-
-    @staticmethod
-    def _target_fill(
-        position: _OpenPosition, candle: Candle, level: float
-    ) -> float:
-        """Gap-fill for a take-profit-type exit (mirror of _stop_fill),
-        for an arbitrary target level (TP1 midpoint or the full TP)."""
-        if position.is_long:
-            return candle.open if candle.open >= level else level
-        return candle.open if candle.open <= level else level
-
-    @staticmethod
     def _resolve_time_cut(
-        position: _OpenPosition,
+        position: Position,
         candle: Candle,
         candle_time: datetime.datetime,
     ) -> Optional[Trade]:
@@ -805,10 +528,8 @@ class BacktestService:
         if threshold is None or minutes is None:
             return None
 
-        favorable = (
-            candle.higher - position.entry_price
-            if position.is_long
-            else position.entry_price - candle.lower
+        favorable = position.side.favorable(
+            position.side.extreme(candle), position.entry_price
         )
         if favorable > position.max_favorable_points:
             position.max_favorable_points = favorable
@@ -818,60 +539,7 @@ class BacktestService:
             candle_time >= deadline
             and position.max_favorable_points <= threshold
         ):
-            return BacktestService._close_trade(
-                position, candle_time, candle.close, ExitReason.TIME_CUT
+            return position.close(
+                candle_time, candle.close, ExitReason.TIME_CUT
             )
         return None
-
-    @staticmethod
-    def _close_trade(
-        position: _OpenPosition,
-        exit_time: datetime.datetime,
-        exit_price: float,
-        exit_reason: ExitReason,
-    ) -> Trade:
-        if position.is_long:
-            points = exit_price - position.entry_price
-        else:
-            points = position.entry_price - exit_price
-        return Trade(
-            entry_time=position.entry_time,
-            entry_price=position.entry_price,
-            exit_time=exit_time,
-            exit_price=round(exit_price, 4),
-            exit_reason=exit_reason,
-            direction=position.direction,
-            points=round(points, 4),
-        )
-
-    @staticmethod
-    def _close_double_trade(
-        position: _OpenPosition,
-        exit_time: datetime.datetime,
-        exit_price: float,
-        exit_reason: ExitReason,
-    ) -> Trade:
-        """Aggregate a two-lot position into one Trade whose points is the
-        sum of both lots (FR-G07). Before the first lot takes profit both
-        lots exit at exit_price (2x the leg - the "SL is x2" loss);
-        afterwards only the runner remains, added to the first lot's
-        banked points. exit_price/exit_reason reflect the runner's final
-        exit, so points need not equal exit_price - entry_price here."""
-        leg = (
-            exit_price - position.entry_price
-            if position.is_long
-            else position.entry_price - exit_price
-        )
-        if position.first_target_taken:
-            points = position.banked_points + leg
-        else:
-            points = 2 * leg
-        return Trade(
-            entry_time=position.entry_time,
-            entry_price=position.entry_price,
-            exit_time=exit_time,
-            exit_price=round(exit_price, 4),
-            exit_reason=exit_reason,
-            direction=position.direction,
-            points=round(points, 4),
-        )
