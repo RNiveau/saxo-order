@@ -7,20 +7,20 @@ from api.services.backtest.analytics import (
     mm50_slope_before,
     overnight_gap,
 )
-from api.services.backtest.calendar import (
-    PARIS_TZ,
-    paris_reference_window_utc,
-    paris_session_end_utc,
-)
+from api.services.backtest.calendar import PARIS_TZ
+from api.services.backtest.candle_source import CandleSource
 from api.services.backtest.candles import candle_date
-from api.services.backtest.definitions import get_definition, list_definitions
+from api.services.backtest.definitions import (
+    get_definition,
+    is_below_min_range,
+    list_definitions,
+)
 from api.services.backtest.statistics import build_summary
-from client.aws_client import DynamoDBClient, DynamoDBOperationError
+from client.aws_client import DynamoDBClient
 from model import (
     BacktestDefinition,
     BacktestParameters,
     BacktestRunResult,
-    CachedDayCandles,
     Candle,
     DayResult,
     DayResultSummary,
@@ -32,31 +32,6 @@ from model.enum import DayStatus, Direction, ExitReason
 from services.candles_service import CandlesService
 from utils.exception import SaxoException
 from utils.logger import Logger
-
-# Bump whenever a change to a BacktestDefinition's instrument, 9h
-# reference window, or session windows would change what candles are
-# fetched under the same code (e.g. re-pointing a definition at a
-# different instrument). Without this, an edited definition would
-# otherwise keep serving cache entries fetched under its old shape
-# forever - there is no TTL on the candle cache (FR-040).
-CACHE_SCHEMA_VERSION = 1
-
-
-def _cache_key(definition: BacktestDefinition) -> str:
-    """Cache key for the raw-candle cache (FR-036), covering not just
-    the definition's code but also its instrument and the schema
-    version, so a definition edit or a strategy-shape change can
-    invalidate old entries just by bumping CACHE_SCHEMA_VERSION."""
-    return f"{definition.code}:{definition.instrument}:v{CACHE_SCHEMA_VERSION}"
-
-
-# Candle horizons for the two Saxo fetches. Unlike the strategy
-# thresholds (now tunable via BacktestParameters), these describe the
-# fixed shape of the "CAC40 Bougie de 9h" setup - a 1-hour reference
-# window scanned with 5-minute candles - and are not exposed as
-# parameters.
-FIVE_MINUTE_HORIZON = 5
-H1_HORIZON = 60
 
 # Default thresholds, kept in one place so the free-function unit tests
 # and the dataclass agree on what "unparametrized" means.
@@ -309,6 +284,9 @@ class BacktestService:
         self.logger = Logger.get_logger("backtest_service")
         self.candles_service = candles_service
         self.dynamodb_client = dynamodb_client
+        self.candle_source = CandleSource(
+            candles_service, dynamodb_client, self.logger
+        )
 
     def list_definitions(self) -> List[BacktestDefinition]:
         return list_definitions()
@@ -322,118 +300,21 @@ class BacktestService:
         trading_date: datetime.date,
         params: Optional[BacktestParameters] = None,
     ) -> DayResult:
-        """Run the "CAC40 Bougie de 9h" rules for a single trading day.
+        """Run the day's strategy rules against its candles.
 
-        Before fetching from Saxo, checks the raw-candle cache for this
-        (definition, trading_date) pair (FR-036); on a miss, fetches as
-        before and stores the result under that key (FR-037/FR-038) so a
-        later request for the same pair skips Saxo entirely. The
-        strategy evaluation (_evaluate_from_candles) always runs fresh
-        against those candles, cached or not (FR-039). A transient Saxo
-        fetch failure (as opposed to a genuine "no data") is never
-        written to the cache, so it doesn't permanently poison later
-        runs over the same day."""
+        The candles come from the raw-candle cache when available and from
+        Saxo otherwise (see CandleSource); the strategy evaluation always
+        runs fresh against them, cached or not (FR-039)."""
         params = params or BacktestParameters()
-        cached = await self._get_cached_candles(
-            _cache_key(definition), trading_date
-        )
-
-        if cached is not None and cached.has_data and cached.h1_candle is None:
-            # _get_cached_candles already guards against this, but a
-            # cache problem must never break a backtest - fall through
-            # to a fresh fetch instead of failing the request.
-            self.logger.warning(
-                f"Cached backtest entry for {_cache_key(definition)}/"
-                f"{trading_date} has has_data=True but no h1_candle; "
-                "treating as a miss"
-            )
-            cached = None
-
-        if cached is not None:
-            if not cached.has_data:
-                return DayResult(date=trading_date, status=DayStatus.NO_DATA)
-            cached_h1_candle = cached.h1_candle
-            if cached_h1_candle is not None:
-                return self._evaluate_from_candles(
-                    definition,
-                    trading_date,
-                    params,
-                    cached_h1_candle,
-                    cached.m5_candles,
-                )
-
-        h1_start_utc, h1_end_utc = paris_reference_window_utc(trading_date)
-        try:
-            fetched_h1_candle = self._fetch_h1_reference_candle(
-                definition.instrument, h1_start_utc, h1_end_utc
-            )
-        except SaxoException as e:
-            self.logger.warning(
-                f"H1 fetch failed for {definition.instrument} on "
-                f"{trading_date}, not caching: {e}"
-            )
+        day = await self.candle_source.day_candles(definition, trading_date)
+        if day is None or day.h1_candle is None:
             return DayResult(date=trading_date, status=DayStatus.NO_DATA)
-        if fetched_h1_candle is None:
-            await self._store_candles(
-                _cache_key(definition), trading_date, has_data=False
-            )
-            return DayResult(date=trading_date, status=DayStatus.NO_DATA)
-
-        # Wide-range variant (FR-033): skip the 5-minute fetch entirely
-        # on a day whose H1 range doesn't clear the threshold - the day
-        # is a NO_TRADE regardless of what the 5-minute candles hold.
-        if self._is_below_min_range(
-            definition, fetched_h1_candle.higher, fetched_h1_candle.lower
-        ):
-            await self._store_candles(
-                _cache_key(definition),
-                trading_date,
-                has_data=True,
-                h1_candle=fetched_h1_candle,
-                m5_candles=[],
-            )
-            return self._evaluate_from_candles(
-                definition, trading_date, params, fetched_h1_candle, []
-            )
-
-        session_end_utc = paris_session_end_utc(trading_date)
-        try:
-            five_min_candles = self._fetch_five_minute_candles(
-                definition.instrument, h1_end_utc, session_end_utc
-            )
-        except SaxoException as e:
-            self.logger.warning(
-                f"5-minute fetch failed for {definition.instrument} on "
-                f"{trading_date}, not caching: {e}"
-            )
-            five_min_candles = []
-        else:
-            await self._store_candles(
-                _cache_key(definition),
-                trading_date,
-                has_data=True,
-                h1_candle=fetched_h1_candle,
-                m5_candles=five_min_candles,
-            )
-
         return self._evaluate_from_candles(
             definition,
             trading_date,
             params,
-            fetched_h1_candle,
-            five_min_candles,
-        )
-
-    @staticmethod
-    def _is_below_min_range(
-        definition: BacktestDefinition, h1_high: float, h1_low: float
-    ) -> bool:
-        """Wide-range variant (FR-033): whether the day's H1 range fails
-        to clear the definition's threshold. Always False for
-        definitions without one (min_h1_range_points is None)."""
-        return (
-            definition.min_h1_range_points is not None
-            and h1_high - h1_low <= definition.min_h1_range_points
+            day.h1_candle,
+            day.m5_candles,
         )
 
     def _evaluate_from_candles(
@@ -451,7 +332,7 @@ class BacktestService:
         cache-miss paths."""
         h1_high = h1_candle.higher
         h1_low = h1_candle.lower
-        if self._is_below_min_range(definition, h1_high, h1_low):
+        if is_below_min_range(definition, h1_high, h1_low):
             return DayResult(
                 date=trading_date,
                 status=DayStatus.NO_TRADE,
@@ -532,46 +413,6 @@ class BacktestService:
             definition, start_date, end_date, all_trades, len(day_summaries)
         )
         return BacktestRunResult(summary=summary, days=day_summaries)
-
-    def _fetch_h1_reference_candle(
-        self,
-        instrument: str,
-        h1_start_utc: datetime.datetime,
-        h1_end_utc: datetime.datetime,
-    ) -> Optional[Candle]:
-        """Returns None only when Saxo genuinely has no H1 candle for this
-        window (a real "no data" day, safe to cache as such). A
-        SaxoException (expired token, rate limit, network blip) is a
-        transient fetch failure, not "no data" - it propagates so the
-        caller never mistakes one for the other and caches it
-        permanently."""
-        candles = self.candles_service.get_candles_in_window(
-            instrument,
-            UnitTime.H1,
-            H1_HORIZON,
-            h1_start_utc,
-            h1_end_utc,
-        )
-        if not candles:
-            return None
-        return sorted(candles, key=candle_date)[0]
-
-    def _fetch_five_minute_candles(
-        self,
-        instrument: str,
-        start_utc: datetime.datetime,
-        end_utc: datetime.datetime,
-    ) -> List[Candle]:
-        """An empty result is a genuine (cacheable) "no candles"; a
-        SaxoException is a transient fetch failure and propagates - see
-        _fetch_h1_reference_candle."""
-        return self.candles_service.get_candles_in_window(
-            instrument,
-            UnitTime.M5,
-            FIVE_MINUTE_HORIZON,
-            start_utc,
-            end_utc,
-        )
 
     def _fetch_daily_candles(
         self,
@@ -1034,78 +875,3 @@ class BacktestService:
             direction=position.direction,
             points=round(points, 4),
         )
-
-    async def _get_cached_candles(
-        self, cache_key: str, trading_date: datetime.date
-    ) -> Optional[CachedDayCandles]:
-        """Look up the raw-candle cache for (cache_key, trading_date)
-        (FR-036). Returns None on a cache miss, or on a DynamoDB failure
-        (including no active resource - local/dev without AWS, see
-        get_dynamodb_client_best_effort) - in every such case the caller
-        falls back to fetching from Saxo, so a cache outage never
-        breaks a backtest run."""
-        try:
-            item = await self.dynamodb_client.get_cached_backtest_candles(
-                cache_key, trading_date.isoformat()
-            )
-        except (DynamoDBOperationError, RuntimeError) as e:
-            self.logger.warning(
-                f"Backtest candle cache lookup failed for "
-                f"{cache_key}/{trading_date}: {e}"
-            )
-            return None
-        if item is None:
-            return None
-
-        try:
-            has_data = bool(item["has_data"])
-            if not has_data:
-                return CachedDayCandles(has_data=False)
-            return CachedDayCandles(
-                has_data=True,
-                h1_candle=Candle.from_dict(item["h1_candle"]),
-                m5_candles=[
-                    Candle.from_dict(c) for c in item.get("m5_candles", [])
-                ],
-            )
-        except (KeyError, ValueError, TypeError) as e:
-            # A cache problem must never break a backtest: an item
-            # written under an earlier schema (or otherwise malformed)
-            # is treated as a miss, the same as if nothing were cached.
-            self.logger.warning(
-                f"Malformed backtest cache item for "
-                f"{cache_key}/{trading_date}: {e}"
-            )
-            return None
-
-    async def _store_candles(
-        self,
-        cache_key: str,
-        trading_date: datetime.date,
-        has_data: bool,
-        h1_candle: Optional[Candle] = None,
-        m5_candles: Optional[List[Candle]] = None,
-    ) -> None:
-        """Store the raw candles fetched for (cache_key, trading_date)
-        so a later request for the same pair is served from the cache
-        (FR-037/FR-038). A DynamoDB failure (including no active
-        resource - local/dev without AWS) degrades to "not cached this
-        time" rather than failing the backtest - caching is a cost
-        optimization, not a correctness requirement."""
-        try:
-            await self.dynamodb_client.store_backtest_candles(
-                cache_key,
-                trading_date.isoformat(),
-                has_data,
-                h1_candle.to_dict() if h1_candle is not None else None,
-                (
-                    [c.to_dict() for c in m5_candles]
-                    if m5_candles is not None
-                    else None
-                ),
-            )
-        except (DynamoDBOperationError, RuntimeError) as e:
-            self.logger.warning(
-                f"Backtest candle cache store failed for "
-                f"{cache_key}/{trading_date}: {e}"
-            )

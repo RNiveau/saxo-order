@@ -90,3 +90,15 @@ def resolve_parameters(
             else defaults.max_entry_distance_points
         ),
     )
+
+
+def is_below_min_range(
+    definition: BacktestDefinition, h1_high: float, h1_low: float
+) -> bool:
+    """Wide-range variant (FR-033): whether the day's H1 range fails to
+    clear the definition's threshold. Always False for definitions
+    without one (min_h1_range_points is None)."""
+    return (
+        definition.min_h1_range_points is not None
+        and h1_high - h1_low <= definition.min_h1_range_points
+    )
