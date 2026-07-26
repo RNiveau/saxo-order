@@ -72,6 +72,25 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         first_target_fraction=0.5,
         stop_from_reference_level=True,
     ),
+    # Control run for G9H: the same GER40 setup and the same 150-point
+    # stop measured from the H1 reference level, but a single lot and a
+    # single take-profit. Isolates what the double take-profit overlay
+    # itself contributes. Note it also drops the TP1 entry filter (a
+    # midpoint that only exists under double_take_profit), so it takes
+    # entries G9H rejects rather than the same entries at half size.
+    BacktestDefinition(
+        code="G9HSL",
+        name=Strategy.G9HSL.value,
+        display_name="GER40 Bougie de 9h (lot unique)",
+        instrument="GER40.I",
+        default_parameters=BacktestParameters(
+            stop_loss_points=150,
+            take_profit_offset_points=10,
+            break_even_trigger_points=50,
+            max_entry_distance_points=40,
+        ),
+        stop_from_reference_level=True,
+    ),
     BacktestDefinition(
         code="B9HWS",
         name=Strategy.B9HWS.value,
