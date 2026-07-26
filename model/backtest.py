@@ -9,6 +9,20 @@ from model.workflow import Candle
 
 
 @dataclass
+class BacktestParameters:
+    """Tunable thresholds for the "CAC40 Bougie de 9h" strategy. Defaults
+    reproduce the values originally hardcoded for spec 021, so an
+    unparametrized run behaves exactly as before. A definition may carry
+    its own defaults (BacktestDefinition.default_parameters) - e.g. GER40
+    uses 150/10/50/40 - which the router merges with per-run overrides."""
+
+    stop_loss_points: float = 50
+    take_profit_offset_points: float = 10
+    break_even_trigger_points: float = 20
+    max_entry_distance_points: float = 20
+
+
+@dataclass
 class BacktestDefinition:
     code: str
     name: str
@@ -20,6 +34,28 @@ class BacktestDefinition:
     # plain "Bougie de 9h" so its behavior is unchanged.
     time_cut_minutes: Optional[int] = None
     time_cut_min_favorable_points: Optional[float] = None
+    # Per-definition default thresholds. An omitted per-run override falls
+    # back to these (not to a single global default), so a definition can
+    # ship its own defaults - GER40 uses 150/10/50/40, CAC40 keeps the
+    # BacktestParameters defaults 50/10/20/20.
+    default_parameters: BacktestParameters = field(
+        default_factory=BacktestParameters
+    )
+    # Double take-profit / two-lot overlay (GER40 "Bougie de 9h"). When
+    # True, every entry opens two lots: the first exits at first_target
+    # (the H1 midpoint), the runner at the full take-profit, and the
+    # runner's stop moves to break-even the moment the first lot fills.
+    # Left False on the CAC40 backtests so their single-lot behavior is
+    # unchanged.
+    double_take_profit: bool = False
+    # Fraction of the H1 high-low range at which the first lot takes
+    # profit (0.5 = midpoint). Only used when double_take_profit is True.
+    first_target_fraction: Optional[float] = None
+    # When True, the initial stop is stop_loss_points beyond the H1
+    # reference level (below the H1 low for a long, above the H1 high for
+    # a short) rather than that distance from the entry price. GER40 sets
+    # this True; CAC40 measures its stop from entry (False).
+    stop_from_reference_level: bool = False
     # Wide-range structural-stop variant (spec 021, US1d): when
     # min_h1_range_points is set, days whose H1 range (high - low) is not
     # strictly greater than it are not traded; when structural_stop is True,
@@ -29,17 +65,15 @@ class BacktestDefinition:
     min_h1_range_points: Optional[float] = None
     structural_stop: bool = False
 
-
-@dataclass
-class BacktestParameters:
-    """Tunable thresholds for the "CAC40 Bougie de 9h" strategy. Defaults
-    reproduce the values originally hardcoded for spec 021, so an
-    unparametrized run behaves exactly as before."""
-
-    stop_loss_points: float = 50
-    take_profit_offset_points: float = 10
-    break_even_trigger_points: float = 20
-    max_entry_distance_points: float = 20
+    def __post_init__(self) -> None:
+        # The double take-profit exit path does not evaluate the time cut,
+        # so combining the two would silently ignore the cut. Reject it at
+        # construction (registration) time rather than shipping a no-op.
+        if self.double_take_profit and self.time_cut_minutes is not None:
+            raise ValueError(
+                "double_take_profit is not supported together with a time "
+                f"cut (definition {self.code!r})"
+            )
 
 
 @dataclass

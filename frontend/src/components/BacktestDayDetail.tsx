@@ -17,9 +17,15 @@ interface BacktestDayDetailProps {
   detail: BacktestDayDetailData;
   definition: string;
   parameters?: BacktestParameters;
+  doubleTakeProfit?: boolean;
 }
 
-export function BacktestDayDetail({ detail, definition, parameters }: BacktestDayDetailProps) {
+export function BacktestDayDetail({
+  detail,
+  definition,
+  parameters,
+  doubleTakeProfit,
+}: BacktestDayDetailProps) {
   return (
     <div className="backtest-day-detail">
       <div className="backtest-day-detail-header">
@@ -49,6 +55,14 @@ export function BacktestDayDetail({ detail, definition, parameters }: BacktestDa
           <p className="backtest-h1-range">
             H1 range: {detail.h1_low} - {detail.h1_high}
           </p>
+
+          {doubleTakeProfit && (
+            <p className="backtest-double-tp-note">
+              This strategy opens 2 lots per entry (double take-profit).
+              Each row is one position; “Points” is the net of both lots,
+              so it need not equal exit − entry.
+            </p>
+          )}
 
           <table className="backtest-trades-table">
             <thead>
