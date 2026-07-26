@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import pytest
+import pytest_asyncio
 
 from api.services.backtest import (
     BACKTEST_DEFINITIONS,
@@ -88,17 +89,6 @@ async def _exit_reason_histogram(
     return histogram
 
 
-_SNAPSHOT_CACHE: Dict[str, Any] = {}
-
-
-async def _snapshot() -> Dict[str, Any]:
-    """The full snapshot, computed once per session - every assertion
-    reads the same run rather than re-running four range backtests."""
-    if not _SNAPSHOT_CACHE:
-        _SNAPSHOT_CACHE.update(await _build_snapshot())
-    return _SNAPSHOT_CACHE
-
-
 async def _build_snapshot() -> Dict[str, Any]:
     snapshot: Dict[str, Any] = {}
     for definition in BACKTEST_DEFINITIONS:
@@ -126,6 +116,14 @@ async def _build_snapshot() -> Dict[str, Any]:
     return snapshot
 
 
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
+async def snapshot() -> Dict[str, Any]:
+    """The freshly computed snapshot, built once for the module - every
+    assertion reads the same run rather than re-running four range
+    backtests per parametrized case."""
+    return await _build_snapshot()
+
+
 @pytest.fixture(scope="module")
 def golden() -> Dict[str, Any]:
     if not GOLDEN_FILE.exists():
@@ -139,20 +137,18 @@ def golden() -> Dict[str, Any]:
 @pytest.mark.parametrize(
     "code", [definition.code for definition in BACKTEST_DEFINITIONS]
 )
-async def test_definition_matches_golden_snapshot(code, golden):
+async def test_definition_matches_golden_snapshot(code, golden, snapshot):
     """Every definition's full range run and detail day are byte-identical
-    to the snapshot."""
+    to the committed snapshot."""
     assert (
         code in golden
     ), f"No golden entry for definition {code} - regenerate the snapshot"
-    actual = (await _snapshot())[code]
-    assert actual == golden[code]
+    assert snapshot[code] == golden[code]
 
 
-async def test_golden_market_actually_produces_trades():
+async def test_golden_market_actually_produces_trades(snapshot):
     """Guards the net itself: a snapshot of all-zero runs would pass every
     comparison while testing nothing."""
-    snapshot = await _snapshot()
     for code, entry in snapshot.items():
         assert entry["run"]["summary"]["number_of_trades"] > 0, (
             f"{code} produced no trades - the golden market is not "
@@ -179,7 +175,7 @@ def _regenerate() -> None:
     import asyncio
 
     GOLDEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-    snapshot = asyncio.run(_snapshot())
+    snapshot = asyncio.run(_build_snapshot())
     GOLDEN_FILE.write_text(json.dumps(snapshot, indent=2, sort_keys=True))
     print(f"Wrote {GOLDEN_FILE}")
     for code, entry in snapshot.items():
