@@ -84,16 +84,52 @@ class TestResolveParameters:
 
 
 class TestBacktestDefinitionValidation:
+    """A definition is read once, when the exit chain and lot model are
+    built. A flag that could not take effect there has to be rejected at
+    construction, or the backtest reports results for a rule it never
+    applied."""
+
+    def _build(self, **kwargs):
+        return BacktestDefinition(
+            code="BAD",
+            name="bad",
+            display_name="bad",
+            instrument="GER40.I",
+            **kwargs,
+        )
+
     def test_double_take_profit_with_time_cut_is_rejected(self):
-        """PR #659 review #3: the double-TP exit path does not evaluate the
-        time cut, so combining them would silently ignore the cut."""
-        with pytest.raises(ValueError):
-            BacktestDefinition(
-                code="BAD",
-                name="bad",
-                display_name="bad",
-                instrument="GER40.I",
+        with pytest.raises(ValueError, match="time cut"):
+            self._build(
                 double_take_profit=True,
+                first_target_fraction=0.5,
                 time_cut_minutes=30,
                 time_cut_min_favorable_points=5.0,
             )
+
+    def test_double_take_profit_without_a_first_target_is_rejected(self):
+        with pytest.raises(ValueError, match="first_target_fraction"):
+            self._build(double_take_profit=True)
+
+    def test_first_target_without_double_take_profit_is_rejected(self):
+        with pytest.raises(ValueError, match="only used with"):
+            self._build(first_target_fraction=0.5)
+
+    @pytest.mark.parametrize("fraction", [0, 1, 1.5, -0.2])
+    def test_first_target_outside_the_range_is_rejected(self, fraction):
+        with pytest.raises(ValueError):
+            self._build(
+                double_take_profit=True, first_target_fraction=fraction
+            )
+
+    def test_half_configured_time_cut_is_rejected(self):
+        with pytest.raises(ValueError, match="time cut needs both"):
+            self._build(time_cut_minutes=30)
+        with pytest.raises(ValueError, match="time cut needs both"):
+            self._build(time_cut_min_favorable_points=5.0)
+
+    def test_the_shipped_definitions_are_all_valid(self):
+        """The registry is built at import time, so this passes trivially
+        - it is here so a future definition that trips a rule fails in
+        this file rather than at application startup."""
+        assert len(list_definitions()) == 4

@@ -11,6 +11,7 @@ from services.candles_service import CandlesService
 from tests.api.services.backtest.helpers import (
     DEFINITION,
     NO_CACHE_CLIENT,
+    TRADING_DATE,
     h1_candle,
     make_service,
     stop_loss_candles,
@@ -238,3 +239,38 @@ class TestRunRangeThreadsRegime:
         # h1_candle() opens at 8020; latest prior daily close is 8069
         assert result.days[0].h1_open == 8020.0
         assert result.days[0].overnight_gap == round(8020.0 - 8069.0, 4)
+
+
+class TestParameterFallback:
+    """Omitting params must fall back to the *definition's* defaults, not
+    to the BacktestParameters class defaults - a direct service call for
+    GER40 would otherwise silently run on CAC40's 50/10/20/20."""
+
+    async def test_evaluate_day_without_params_uses_definition_defaults(self):
+        from tests.api.services.backtest.helpers import (
+            GER_DEFINITION,
+            stop_loss_candles,
+        )
+
+        service = make_service([h1_candle()], stop_loss_candles())
+        result = await service.evaluate_day(GER_DEFINITION, TRADING_DATE)
+        # GER40's 40pt entry window admits the 8015 entry that CAC40's
+        # 20pt window also admits, but its 150pt stop is measured from the
+        # H1 low (7850), so the 7950 candle does not stop it out.
+        assert result.status == DayStatus.TRADED
+        assert result.trades[0].exit_reason != ExitReason.STOP_LOSS
+
+    async def test_run_range_without_params_uses_definition_defaults(self):
+        from tests.api.services.backtest.helpers import GER_DEFINITION
+
+        service = make_service([h1_candle()], [])
+        explicit = await service.run_range(
+            GER_DEFINITION,
+            TRADING_DATE,
+            TRADING_DATE,
+            GER_DEFINITION.default_parameters,
+        )
+        implicit = await service.run_range(
+            GER_DEFINITION, TRADING_DATE, TRADING_DATE
+        )
+        assert implicit == explicit

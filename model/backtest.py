@@ -66,9 +66,42 @@ class BacktestDefinition:
     structural_stop: bool = False
 
     def __post_init__(self) -> None:
-        # The double take-profit exit path does not evaluate the time cut,
-        # so combining the two would silently ignore the cut. Reject it at
-        # construction (registration) time rather than shipping a no-op.
+        """Reject at construction (registration) time any combination of
+        flags that could not be honored in full.
+
+        A definition is read once, when the exit chain and lot model are
+        built; a flag that cannot take effect there would otherwise ship
+        as a silent no-op, and the backtest would report results for
+        rules it never applied."""
+        if self.double_take_profit and self.first_target_fraction is None:
+            raise ValueError(
+                "double_take_profit requires first_target_fraction - the "
+                "first lot would have nowhere to take profit (definition "
+                f"{self.code!r})"
+            )
+        if not self.double_take_profit and self.first_target_fraction:
+            raise ValueError(
+                "first_target_fraction is only used with "
+                f"double_take_profit (definition {self.code!r})"
+            )
+        if self.first_target_fraction is not None and not (
+            0 < self.first_target_fraction < 1
+        ):
+            raise ValueError(
+                "first_target_fraction must sit strictly inside the H1 "
+                f"range (definition {self.code!r})"
+            )
+        if (self.time_cut_minutes is None) != (
+            self.time_cut_min_favorable_points is None
+        ):
+            raise ValueError(
+                "a time cut needs both time_cut_minutes and "
+                f"time_cut_min_favorable_points (definition {self.code!r})"
+            )
+        # The two now compose (the time cut is an ordinary policy in the
+        # exit chain and the lot model handles the two-lot points), but
+        # no backtest ships the combination and none has been validated
+        # against it, so it stays rejected until one needs it.
         if self.double_take_profit and self.time_cut_minutes is not None:
             raise ValueError(
                 "double_take_profit is not supported together with a time "

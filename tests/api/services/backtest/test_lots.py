@@ -94,9 +94,14 @@ class TestBuildLotModel:
         assert build_lot_model(definition) == TwoLot(0.5)
 
     def test_double_take_profit_without_a_fraction_degrades_to_one_lot(self):
-        """There would be nowhere to exit the first lot, so it must not
-        silently become a two-lot position whose TP1 never fills."""
-        definition = self._definition(double_take_profit=True)
+        """BacktestDefinition rejects this combination outright, so it is
+        only reachable by mutating a definition after construction - but
+        build_lot_model still refuses to build a two-lot position whose
+        TP1 could never fill."""
+        definition = self._definition(
+            double_take_profit=True, first_target_fraction=0.5
+        )
+        definition.first_target_fraction = None
         assert build_lot_model(definition) is SINGLE_LOT
 
     def test_ger40_ships_as_two_lot(self):

@@ -72,7 +72,7 @@ class BacktestService:
         The candles come from the raw-candle cache when available and from
         Saxo otherwise (see CandleSource); the strategy evaluation always
         runs fresh against them, cached or not (FR-039)."""
-        params = params or BacktestParameters()
+        params = params or definition.default_parameters
         day = await self.candle_source.day_candles(definition, trading_date)
         if day is None or day.h1_candle is None:
             return DayResult(date=trading_date, status=DayStatus.NO_DATA)
@@ -132,7 +132,7 @@ class BacktestService:
         params: Optional[BacktestParameters] = None,
     ) -> BacktestRunResult:
         """Run the backtest across every day in [start_date, end_date]."""
-        params = params or BacktestParameters()
+        params = params or definition.default_parameters
         day_summaries: List[DayResultSummary] = []
         all_trades: List[Trade] = []
 
