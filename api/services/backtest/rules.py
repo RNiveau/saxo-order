@@ -9,6 +9,7 @@ engine.
 
 from typing import List
 
+from api.services.backtest.lots import SINGLE_LOT, LotModel, TwoLot
 from api.services.backtest.policies import (
     ArmBreakEven,
     DoubleTarget,
@@ -42,7 +43,8 @@ def build_exit_chain(
     else:
         chain.append(Stop())
 
-    chain.append(DoubleTarget() if definition.double_take_profit else Target())
+    two_lot = isinstance(build_lot_model(definition), TwoLot)
+    chain.append(DoubleTarget() if two_lot else Target())
 
     if definition.structural_stop:
         chain.append(StructuralStop())
@@ -60,3 +62,15 @@ def build_exit_chain(
 
     chain.append(ArmBreakEven(params.break_even_trigger_points))
     return chain
+
+
+def build_lot_model(definition: BacktestDefinition) -> LotModel:
+    """The definition's position sizing. A double take-profit definition
+    without a first-target fraction has nowhere to exit its first lot, so
+    it degrades to a single lot rather than silently never filling TP1."""
+    if (
+        definition.double_take_profit
+        and definition.first_target_fraction is not None
+    ):
+        return TwoLot(definition.first_target_fraction)
+    return SINGLE_LOT

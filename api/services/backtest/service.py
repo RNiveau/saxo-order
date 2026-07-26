@@ -16,9 +16,10 @@ from api.services.backtest.definitions import (
     list_definitions,
 )
 from api.services.backtest.entry import DirectionSearch
+from api.services.backtest.lots import LotModel
 from api.services.backtest.policies import resolve_exit
-from api.services.backtest.rules import build_exit_chain
 from api.services.backtest.position import Position
+from api.services.backtest.rules import build_exit_chain, build_lot_model
 from api.services.backtest.side import LONG, SHORT, Side
 from api.services.backtest.statistics import build_summary
 from client.aws_client import DynamoDBClient
@@ -226,17 +227,10 @@ class BacktestService:
         trades: List[Trade] = []
         position: Optional[Position] = None
         chain = build_exit_chain(definition, params)
-
-        # TP1 (the H1 midpoint) for double take-profit definitions; None
-        # on the single-lot ones, where it is not consulted.
-        first_target: Optional[float] = None
-        if (
-            definition.double_take_profit
-            and definition.first_target_fraction is not None
-        ):
-            first_target = h1_low + definition.first_target_fraction * (
-                h1_high - h1_low
-            )
+        lots = build_lot_model(definition)
+        # TP1, where a two-lot position exits its first lot; None for a
+        # single lot, where it is not consulted.
+        first_target = lots.first_target_level(h1_high, h1_low)
 
         searches = {
             side: DirectionSearch(
@@ -273,6 +267,7 @@ class BacktestService:
                             h1_high,
                             h1_low,
                             first_target,
+                            lots,
                             params,
                             definition,
                         )
@@ -325,6 +320,7 @@ class BacktestService:
         h1_high: float,
         h1_low: float,
         first_target: Optional[float],
+        lots: LotModel,
         params: BacktestParameters,
         definition: BacktestDefinition,
     ) -> Position:
@@ -346,14 +342,9 @@ class BacktestService:
                 side, h1_high, h1_low, params
             ),
             stop_loss_points=params.stop_loss_points,
-            time_cut_minutes=definition.time_cut_minutes,
-            time_cut_min_favorable_points=(
-                definition.time_cut_min_favorable_points
-            ),
-            double=definition.double_take_profit,
+            lots=lots,
             first_target_level=first_target,
             initial_stop_price=initial_stop_price,
             h1_high=h1_high,
             h1_low=h1_low,
-            structural_stop=definition.structural_stop,
         )
