@@ -1,6 +1,8 @@
 """Position sizing: how a closed position's points are computed and which
 bucket the run summary files it under."""
 
+import pytest
+
 from api.services.backtest.lots import SINGLE_LOT, Outcome, TwoLot
 from api.services.backtest.rules import build_lot_model
 from model import BacktestDefinition
@@ -93,16 +95,18 @@ class TestBuildLotModel:
         )
         assert build_lot_model(definition) == TwoLot(0.5)
 
-    def test_double_take_profit_without_a_fraction_degrades_to_one_lot(self):
+    def test_double_take_profit_without_a_fraction_raises(self):
         """BacktestDefinition rejects this combination outright, so it is
-        only reachable by mutating a definition after construction - but
-        build_lot_model still refuses to build a two-lot position whose
-        TP1 could never fill."""
+        only reachable by mutating a definition after construction. It
+        raises rather than degrading to a single lot: silently answering
+        a different question than the one asked is the failure mode this
+        refactor set out to remove."""
         definition = self._definition(
             double_take_profit=True, first_target_fraction=0.5
         )
         definition.first_target_fraction = None
-        assert build_lot_model(definition) is SINGLE_LOT
+        with pytest.raises(ValueError, match="first_target_fraction"):
+            build_lot_model(definition)
 
     def test_ger40_ships_as_two_lot(self):
         from api.services.backtest import get_definition

@@ -40,6 +40,12 @@ class Side:
         the reversal off the bottom of the range), the high for a short."""
         return h1_low if self.is_long else h1_high
 
+    def far_level(self, h1_high: float, h1_low: float) -> float:
+        """The far end of the H1 range - the one this side is heading
+        towards, and so the level its take-profit is measured back from:
+        the high for a long, the low for a short."""
+        return h1_high if self.is_long else h1_low
+
     def extreme(self, candle: Candle) -> float:
         """The candle's furthest price in this side's favor."""
         return candle.higher if self.is_long else candle.lower

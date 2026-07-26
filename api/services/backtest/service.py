@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from api.services.backtest.analytics import (
     DAILY_CANDLES_LEAD_IN,
@@ -247,6 +247,13 @@ class BacktestService:
         for candle in candles:
             candle_time = candle_date(candle)
             if position is None:
+                # Both sides are fed before either is allowed to open,
+                # and the two loops must stay separate: feed() advances a
+                # side's breach/candidate state machine, so collapsing
+                # this into one loop with an early break would leave the
+                # short side unfed on any candle the long side opens on,
+                # silently changing what it sees next.
+                #
                 # One position at a time, either side: whichever direction
                 # confirms first opens. On the rare candle that would
                 # confirm both (opposing candidates pending, an engulfing
@@ -295,7 +302,7 @@ class BacktestService:
         return trades
 
     @staticmethod
-    def _reset(searches) -> None:
+    def _reset(searches: Dict[Side, DirectionSearch]) -> None:
         for search in searches.values():
             search.reset()
 
@@ -309,7 +316,7 @@ class BacktestService:
         """The take-profit sits inside the far end of the H1 range: the
         H1 high minus the offset for a long, the H1 low plus it for a
         short."""
-        far_level = side.reference_level(h1_low, h1_high)
+        far_level = side.far_level(h1_high, h1_low)
         return far_level - side.sign * params.take_profit_offset_points
 
     @staticmethod

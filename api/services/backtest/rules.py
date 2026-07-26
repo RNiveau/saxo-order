@@ -65,12 +65,18 @@ def build_exit_chain(
 
 
 def build_lot_model(definition: BacktestDefinition) -> LotModel:
-    """The definition's position sizing. A double take-profit definition
-    without a first-target fraction has nowhere to exit its first lot, so
-    it degrades to a single lot rather than silently never filling TP1."""
-    if (
-        definition.double_take_profit
-        and definition.first_target_fraction is not None
-    ):
-        return TwoLot(definition.first_target_fraction)
-    return SINGLE_LOT
+    """The definition's position sizing.
+
+    BacktestDefinition already rejects a double take-profit with no
+    first-target fraction, so this raises rather than degrading to a
+    single lot: two answers to one question is how a flag ends up
+    silently not applying, which is the thing this refactor removed."""
+    if not definition.double_take_profit:
+        return SINGLE_LOT
+    if definition.first_target_fraction is None:
+        raise ValueError(
+            "double_take_profit requires first_target_fraction - the "
+            f"first lot would have nowhere to exit (definition "
+            f"{definition.code!r})"
+        )
+    return TwoLot(definition.first_target_fraction)

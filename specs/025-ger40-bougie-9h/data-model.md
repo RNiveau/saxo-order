@@ -1,5 +1,30 @@
 # Data Model: Hardcoded "GER40 Bougie de 9h" Backtest (double take-profit)
 
+> **Implementation note (backtest service refactor).** The engine-internal
+> names below describe the pre-refactor `api/services/backtest_service.py`.
+> The rules are unchanged — the refactor is behavior-preserving, verified
+> against a golden snapshot — but the code they name has moved into the
+> `api/services/backtest/` package:
+>
+> | Named below | Now |
+> |---|---|
+> | `_OpenPosition` (incl. its `double` bool) | `position.Position`, whose `lots` field holds a `lots.SingleLot` or `lots.TwoLot` |
+> | `_close_double_trade` / `_close_trade` | `Position.close`, which asks the lot model for net points |
+> | `_resolve_exit` double-TP branch | the `policies.DoubleTarget` policy, placed in the chain by `rules.build_exit_chain` |
+> | `_DirectionSearch` | `entry.DirectionSearch` |
+> | `_candle_date` | `candles.candle_date` |
+>
+> Two contracts also changed. `points ≠ exit_price − entry_price` for a
+> two-lot position is now owned by `lots.TwoLot` (which also decides
+> whether such a trade counts as a win, FR-G08), and the flag combinations
+> a `BacktestDefinition` accepts are validated in its `__post_init__`:
+> `double_take_profit` requires a `first_target_fraction` strictly inside
+> the H1 range, a time cut requires both of its fields, and the
+> double-TP + time-cut pairing stays rejected.
+>
+> `plan.md`, `research.md`, `tasks.md` and `quickstart.md` in this folder
+> are records of how the feature was built and are left as written.
+
 All entities are in-memory / request-response only (inherits spec 021 — no persistence). This feature **adds no new response model and no new domain dataclass**; it extends the existing `model/backtest.py` types and adds one `Strategy` enum member. `Trade`, `DayResult`, `DayResultSummary`, `BacktestSummary`, `BacktestRunResult` are unchanged in shape (FR-G10). See `specs/021-backtest-menu-hardcoded/data-model.md` for their full field definitions.
 
 ## New enum member (`model/enum.py`)

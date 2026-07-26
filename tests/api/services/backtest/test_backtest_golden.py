@@ -88,7 +88,18 @@ async def _exit_reason_histogram(
     return histogram
 
 
+_SNAPSHOT_CACHE: Dict[str, Any] = {}
+
+
 async def _snapshot() -> Dict[str, Any]:
+    """The full snapshot, computed once per session - every assertion
+    reads the same run rather than re-running four range backtests."""
+    if not _SNAPSHOT_CACHE:
+        _SNAPSHOT_CACHE.update(await _build_snapshot())
+    return _SNAPSHOT_CACHE
+
+
+async def _build_snapshot() -> Dict[str, Any]:
     snapshot: Dict[str, Any] = {}
     for definition in BACKTEST_DEFINITIONS:
         params = resolve_parameters(definition)

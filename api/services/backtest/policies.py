@@ -102,8 +102,7 @@ class StructuralStop:
     ) -> Optional[Trade]:
         if position.be_armed:
             return None
-        level = position.structural_level
-        if level is None or not position.side.closed_beyond(level, candle):
+        if not position.side.closed_beyond(position.structural_level, candle):
             return None
         return position.close(candle_time, candle.close, ExitReason.STOP_LOSS)
 

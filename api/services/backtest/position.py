@@ -23,11 +23,11 @@ class Position:
         side: Side,
         take_profit_level: float,
         stop_loss_points: float,
+        h1_high: float,
+        h1_low: float,
         lots: LotModel = SINGLE_LOT,
         first_target_level: Optional[float] = None,
         initial_stop_price: Optional[float] = None,
-        h1_high: Optional[float] = None,
-        h1_low: Optional[float] = None,
     ):
         self.entry_time = entry_time
         self.entry_price = entry_price
@@ -55,11 +55,9 @@ class Position:
         self.h1_low = h1_low
 
     @property
-    def structural_level(self) -> Optional[float]:
+    def structural_level(self) -> float:
         """The H1 level a structural stop watches for a close beyond: the
         low for a long, the high for a short."""
-        if self.h1_high is None or self.h1_low is None:
-            return None
         return self.side.reference_level(self.h1_high, self.h1_low)
 
     @property

@@ -79,7 +79,10 @@ class BacktestDefinition:
                 "first lot would have nowhere to take profit (definition "
                 f"{self.code!r})"
             )
-        if not self.double_take_profit and self.first_target_fraction:
+        if (
+            not self.double_take_profit
+            and self.first_target_fraction is not None
+        ):
             raise ValueError(
                 "first_target_fraction is only used with "
                 f"double_take_profit (definition {self.code!r})"
