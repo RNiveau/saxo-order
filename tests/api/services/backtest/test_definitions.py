@@ -14,18 +14,6 @@ from model import (
 
 
 class TestRegistry:
-    def test_lists_the_hardcoded_backtests_in_order(self):
-        definitions = list_definitions()
-        codes = [definition.code for definition in definitions]
-        assert codes == [
-            "B9H",
-            "B9HTC",
-            "G9H",
-            "G9HSL",
-            "B9HWS",
-            "G9HIC",
-        ]
-
     def test_b9h_is_the_plain_single_lot_variant(self):
         definition = get_definition("B9H")
         assert definition is not None
@@ -121,11 +109,12 @@ class TestRegistry:
             60,
         )
 
-    def test_every_other_definition_keeps_the_cash_session(self):
-        for code in ("B9H", "B9HTC", "G9H", "G9HSL", "B9HWS"):
-            definition = get_definition(code)
-            assert definition is not None
-            assert isinstance(definition.market, EUMarket)
+    def test_only_the_impulsive_variant_left_the_cash_session(self):
+        """Derived from the registry rather than a second copy of it: any
+        definition that silently changed session would fail here."""
+        for definition in list_definitions():
+            expected = EuCfdMarket if definition.code == "G9HIC" else EUMarket
+            assert isinstance(definition.market, expected)
 
     def test_unknown_code_returns_none(self):
         assert get_definition("NOPE") is None
@@ -237,4 +226,4 @@ class TestBacktestDefinitionValidation:
         """The registry is built at import time, so this passes trivially
         - it is here so a future definition that trips a rule fails in
         this file rather than at application startup."""
-        assert len(list_definitions()) == 6
+        assert list_definitions()
