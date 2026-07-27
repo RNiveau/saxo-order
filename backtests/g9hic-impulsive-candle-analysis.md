@@ -2,26 +2,31 @@
 
 Analysis of the **G9HIC** variant (`api/services/backtest/definitions.py`,
 spec `025-ger40-bougie-9h`), based on real Saxo data exported via the
-backtest CSV feature over two windows.
+backtest CSV feature over three windows: **2024, 2025 and 2026 H1**.
 
 Third analysis in the "bougie de 9h" series, after
 `b9h-stop-loss-analysis.md` (CAC40) and `g9h-ger40-analysis.md`
 (GER40 double-TP and single-lot).
 
-> **Verdict: still negative, but for a new and more interesting reason.**
-> G9HIC nets **−2035 pts** on 2025 and **−832 pts** on 2026 H1 —
-> **−2867 combined** over 257 traded days and 359 positions, before
-> costs. It is the **best of the three GER40 variants** (−8.85 pts per
-> position vs −9.20 for G9HSL and −13.93 for G9H), but "least bad" is
-> not an edge. The diagnosis is structural and specific: replacing the
-> fixed 150-point stop with an impulsive-candle exit **removed the floor
-> under losses without raising the ceiling on wins**. The take-profit is
-> still `h1_high − 10`, so a win is capped at roughly `h1_range − 50`
-> (~80 pts) — while losses are now unbounded and reach −456. In 77% of
-> single-position losing days the loss exceeded what the best possible
-> win that day could have paid. **Do not deploy as-is.** One filter
-> combination looks genuinely promising and is worth a fresh-window test
-> — see §7 — but it is a post-hoc fit on these two windows, not a result.
+> **Verdict: no edge. Retire the family.** G9HIC nets **+168 pts** on
+> 2024, **−2035** on 2025 and **−832** on 2026 H1 — **−2699 combined**
+> over 352 traded days and 476 positions before costs, **−3175** at one
+> point of spread. It is the best of the three GER40 variants
+> (−5.67 pts/position vs −9.20 for G9HSL and −13.93 for G9H), but "least
+> bad" is not an edge.
+>
+> The diagnosis is structural: replacing the fixed 150-point stop with an
+> impulsive-candle exit **removed the floor under losses without raising
+> the ceiling on wins**. The take-profit is still `h1_high − 10`, so a win
+> is capped near `h1_range − 50` (~80 pts) while losses are unbounded and
+> reach −456. In ~77% of single-position losing days the loss exceeded the
+> best win that day could possibly have paid.
+>
+> **The one promising lead is dead.** A four-filter stack fitted on
+> 2025+2026 H1 (+1775 combined, positive in both) was tested on 2024 and
+> **inverted**: it turned the only non-negative window from **+168 into
+> −392**. That is the same failure mode as the CAC40 SL 40 / TP 5 fit.
+> With the lead closed, there is nothing left to test — see §9.
 
 ## 1. What G9HIC is
 
@@ -47,40 +52,49 @@ figures below are the fully-filtered behaviour, not a pre-#677 baseline.
 
 ## 2. Data
 
-| Window | File | Traded days | No-trade | Positions |
-|---|---|---|---|---|
-| 2026-01-02 → 2026-06-30 | `backtestG9HIC2026010120260630_1` | 88 | 37 (30%) | 129 |
-| 2025-01-02 → 2025-12-30 | `backtestG9HIC2025010120251231` | 169 | 84 (33%) | 230 |
+| Window | Traded days | No-trade | Positions |
+|---|---|---|---|
+| 2024-01-02 → 2024-12-30 | 95 (37%) | 159 | 117 |
+| 2025-01-02 → 2025-12-30 | 169 (67%) | 84 | 230 |
+| 2026-01-02 → 2026-06-30 | 88 (70%) | 37 | 129 |
 
-Parameters both runs: SL 150 (unused), TP offset 10, BE 50, max entry
-distance 40. Points are raw GER40.I index differences, single lot, no
-costs unless stated.
+Parameters, all three runs: SL 150 (unused), TP offset 10, BE 50, max
+entry distance 40. Points are raw GER40.I index differences, single lot,
+no costs unless stated.
+
+**2024 trades far less** — 37% of days vs 67–70% — because the DAX's
+9:00–10:00 range was routinely below the 70-point minimum that year. It
+is a genuinely different volatility regime, which makes it a good
+out-of-sample test and a thin one at the same time.
 
 ## 3. Headline results
 
-| | 2025 | 2026 H1 | **Combined** |
-|---|---|---|---|
-| Traded days | 169 | 88 | 257 |
-| Positions | 230 | 129 | 359 |
-| **Net** | **−2035** | **−832** | **−2867** |
-| Per day | −12.04 | −9.45 | −11.15 |
-| **Per position** | **−8.85** | **−6.45** | **−7.99** |
-| Win / loss / flat days | 59 / 60 / 50 | 37 / 29 / 22 | 96 / 89 / 72 |
-| Win rate (excl. flats) | 49.6% | 56.1% | 51.9% |
-| Break-even rate needed | 56.8% | 61.1% | 58.3% |
-| Avg win / avg loss | +103 / −135 | +98 / −154 | +101 / −141 |
-| Payoff | 0.76 | 0.64 | 0.72 |
-| **Profit factor** | **0.75** | **0.81** | **0.77** |
-| t-stat | −1.31 | −0.69 | −1.46 |
-| Max drawdown | 2458 | 1840 | 3627 |
-| Longest losing streak | 4 days | 4 days | — |
+| | 2024 | 2025 | 2026 H1 | **All three** |
+|---|---|---|---|---|
+| Traded days | 95 | 169 | 88 | 352 |
+| Positions | 117 | 230 | 129 | 476 |
+| **Net** | **+168** | **−2035** | **−832** | **−2699** |
+| Per day | +1.77 | −12.04 | −9.45 | −7.67 |
+| **Per position** | **+1.44** | **−8.85** | **−6.45** | **−5.67** |
+| Win / loss / flat days | 47 / 32 / 16 | 59 / 60 / 50 | 37 / 29 / 22 | 143 / 121 / 88 |
+| Win rate (excl. flats) | 59.5% | 49.6% | 56.1% | 54.2% |
+| Avg win / avg loss | +62 / −86 | +103 / −135 | +98 / −154 | — |
+| **Profit factor** | **1.06** | **0.75** | **0.81** | **0.82** |
+| t-stat | +0.22 | −1.31 | −0.69 | **−1.28** |
+| Max drawdown | 701 | 2458 | 1840 | — |
 
-Monthly: **5 positive months of 12** in 2025, **3 of 6** in 2026 H1.
-Costs: at 1 point of spread per position the combined run is **−3226**.
+Monthly: **7 positive months of 12** in 2024, 5 of 12 in 2025, 3 of 6 in
+2026 H1. Costs: at 1 point of spread per position the three-window total
+is **−3175**.
 
-**Flat days are 28% of all traded days** — the break-even stop is doing a
-lot of work, and the strategy spends more than a quarter of its days
-going nowhere.
+2024 is the one non-negative window, and it is *flat* rather than
+profitable: +168 points over a full year, profit factor 1.06, t = +0.22.
+Note also that its wins and losses are much smaller (+62 / −86 vs
++103 / −135) — narrow-range year, smaller everything.
+
+**Flat days are 25% of all traded days** across the three windows — the
+break-even stop is doing a lot of work, and the strategy spends a quarter
+of its days going nowhere.
 
 ## 4. The structural problem: capped win, uncapped loss
 
@@ -137,7 +151,14 @@ numbers. They are not the missing piece.
 
 ## 5. Regime checks
 
-All eight columns, both windows. Bucket means are points per day.
+All eight columns. Bucket means are points per day.
+
+> These tables cover **2025 and 2026 H1** — the two windows available
+> when the regime scan was run, and therefore the two the §7 filter stack
+> was fitted on. The three-window version, including 2024, is in §7 and
+> is the one that decides which of these patterns are real. Read the
+> "stable" markers below as *stable across the fitted windows*, not as
+> validated.
 
 ### H1 range
 
@@ -235,32 +256,70 @@ statistically indistinguishable from the fixed stop. Most of G9HIC's
 headline improvement comes from the `min_h1_range ≥ 70` filter simply
 **trading 24 fewer days**, not from exiting better.
 
-## 7. The one thing worth testing
+## 7. The filter stack — fitted, then falsified
 
-Four avoid-rules are same-sign across both windows. Stacked:
+Four avoid-rules were same-sign across 2025 and 2026 H1. Stacked, they
+produced the most promising number in the entire series: **+1775
+combined, positive in both windows independently** (+1211 and +564).
+That was more than the G9H stack managed, which left 2025 negative.
 
-| Filter | 2025 | 2026 H1 | Combined |
+It was flagged at the time as a hypothesis, not a result — four
+thresholds chosen while looking at both windows, 68% of days discarded,
+combined t of only +1.60. **2024 was then run as a clean out-of-sample
+test.**
+
+### It inverted
+
+| | 2024 (out-of-sample) | 2025 (fitted) | 2026 H1 (fitted) |
 |---|---|---|---|
-| Baseline | −2035 (169) | −832 (88) | −2867 (257) |
-| Avoid H1 range ≥ 200 | −744 | −500 | −1244 |
-| Avoid gap ∈ [0, +75) | −743 | **+371** | −372 |
-| Avoid open ≥ 75% of range | **+239** | −311 | −72 |
-| Avoid open ∈ 25–50% | −1056 | −254 | −1311 |
-| **All four** | **+1211 (50)** | **+564 (33)** | **+1775 (83)** |
+| Baseline | **+168** (95 days) | −2035 (169) | −832 (88) |
+| With the four filters | **−392** (31 days) | +1211 (50) | +565 (33) |
+| Mean per day | **−12.63** | +24.21 | +17.11 |
+| t-stat | −0.90 | +1.56 | +0.71 |
 
-This is the first filter stack in the whole series that is **positive in
-both windows independently**. That is more than the G9H stack managed
-(which left 2025 negative).
+The stack **turned the only non-negative window into a losing one** —
+from +1.77 pts/day to −12.63 pts/day, a swing of −560 points on 95 days.
+It did not merely fail to help; it destroyed the value that was there.
 
-**It is still not a result.** Four thresholds were chosen by looking at
-both windows; it discards 68% of traded days, leaving 83 days
-(~55 trades/year); and the combined t-stat is only **+1.60**, short of
-significance. This is precisely the shape of the CAC40 SL 40 / TP 5 fit
-that inverted out-of-sample.
+### Which rule broke it
 
-The honest status: **a hypothesis, testable on a window neither of us has
-looked at.** 2024 is the obvious candidate. If it holds there at similar
-magnitude, it becomes interesting; if it inverts, the series is closed.
+| Rule applied alone to 2024 | Net | vs baseline +168 |
+|---|---|---|
+| Avoid H1 range ≥ 200 | +85 | −83 |
+| **Avoid gap ∈ [0, +75)** | **−496** | **−664** |
+| Avoid open ≥ 75% of range | +291 | +123 |
+| Avoid open ∈ 25–50% | +124 | −45 |
+
+The gap rule is the culprit, and it was the *strongest* in-sample signal
+— combined t = −2.78, the only raw feature correlation reaching
+significance. In 2024 that same bucket is **+18.5 pts/day** versus −28.1
+and −66.8 in the fitted windows. A complete sign reversal on the single
+variable the fit leaned on hardest.
+
+This is the exact failure mode documented in `b9h-stop-loss-analysis.md`
+for the CAC40 SL 40 / TP 5 grid. Two independent windows agreeing is not
+evidence when the thresholds were chosen after seeing both.
+
+### What survives three windows
+
+Re-running every bucket across 2024, 2025 and 2026 H1, only four
+non-tautological buckets keep the same sign in all three — and none is
+usable:
+
+| Bucket | 2024 | 2025 | 2026 H1 | Verdict |
+|---|---|---|---|---|
+| \|slope\| 7–12 | −25.0 | −6.5 | −0.9 | decays to zero |
+| \|slope\| 12–18 | +9.3 | +32.2 | +31.1 | n = 9 / 9 / 18, too thin |
+| **ADX 20–25** | **−27.2** | **−20.3** | **−14.3** | the most consistent finding |
+| open ≥ 75% | −3.6 | −42.1 | −22.7 | 2024 is ~zero |
+
+Plus the three `trade_count` buckets, which are the tautology described
+above and are same-signed in all three windows for that reason.
+
+ADX 20–25 is the only genuinely replicated non-tautological result: 66
+days, negative in all three windows at meaningful magnitude. It is an
+**avoid** rule, not an edge — and avoiding it does not make the rest
+positive.
 
 ## 8. Tails and concentration
 
@@ -279,35 +338,53 @@ evidence for §4.
 
 ## 9. Conclusion
 
-G9HIC does not have an edge: −2867 points over 257 traded days and 359
-positions across two windows, negative in both, profit factor 0.77,
-28% of days flat.
+G9HIC does not have an edge: **−2699 points over 352 traded days and 476
+positions across three windows**, profit factor 0.82, a quarter of days
+flat, and −3175 after one point of spread. One window (2024) is flat-
+positive at +168; the other two are clearly negative.
 
 The impulse stop is not the improvement it looks like. Paired against the
 fixed-stop variant on the same days it is worth +0.65 points/day
-(t = +0.13) — noise. What it *does* change is the loss distribution, and
-in the wrong direction: it removes the bound on losses while leaving the
-`h1_high − 10` target capping wins at ~80 points. A strategy whose best
+(t = +0.13) — noise. What it *does* change is the loss distribution, in
+the wrong direction: it removes the bound on losses while the
+`h1_high − 10` target still caps wins near +80. A strategy whose best
 possible day is +80 and whose worst realised day is −456 needs a win rate
-it does not have.
+it does not have. The #677 entry cut-off and 2-loss daily cap were active
+throughout and cannot reach this — 84% of all loss arrives on days
+holding a single position (§4).
 
-Three variants, two instruments, three stop conventions, five windows.
-The entry is the problem, not the exit — every attempt to fix the exit
-has produced the same answer.
+**The last open lead is closed.** The four-filter stack was the one
+result in the series that looked like it might generalise, and 2024
+falsified it decisively: the only non-negative window went from +168 to
+−392, driven by a full sign reversal in the variable the fit relied on
+most.
+
+Running total across the family: three variants, two instruments, three
+stop conventions, **six windows**. The entry is the problem, not the
+exit — every attempt to fix the exit has produced the same answer.
 
 ### Next steps
 
-**Worth doing:** run the §7 four-filter stack on **2024** (and 2023 if
-available). It is one export and it is the only open question left.
+**Retire the "bougie de 9h" family.** There is no remaining untested
+hypothesis. The G9H/G9HSL/G9HIC definitions can stay in the Backtest menu
+as reference implementations, but none should be deployed and none merits
+further parameter work.
 
-**Worth considering:** if the family survives the 2024 test, the natural
-structural fix is on the **target**, not the stop — the §4 asymmetry is
-caused by a capped take-profit sitting opposite an uncapped exit. A
-trailing or measured-move target would be a genuinely different
-experiment, unlike the three stop variants already tried.
+**Not worth doing:**
 
-**Not worth doing:** tuning TP/BE/max-distance on these windows; further
-regime variables (eight scanned, one survives and it is a tautology);
-a fourth stop variant; tightening the daily loss cap or the entry
-cut-off (§4 shows neither reaches the loss that matters). If the §7 test
-fails on 2024, retire the family.
+- Tuning TP / BE / max-distance on any of these windows — every such fit
+  in this series has inverted out-of-sample.
+- More regime variables. Eight were scanned across three windows; one
+  non-tautological bucket (ADX 20–25) replicates, and it is an avoid rule
+  that does not make the remainder positive.
+- A fourth stop variant. Three have now been tried; the paired tests show
+  the stop is not what is costing the money.
+- Tightening the daily loss cap or entry cut-off (§4).
+
+**If the idea is ever revisited**, the one untried direction is the
+**target**, not the stop: the §4 asymmetry comes from a capped
+take-profit sitting opposite an uncapped exit, and a trailing or
+measured-move target would be a genuinely different experiment. That is
+a new strategy, though, not a variant of this one — and on the evidence
+of six windows it should start from a fresh hypothesis rather than from
+this entry.
