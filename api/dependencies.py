@@ -5,7 +5,7 @@ from typing import Optional, Union, cast
 from fastapi import Depends, HTTPException, Request
 
 from api.services.asset_details_service import AssetDetailsService
-from api.services.backtest_service import BacktestService
+from api.services.backtest import BacktestService
 from api.services.binance_report_service import BinanceReportService
 from api.services.report_service import ReportService
 from api.services.trade_republic_service import TradeRepublicService

@@ -17,7 +17,7 @@ from api.models.backtest import (
     day_result_to_csv,
     day_result_to_response,
 )
-from api.services.backtest_service import (
+from api.services.backtest import (
     BacktestService,
     is_future_paris_date,
     is_today_not_yet_closed,
