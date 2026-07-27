@@ -9,6 +9,7 @@ from utils.helper import (
     build_daily_candles_from_h1,
     build_h4_candles_from_h1,
     build_weekly_candles_from_daily,
+    last_session_close,
     market_in_utc,
 )
 
@@ -1536,3 +1537,75 @@ class TestHelper:
         ]
         result = build_current_weekly_candle_from_daily(daily_candles)
         assert result is None
+
+    @pytest.mark.parametrize(
+        "market_factory, reference, expected",
+        [
+            # 2024-06-21 is a Friday; EU summer session is 07:00-15:00 UTC.
+            # During session -> reference is returned unchanged.
+            (
+                EUMarket,
+                datetime.datetime(2024, 6, 21, 10, 0, tzinfo=datetime.UTC),
+                datetime.datetime(2024, 6, 21, 10, 0, tzinfo=datetime.UTC),
+            ),
+            # After the close -> snap back to today's close.
+            (
+                EUMarket,
+                datetime.datetime(2024, 6, 21, 19, 56, tzinfo=datetime.UTC),
+                datetime.datetime(2024, 6, 21, 15, 0, tzinfo=datetime.UTC),
+            ),
+            # Before the open -> previous trading day's close.
+            (
+                EUMarket,
+                datetime.datetime(2024, 6, 21, 6, 0, tzinfo=datetime.UTC),
+                datetime.datetime(2024, 6, 20, 15, 0, tzinfo=datetime.UTC),
+            ),
+            # Saturday -> Friday's close.
+            (
+                EUMarket,
+                datetime.datetime(2024, 6, 22, 12, 0, tzinfo=datetime.UTC),
+                datetime.datetime(2024, 6, 21, 15, 0, tzinfo=datetime.UTC),
+            ),
+            # Sunday -> Friday's close.
+            (
+                EUMarket,
+                datetime.datetime(2024, 6, 23, 12, 0, tzinfo=datetime.UTC),
+                datetime.datetime(2024, 6, 21, 15, 0, tzinfo=datetime.UTC),
+            ),
+            # Monday pre-open -> Friday's close (weekend skipped).
+            (
+                EUMarket,
+                datetime.datetime(2024, 6, 24, 5, 0, tzinfo=datetime.UTC),
+                datetime.datetime(2024, 6, 21, 15, 0, tzinfo=datetime.UTC),
+            ),
+            # Winter DST: EU close lands at 16:00 UTC (2024-01-15 is Monday).
+            (
+                EUMarket,
+                datetime.datetime(2024, 1, 15, 19, 0, tzinfo=datetime.UTC),
+                datetime.datetime(2024, 1, 15, 16, 0, tzinfo=datetime.UTC),
+            ),
+            # US summer session closes at 19:00 UTC.
+            (
+                USMarket,
+                datetime.datetime(2024, 6, 21, 22, 0, tzinfo=datetime.UTC),
+                datetime.datetime(2024, 6, 21, 19, 0, tzinfo=datetime.UTC),
+            ),
+        ],
+    )
+    def test_last_session_close(
+        self,
+        market_factory,
+        reference: datetime.datetime,
+        expected: datetime.datetime,
+    ):
+        assert last_session_close(reference, market_factory()) == expected
+
+    def test_last_session_close_naive_reference_is_utc(self):
+        """A naive reference is treated as UTC; a tz-aware anchor returns."""
+        anchor = last_session_close(
+            datetime.datetime(2024, 6, 21, 19, 56), EUMarket()
+        )
+        assert anchor == datetime.datetime(
+            2024, 6, 21, 15, 0, tzinfo=datetime.UTC
+        )
+        assert anchor.tzinfo is not None

@@ -118,8 +118,8 @@ class TestChainComposition:
 
 
 class TestRegisteredDefinitionChains:
-    """The four shipped backtests, so a chain-building change that alters
-    one of them has to be deliberate."""
+    """Every shipped backtest, so a chain-building change that alters one
+    of them has to be deliberate."""
 
     def test_shipped_chains(self):
         from api.services.backtest import list_definitions
@@ -128,6 +128,7 @@ class TestRegisteredDefinitionChains:
             "B9H": [Stop, Target, ArmBreakEven],
             "B9HTC": [Stop, Target, TimeCut, ArmBreakEven],
             "G9H": [Stop, DoubleTarget, ArmBreakEven],
+            "G9HSL": [Stop, Target, ArmBreakEven],
             "B9HWS": [Stop, Target, StructuralStop, ArmBreakEven],
         }
         actual = {

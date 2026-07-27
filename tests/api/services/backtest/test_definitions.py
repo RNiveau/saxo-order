@@ -12,7 +12,7 @@ class TestRegistry:
     def test_lists_the_hardcoded_backtests_in_order(self):
         definitions = list_definitions()
         codes = [definition.code for definition in definitions]
-        assert codes == ["B9H", "B9HTC", "G9H", "B9HWS"]
+        assert codes == ["B9H", "B9HTC", "G9H", "G9HSL", "B9HWS"]
 
     def test_b9h_is_the_plain_single_lot_variant(self):
         definition = get_definition("B9H")
@@ -35,6 +35,21 @@ class TestRegistry:
         assert definition.instrument == "GER40.I"
         assert definition.double_take_profit is True
         assert definition.first_target_fraction == 0.5
+        assert definition.stop_from_reference_level is True
+        assert definition.default_parameters == BacktestParameters(
+            stop_loss_points=150,
+            take_profit_offset_points=10,
+            break_even_trigger_points=50,
+            max_entry_distance_points=40,
+        )
+
+    def test_g9hsl_is_the_ger40_single_lot_control(self):
+        definition = get_definition("G9HSL")
+        assert definition is not None
+        assert definition.display_name == "GER40 Bougie de 9h (lot unique)"
+        assert definition.instrument == "GER40.I"
+        assert definition.double_take_profit is False
+        assert definition.first_target_fraction is None
         assert definition.stop_from_reference_level is True
         assert definition.default_parameters == BacktestParameters(
             stop_loss_points=150,
@@ -132,4 +147,4 @@ class TestBacktestDefinitionValidation:
         """The registry is built at import time, so this passes trivially
         - it is here so a future definition that trips a rule fails in
         this file rather than at application startup."""
-        assert len(list_definitions()) == 4
+        assert len(list_definitions()) == 5

@@ -64,7 +64,21 @@ GER_DEFINITION = BacktestDefinition(
     first_target_fraction=0.5,
     stop_from_reference_level=True,
 )
+GER_SINGLE_LOT_DEFINITION = BacktestDefinition(
+    code="G9HSL",
+    name="Bougie de 9h GER40 (lot unique)",
+    display_name="GER40 Bougie de 9h (lot unique)",
+    instrument="GER40.I",
+    default_parameters=BacktestParameters(
+        stop_loss_points=150,
+        take_profit_offset_points=10,
+        break_even_trigger_points=50,
+        max_entry_distance_points=40,
+    ),
+    stop_from_reference_level=True,
+)
 GER_PARAMS = GER_DEFINITION.default_parameters
+
 
 # A real DynamoDBClient with no active resource - dynamodb_client is a
 # required BacktestService constructor param (not Optional), but calls
@@ -131,6 +145,16 @@ def closed_trade(points, exit_reason, direction=Direction.BUY) -> Trade:
     )
 
 
+def ger_entry_candles():
+    """The breach / candidate / breakout sequence that opens a long at
+    8015 against the 8000-8050 H1 range, shared by both GER40 variants."""
+    return [
+        m5_candle(0, 8005, 8010, 7990, 7995),  # breach (close < h1_low)
+        m5_candle(1, 8000, 8015, 7995, 8010),  # candidate, higher=8015
+        m5_candle(2, 8010, 8020, 8005, 8015),  # breakout -> entry @8015
+    ]
+
+
 def stop_loss_candles():
     """A breach / candidate / breakout sequence that enters long at 8015
     and stops out on the next candle - the shared "one plain losing
@@ -164,10 +188,18 @@ async def run_ger(m5_candles, higher=H1_HIGH, lower=H1_LOW):
     return await service.evaluate_day(GER_DEFINITION, TRADING_DATE, GER_PARAMS)
 
 
+async def run_ger_single(m5_candles, higher=H1_HIGH, lower=H1_LOW):
+    service = make_service([h1_candle(higher=higher, lower=lower)], m5_candles)
+    return await service.evaluate_day(
+        GER_SINGLE_LOT_DEFINITION, TRADING_DATE, GER_PARAMS
+    )
+
+
 __all__ = [
     "DEFINITION",
     "GER_DEFINITION",
     "GER_PARAMS",
+    "GER_SINGLE_LOT_DEFINITION",
     "H1_HIGH",
     "H1_LOW",
     "NO_CACHE_CLIENT",
@@ -176,11 +208,13 @@ __all__ = [
     "WIDE_RANGE_DEFINITION",
     "closed_trade",
     "daily_candle",
+    "ger_entry_candles",
     "h1_candle",
     "m5_candle",
     "make_service",
     "stop_loss_candles",
     "run_ger",
+    "run_ger_single",
     "uptrend_daily_series",
     "ExitReason",
     "Direction",
