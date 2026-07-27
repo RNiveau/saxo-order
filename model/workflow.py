@@ -10,6 +10,7 @@ from model.enum_with_get_value import EnumWithGetValue
 class UnitTime(EnumWithGetValue):
 
     D = "daily"
+    M5 = "5m"
     M15 = "15m"
     M30 = "30m"
     H1 = "h1"
@@ -203,11 +204,13 @@ class Candle:
 
     @staticmethod
     def from_dict(data: Dict) -> "Candle":
+        # float() coerces DynamoDB's Decimal (or any numeric type) back
+        # to a plain float; a no-op for values already stored as float.
         return Candle(
-            lower=data["lower"],
-            higher=data["higher"],
-            open=data["open"],
-            close=data["close"],
+            lower=float(data["lower"]),
+            higher=float(data["higher"]),
+            open=float(data["open"]),
+            close=float(data["close"]),
             ut=UnitTime(data["ut"]),
             date=(
                 datetime.datetime.fromisoformat(data["date"])

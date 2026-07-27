@@ -137,6 +137,19 @@ class Configuration:
         )
 
     @property
+    def ouinex_keys(self) -> Tuple:
+        return (
+            self.secrets["ouinex_api_key"],
+            self.secrets["ouinex_secret_key"],
+        )
+
+    @property
+    def ouinex_graphql_url(self) -> str:
+        return self.config.get(
+            "ouinex_graphql_url", "https://live-api.ouinex.com/graphql"
+        )
+
+    @property
     def slack_token(self) -> str:
         return self.secrets["slack_token"]
 
@@ -151,6 +164,10 @@ class Configuration:
     @property
     def triage_slope_threshold(self) -> float:
         return float(self.config.get("triage_slope_threshold", 1.0))
+
+    @property
+    def app_url(self) -> str:
+        return self.config.get("app_url", "http://localhost:5173")
 
     @property
     def api_mode(self) -> bool:

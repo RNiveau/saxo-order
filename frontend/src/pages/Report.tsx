@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import axios from 'axios';
 import {
   fundService,
   reportConfigService,
@@ -476,14 +477,15 @@ function OrderModal({
         }
       }
       onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Handle Pydantic validation errors (array of objects) or string errors
-      const detail = err.response?.data?.detail;
+      const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
       let errorMessage = 'Failed to save to Google Sheets';
 
       if (Array.isArray(detail)) {
         // Pydantic validation errors
-        errorMessage = detail.map((e: any) => `${e.loc?.join('.')}: ${e.msg}`).join(', ');
+        const validationErrors = detail as Array<{ loc?: (string | number)[]; msg: string }>;
+        errorMessage = validationErrors.map((e) => `${e.loc?.join('.')}: ${e.msg}`).join(', ');
       } else if (typeof detail === 'string') {
         errorMessage = detail;
       } else if (detail && typeof detail === 'object') {

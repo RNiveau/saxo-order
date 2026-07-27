@@ -5,6 +5,7 @@ from typing import Optional, Union, cast
 from fastapi import Depends, HTTPException, Request
 
 from api.services.asset_details_service import AssetDetailsService
+from api.services.backtest_service import BacktestService
 from api.services.binance_report_service import BinanceReportService
 from api.services.report_service import ReportService
 from api.services.trade_republic_service import TradeRepublicService
@@ -12,6 +13,7 @@ from client.aws_client import AwsClient, DynamoDBClient
 from client.binance_client import BinanceClient
 from client.gsheet_client import GSheetClient
 from client.mock_saxo_client import MockSaxoClient
+from client.ouinex_client import OuinexClient
 from client.saxo_client import SaxoClient
 from services.candles_service import CandlesService
 from services.workflow_service import WorkflowService
@@ -72,12 +74,35 @@ def get_dynamodb_client_optional(request: Request) -> Optional[DynamoDBClient]:
     return None
 
 
+def get_dynamodb_client_best_effort(request: Request) -> DynamoDBClient:
+    """Always returns a DynamoDBClient, even outside an AWS context -
+    unlike get_dynamodb_client, it never raises, and unlike
+    get_dynamodb_client_optional, it's never None. Its underlying
+    resource may be unset (local/dev without AWS), in which case any
+    actual DynamoDB call raises RuntimeError; for a caller that treats
+    DynamoDB as a best-effort cache rather than a hard dependency (e.g.
+    BacktestService's candle cache), that's expected and caught there."""
+    dynamodb = getattr(request.app.state, "dynamodb", None)
+    return DynamoDBClient(dynamodb_resource=dynamodb)
+
+
 @lru_cache()
 def get_binance_client() -> BinanceClient:
     config = get_configuration()
     logger.debug("Using authenticated BinanceClient")
     return BinanceClient(
         key=config.binance_keys[0], secret=config.binance_keys[1]
+    )
+
+
+@lru_cache()
+def get_ouinex_client() -> OuinexClient:
+    config = get_configuration()
+    logger.debug("Using authenticated OuinexClient")
+    return OuinexClient(
+        key=config.ouinex_keys[0],
+        secret=config.ouinex_keys[1],
+        graphql_url=config.ouinex_graphql_url,
     )
 
 
@@ -110,6 +135,13 @@ def get_binance_report_service() -> BinanceReportService:
 def get_trade_republic_service() -> TradeRepublicService:
     gsheet_client = get_gsheet_client()
     return TradeRepublicService(gsheet_client)
+
+
+def get_backtest_service(
+    dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client_best_effort),
+) -> BacktestService:
+    candles_service = get_candles_service()
+    return BacktestService(candles_service, dynamodb_client)
 
 
 def get_asset_details_service(

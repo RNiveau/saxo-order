@@ -4,6 +4,10 @@ from model.enum_with_get_value import EnumWithGetValue
 class Strategy(EnumWithGetValue):
     IMP = "Bougie impulsive"
     B9H = "Bougie de 9h"
+    B9HTC = "Bougie de 9h (time cut)"
+    G9H = "Bougie de 9h GER40"
+    G9HSL = "Bougie de 9h GER40 (lot unique)"
+    B9HWS = "Bougie de 9h (wide-range structural stop)"
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
     CRANGE = "Cassure de range"
@@ -111,6 +115,7 @@ class AlertType(EnumWithGetValue):
     CONGESTION100 = "congestion100"
     COMBO = "combo"
     DOUBLE_TOP = "double_top"
+    DOUBLE_BOTTOM = "double_bottom"
     DOUBLE_INSIDE_BAR = "double_inside_bar"
     CONTAINING_CANDLE = "containing_candle"
     MM50_TOUCH = "mm50_touch"
@@ -119,9 +124,27 @@ class AlertType(EnumWithGetValue):
 class Exchange(EnumWithGetValue):
     SAXO = "saxo"
     BINANCE = "binance"
+    OUINEX = "ouinex"
+
+    def is_crypto(self) -> bool:
+        return self in (Exchange.BINANCE, Exchange.OUINEX)
 
 
 class Conviction(EnumWithGetValue):
     HIGH = "high"
     WATCH = "watch"
     NOISE = "noise"
+
+
+class ExitReason(EnumWithGetValue):
+    STOP_LOSS = "stop_loss"
+    BREAK_EVEN = "break_even"
+    TAKE_PROFIT = "take_profit"
+    END_OF_DAY = "end_of_day"
+    TIME_CUT = "time_cut"
+
+
+class DayStatus(EnumWithGetValue):
+    NO_DATA = "no_data"
+    NO_TRADE = "no_trade"
+    TRADED = "traded"

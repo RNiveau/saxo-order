@@ -7,8 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api.routers import (
+    alert_digest,
     alerting,
     asset_details,
+    backtest,
     fund,
     homepage,
     indexes,
@@ -87,14 +89,18 @@ async def dynamodb_error_handler(
     return JSONResponse(
         status_code=503,
         content={
-            "detail": "Service temporarily unavailable. Please try again later."
+            "detail": (
+                "Service temporarily unavailable. Please try again later."
+            )
         },
     )
 
 
 # Include routers
+app.include_router(alert_digest.router)
 app.include_router(alerting.router)
 app.include_router(asset_details.router)
+app.include_router(backtest.router)
 app.include_router(fund.router)
 app.include_router(homepage.router)
 app.include_router(indexes.router)

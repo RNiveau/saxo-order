@@ -12,11 +12,13 @@ from model import (
     UnitTime,
 )
 from services.indicator_service import (
+    adx,
     apply_linear_function,
     average_true_range,
     bollinger_bands,
     combo,
     containing_candle,
+    double_bottom,
     double_top,
     exponentiel_mobile_average,
     find_linear_function,
@@ -25,6 +27,7 @@ from services.indicator_service import (
     number_of_day_between_dates,
     slope_percentage,
 )
+from utils.exception import SaxoException
 
 
 def _make_candles(closes: List[float]) -> List[Candle]:
@@ -109,6 +112,60 @@ class TestIndicatorService:
             assert double_top(candles, tick) is None
         else:
             assert double_top(candles, tick).higher == expected
+
+    @pytest.mark.parametrize(
+        "lows, tick, expected",
+        [
+            (
+                [8, 9, 10, 8, 9],
+                0.5,
+                8,
+            ),
+            (
+                [8, 9, 10, 7.5, 9],
+                0.5,
+                8,
+            ),
+            (
+                [8, 9, 10, 7.4, 9],
+                0.5,
+                None,
+            ),
+            (
+                [8, 7, 10, 7.4, 9],
+                0.5,
+                7,
+            ),
+            (
+                [8, 7, 10, 7.4, 6.8],
+                0.2,
+                7,
+            ),
+            (
+                [8, 7, 10, 7.4, 6],
+                0.5,
+                None,
+            ),
+            (
+                [8, 6.9, 10, 7.4, 9, 15, 6.7, 9, 10],
+                0.2,
+                6.9,
+            ),
+        ],
+    )
+    def test_double_bottom(self, lows, tick, expected):
+        candles = list(
+            map(
+                lambda x: Candle(
+                    x, 0, 0, 0, UnitTime.D, datetime.datetime.now()
+                ),
+                lows,
+            )
+        )
+        if expected is None:
+            assert double_bottom(candles, tick) is None
+        else:
+            assert double_bottom(candles, tick).lower == expected
 
     @pytest.mark.parametrize(
         "candles, std, expected",
@@ -628,3 +685,60 @@ class TestIndicatorService:
     def test_mm50_touch_returns_none_when_fewer_than_sixty_candles(self):
         candles = _make_candles([100.0] * 59)
         assert mm50_touch(candles) is None
+
+
+def _trending_daily(count: int, step: float = 5.0) -> List[Candle]:
+    """Newest-first steady uptrend: the more recent the bar (smaller
+    index), the higher its price."""
+    base = datetime.datetime(2026, 1, 1)
+    candles = []
+    for i in range(count):
+        close = 8000 + step * (count - i)
+        candles.append(
+            Candle(
+                lower=close - 2,
+                higher=close + 2,
+                open=close,
+                close=close,
+                ut=UnitTime.D,
+                date=base - datetime.timedelta(days=i),
+            )
+        )
+    return candles
+
+
+def _choppy_daily(count: int) -> List[Candle]:
+    """Newest-first sideways chop: close alternates around a flat mean, so
+    +DM and -DM roughly cancel and ADX stays low."""
+    base = datetime.datetime(2026, 1, 1)
+    candles = []
+    for i in range(count):
+        close = 8000 + (3 if i % 2 == 0 else -3)
+        candles.append(
+            Candle(
+                lower=close - 2,
+                higher=close + 2,
+                open=close,
+                close=close,
+                ut=UnitTime.D,
+                date=base - datetime.timedelta(days=i),
+            )
+        )
+    return candles
+
+
+class TestAdx:
+    def test_high_for_strong_uptrend(self):
+        # a one-directional trend drives DX toward 100
+        assert adx(_trending_daily(60)) > 40
+
+    def test_low_for_chop(self):
+        assert adx(_choppy_daily(60)) < 25
+
+    def test_trend_scores_higher_than_chop(self):
+        assert adx(_trending_daily(60)) > adx(_choppy_daily(60))
+
+    def test_raises_when_insufficient_candles(self):
+        # period * 3 = 42 required; 41 is one short
+        with pytest.raises(SaxoException):
+            adx(_trending_daily(41))

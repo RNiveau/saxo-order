@@ -89,3 +89,37 @@ def workflow_orders_table() -> aws.dynamodb.Table:
             attribute_name="ttl",
         ),
     )
+
+
+def alert_digests_table() -> aws.dynamodb.Table:
+    return aws.dynamodb.Table(
+        "alert_digests",
+        attributes=[
+            aws.dynamodb.TableAttributeArgs(name="run_date", type="S"),
+            aws.dynamodb.TableAttributeArgs(name="created_at", type="N"),
+        ],
+        hash_key="run_date",
+        range_key="created_at",
+        name="alert_digests",
+        billing_mode="PAY_PER_REQUEST",
+        stream_enabled=True,
+        stream_view_type="NEW_AND_OLD_IMAGES",
+    )
+
+
+def backtest_candle_cache_table() -> aws.dynamodb.Table:
+    return aws.dynamodb.Table(
+        "backtest_candle_cache",
+        attributes=[
+            aws.dynamodb.TableAttributeArgs(name="definition_code", type="S"),
+            aws.dynamodb.TableAttributeArgs(name="trading_date", type="S"),
+        ],
+        hash_key="definition_code",
+        range_key="trading_date",
+        name="backtest_candle_cache",
+        billing_mode="PAY_PER_REQUEST",
+        # No stream: nothing consumes one, and it's a paid feature on a
+        # table whose entire purpose is cost reduction.
+        # No TTL (FR-040): a closed historical trading day's candles
+        # never change once cached.
+    )

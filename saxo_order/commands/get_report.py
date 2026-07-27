@@ -60,7 +60,11 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                 report_order = calculate_currency(
                     order, configuration.currencies_rate
                 )
-                assert isinstance(report_order, ReportOrder)
+                if not isinstance(report_order, ReportOrder):
+                    raise TypeError(
+                        "calculate_currency must return a ReportOrder for "
+                        "a ReportOrder input"
+                    )
                 gsheet_client.create_order(
                     account=account, order=report_order, original_order=order
                 )
@@ -92,7 +96,11 @@ def get_report(ctx: Context, from_date: str, update_gsheet: bool):
                 report_order = calculate_currency(
                     order, configuration.currencies_rate
                 )
-                assert isinstance(report_order, ReportOrder)
+                if not isinstance(report_order, ReportOrder):
+                    raise TypeError(
+                        "calculate_currency must return a ReportOrder for "
+                        "a ReportOrder input"
+                    )
                 gsheet_client.update_order(
                     order=report_order,
                     original_order=order,

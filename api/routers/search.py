@@ -2,10 +2,15 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from api.dependencies import get_binance_client, get_saxo_client
+from api.dependencies import (
+    get_binance_client,
+    get_ouinex_client,
+    get_saxo_client,
+)
 from api.models.search import SearchResponse, SearchResultItem
 from api.services.search_service import SearchService
 from client.binance_client import BinanceClient
+from client.ouinex_client import OuinexClient
 from client.saxo_client import SaxoClient
 from utils.exception import SaxoException
 from utils.logger import Logger
@@ -27,15 +32,19 @@ async def search_instruments(
     ),
     saxo_client: SaxoClient = Depends(get_saxo_client),
     binance_client: BinanceClient = Depends(get_binance_client),
+    ouinex_client: OuinexClient = Depends(get_ouinex_client),
 ):
     """
-    Search for financial instruments by keyword across Saxo and Binance.
+    Search for financial instruments by keyword across Saxo, Binance,
+    and Ouinex.
 
     Returns a list of matching instruments with their symbol, description,
     identifier, asset type, and exchange.
     """
     try:
-        search_service = SearchService(saxo_client, binance_client)
+        search_service = SearchService(
+            saxo_client, binance_client, ouinex_client
+        )
         results = search_service.search_instruments(
             keyword=keyword, asset_type=asset_type
         )

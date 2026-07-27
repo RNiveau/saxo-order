@@ -17,7 +17,7 @@ from model import Alert, AlertType, AssetType, Candle, EUMarket, UnitTime
 from saxo_order.async_utils import create_dynamodb_client
 from saxo_order.commands import catch_exception
 from services import congestion_indicator, indicator_service
-from services.alert_triage_service import TriageAgent
+from services.alert_triage_service import TriageAgent, format_slack_digest
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.helper import build_daily_candles_from_h1
@@ -293,6 +293,30 @@ async def run_detection_for_asset(
                 )
             )
 
+        # Run DOUBLE_BOTTOM detection
+        if (
+            candle := _run_double_bottom(saxo_client, asset_dict, candles)
+        ) is not None:
+            asset_alerts.append(
+                Alert(
+                    alert_type=AlertType.DOUBLE_BOTTOM,
+                    date=(
+                        candle.date if candle.date else datetime.datetime.now()
+                    ),
+                    data={
+                        "close": candle.close,
+                        "open": candle.open,
+                        "higher": candle.higher,
+                        "lower": candle.lower,
+                        "ma50_slope": ma50_slope,
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
+
         # Run CONTAINING_CANDLE detection
         if (candle := _run_containing_candle(asset_dict, candles)) is not None:
             asset_alerts.append(
@@ -503,15 +527,6 @@ async def run_alerting(
             )
             return
 
-        slack_messages: Dict[str, List[str]] = {
-            "double_top": [],
-            "container_candle": [],
-            "combo": [],
-            "double_inside_bar": [],
-            "congestion": [],
-            "mm50_touch": [],
-        }
-        has_message = False
         all_alerts: List[Alert] = []
         for asset in assets:
             logger.debug(f"scan {asset['name']}")
@@ -537,103 +552,25 @@ async def run_alerting(
             )
             all_alerts.extend(asset_alerts)
 
-            # Build Slack messages from detected alerts
-            for alert in asset_alerts:
-                has_message = True
-                if alert.alert_type == AlertType.CONGESTION20:
-                    date = datetime.datetime.now().strftime("%Y-%m-%d")
-                    touch_points = alert.data.get("touch_points", [])
-                    slack_messages["congestion"].append(
-                        f"{asset['name']}: Congestion detected on {date}\n"
-                        + "Touch points:\n"
-                        + "\n".join(touch_points)
-                    )
-                elif alert.alert_type == AlertType.CONGESTION100:
-                    date = datetime.datetime.now().strftime("%Y-%m-%d")
-                    touch_points = alert.data.get("touch_points", [])
-                    slack_messages["congestion"].append(
-                        f"{asset['name']}: Congestion detected on {date}\n"
-                        + "Touch points:\n"
-                        + "\n".join(touch_points)
-                    )
-                elif alert.alert_type == AlertType.DOUBLE_TOP:
-                    date = (
-                        alert.date.strftime("%Y-%m-%d") if alert.date else ""
-                    )
-                    slack_messages["double_top"].append(
-                        f"{asset['name']}: {date} at "
-                        f"{alert.data.get('close')}"
-                    )
-                elif alert.alert_type == AlertType.CONTAINING_CANDLE:
-                    date = (
-                        alert.date.strftime("%Y-%m-%d") if alert.date else ""
-                    )
-                    slack_messages["container_candle"].append(
-                        f"{asset['name']}: {date} at "
-                        f"{alert.data.get('close')}"
-                    )
-                elif alert.alert_type == AlertType.DOUBLE_INSIDE_BAR:
-                    date = (
-                        alert.date.strftime("%Y-%m-%d") if alert.date else ""
-                    )
-                    slack_messages["double_inside_bar"].append(
-                        f"{asset['name']}: {date} at "
-                        f"{alert.data.get('close')}"
-                    )
-                elif alert.alert_type == AlertType.COMBO:
-                    date = datetime.datetime.now().strftime("%Y-%m-%d")
-                    direction = alert.data.get("direction")
-                    strength = alert.data.get("strength")
-                    price = alert.data.get("price")
-                    triggered = alert.data.get("has_been_triggered")
-                    slack_messages["combo"].append(
-                        f"{asset['name']}: combo {direction} "
-                        f"{strength} {date} at {price} "
-                        f"(has been triggered ? {triggered})"
-                    )
-                elif alert.alert_type == AlertType.MM50_TOUCH:
-                    date = datetime.datetime.now().strftime("%Y-%m-%d")
-                    close = alert.data.get("close")
-                    ma50 = alert.data.get("ma50")
-                    dist = alert.data.get("distance_pct")
-                    slope = alert.data.get("slope")
-                    slack_messages["mm50_touch"].append(
-                        f"{asset['name']}: {date} close={close} "
-                        f"ma50={ma50} dist={dist:.2f}% slope={slope:.2f}%"
-                    )
-        if has_message is False and len(assets) > 1:
-            slack_client.chat_postMessage(
-                channel="#stock",
-                text="No alert for today",
-            )
-        else:
-            for indicator in slack_messages.keys():
-                if len(slack_messages[indicator]) > 0:
-                    message = f"Indicator {indicator} \n```"
-                    for index, slack in enumerate(slack_messages[indicator]):
-                        if index % 10 == 0 and index != 0:
-                            slack_client.chat_postMessage(
-                                channel="#stock",
-                                text=f"{message}\n```",
-                            )
-                            message = f"Indicator {indicator} \n```"
-                        message += f"{slack}\n"
-                    message += "```"
-                    slack_client.chat_postMessage(
-                        channel="#stock",
-                        text=message,
-                    )
-
         try:
             triage_agent = TriageAgent(
                 AnthropicClient(configuration),
                 configuration.triage_slope_threshold,
             )
             digest = triage_agent.synthesize(all_alerts)
+            try:
+                await dynamodb_client.store_alert_digest(digest)
+            except Exception as e:
+                logger.error(f"Failed to persist alert digest: {e}")
             logger.info(
                 f"Triage digest for {digest.run_date}: {digest.counts} "
                 f"(fallback={digest.fallback_used})"
             )
+            if len(digest.triaged_assets) > 0 or len(assets) > 1:
+                slack_client.chat_postMessage(
+                    channel="#stock",
+                    text=format_slack_digest(digest, configuration.app_url),
+                )
         except Exception as e:
             logger.error(f"Triage step failed: {e}")
 
@@ -694,6 +631,29 @@ def _run_double_top(
     ):
         logger.debug(f"{asset['name']}, {double_top_candle}")
         return double_top_candle
+    return None
+
+
+def _run_double_bottom(
+    saxo_client: SaxoClient,
+    asset: Dict,
+    candles: List[Candle],
+) -> Optional[Candle]:
+    detail = saxo_client.get_asset_detail(asset["saxo_uic"], AssetType.STOCK)
+    if "TickSizeScheme" not in detail:
+        tick = 0.0
+    else:
+        tick = client_helper.get_tick_size(
+            detail["TickSizeScheme"], candles[0].close
+        )
+    double_bottom_candle = indicator_service.double_bottom(candles, tick)
+    if (
+        double_bottom_candle is not None
+        and double_bottom_candle.date is not None
+        and (datetime.datetime.now() - double_bottom_candle.date).days <= 2
+    ):
+        logger.debug(f"{asset['name']}, {double_bottom_candle}")
+        return double_bottom_candle
     return None
 
 

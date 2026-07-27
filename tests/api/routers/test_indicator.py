@@ -481,7 +481,7 @@ class TestIndicatorEndpoint:
     def test_get_asset_indicators_exchange_parameter(
         self, mock_saxo_client, mock_candles_service, mock_historical_data
     ):
-        """Test that exchange parameter correctly routes to appropriate client."""
+        """Test that exchange parameter routes to the right client."""
         mock_saxo_client.get_historical_data.return_value = (
             mock_historical_data
         )

@@ -220,14 +220,18 @@ class TestWatchlistEndpoint:
             exchange="saxo",
         )
 
-    def test_add_to_watchlist_missing_required_fields(self):
+    def test_add_to_watchlist_missing_required_fields(
+        self, mock_saxo_client, mock_dynamodb_client
+    ):
         """Test request with missing required fields."""
         # Missing asset_id and asset_symbol
         response = client.post("/api/watchlist", json={})
 
         assert response.status_code == 422  # Validation error
 
-    def test_add_to_watchlist_missing_asset_id(self):
+    def test_add_to_watchlist_missing_asset_id(
+        self, mock_saxo_client, mock_dynamodb_client
+    ):
         """Test request with missing asset_id."""
         response = client.post(
             "/api/watchlist",
@@ -240,7 +244,9 @@ class TestWatchlistEndpoint:
 
         assert response.status_code == 422  # Validation error
 
-    def test_add_to_watchlist_missing_asset_symbol(self):
+    def test_add_to_watchlist_missing_asset_symbol(
+        self, mock_saxo_client, mock_dynamodb_client
+    ):
         """Test request with missing asset_symbol."""
         response = client.post(
             "/api/watchlist",

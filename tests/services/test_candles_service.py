@@ -409,3 +409,105 @@ class TestCandlesService:
         assert kwargs["date"] == datetime.datetime(
             2024, 6, 21, 15, 0, tzinfo=datetime.timezone.utc
         )
+
+
+class TestGetCandlesInWindow:
+    def test_h1_window_returns_matching_candle(self, mocker):
+        saxo_client = mocker.Mock()
+        mocker.patch.object(
+            saxo_client,
+            "get_asset",
+            return_value={"Identifier": 123, "AssetType": "CfdOnIndex"},
+        )
+        data = [
+            {
+                "Time": datetime.datetime(2026, 6, 2, 8, 0),
+                "Open": 8020,
+                "High": 8050,
+                "Low": 8000,
+                "Close": 8030,
+            },
+            {
+                "Time": datetime.datetime(2026, 6, 2, 7, 0),
+                "Open": 8010,
+                "High": 8040,
+                "Low": 7990,
+                "Close": 8020,
+            },
+            {
+                "Time": datetime.datetime(2026, 6, 2, 6, 0),
+                "Open": 8005,
+                "High": 8015,
+                "Low": 7995,
+                "Close": 8010,
+            },
+        ]
+        mocker.patch.object(
+            saxo_client, "get_historical_data", return_value=data
+        )
+        candles_service = CandlesService(saxo_client)
+        start = datetime.datetime(2026, 6, 2, 7, 0)
+        end = datetime.datetime(2026, 6, 2, 8, 0)
+
+        candles = candles_service.get_candles_in_window(
+            "FRA40.I", UnitTime.H1, 60, start, end
+        )
+
+        assert len(candles) == 1
+        assert candles[0].date == start
+        assert candles[0].lower == 7990
+        assert candles[0].higher == 8040
+
+    def test_m5_window_filters_to_range(self, mocker):
+        saxo_client = mocker.Mock()
+        mocker.patch.object(
+            saxo_client,
+            "get_asset",
+            return_value={"Identifier": 123, "AssetType": "CfdOnIndex"},
+        )
+        base = datetime.datetime(2026, 6, 2, 8, 0)
+        data = [
+            {
+                "Time": base + datetime.timedelta(minutes=5 * i),
+                "Open": 1,
+                "High": 2,
+                "Low": 0,
+                "Close": 1,
+            }
+            for i in range(10)
+        ][::-1]
+        mocker.patch.object(
+            saxo_client, "get_historical_data", return_value=data
+        )
+        candles_service = CandlesService(saxo_client)
+        start = base + datetime.timedelta(minutes=15)
+        end = base + datetime.timedelta(minutes=35)
+
+        candles = candles_service.get_candles_in_window(
+            "FRA40.I", UnitTime.M5, 5, start, end
+        )
+
+        assert len(candles) == 4
+        assert all(start <= c.date < end for c in candles)  # type: ignore
+
+    def test_empty_result_when_no_data(self, mocker):
+        saxo_client = mocker.Mock()
+        mocker.patch.object(
+            saxo_client,
+            "get_asset",
+            return_value={"Identifier": 123, "AssetType": "CfdOnIndex"},
+        )
+        mocker.patch.object(
+            saxo_client, "get_historical_data", return_value=[]
+        )
+        candles_service = CandlesService(saxo_client)
+
+        candles = candles_service.get_candles_in_window(
+            "FRA40.I",
+            UnitTime.H1,
+            60,
+            datetime.datetime(2026, 6, 2, 7, 0),
+            datetime.datetime(2026, 6, 2, 8, 0),
+        )
+
+        assert candles == []

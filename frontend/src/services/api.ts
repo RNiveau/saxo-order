@@ -9,6 +9,15 @@ export const api = axios.create({
   },
 });
 
+function downloadFile(url: string): void {
+  const link = document.createElement('a');
+  link.href = url;
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 export interface AccountInfo {
   account_id: string;
   account_key: string;
@@ -735,7 +744,7 @@ export interface AlertItem {
   exchange: string;
   country_code: string | null;
   date: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   age_hours: number;
   tradingview_url?: string;
 }
@@ -892,5 +901,204 @@ export const tradeRepublicService = {
       { transactions }
     );
     return response.data;
+  },
+};
+
+export interface TriagedAsset {
+  asset_code: string;
+  asset_description: string;
+  exchange: string;
+  country_code: string | null;
+  conviction: 'high' | 'watch' | 'noise';
+  rank: number | null;
+  rationale: string;
+  patterns: string[];
+  ma50_slope: number | null;
+  tradingview_url: string | null;
+}
+
+export interface AlertDigest {
+  run_date: string;
+  created_at: number;
+  summary: string;
+  counts: Record<string, number>;
+  triaged_assets: TriagedAsset[];
+  fallback_used: boolean;
+  model: string;
+}
+
+export interface AlertDigestListResponse {
+  digests: AlertDigest[];
+}
+
+export const alertDigestService = {
+  listRecent: async (limit?: number): Promise<AlertDigestListResponse> => {
+    const response = await api.get<AlertDigestListResponse>(
+      '/api/alert-digests',
+      { params: limit ? { limit } : undefined }
+    );
+    return response.data;
+  },
+
+  getByRunDate: async (runDate: string): Promise<AlertDigest> => {
+    const response = await api.get<AlertDigest>(
+      `/api/alert-digests/${runDate}`
+    );
+    return response.data;
+  },
+};
+
+export interface BacktestDefinitionParameters {
+  stop_loss_points: number;
+  take_profit_offset_points: number;
+  break_even_trigger_points: number;
+  max_entry_distance_points: number;
+}
+
+export interface BacktestDefinition {
+  code: string;
+  display_name: string;
+  instrument: string;
+  double_take_profit: boolean;
+  default_parameters: BacktestDefinitionParameters;
+}
+
+export interface BacktestTrade {
+  entry_time: string;
+  entry_price: number;
+  exit_time: string;
+  exit_price: number;
+  exit_reason: string;
+  direction: string;
+  points: number;
+}
+
+export interface BacktestCandle {
+  date: string | null;
+  open: number;
+  close: number;
+  lower: number;
+  higher: number;
+}
+
+export interface BacktestDayDetail {
+  date: string;
+  status: string;
+  h1_high: number | null;
+  h1_low: number | null;
+  candles: BacktestCandle[];
+  trades: BacktestTrade[];
+}
+
+export interface BacktestSummary {
+  definition_code: string;
+  start_date: string;
+  end_date: string;
+  number_of_days: number;
+  number_of_trades: number;
+  number_of_winning_positions: number;
+  number_of_losing_positions: number;
+  number_of_be: number;
+  average_win: number | null;
+  average_loss: number | null;
+  final_result: number;
+}
+
+export interface BacktestDayResultSummary {
+  date: string;
+  status: string;
+  trade_count: number;
+  points: number;
+}
+
+export interface BacktestRunResponse {
+  summary: BacktestSummary;
+  days: BacktestDayResultSummary[];
+}
+
+// Optional strategy thresholds. Any value left undefined falls back to
+// the backend default (stop-loss 50, take-profit offset 10, break-even
+// trigger 20, max entry distance 20).
+export interface BacktestParameters {
+  stop_loss_points?: number;
+  take_profit_offset_points?: number;
+  break_even_trigger_points?: number;
+  max_entry_distance_points?: number;
+}
+
+const backtestParamEntries = (
+  params?: BacktestParameters
+): Record<string, string> => {
+  const entries: Record<string, string> = {};
+  if (!params) return entries;
+  (Object.keys(params) as (keyof BacktestParameters)[]).forEach((key) => {
+    const value = params[key];
+    if (value !== undefined && value !== null) {
+      entries[key] = String(value);
+    }
+  });
+  return entries;
+};
+
+export const backtestService = {
+  getDefinitions: async (): Promise<BacktestDefinition[]> => {
+    const response = await api.get<BacktestDefinition[]>('/api/backtest/definitions');
+    return response.data;
+  },
+
+  getDayDetail: async (
+    definition: string,
+    date: string,
+    parameters?: BacktestParameters
+  ): Promise<BacktestDayDetail> => {
+    const response = await api.get<BacktestDayDetail>('/api/backtest/day', {
+      params: { definition, date, ...backtestParamEntries(parameters) },
+    });
+    return response.data;
+  },
+
+  runRange: async (
+    definition: string,
+    startDate: string,
+    endDate: string,
+    parameters?: BacktestParameters
+  ): Promise<BacktestRunResponse> => {
+    const response = await api.get<BacktestRunResponse>('/api/backtest/run', {
+      params: {
+        definition,
+        start_date: startDate,
+        end_date: endDate,
+        ...backtestParamEntries(parameters),
+      },
+    });
+    return response.data;
+  },
+
+  exportDayCsv: (
+    definition: string,
+    date: string,
+    parameters?: BacktestParameters
+  ): void => {
+    const params = new URLSearchParams({
+      definition,
+      date,
+      ...backtestParamEntries(parameters),
+    });
+    downloadFile(`${API_BASE_URL}/api/backtest/day/csv?${params.toString()}`);
+  },
+
+  exportRunCsv: (
+    definition: string,
+    startDate: string,
+    endDate: string,
+    parameters?: BacktestParameters
+  ): void => {
+    const params = new URLSearchParams({
+      definition,
+      start_date: startDate,
+      end_date: endDate,
+      ...backtestParamEntries(parameters),
+    });
+    downloadFile(`${API_BASE_URL}/api/backtest/run/csv?${params.toString()}`);
   },
 };

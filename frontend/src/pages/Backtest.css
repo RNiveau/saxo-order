@@ -1,0 +1,238 @@
+.backtest-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.backtest-page h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #e0e0e0;
+}
+
+.backtest-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.backtest-mode-toggle button {
+  padding: 0.4rem 1rem;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  background-color: #1f2937;
+  color: #a0a0a0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.backtest-mode-toggle button.active {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.backtest-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.backtest-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #a0a0a0;
+  font-size: 0.85rem;
+}
+
+.backtest-controls select,
+.backtest-controls input[type='date'] {
+  padding: 0.5rem;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  background-color: #1f2937;
+  color: #e0e0e0;
+}
+
+.backtest-controls button {
+  padding: 0.55rem 1.25rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #2563eb;
+  color: white;
+  transition: background-color 0.2s ease;
+}
+
+.backtest-controls button:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.backtest-controls button:disabled {
+  background-color: #374151;
+  cursor: not-allowed;
+}
+
+.backtest-parameters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  background-color: #1f2937;
+}
+
+.backtest-parameters-title {
+  color: #a0a0a0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.backtest-parameters-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.backtest-parameters-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #a0a0a0;
+  font-size: 0.85rem;
+}
+
+.backtest-parameters-fields input[type='number'] {
+  width: 8rem;
+  padding: 0.5rem;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  background-color: #111827;
+  color: #e0e0e0;
+}
+
+.backtest-parameters-reset {
+  padding: 0.55rem 1.25rem;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #111827;
+  color: #a0a0a0;
+}
+
+.backtest-parameters-reset:hover {
+  color: #e0e0e0;
+  border-color: #4b5563;
+}
+
+.backtest-error {
+  background-color: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #fca5a5;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.backtest-days-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #e0e0e0;
+}
+
+.backtest-days-table th,
+.backtest-days-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #374151;
+  font-size: 0.9rem;
+}
+
+.backtest-days-table th {
+  color: #a0a0a0;
+  font-weight: 600;
+}
+
+.backtest-days-table tr.backtest-day-row--clickable {
+  cursor: pointer;
+}
+
+.backtest-days-table tr.backtest-day-row--clickable:hover {
+  background-color: #1f2937;
+}
+
+.backtest-days-table td.positive,
+.backtest-summary-tile .value.positive {
+  color: #3fb950;
+}
+
+.backtest-days-table td.negative,
+.backtest-summary-tile .value.negative {
+  color: #f85149;
+}
+
+.backtest-day-drilldown {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #374151;
+}
+
+.backtest-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.backtest-export-csv {
+  margin-bottom: 1rem;
+  padding: 0.5rem 1.1rem;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  background-color: #1f2937;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.backtest-export-csv:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.backtest-summary-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  background-color: #1f2937;
+}
+
+.backtest-summary-tile .label {
+  color: #a0a0a0;
+  font-size: 0.8rem;
+}
+
+.backtest-summary-tile .value {
+  color: #e0e0e0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}

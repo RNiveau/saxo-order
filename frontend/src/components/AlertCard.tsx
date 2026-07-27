@@ -42,14 +42,15 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
     return `${days} days ago`;
   };
 
-  const formatMA50Slope = (slope: any): string => {
+  const formatMA50Slope = (slope: unknown): string => {
     // Handle null, undefined, or non-numeric values
     if (slope === null || slope === undefined || slope === '') {
       return 'N/A';
     }
 
     // Convert to number if it's a string
-    const numericSlope = typeof slope === 'number' ? slope : parseFloat(slope);
+    const numericSlope =
+      typeof slope === 'number' ? slope : parseFloat(String(slope));
 
     // Check if conversion was successful
     if (isNaN(numericSlope)) {
@@ -60,14 +61,15 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
     return `${sign}${numericSlope.toFixed(1)}%`;
   };
 
-  const getMA50SlopeClass = (slope: any): string => {
+  const getMA50SlopeClass = (slope: unknown): string => {
     // Handle null, undefined, or non-numeric values
     if (slope === null || slope === undefined || slope === '') {
       return 'ma50-slope-neutral';
     }
 
     // Convert to number if it's a string
-    const numericSlope = typeof slope === 'number' ? slope : parseFloat(slope);
+    const numericSlope =
+      typeof slope === 'number' ? slope : parseFloat(String(slope));
 
     // Check if conversion was successful
     if (isNaN(numericSlope)) {
@@ -119,7 +121,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
       }
     } catch (error) {
       console.error('Failed to exclude asset:', error);
-      alert('Failed to exclude asset. Please try again.');
+      window.alert('Failed to exclude asset. Please try again.');
     } finally {
       setIsExcluding(false);
     }

@@ -90,18 +90,18 @@ Web + Lambda layout (per plan.md): backend at repo root (`model/`, `client/`, `s
 
 ### Implementation for User Story 3
 
-- [ ] T014 [P] [US3] Add `alert_digests_table()` (hash `run_date` S, range `created_at` N, PAY_PER_REQUEST, streams on, **no TTL**) to `pulumi/dynamodb.py`
-- [ ] T015 [US3] Register the table in `pulumi/__main__.py` (instantiate + Lambda/API IAM grant + `pulumi.export`) (depends on T014)
-- [ ] T016 [US3] Add public `store_alert_digest`, `get_alert_digests(limit)`, `get_alert_digest(run_date)` to `client/aws_client.py` (float→Decimal on write; scan newest-first by `created_at`; query by `run_date`) (depends on T005)
-- [ ] T017 [P] [US3] Test store/get round-trip incl. float→Decimal and newest-first ordering in `tests/client/test_aws_client_alert_digests.py`
-- [ ] T018 [US3] Persist the digest: call `store_alert_digest` after `synthesize` in `run_alerting` (`saxo_order/commands/alerting.py`) (depends on T009, T016)
-- [ ] T019 [P] [US3] Pydantic v2 models `TriagedAssetResponse`, `AlertDigestResponse`, `AlertDigestListResponse` (list carries **full** digests) in `api/models/alert_digest.py` (field names mirror domain models exactly)
-- [ ] T020 [US3] Implement `AlertDigestService` in `api/services/alert_digest_service.py`: list full digests newest-first, get by run_date, short `TTLCache` like `AlertingService` (uses `DynamoDBClient` methods only — no client internals) (depends on T016, T019)
-- [ ] T021 [US3] Test `AlertDigestService` newest-first list + get-by-run_date in `tests/api/test_alert_digest_service.py`
-- [ ] T022 [US3] Implement router `api/routers/alert_digest.py` (`GET /api/alert-digests`, `GET /api/alert-digests/{run_date}`, 404 on missing) and `include_router` in `api/main.py` (depends on T020)
-- [ ] T023 [P] [US3] Add `alertDigestService` (`listRecent`, `getByRunDate`) + TS interfaces mirroring the Pydantic models in `frontend/src/services/api.ts`
-- [ ] T024 [US3] Build `DailyBrief.tsx` + `DailyBriefCarousel.tsx` (+ CSS) in `frontend/src/components/`: conviction badges (🔴 high / 🟡 watch), noise as a count, fallback indicator, reverse-chronological carousel paging (depends on T023)
-- [ ] T025 [US3] Render the `DailyBrief` section above the existing grid in `frontend/src/components/Home.tsx` (depends on T024)
+- [x] T014 [P] [US3] Add `alert_digests_table()` (hash `run_date` S, range `created_at` N, PAY_PER_REQUEST, streams on, **no TTL**) to `pulumi/dynamodb.py`
+- [x] T015 [US3] Register the table in `pulumi/__main__.py` (instantiate + Lambda/API IAM grant + `pulumi.export`) (depends on T014)
+- [x] T016 [US3] Add public `store_alert_digest`, `get_alert_digests(limit)`, `get_alert_digest(run_date)` to `client/aws_client.py` (float→Decimal on write; scan newest-first by `created_at`; query by `run_date`) (depends on T005)
+- [x] T017 [P] [US3] Test store/get round-trip incl. float→Decimal and newest-first ordering in `tests/client/test_aws_client_alert_digests.py`
+- [x] T018 [US3] Persist the digest: call `store_alert_digest` after `synthesize` in `run_alerting` (`saxo_order/commands/alerting.py`) (depends on T009, T016)
+- [x] T019 [P] [US3] Pydantic v2 models `TriagedAssetResponse`, `AlertDigestResponse`, `AlertDigestListResponse` (list carries **full** digests) in `api/models/alert_digest.py` (field names mirror domain models exactly)
+- [x] T020 [US3] Implement `AlertDigestService` in `api/services/alert_digest_service.py`: list full digests newest-first, get by run_date, short `TTLCache` like `AlertingService` (uses `DynamoDBClient` methods only — no client internals) (depends on T016, T019)
+- [x] T021 [US3] Test `AlertDigestService` newest-first list + get-by-run_date in `tests/api/test_alert_digest_service.py`
+- [x] T022 [US3] Implement router `api/routers/alert_digest.py` (`GET /api/alert-digests`, `GET /api/alert-digests/{run_date}`, 404 on missing) and `include_router` in `api/main.py` (depends on T020)
+- [x] T023 [P] [US3] Add `alertDigestService` (`listRecent`, `getByRunDate`) + TS interfaces mirroring the Pydantic models in `frontend/src/services/api.ts`
+- [x] T024 [US3] Build `DailyBrief.tsx` + `DailyBriefCarousel.tsx` (+ CSS) in `frontend/src/components/`: conviction badges (🔴 high / 🟡 watch), noise as a count, fallback indicator, reverse-chronological carousel paging (depends on T023)
+- [x] T025 [US3] Render the `DailyBrief` section above the existing grid in `frontend/src/components/Home.tsx` (depends on T024)
 
 **Checkpoint**: Briefs persist indefinitely (SC-006) and are browsable on the homepage
 
@@ -115,8 +115,8 @@ Web + Lambda layout (per plan.md): backend at repo root (`model/`, `client/`, `s
 
 ### Implementation for User Story 4
 
-- [ ] T026 [US4] In `run_alerting` (`saxo_order/commands/alerting.py`), replace the per-indicator `slack_messages` posting with a single concise digest message (counts + top high-conviction names + homepage link from config); preserve the "no signals" message (depends on T009)
-- [ ] T027 [US4] Test the concise-message formatting (counts, top names, link, and no-signals branch) in `tests/services/test_alert_triage_service.py` or a dedicated formatter test — assert real output, not mock calls
+- [x] T026 [US4] In `run_alerting` (`saxo_order/commands/alerting.py`), replace the per-indicator `slack_messages` posting with a single concise digest message (counts + top high-conviction names + homepage link from config); preserve the "no signals" message (depends on T009)
+- [x] T027 [US4] Test the concise-message formatting (counts, top names, link, and no-signals branch) in `tests/services/test_alert_triage_service.py` or a dedicated formatter test — assert real output, not mock calls
 
 **Checkpoint**: Firehose removed; app is source of truth (SC-001)
 

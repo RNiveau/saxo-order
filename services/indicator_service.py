@@ -46,6 +46,37 @@ def double_top(candles: List[Candle], tick=float) -> Optional[Candle]:
     return None
 
 
+def double_bottom(candles: List[Candle], tick=float) -> Optional[Candle]:
+    """
+    If a double bottom exist in the list, return the trough candle
+    The bottom can be another candle than the first one
+    We accept a spread of one tick between two bottoms
+    """
+    if len(candles) < 2:
+        return None
+
+    bottoms: List[Candle] = []
+
+    if candles[0].lower <= candles[1].lower:
+        bottoms.append(candles[0])
+
+    for i in range(1, len(candles) - 1):
+        if (
+            candles[i].lower <= candles[i - 1].lower
+            and candles[i].lower <= candles[i + 1].lower
+        ):
+            bottoms.append(candles[i])
+
+    if candles[-1].lower <= candles[-2].lower:
+        bottoms.append(candles[-1])
+    # Check if there are two bottoms within one tick spread
+    for i in range(len(bottoms)):
+        for j in range(i + 1, len(bottoms)):
+            if round(abs(bottoms[i].lower - bottoms[j].lower), 4) <= tick:
+                return bottoms[i]
+    return None
+
+
 def bollinger_bands(
     candles: List[Candle], multiply_std: float = 2.0, period: int = 20
 ) -> BollingerBands:
@@ -402,6 +433,72 @@ def true_range(candles: List[Candle]) -> float:
     tr2 = abs(candles[0].higher - candles[1].close)
     tr3 = abs(candles[0].lower - candles[1].close)
     return max(tr, tr2, tr3)
+
+
+def _directional_index(atr: float, plus_sm: float, minus_sm: float) -> float:
+    """DX from Wilder-smoothed TR/+DM/-DM sums (guards zero denominators)."""
+    if atr == 0:
+        return 0.0
+    plus_di = 100 * plus_sm / atr
+    minus_di = 100 * minus_sm / atr
+    denominator = plus_di + minus_di
+    if denominator == 0:
+        return 0.0
+    return 100 * abs(plus_di - minus_di) / denominator
+
+
+def adx(candles: List[Candle], period: int = 14) -> float:
+    """Wilder's Average Directional Index - a direction-agnostic trend/chop
+    strength measure (high = trending, low = chopping).
+
+    Candles are newest-first (index 0 is the most recent), matching the rest
+    of this module. Returns the latest ADX value. Needs period * 3 candles
+    for the double Wilder smoothing (the same minimum as average_true_range).
+    """
+    if len(candles) < period * 3:
+        Logger.get_logger("adx").error(
+            f"Missing candles to calculate an adx {len(candles)},"
+            f" needed {period * 3}"
+        )
+        raise SaxoException("Missing candles")
+    true_ranges: List[float] = []
+    plus_dms: List[float] = []
+    minus_dms: List[float] = []
+    for i in range(0, len(candles) - 1):
+        current = candles[i]
+        previous = candles[i + 1]
+        up_move = current.higher - previous.higher
+        down_move = previous.lower - current.lower
+        plus_dms.append(
+            up_move if up_move > down_move and up_move > 0 else 0.0
+        )
+        minus_dms.append(
+            down_move if down_move > up_move and down_move > 0 else 0.0
+        )
+        true_ranges.append(true_range(candles[i:]))
+    # reverse to chronological (oldest-first) for forward Wilder smoothing
+    true_ranges.reverse()
+    plus_dms.reverse()
+    minus_dms.reverse()
+
+    atr = sum(true_ranges[:period])
+    plus_sm = sum(plus_dms[:period])
+    minus_sm = sum(minus_dms[:period])
+    directional_indices: List[float] = [
+        _directional_index(atr, plus_sm, minus_sm)
+    ]
+    for i in range(period, len(true_ranges)):
+        atr = atr - atr / period + true_ranges[i]
+        plus_sm = plus_sm - plus_sm / period + plus_dms[i]
+        minus_sm = minus_sm - minus_sm / period + minus_dms[i]
+        directional_indices.append(_directional_index(atr, plus_sm, minus_sm))
+
+    adx_value = sum(directional_indices[:period]) / period
+    for i in range(period, len(directional_indices)):
+        adx_value = (
+            adx_value * (period - 1) + directional_indices[i]
+        ) / period
+    return round(adx_value, 5)
 
 
 def inside_bar(candles: List[Candle]) -> bool:
