@@ -5,14 +5,22 @@ from api.services.backtest import (
     list_definitions,
     resolve_parameters,
 )
-from model import BacktestDefinition, BacktestParameters
+from model import (
+    BacktestDefinition,
+    BacktestParameters,
+    EuCfdMarket,
+    EUMarket,
+)
 
 
 class TestRegistry:
-    def test_lists_the_hardcoded_backtests_in_order(self):
-        definitions = list_definitions()
-        codes = [definition.code for definition in definitions]
-        assert codes == ["B9H", "B9HTC", "G9H", "G9HSL", "B9HWS"]
+    def test_the_default_menu_selection_does_not_move(self):
+        """BACKTEST_DEFINITIONS order is the Backtest menu's dropdown
+        order, and Backtest.tsx selects defs[0] on load - so the first
+        entry is user-visible state, not an implementation detail.
+        Only the first is pinned: appending a definition is free, moving
+        the default is not."""
+        assert list_definitions()[0].code == "B9H"
 
     def test_b9h_is_the_plain_single_lot_variant(self):
         definition = get_definition("B9H")
@@ -67,6 +75,54 @@ class TestRegistry:
         )
         assert definition.min_h1_range_points == 40.0
         assert definition.structural_stop is True
+
+    def test_g9hic_is_the_impulsive_candle_variant(self):
+        definition = get_definition("G9HIC")
+        assert definition is not None
+        assert (
+            definition.display_name == "GER40 Bougie de 9h (bougie impulsive)"
+        )
+        assert definition.instrument == "GER40.I"
+        assert definition.min_h1_range_points == 70.0
+        assert definition.impulsive_candle_points == 70.0
+        assert definition.impulsive_close_fraction == 0.25
+        # Single lot, and no close-measured stop other than the impulse.
+        assert definition.double_take_profit is False
+        assert definition.structural_stop is False
+        assert definition.stop_from_reference_level is False
+        assert definition.default_parameters == BacktestParameters(
+            stop_loss_points=150,
+            take_profit_offset_points=10,
+            break_even_trigger_points=50,
+            max_entry_distance_points=40,
+        )
+
+    def test_g9hic_trades_the_cfd_session(self):
+        definition = get_definition("G9HIC")
+        assert definition is not None
+        assert isinstance(definition.market, EuCfdMarket)
+        assert (
+            definition.market.open_hour,
+            definition.market.open_minutes,
+        ) == (
+            9,
+            0,
+        )
+        # 21:00 + 60 minutes = a 22:00 Paris close.
+        assert (
+            definition.market.close_hour,
+            definition.market.end_minute,
+        ) == (
+            21,
+            60,
+        )
+
+    def test_only_the_impulsive_variant_left_the_cash_session(self):
+        """Derived from the registry rather than a second copy of it: any
+        definition that silently changed session would fail here."""
+        for definition in list_definitions():
+            expected = EuCfdMarket if definition.code == "G9HIC" else EUMarket
+            assert isinstance(definition.market, expected)
 
     def test_unknown_code_returns_none(self):
         assert get_definition("NOPE") is None
@@ -137,6 +193,37 @@ class TestBacktestDefinitionValidation:
                 double_take_profit=True, first_target_fraction=fraction
             )
 
+    def test_half_configured_impulse_is_rejected(self):
+        with pytest.raises(ValueError, match="impulsive-candle stop needs"):
+            self._build(impulsive_candle_points=70.0)
+        with pytest.raises(ValueError, match="impulsive-candle stop needs"):
+            self._build(impulsive_close_fraction=0.25)
+
+    @pytest.mark.parametrize("points", [0, -70.0])
+    def test_a_non_positive_impulse_threshold_is_rejected(self, points):
+        with pytest.raises(ValueError, match="must be positive"):
+            self._build(
+                impulsive_candle_points=points, impulsive_close_fraction=0.25
+            )
+
+    @pytest.mark.parametrize("fraction", [0, 1, 1.5, -0.2])
+    def test_an_impulse_fraction_outside_the_candle_is_rejected(
+        self, fraction
+    ):
+        with pytest.raises(ValueError, match="impulsive_close_fraction"):
+            self._build(
+                impulsive_candle_points=70.0,
+                impulsive_close_fraction=fraction,
+            )
+
+    def test_an_impulse_with_a_structural_stop_is_rejected(self):
+        with pytest.raises(ValueError, match="structural stop"):
+            self._build(
+                impulsive_candle_points=70.0,
+                impulsive_close_fraction=0.25,
+                structural_stop=True,
+            )
+
     def test_half_configured_time_cut_is_rejected(self):
         with pytest.raises(ValueError, match="time cut needs both"):
             self._build(time_cut_minutes=30)
@@ -147,4 +234,4 @@ class TestBacktestDefinitionValidation:
         """The registry is built at import time, so this passes trivially
         - it is here so a future definition that trips a rule fails in
         this file rather than at application startup."""
-        assert len(list_definitions()) == 5
+        assert list_definitions()

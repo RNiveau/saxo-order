@@ -1,6 +1,6 @@
 """Shared fixtures for the backtest unit tests.
 
-The four registered definitions are re-declared here rather than imported
+The registered definitions are re-declared here rather than imported
 from the registry so a change to a shipped definition's thresholds fails
 the registry test (tests/api/services/backtest/test_definitions.py) instead
 of silently changing what every other test is asserting against.
@@ -15,6 +15,7 @@ from model import (
     BacktestDefinition,
     BacktestParameters,
     Candle,
+    EuCfdMarket,
     Trade,
     UnitTime,
 )
@@ -77,7 +78,29 @@ GER_SINGLE_LOT_DEFINITION = BacktestDefinition(
     ),
     stop_from_reference_level=True,
 )
+IMPULSIVE_DEFINITION = BacktestDefinition(
+    code="G9HIC",
+    name="Bougie de 9h GER40 (bougie impulsive)",
+    display_name="GER40 Bougie de 9h (bougie impulsive)",
+    instrument="GER40.I",
+    market=EuCfdMarket(),
+    default_parameters=BacktestParameters(
+        stop_loss_points=150,
+        take_profit_offset_points=10,
+        break_even_trigger_points=50,
+        max_entry_distance_points=40,
+    ),
+    min_h1_range_points=70.0,
+    impulsive_candle_points=70.0,
+    impulsive_close_fraction=0.25,
+)
 GER_PARAMS = GER_DEFINITION.default_parameters
+
+# The impulsive variant needs an H1 range wider than 70 points to trade at
+# all (FR-G17), so it cannot reuse the shared 8000-8050 range. Entries
+# still open off the same 8000 low, so ger_entry_candles() applies
+# unchanged; the far side moves to 8100, putting the take-profit at 8090.
+IMPULSIVE_H1_HIGH = 8100.0
 
 
 # A real DynamoDBClient with no active resource - dynamodb_client is a
@@ -195,12 +218,21 @@ async def run_ger_single(m5_candles, higher=H1_HIGH, lower=H1_LOW):
     )
 
 
+async def run_impulsive(m5_candles, higher=IMPULSIVE_H1_HIGH, lower=H1_LOW):
+    service = make_service([h1_candle(higher=higher, lower=lower)], m5_candles)
+    return await service.evaluate_day(
+        IMPULSIVE_DEFINITION, TRADING_DATE, GER_PARAMS
+    )
+
+
 __all__ = [
     "DEFINITION",
     "GER_DEFINITION",
     "GER_PARAMS",
     "GER_SINGLE_LOT_DEFINITION",
     "H1_HIGH",
+    "IMPULSIVE_DEFINITION",
+    "IMPULSIVE_H1_HIGH",
     "H1_LOW",
     "NO_CACHE_CLIENT",
     "TIME_CUT_DEFINITION",
@@ -215,6 +247,7 @@ __all__ = [
     "stop_loss_candles",
     "run_ger",
     "run_ger_single",
+    "run_impulsive",
     "uptrend_daily_series",
     "ExitReason",
     "Direction",

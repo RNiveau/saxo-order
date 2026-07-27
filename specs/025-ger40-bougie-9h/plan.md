@@ -117,3 +117,69 @@ No constitutional violations. Two design points are recorded here because they a
 |---|---|---|
 | Stop-loss measured from the **H1 reference level** (150 pts beyond it) for `G9H`, while `B9H` measures its stop from **entry**. | Spec FR-G05 / user rule "SL 150 points below the lower". | Implemented as a `stop_from_reference_level` flag on `BacktestDefinition` so `B9H`/`B9HTC` behavior is byte-for-byte unchanged; only `G9H` takes the reference-based branch. Surfaced in the spec Clarifications for the owner to confirm during validation. |
 | A two-lot position is surfaced as **one aggregated `Trade`** whose `points` ≠ `exit_price − entry_price`. | Spec FR-G07 (owner chose one aggregated trade over two rows). | Kept within the existing `Trade` shape (no response change, FR-G10); the engine computes the summed points explicitly via a dedicated close helper. The aggregated `exit_price`/`exit_reason` reflect the runner's final exit. |
+
+---
+
+# Addendum: "GER40 Bougie de 9h (bougie impulsive)" variant (`G9HIC`)
+
+**Branch**: `claude/dax-backtest-impulsive-candle-61dj2p` | **Date**: 2026-07-27 | **Spec**: [spec.md](./spec.md) §Addendum
+
+## Summary
+
+A fourth GER40 backtest that keeps the single-lot `G9HSL` setup (take-profit at the H1 far level − 10, break-even arming at +50) and replaces the fixed 150-point stop with an **impulse stop**: the position closes only on a 5-minute candle that is at least 70 points wide, closes within 25% of its range from the extreme adverse to the position, and closes beyond the H1 reference level — or on its take-profit, its armed break-even stop, or end of day. Days whose 9:00–10:00 H1 range is not strictly greater than 70 points are not traded. The session runs 9:00–22:00 Paris on a new `EuCfdMarket` instead of the 17:30 cash close.
+
+**Note on the base**: this addendum is written against the **refactored backtest package** (`api/services/backtest/`, PR #672), not the single `api/services/backtest_service.py` module the sections above describe. The refactor is what makes this variant cheap: the impulse rule is one new `ExitPolicy` plus one new `Side` predicate, composed in `rules.build_exit_chain`. No engine code branches on which backtest is running.
+
+## Design
+
+### 1. `EuCfdMarket` and per-definition markets
+
+`Market`, `USMarket` and `EUMarket` move from `model/__init__.py` into a new `model/market.py`, re-exported from `model/__init__.py` so every existing import keeps working. The move is required, not cosmetic: `model/__init__.py` imports `model.backtest` at line 5, so `BacktestDefinition` cannot reference a market class defined further down the same file without a circular import.
+
+`EuCfdMarket` follows the `USMarket` convention for a close that is not on an H1 boundary label: `close_hour=21, end_minute=60` → a 22:00 close, where `close_hour` stays the last-full-H1-candle label hour. `h4_blocks=[3, 4, 4, 2]` (9-12 / 12-16 / 16-20 / 20-22).
+
+`BacktestDefinition` gains `market: Market = field(default_factory=EUMarket)`. `api/services/backtest/calendar.py` stops hardcoding `EUMarket()` and takes the market as a parameter (`paris_reference_window_utc`, `paris_session_end_utc`, `is_today_not_yet_closed`); `candle_source.py` and `service._fetch_daily_candles` pass `definition.market`; `api/routers/backtest.py` threads it into `_parse_date`/`_parse_range`, which every endpoint already calls **after** `_resolve_definition`.
+
+No cache-schema bump: the raw-candle cache key is `code:instrument:vN`, so a new definition code gets its own namespace and no existing entry is reinterpreted under the longer session.
+
+### 2. The impulse rule
+
+One new predicate on `Side`, so the long and short forms are one expression rather than two:
+
+```python
+def closed_near_adverse_extreme(self, candle: Candle, fraction: float) -> bool:
+    span = candle.higher - candle.lower
+    return self.favorable(candle.close, self.adverse_extreme(candle)) <= fraction * span
+```
+
+For a long, `adverse_extreme` is the candle's low and `favorable(close, low)` is `close − low`; for a short it is the high and the expression becomes `high − close`. Multiplicative, so a zero-range candle needs no guard (and cannot pass the 70-point amplitude test anyway).
+
+One new policy, `policies.ImpulsiveStop(points, fraction)`, closing at the candle's close with `ExitReason.STOP_LOSS`. It sits **after** `Target()` in the chain for the same reason `StructuralStop` does — it is measured on the close, while a target is touched intrabar — and returns `None` once break-even is armed, at which point `Stop(only_when_armed=True)` at the head of the chain owns the exit.
+
+Chain for `G9HIC`: `Stop(only_when_armed=True)` → `Target()` → `ImpulsiveStop(70, 0.25)` → `ArmBreakEven(50)`.
+
+### 3. Definition fields and guards
+
+`impulsive_candle_points: Optional[float] = None` and `impulsive_close_fraction: Optional[float] = None`, both off by default. `BacktestDefinition.__post_init__` gains guards in the style of the existing ones — a flag that cannot take effect must fail at registration, never ship as a silent no-op: `impulsive_candle_points > 0`; `0 < impulsive_close_fraction < 1`; the two are set together or not at all; and the combination with `structural_stop` is rejected (two competing close-measured stops, no backtest needs it and none has been validated against it).
+
+### 4. The definition
+
+`G9HIC` — `Strategy.G9HIC`, `GER40.I`, `market=EuCfdMarket()`, GER40 defaults 150/10/50/40 (`stop_loss_points` unused, as it already is for `B9HWS`), `min_h1_range_points=70.0`, `impulsive_candle_points=70.0`, `impulsive_close_fraction=0.25`.
+
+## Constitution Check
+
+| Principle | Check | Result |
+|---|---|---|
+| I. Layered Architecture Discipline | The market is a Model-layer type (`model/market.py`, stdlib only); the impulse rule is a Service-layer policy; no router or client change beyond threading the definition's market into date parsing. | PASS |
+| II. Clean Code First | New `Strategy.G9HIC` enum member, no hardcoded strategy string; the rule is composed from the existing policy chain rather than a new engine branch; the long/short forms are one `Side` expression; no `assert` in production code — the registration guards raise `ValueError`. | PASS |
+| III. Configuration-Driven Design | The impulse threshold and close fraction are fixed strategy properties on the definition (FR-G18), not deployment config and not per-run knobs; the four numeric thresholds stay per-run analysis inputs. | PASS |
+| IV. Safe Deployment Practices | Purely additive: one new definition, one new market, two new definition fields. No Lambda/ECR/Pulumi change. Conventional commits. | PASS |
+| V. Domain Model Integrity | `Candle` used throughout outside the client; `GER40.I` is a hardcoded index instrument so the `country_code` inference rule does not apply; the longer CFD session only changes the fetch window, not the "Saxo does not return the current period" handling. | PASS |
+
+## Complexity Tracking
+
+| Design point | Why | Note |
+|---|---|---|
+| Moving `Market`/`USMarket`/`EUMarket` to `model/market.py`. | `model/__init__.py` imports `model.backtest` before the market classes are defined, so `BacktestDefinition.market` would be a circular import. | Pure move + re-export; every `from model import EUMarket` keeps working, and no other module changes. |
+| A definition with **no stop-loss distance at all** while unarmed. | FR-G15 — the variant's entire premise. | Not new machinery: `B9HWS` already runs `Stop(only_when_armed=True)`. `stop_loss_points` stays on the params object (it is a shared shape) and is simply unread, as it already is for `B9HWS`. |
+| The impulse test is amplitude **and** shape **and** level, not amplitude alone. | Clarifications 2026-07-27 — amplitude alone would fire on long-wick reversal candles that closed back inside the range, which are indecision, not impulse. | Makes the name honest: "impulsive" implies a decisive move, and the 25% close fraction is what enforces it. |

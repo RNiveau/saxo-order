@@ -5,11 +5,12 @@ import datetime
 from unittest.mock import MagicMock
 
 from api.services.backtest import BacktestService
-from model import DayResult, Trade
+from model import DayResult, EUMarket, Trade
 from model.enum import DayStatus, ExitReason
 from services.candles_service import CandlesService
 from tests.api.services.backtest.helpers import (
     DEFINITION,
+    IMPULSIVE_DEFINITION,
     NO_CACHE_CLIENT,
     TRADING_DATE,
     h1_candle,
@@ -274,3 +275,37 @@ class TestParameterFallback:
             GER_DEFINITION, TRADING_DATE, TRADING_DATE
         )
         assert implicit == explicit
+
+
+class TestRegimeSeriesMarket:
+    """The daily series behind mm50_slope / adx14 / overnight_gap is a
+    measurement of the instrument, not part of a strategy, so it is built
+    on the cash session for *every* definition.
+
+    Following definition.market instead would size a day as
+    close_hour - open_hour (build_daily_candles_from_h1), scoring the CFD
+    variant's days on 13-hour bars while the variants it exists to be
+    compared against use 9-hour ones - and would move what overnight_gap
+    measures from the 17:30 close to the 22:00 one.
+    """
+
+    async def _daily_fetch_market(self, definition):
+        service = BacktestService(
+            MagicMock(spec=CandlesService), NO_CACHE_CLIENT
+        )
+        service.candles_service.get_candles_in_window.return_value = []
+        service.candles_service.build_candles.return_value = []
+        await service.run_range(definition, TRADING_DATE, TRADING_DATE)
+        return service.candles_service.build_candles.call_args.args[2]
+
+    async def test_a_cash_definition_measures_on_the_cash_session(self):
+        market = await self._daily_fetch_market(DEFINITION)
+
+        assert isinstance(market, EUMarket)
+
+    async def test_the_cfd_definition_also_measures_on_the_cash_session(self):
+        """The regression guard: G9HIC trades 9:00-22:00 but must still be
+        scored against the same daily bars as every other definition."""
+        market = await self._daily_fetch_market(IMPULSIVE_DEFINITION)
+
+        assert isinstance(market, EUMarket)

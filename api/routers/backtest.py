@@ -23,7 +23,7 @@ from api.services.backtest import (
     is_today_not_yet_closed,
     resolve_parameters,
 )
-from model import BacktestDefinition, BacktestParameters
+from model import BacktestDefinition, BacktestParameters, Market
 
 router = APIRouter(prefix="/api/backtest", tags=["backtest"])
 
@@ -110,7 +110,7 @@ async def get_backtest_day(
     """Run the backtest for a single day and return full trade detail."""
     backtest_definition = _resolve_definition(backtest_service, definition)
     params = _resolve_params(backtest_definition, overrides)
-    trading_date = _parse_date(date)
+    trading_date = _parse_date(date, backtest_definition.market)
     day_result = await backtest_service.evaluate_day(
         backtest_definition, trading_date, params
     )
@@ -129,7 +129,7 @@ async def get_backtest_run(
     summary plus a compact per-day list."""
     backtest_definition = _resolve_definition(backtest_service, definition)
     params = _resolve_params(backtest_definition, overrides)
-    start, end = _parse_range(start_date, end_date)
+    start, end = _parse_range(start_date, end_date, backtest_definition.market)
     run_result = await backtest_service.run_range(
         backtest_definition, start, end, params
     )
@@ -146,7 +146,7 @@ async def get_backtest_day_csv(
     """CSV export of a single day's detail (FR-018)."""
     backtest_definition = _resolve_definition(backtest_service, definition)
     params = _resolve_params(backtest_definition, overrides)
-    trading_date = _parse_date(date)
+    trading_date = _parse_date(date, backtest_definition.market)
     day_result = await backtest_service.evaluate_day(
         backtest_definition, trading_date, params
     )
@@ -172,7 +172,7 @@ async def get_backtest_run_csv(
     """CSV export of a range run's day-by-day summary (FR-017)."""
     backtest_definition = _resolve_definition(backtest_service, definition)
     params = _resolve_params(backtest_definition, overrides)
-    start, end = _parse_range(start_date, end_date)
+    start, end = _parse_range(start_date, end_date, backtest_definition.market)
     run_result = await backtest_service.run_range(
         backtest_definition, start, end, params
     )
@@ -189,10 +189,10 @@ async def get_backtest_run_csv(
 
 
 def _parse_range(
-    start_date: str, end_date: str
+    start_date: str, end_date: str, market: Market
 ) -> tuple[datetime.date, datetime.date]:
-    start = _parse_date(start_date)
-    end = _parse_date(end_date)
+    start = _parse_date(start_date, market)
+    end = _parse_date(end_date, market)
     if end < start:
         raise HTTPException(
             status_code=400, detail="end_date must not be before start_date"
@@ -211,13 +211,13 @@ def _resolve_definition(
     return definition
 
 
-def _parse_date(value: str) -> datetime.date:
+def _parse_date(value: str, market: Market) -> datetime.date:
     trading_date = parse_iso_date(value)
     if is_future_paris_date(trading_date):
         raise HTTPException(
             status_code=400, detail="date must not be in the future"
         )
-    if is_today_not_yet_closed(trading_date):
+    if is_today_not_yet_closed(trading_date, market):
         raise HTTPException(
             status_code=400,
             detail="today's session has not closed yet",

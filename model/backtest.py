@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from model.enum import DayStatus, Direction, ExitReason
+from model.market import EUMarket, Market
 from model.workflow import Candle
 
 
@@ -28,6 +29,13 @@ class BacktestDefinition:
     name: str
     display_name: str
     instrument: str
+    # The trading session this backtest runs on: it fixes the 9h reference
+    # window, the session end an end-of-day exit lands on, and the "has
+    # today closed yet" check. Defaults to EUMarket (9:00-17:30 Paris, the
+    # Euronext/Xetra cash session) so every existing definition keeps the
+    # window it runs today; the impulsive variant uses EuCfdMarket to trade
+    # the 9:00-22:00 CFD session.
+    market: Market = field(default_factory=EUMarket)
     # Optional time-based cut: when both are set, a position that has
     # never moved more than time_cut_min_favorable_points in its favor by
     # time_cut_minutes after entry is closed at market. Left None on the
@@ -64,6 +72,16 @@ class BacktestDefinition:
     # Left None/False on the other backtests so their behavior is unchanged.
     min_h1_range_points: Optional[float] = None
     structural_stop: bool = False
+    # Impulsive-candle variant (spec 025 addendum, FR-G14/FR-G15): when
+    # impulsive_candle_points is set, the fixed stop-loss distance is
+    # dropped entirely and the only stop while break-even is unarmed is an
+    # impulsive candle moving against the position - one at least this many
+    # points wide (full range, wicks included) that also closes within
+    # impulsive_close_fraction of its range from the extreme adverse to the
+    # position, beyond the H1 reference level. Left None on the other
+    # backtests so their behavior is unchanged.
+    impulsive_candle_points: Optional[float] = None
+    impulsive_close_fraction: Optional[float] = None
 
     def __post_init__(self) -> None:
         """Reject at construction (registration) time any combination of
@@ -109,6 +127,39 @@ class BacktestDefinition:
             raise ValueError(
                 "double_take_profit is not supported together with a time "
                 f"cut (definition {self.code!r})"
+            )
+        if (self.impulsive_candle_points is None) != (
+            self.impulsive_close_fraction is None
+        ):
+            raise ValueError(
+                "an impulsive-candle stop needs both "
+                "impulsive_candle_points and impulsive_close_fraction "
+                f"(definition {self.code!r})"
+            )
+        if (
+            self.impulsive_candle_points is not None
+            and self.impulsive_candle_points <= 0
+        ):
+            raise ValueError(
+                "impulsive_candle_points must be positive - every candle "
+                f"would otherwise be impulsive (definition {self.code!r})"
+            )
+        if self.impulsive_close_fraction is not None and not (
+            0 < self.impulsive_close_fraction < 1
+        ):
+            raise ValueError(
+                "impulsive_close_fraction must sit strictly inside the "
+                f"candle's range (definition {self.code!r})"
+            )
+        # Both replace the fixed stop with a close-measured one, and the
+        # chain has room for only one such stop. They compose in principle
+        # (the impulse rule is strictly the stricter of the two), but no
+        # backtest ships the combination and none has been validated
+        # against it, so it stays rejected until one needs it.
+        if self.impulsive_candle_points is not None and self.structural_stop:
+            raise ValueError(
+                "an impulsive-candle stop is not supported together with a "
+                f"structural stop (definition {self.code!r})"
             )
 
 

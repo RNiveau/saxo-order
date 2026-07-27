@@ -8,6 +8,7 @@ so both are asserted here rather than inferred from engine behavior.
 from api.services.backtest.policies import (
     ArmBreakEven,
     DoubleTarget,
+    ImpulsiveStop,
     Stop,
     StructuralStop,
     Target,
@@ -60,6 +61,36 @@ class TestChainShape:
             ArmBreakEven,
         ]
 
+    def test_impulsive_stop_is_evaluated_after_the_target(self):
+        """Like the structural stop, the impulse is measured on the close,
+        so an intrabar target touch beats it."""
+        definition = _definition(
+            impulsive_candle_points=70.0, impulsive_close_fraction=0.25
+        )
+        assert _shape(definition) == [
+            Stop,
+            Target,
+            ImpulsiveStop,
+            ArmBreakEven,
+        ]
+
+    def test_impulsive_variant_has_no_fixed_stop_until_break_even_arms(self):
+        definition = _definition(
+            impulsive_candle_points=70.0, impulsive_close_fraction=0.25
+        )
+        chain = build_exit_chain(definition, PARAMS)
+        stop = chain[0]
+        assert isinstance(stop, Stop)
+        assert stop.only_when_armed is True
+
+    def test_the_impulse_policy_carries_the_definition_thresholds(self):
+        definition = _definition(
+            impulsive_candle_points=70.0, impulsive_close_fraction=0.25
+        )
+        impulse = build_exit_chain(definition, PARAMS)[2]
+        assert isinstance(impulse, ImpulsiveStop)
+        assert (impulse.points, impulse.fraction) == (70.0, 0.25)
+
     def test_structural_variant_has_no_fixed_stop_until_break_even_arms(self):
         chain = build_exit_chain(_definition(structural_stop=True), PARAMS)
         stop = chain[0]
@@ -77,6 +108,9 @@ class TestChainShape:
             _definition(double_take_profit=True, first_target_fraction=0.5),
             _definition(
                 time_cut_minutes=30, time_cut_min_favorable_points=5.0
+            ),
+            _definition(
+                impulsive_candle_points=70.0, impulsive_close_fraction=0.25
             ),
         ):
             chain = build_exit_chain(definition, PARAMS)
@@ -130,6 +164,7 @@ class TestRegisteredDefinitionChains:
             "G9H": [Stop, DoubleTarget, ArmBreakEven],
             "G9HSL": [Stop, Target, ArmBreakEven],
             "B9HWS": [Stop, Target, StructuralStop, ArmBreakEven],
+            "G9HIC": [Stop, Target, ImpulsiveStop, ArmBreakEven],
         }
         actual = {
             definition.code: _shape(definition)

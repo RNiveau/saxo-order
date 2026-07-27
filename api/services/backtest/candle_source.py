@@ -99,7 +99,9 @@ class CandleSource:
     async def _fetch_and_store(
         self, definition: BacktestDefinition, trading_date: datetime.date
     ) -> Optional[CachedDayCandles]:
-        h1_start_utc, h1_end_utc = paris_reference_window_utc(trading_date)
+        h1_start_utc, h1_end_utc = paris_reference_window_utc(
+            trading_date, definition.market
+        )
         try:
             h1_candle = self._fetch_h1_reference_candle(
                 definition.instrument, h1_start_utc, h1_end_utc
@@ -132,7 +134,9 @@ class CandleSource:
                 has_data=True, h1_candle=h1_candle, m5_candles=[]
             )
 
-        session_end_utc = paris_session_end_utc(trading_date)
+        session_end_utc = paris_session_end_utc(
+            trading_date, definition.market
+        )
         try:
             m5_candles = self._fetch_five_minute_candles(
                 definition.instrument, h1_end_utc, session_end_utc

@@ -137,7 +137,7 @@ class BacktestService:
         all_trades: List[Trade] = []
 
         daily_candles = self._fetch_daily_candles(
-            definition.instrument, start_date, end_date
+            definition, start_date, end_date
         )
 
         current = start_date
@@ -183,14 +183,26 @@ class BacktestService:
 
     def _fetch_daily_candles(
         self,
-        instrument: str,
+        definition: BacktestDefinition,
         start_date: datetime.date,
         end_date: datetime.date,
     ) -> List[Candle]:
         """Daily (newest-first) candle series covering the run range plus
         enough lead-in to compute a 50-day MA slope on the first day.
         Fetched once per run_range. A failure degrades to an empty series
-        (blank mm50_slope column) rather than aborting the whole export."""
+        (blank mm50_slope column) rather than aborting the whole export.
+
+        Deliberately built on EUMarket rather than definition.market: the
+        regime columns (mm50_slope, adx14, overnight_gap) are a
+        *measurement* of the instrument, not part of any strategy, and
+        they only earn their keep if the same day scores the same on every
+        definition. Following the definition's market would build the CFD
+        variant's daily bars over a 13-hour window instead of the cash
+        session's 9 (build_daily_candles_from_h1 sizes the day from
+        close_hour - open_hour), so its MA50 slope and ADX would not be
+        comparable with the variants it exists to be compared against, and
+        overnight_gap would silently start measuring from the 22:00 close
+        instead of the 17:30 one."""
         # Daily candles are fetched counting backward from end_date, so
         # count must reach ~60 trading days before start_date for the
         # first day's MA50 slope. Calendar days is a safe upper bound on
@@ -202,11 +214,16 @@ class BacktestService:
         )
         try:
             return self.candles_service.build_candles(
-                instrument, UnitTime.D, EUMarket(), count, reference
+                definition.instrument,
+                UnitTime.D,
+                EUMarket(),
+                count,
+                reference,
             )
         except SaxoException as e:
             self.logger.warning(
-                f"No daily candles for {instrument} regime measure: {e}"
+                f"No daily candles for {definition.instrument} "
+                f"regime measure: {e}"
             )
             return []
 

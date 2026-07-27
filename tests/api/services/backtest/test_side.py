@@ -72,6 +72,43 @@ class TestTouches:
         assert SHORT.closed_beyond(8010, self.C) is False
 
 
+class TestClosedNearAdverseExtreme:
+    """The impulsive-candle shape test (FR-G14b): the close must sit in
+    the quarter of the candle that hurts the position."""
+
+    # range 80: bottom quarter is 7920-7940, top quarter 7980-8000
+    WIDE = candle(open=7990, higher=8000, lower=7920, close=7925)
+
+    def test_long_is_hurt_by_a_close_near_the_low(self):
+        assert LONG.closed_near_adverse_extreme(self.WIDE, 0.25) is True
+
+    def test_short_is_not_hurt_by_that_same_candle(self):
+        assert SHORT.closed_near_adverse_extreme(self.WIDE, 0.25) is False
+
+    def test_a_mid_range_close_hurts_neither(self):
+        mid = candle(open=7990, higher=8000, lower=7920, close=7960)
+        assert LONG.closed_near_adverse_extreme(mid, 0.25) is False
+        assert SHORT.closed_near_adverse_extreme(mid, 0.25) is False
+
+    def test_short_is_hurt_by_a_close_near_the_high(self):
+        up = candle(open=7930, higher=8000, lower=7920, close=7995)
+        assert SHORT.closed_near_adverse_extreme(up, 0.25) is True
+        assert LONG.closed_near_adverse_extreme(up, 0.25) is False
+
+    def test_the_boundary_counts(self):
+        """A close exactly at the fraction is inside it: 7940 is 20 points
+        up from the low of an 80-point candle, exactly 25%."""
+        boundary = candle(open=7990, higher=8000, lower=7920, close=7940)
+        assert LONG.closed_near_adverse_extreme(boundary, 0.25) is True
+        just_above = candle(open=7990, higher=8000, lower=7920, close=7941)
+        assert LONG.closed_near_adverse_extreme(just_above, 0.25) is False
+
+    def test_a_flat_candle_needs_no_zero_range_guard(self):
+        flat = candle(open=8000, higher=8000, lower=8000, close=8000)
+        assert LONG.closed_near_adverse_extreme(flat, 0.25) is True
+        assert SHORT.closed_near_adverse_extreme(flat, 0.25) is True
+
+
 class TestFills:
     def test_stop_fill_takes_the_open_on_an_adverse_gap(self):
         gapped = candle(open=7950, higher=7960, lower=7940, close=7955)
@@ -106,3 +143,9 @@ class TestMirrorSymmetry:
         assert LONG.closed_beyond(level, c) == SHORT.closed_beyond(ml, m)
         assert LONG.stop_fill(level, c) == MIRROR - SHORT.stop_fill(ml, m)
         assert LONG.target_fill(level, c) == MIRROR - SHORT.target_fill(ml, m)
+
+    @pytest.mark.parametrize("c", CANDLES)
+    def test_shape_predicate_mirrors(self, c):
+        assert LONG.closed_near_adverse_extreme(
+            c, 0.25
+        ) == SHORT.closed_near_adverse_extreme(mirrored(c), 0.25)
