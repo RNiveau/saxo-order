@@ -39,13 +39,11 @@ Take-profit, break-even trigger and max entry distance are unchanged
 (10 / 50 / 40). `stop_loss_points=150` is carried for shape only —
 nothing reads it under an impulse stop.
 
-> **Open question on the exports:** the CSV parameter header carries only
-> the four numeric thresholds, so it does not record whether these runs
-> included the 16:00 entry cut-off and the 2-loss daily cap added in
-> #677. The `min_h1_range` filter is confirmed active — **0 traded days
-> have an H1 range ≤ 70** in either window. If the two #677 filters were
-> *not* active in these exports, the figures below are the pre-#677
-> behaviour and should be re-run.
+All five filters were **active in these exports**, including the 16:00
+entry cut-off and the 2-loss daily cap added in #677 (confirmed by the
+run's author). The `min_h1_range` filter is independently visible in the
+data — **0 traded days have an H1 range ≤ 70** in either window. So the
+figures below are the fully-filtered behaviour, not a pre-#677 baseline.
 
 ## 2. Data
 
@@ -114,6 +112,28 @@ old fixed-stop design a single-lot loss could not exceed ~190; here
 That is the whole result. Removing the fixed stop did not let winners
 run, because nothing was raised on the winner side. It only let losers
 run.
+
+### The 2-loss daily cap cannot reach this
+
+Since #677's daily cap was active in these runs, it is worth stating
+plainly why it does not help: **the damage is done by single trades, not
+by a run of them.**
+
+| | 2025 | 2026 H1 |
+|---|---|---|
+| Losing days that are a **single trade** | 48 of 60 (80%) | 22 of 29 (76%) |
+| Share of all loss from those days | **−6817 of −8109 (84%)** | **−3727 of −4456 (84%)** |
+| Single-trade days among the worst 10 | 9 of 10 | 8 of 10 |
+| Days losing > 190 that are one trade | 14 of 16 | 5 of 6 |
+
+A cap of two losses per day is structurally unable to bind on a day that
+opens one position and loses 456 points on it. 84% of the total loss, in
+both windows independently, arrives on days where the cap was never in
+play. The same applies to the 16:00 entry cut-off: it bounds how *late* a
+new position opens, not how far the one already open can travel.
+
+Both filters are sensible risk controls, and they are already in these
+numbers. They are not the missing piece.
 
 ## 5. Regime checks
 
@@ -280,11 +300,14 @@ has produced the same answer.
 **Worth doing:** run the §7 four-filter stack on **2024** (and 2023 if
 available). It is one export and it is the only open question left.
 
-**Worth clarifying:** confirm whether these exports include #677's 16:00
-entry cut-off and 2-loss daily cap. If not, re-export before drawing
-final conclusions — the caps bound exactly the late-day and
-deep-drawdown losses that §4 identifies as the problem.
+**Worth considering:** if the family survives the 2024 test, the natural
+structural fix is on the **target**, not the stop — the §4 asymmetry is
+caused by a capped take-profit sitting opposite an uncapped exit. A
+trailing or measured-move target would be a genuinely different
+experiment, unlike the three stop variants already tried.
 
 **Not worth doing:** tuning TP/BE/max-distance on these windows; further
 regime variables (eight scanned, one survives and it is a tautology);
-a fourth stop variant. If the §7 test fails on 2024, retire the family.
+a fourth stop variant; tightening the daily loss cap or the entry
+cut-off (§4 shows neither reaches the loss that matters). If the §7 test
+fails on 2024, retire the family.
