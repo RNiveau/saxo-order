@@ -254,8 +254,9 @@ class TestCfdSession:
 
     async def test_a_position_runs_past_the_cash_close_to_a_22h_exit(self):
         candles = ger_entry_candles() + [
-            m5_candle(60, 8015, 8020, 8010, 8018),  # inside the cash session
-            m5_candle(100, 8018, 8022, 8012, 8020),  # after 17:30
+            # inside the cash session, then after it
+            m5_candle(self.CASH_CLOSE_OFFSET - 30, 8015, 8020, 8010, 8018),
+            m5_candle(self.CASH_CLOSE_OFFSET + 10, 8018, 8022, 8012, 8020),
             m5_candle(self.LAST_CFD_OFFSET, 8020, 8026, 8016, 8024),
         ]
 
@@ -272,8 +273,9 @@ class TestCfdSession:
         """The candles after the cash close are evaluated, not merely
         carried: an impulse at 20:30 Paris closes the position."""
         candles = ger_entry_candles() + [
-            m5_candle(60, 8015, 8020, 8010, 8018),
-            m5_candle(126, 8010, 8012, 7935, 7940),  # impulsive, 20:30 Paris
+            m5_candle(self.CASH_CLOSE_OFFSET - 30, 8015, 8020, 8010, 8018),
+            # impulsive, 36 candles past the cash close: 20:30 Paris
+            m5_candle(self.CASH_CLOSE_OFFSET + 36, 8010, 8012, 7935, 7940),
             m5_candle(self.LAST_CFD_OFFSET, 7940, 7945, 7935, 7942),
         ]
 

@@ -14,6 +14,14 @@ from model import (
 
 
 class TestRegistry:
+    def test_the_default_menu_selection_does_not_move(self):
+        """BACKTEST_DEFINITIONS order is the Backtest menu's dropdown
+        order, and Backtest.tsx selects defs[0] on load - so the first
+        entry is user-visible state, not an implementation detail.
+        Only the first is pinned: appending a definition is free, moving
+        the default is not."""
+        assert list_definitions()[0].code == "B9H"
+
     def test_b9h_is_the_plain_single_lot_variant(self):
         definition = get_definition("B9H")
         assert definition is not None
