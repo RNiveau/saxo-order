@@ -7,19 +7,23 @@ from api.services.backtest import (
     paris_reference_window_utc,
     paris_session_end_utc,
 )
-from model import EuCfdMarket
+from model import EuCfdMarket, EUMarket
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
 
 
 class TestReferenceWindow:
     def test_reference_window_cest_summer(self):
-        start, end = paris_reference_window_utc(datetime.date(2026, 6, 2))
+        start, end = paris_reference_window_utc(
+            datetime.date(2026, 6, 2), EUMarket()
+        )
         assert start == datetime.datetime(2026, 6, 2, 7, 0)
         assert end == datetime.datetime(2026, 6, 2, 8, 0)
 
     def test_reference_window_cet_winter(self):
-        start, end = paris_reference_window_utc(datetime.date(2026, 1, 15))
+        start, end = paris_reference_window_utc(
+            datetime.date(2026, 1, 15), EUMarket()
+        )
         assert start == datetime.datetime(2026, 1, 15, 8, 0)
         assert end == datetime.datetime(2026, 1, 15, 9, 0)
 
@@ -27,12 +31,12 @@ class TestReferenceWindow:
 class TestSessionEnd:
     def test_session_end_cest_summer(self):
         assert paris_session_end_utc(
-            datetime.date(2026, 6, 2)
+            datetime.date(2026, 6, 2), EUMarket()
         ) == datetime.datetime(2026, 6, 2, 15, 30)
 
     def test_session_end_cet_winter(self):
         assert paris_session_end_utc(
-            datetime.date(2026, 1, 15)
+            datetime.date(2026, 1, 15), EUMarket()
         ) == datetime.datetime(2026, 1, 15, 16, 30)
 
 
@@ -45,16 +49,24 @@ class TestTradableDateGuards:
 
     def test_today_before_session_close_is_not_yet_closed(self):
         now = datetime.datetime(2026, 6, 2, 10, 0, tzinfo=PARIS_TZ)
-        assert is_today_not_yet_closed(datetime.date(2026, 6, 2), now=now)
+        assert is_today_not_yet_closed(
+            datetime.date(2026, 6, 2), EUMarket(), now=now
+        )
 
     def test_today_after_session_close_is_closed(self):
         now = datetime.datetime(2026, 6, 2, 18, 0, tzinfo=PARIS_TZ)
-        assert not is_today_not_yet_closed(datetime.date(2026, 6, 2), now=now)
+        assert not is_today_not_yet_closed(
+            datetime.date(2026, 6, 2), EUMarket(), now=now
+        )
 
     def test_other_day_is_never_not_yet_closed(self):
         now = datetime.datetime(2026, 6, 2, 10, 0, tzinfo=PARIS_TZ)
-        assert not is_today_not_yet_closed(datetime.date(2026, 6, 1), now=now)
-        assert not is_today_not_yet_closed(datetime.date(2026, 6, 3), now=now)
+        assert not is_today_not_yet_closed(
+            datetime.date(2026, 6, 1), EUMarket(), now=now
+        )
+        assert not is_today_not_yet_closed(
+            datetime.date(2026, 6, 3), EUMarket(), now=now
+        )
 
 
 class TestEuCfdMarketSession:
@@ -91,7 +103,7 @@ class TestEuCfdMarketSession:
         has not, so a CFD-market day is not yet queryable."""
         now = datetime.datetime(2026, 6, 2, 18, 0, tzinfo=PARIS_TZ)
         day = datetime.date(2026, 6, 2)
-        assert not is_today_not_yet_closed(day, now=now)
+        assert not is_today_not_yet_closed(day, EUMarket(), now=now)
         assert is_today_not_yet_closed(day, EuCfdMarket(), now=now)
 
     def test_today_is_closed_after_22h(self):

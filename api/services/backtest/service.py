@@ -30,6 +30,7 @@ from model import (
     Candle,
     DayResult,
     DayResultSummary,
+    EUMarket,
     Trade,
     UnitTime,
 )
@@ -189,7 +190,19 @@ class BacktestService:
         """Daily (newest-first) candle series covering the run range plus
         enough lead-in to compute a 50-day MA slope on the first day.
         Fetched once per run_range. A failure degrades to an empty series
-        (blank mm50_slope column) rather than aborting the whole export."""
+        (blank mm50_slope column) rather than aborting the whole export.
+
+        Deliberately built on EUMarket rather than definition.market: the
+        regime columns (mm50_slope, adx14, overnight_gap) are a
+        *measurement* of the instrument, not part of any strategy, and
+        they only earn their keep if the same day scores the same on every
+        definition. Following the definition's market would build the CFD
+        variant's daily bars over a 13-hour window instead of the cash
+        session's 9 (build_daily_candles_from_h1 sizes the day from
+        close_hour - open_hour), so its MA50 slope and ADX would not be
+        comparable with the variants it exists to be compared against, and
+        overnight_gap would silently start measuring from the 22:00 close
+        instead of the 17:30 one."""
         # Daily candles are fetched counting backward from end_date, so
         # count must reach ~60 trading days before start_date for the
         # first day's MA50 slope. Calendar days is a safe upper bound on
@@ -203,7 +216,7 @@ class BacktestService:
             return self.candles_service.build_candles(
                 definition.instrument,
                 UnitTime.D,
-                definition.market,
+                EUMarket(),
                 count,
                 reference,
             )

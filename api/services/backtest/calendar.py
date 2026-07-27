@@ -11,13 +11,18 @@ the impulsive-candle variant EuCfdMarket (9:00-22:00). Both open at 9:00,
 so only the session end actually differs today - but the reference window
 is derived from the same market so a future session with a different open
 cannot silently keep the 9:00 window.
+
+`market` is required rather than defaulting to EUMarket: every production
+call site has a definition to take it from, so a default could only ever
+be silently wrong - a call site that forgot it would keep the 9:00-17:30
+window and return plausible-but-wrong bounds instead of failing.
 """
 
 import datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from model import EUMarket, Market
+from model import Market
 from utils.helper import market_in_utc
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
@@ -34,11 +39,11 @@ def _market_in_utc(trading_date: datetime.date, market: Market) -> Market:
 
 
 def paris_reference_window_utc(
-    trading_date: datetime.date, market: Optional[Market] = None
+    trading_date: datetime.date, market: Market
 ) -> tuple[datetime.datetime, datetime.datetime]:
     """The market's first trading hour on trading_date (9:00-10:00 Paris
     local for both European markets), as naive UTC bounds."""
-    utc_market = _market_in_utc(trading_date, market or EUMarket())
+    utc_market = _market_in_utc(trading_date, market)
     start = datetime.datetime(
         trading_date.year,
         trading_date.month,
@@ -51,7 +56,7 @@ def paris_reference_window_utc(
 
 
 def paris_session_end_utc(
-    trading_date: datetime.date, market: Optional[Market] = None
+    trading_date: datetime.date, market: Market
 ) -> datetime.datetime:
     """End of the market's regular session (17:30 local for EUMarket's
     Euronext Paris close, 22:00 for EuCfdMarket), from
@@ -61,7 +66,7 @@ def paris_session_end_utc(
     because it is documented to exceed 59 whenever close_hour labels the
     last full H1 candle rather than the literal close - 60 for both
     USMarket's 16:00 and EuCfdMarket's 22:00."""
-    utc_market = _market_in_utc(trading_date, market or EUMarket())
+    utc_market = _market_in_utc(trading_date, market)
     close_hour_start = datetime.datetime(
         trading_date.year,
         trading_date.month,
@@ -80,7 +85,8 @@ def is_future_paris_date(
 
 def is_today_not_yet_closed(
     d: datetime.date,
-    market: Optional[Market] = None,
+    market: Market,
+    *,
     now: Optional[datetime.datetime] = None,
 ) -> bool:
     """True if d is today (Paris) and the market's regular session hasn't
@@ -90,7 +96,6 @@ def is_today_not_yet_closed(
     current = (now or datetime.datetime.now(PARIS_TZ)).astimezone(PARIS_TZ)
     if d != current.date():
         return False
-    market = market or EUMarket()
     session_end_local = datetime.datetime(
         d.year,
         d.month,

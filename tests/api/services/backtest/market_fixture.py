@@ -13,7 +13,7 @@ from typing import List, Tuple
 from unittest.mock import MagicMock
 
 from api.services.backtest import paris_reference_window_utc
-from model import Candle, UnitTime
+from model import Candle, EUMarket, UnitTime
 from services.candles_service import CandlesService
 
 # (base price, 5-minute step sigma) per instrument. GER40's sigma is scaled
@@ -81,7 +81,7 @@ def h1_reference_candle(instrument: str, d: datetime.date) -> Candle:
         sigma,
         H1_STEPS,
     )
-    start, _ = paris_reference_window_utc(d)
+    start, _ = paris_reference_window_utc(d, EUMarket())
     return Candle(
         lower=round(min(bar[2] for bar in bars), 2),
         higher=round(max(bar[1] for bar in bars), 2),
@@ -100,7 +100,7 @@ def m5_session_candles(instrument: str, d: datetime.date) -> List[Candle]:
     bars = _walk(
         _rng(instrument, d, "m5"), reference.close, sigma, SESSION_STEPS
     )
-    _, session_start = paris_reference_window_utc(d)
+    _, session_start = paris_reference_window_utc(d, EUMarket())
     return [
         Candle(
             lower=bar[2],

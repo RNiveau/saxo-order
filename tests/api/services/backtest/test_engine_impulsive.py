@@ -6,6 +6,7 @@ points, FR-G17), so entries open long at 8015 off the 8000 low, the
 take-profit sits at 8090 and break-even arms at 8065.
 """
 
+import datetime
 from unittest.mock import MagicMock
 
 from api.services.backtest import BacktestService
@@ -14,6 +15,7 @@ from model.enum import DayStatus, Direction, ExitReason
 from services.candles_service import CandlesService
 from tests.api.services.backtest.helpers import (
     GER_PARAMS,
+    GER_SINGLE_LOT_DEFINITION,
     IMPULSIVE_DEFINITION,
     IMPULSIVE_H1_HIGH,
     NO_CACHE_CLIENT,
@@ -21,6 +23,7 @@ from tests.api.services.backtest.helpers import (
     ger_entry_candles,
     h1_candle,
     m5_candle,
+    make_service,
     run_ger_single,
     run_impulsive,
 )
@@ -236,3 +239,72 @@ class TestMinimumRange:
 
         assert result.status == DayStatus.TRADED
         assert candles_service.get_candles_in_window.call_count == 2
+
+
+class TestCfdSession:
+    """FR-G12: the variant scans to 22:00 Paris, not the 17:30 cash close.
+
+    m5_candle(n) is 08:00 UTC + 5n minutes, i.e. 10:00 Paris + 5n in
+    summer, so offset 90 is exactly the 17:30 cash close and offset 143 is
+    the last 5-minute candle of the CFD session (21:55 Paris).
+    """
+
+    CASH_CLOSE_OFFSET = 90
+    LAST_CFD_OFFSET = 143
+
+    async def test_a_position_runs_past_the_cash_close_to_a_22h_exit(self):
+        candles = ger_entry_candles() + [
+            m5_candle(60, 8015, 8020, 8010, 8018),  # inside the cash session
+            m5_candle(100, 8018, 8022, 8012, 8020),  # after 17:30
+            m5_candle(self.LAST_CFD_OFFSET, 8020, 8026, 8016, 8024),
+        ]
+
+        result = await run_impulsive(candles)
+
+        trade = result.trades[0]
+        assert trade.exit_reason == ExitReason.END_OF_DAY
+        assert trade.exit_price == 8024.0
+        # 08:00 UTC + 143 * 5 minutes = 19:55 UTC = 21:55 Paris (summer).
+        assert trade.exit_time == datetime.datetime(2026, 6, 2, 19, 55)
+        assert trade.points == 9.0
+
+    async def test_an_evening_impulse_still_stops_the_position(self):
+        """The candles after the cash close are evaluated, not merely
+        carried: an impulse at 20:30 Paris closes the position."""
+        candles = ger_entry_candles() + [
+            m5_candle(60, 8015, 8020, 8010, 8018),
+            m5_candle(126, 8010, 8012, 7935, 7940),  # impulsive, 20:30 Paris
+            m5_candle(self.LAST_CFD_OFFSET, 7940, 7945, 7935, 7942),
+        ]
+
+        result = await run_impulsive(candles)
+
+        trade = result.trades[0]
+        assert trade.exit_reason == ExitReason.STOP_LOSS
+        assert trade.exit_price == 7940.0
+        assert trade.exit_time == datetime.datetime(2026, 6, 2, 18, 30)
+
+
+class TestSessionFetchWindow:
+    """The window actually requested from Saxo - the golden fixture is
+    market-agnostic, so without this nothing checks that the definition's
+    market reaches the fetch."""
+
+    async def _fetch_bounds(self, definition):
+        service = make_service([h1_candle(higher=IMPULSIVE_H1_HIGH)], [])
+        await service.evaluate_day(definition, TRADING_DATE, GER_PARAMS)
+        fetches = service.candles_service.get_candles_in_window.mock_calls
+        m5_call = [call for call in fetches if call.args[1] == UnitTime.M5][0]
+        return m5_call.args[3], m5_call.args[4]
+
+    async def test_the_impulsive_variant_scans_to_22h_paris(self):
+        start, end = await self._fetch_bounds(IMPULSIVE_DEFINITION)
+
+        assert start == datetime.datetime(2026, 6, 2, 8, 0)
+        assert end == datetime.datetime(2026, 6, 2, 20, 0)
+
+    async def test_a_cash_definition_still_stops_at_the_17h30_close(self):
+        start, end = await self._fetch_bounds(GER_SINGLE_LOT_DEFINITION)
+
+        assert start == datetime.datetime(2026, 6, 2, 8, 0)
+        assert end == datetime.datetime(2026, 6, 2, 15, 30)
