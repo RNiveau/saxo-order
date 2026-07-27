@@ -969,3 +969,49 @@ class DynamoDBClient(AwsClient):
 
         items = response.get("Items", [])
         return items[0] if items else None
+
+    @_dynamo_operation
+    async def get_cached_backtest_candles(
+        self, definition_code: str, trading_date: str
+    ) -> Optional[Dict[str, Any]]:
+        table = await self._get_table("backtest_candle_cache")
+        response = await table.get_item(
+            Key={
+                "definition_code": definition_code,
+                "trading_date": trading_date,
+            }
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB get_item error: {response}")
+            return None
+
+        return response.get("Item")
+
+    @_dynamo_operation
+    async def store_backtest_candles(
+        self,
+        definition_code: str,
+        trading_date: str,
+        has_data: bool,
+        h1_candle: Optional[Dict[str, Any]] = None,
+        m5_candles: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        item: Dict[str, Any] = {
+            "definition_code": definition_code,
+            "trading_date": trading_date,
+            "has_data": has_data,
+            "cached_at": int(time.time()),
+        }
+        if has_data:
+            item["h1_candle"] = h1_candle
+            item["m5_candles"] = m5_candles or []
+        item = self._convert_floats_to_decimal(item)
+
+        table = await self._get_table("backtest_candle_cache")
+        response = await table.put_item(Item=item)
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB put_item error: {response}")
+
+        return response

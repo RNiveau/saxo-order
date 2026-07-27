@@ -948,10 +948,19 @@ export const alertDigestService = {
   },
 };
 
+export interface BacktestDefinitionParameters {
+  stop_loss_points: number;
+  take_profit_offset_points: number;
+  break_even_trigger_points: number;
+  max_entry_distance_points: number;
+}
+
 export interface BacktestDefinition {
   code: string;
   display_name: string;
   instrument: string;
+  double_take_profit: boolean;
+  default_parameters: BacktestDefinitionParameters;
 }
 
 export interface BacktestTrade {
