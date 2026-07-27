@@ -226,3 +226,85 @@ Requirements below are numbered FR-G1## and are additive on top of spec 021 and 
 - GER40.I is quoted as a CFD outside the Xetra cash session, so 5-minute candles are expected to exist between 17:30 and 22:00. A day where Saxo returns nothing after 17:30 simply behaves as it does today (the scan ends with the last candle available).
 - A definition's market governs **what it trades** (the 5-minute scan window, the session end, the "has today closed" check), never **how it is measured**. The regime columns stay on the cash session regardless (FR-G17b).
 - The variant is expected to have a worse worst-case loss than `G9HSL` and a higher win rate; whether that trade is favorable is exactly what the backtest is being built to answer. No deployment decision is implied by adding it.
+
+---
+
+# Addendum 2: entry cut-off and daily loss cap for `G9HIC`
+
+**Added**: 2026-07-27
+**Input**: User description: "add a new condition I forgot. We don't take any new position after 4pm and we don't take any new position if we already had two lost."
+
+## Context
+
+Two **entry filters** on the existing `G9HIC` definition. Neither touches how an open position is managed: an impulsive candle, the take-profit, the armed break-even stop and the 22:00 end-of-day exit all behave exactly as specified in Addendum 1. These rules only decide whether the engine is allowed to *open* a new position.
+
+They are a change to `G9HIC` **in place**, not a seventh definition (Clarifications below). The other five definitions are untouched.
+
+Both address the same weakness of a variant with no fixed stop: its worst case is unbounded, so the cost of a bad afternoon compounds. The cut-off stops a position being opened so late that its only realistic exit is the 22:00 close, and the loss cap stops a day that is already going badly from paying for a third attempt.
+
+## Clarifications
+
+### Session 2026-07-27 (2)
+
+- Q: What counts as one of the "two lost" trades? → A: Any trade that closed with **negative points**, whatever its exit reason — an impulse stop, a break-even exit whose gap-fill landed below entry, or an end-of-day close below entry. This is the same test the run summary already uses to count losing positions, so "2 losses" means the same thing in the day detail, the summary and this rule.
+- Q: Should these rules change `G9HIC` in place or ship as a new definition? → A: **In place.** `G9HIC` has never been run for real or written up in `backtests/`, so no published result is invalidated, and the menu does not grow a near-duplicate. The `G9HIC` golden snapshot is expected to shift.
+- Q: Does the 16:00 cut-off close an already-open position? → A: **No.** It is purely an entry filter. A position opened at 15:55 is managed to its normal exit and may well close at 22:00. Only *opening* is blocked.
+- Q: Does the loss cap count across days? → A: **No — per trading day.** A backtest day is evaluated independently and no position spans days, so the counter starts at zero each day and resets with it.
+- Q: Are the 16:00 cut-off and the 2-loss cap tunable per run? → A: **No.** Like the 70-point impulse threshold and the 25% close fraction, they are fixed properties of this backtest (FR-G18).
+
+## User Scenarios & Testing
+
+### User Story 5 - Stop opening positions late in the day or after a bad start (Priority: P1)
+
+A trader running "GER40 Bougie de 9h (bougie impulsive)" sees no entries taken after 16:00 Paris, and none once the day has already produced two losing trades — while positions opened before either limit are managed to their normal exits.
+
+**Why this priority**: Both rules bound a variant whose worst case is otherwise unbounded; without them the strategy's exposure is not what the trader intends.
+
+**Independent Test**: Run a day whose candles would confirm a valid breakout at 16:05 and verify no position is opened; run a day with three consecutive losing setups and verify only the first two are taken.
+
+**Acceptance Scenarios**:
+
+1. **Given** a day where a valid breakout confirms on a 5-minute candle starting at **15:55 Paris**, **When** the backtest runs, **Then** the position **is** opened normally.
+2. **Given** a day where a valid breakout confirms on a 5-minute candle starting at **16:00 Paris** or later, **When** the backtest runs, **Then** **no position is opened**, and none is opened by any later candle that day.
+3. **Given** a position opened at 15:55 that has not hit a take-profit, an impulsive candle or a break-even stop, **When** the session reaches 22:00, **Then** it closes at end-of-day as usual — the 16:00 cut-off did not close it early.
+4. **Given** a day where the first two positions both close with negative points, **When** a third valid breakout confirms before 16:00, **Then** **no position is opened**.
+5. **Given** a day where the first two positions close one with negative points and one with positive points, **When** a third valid breakout confirms before 16:00, **Then** the position **is** opened — the cap counts losses, not trades.
+6. **Given** a day whose second losing position is still open, **When** a candle would confirm another entry, **Then** the question does not arise: the one-position-at-a-time rule (FR-011) already blocks it, and the loss counter only increments when a position **closes**.
+7. **Given** a day where two positions have closed at a loss, **When** the session ends with no position open, **Then** the day reports exactly those two trades and `TRADED` status.
+8. **Given** a day whose losses come from mixed exit reasons — one impulse stop and one end-of-day close below entry — **When** a third breakout confirms, **Then** it is blocked: both count, because both closed with negative points.
+
+---
+
+### Edge Cases
+
+- **A trade closing at exactly 0 points** (an end-of-day close landing on the entry price, or a clean break-even) is **not** a loss and does not count toward the cap. Only strictly negative points count.
+- **Cut-off and cap are independent**: either one alone blocks an entry. A day can be stopped by the clock having taken no losses at all, or by two losses at 10:30.
+- **The cut-off is measured on the candle's start time**, the same timestamp the entry is recorded at, so the last candle that can open a position is the one starting 15:55 and running to 16:00.
+- **DST**: 16:00 is Paris local time, resolved the same DST-aware way as the 9:00 reference window and the 22:00 session end, so it is 14:00 UTC in summer and 15:00 UTC in winter.
+- **A day with no data or an H1 range ≤ 70 points** is unaffected — it never reaches the entry search at all (FR-G17).
+- **Interaction with the breakout search**: blocking an entry must not corrupt the direction searches. After the cut-off the search state is irrelevant because nothing can open; before it, a blocked entry behaves as the existing "confirmed but not valid" path already does.
+
+## Requirements
+
+- **FR-G19**: `G9HIC` MUST NOT open a new position on any 5-minute candle whose start time is **at or after 16:00 Paris local time** (DST-aware, derived from the definition's market timezone). The last candle that can open a position is the one starting at 15:55. This filter applies to both directions.
+- **FR-G20**: `G9HIC` MUST NOT open a new position once **two positions have already closed with negative points on that trading day**. A trade's points being strictly less than 0 is the test, whatever its exit reason; a trade closing at exactly 0 points does not count. The counter is per trading day and starts at zero each day.
+- **FR-G21**: Neither filter MUST affect an already-open position. Exit handling — the impulse stop (FR-G14/FR-G15), the take-profit and break-even arming (FR-G16), and the 22:00 end-of-day close (FR-G12) — is unchanged, including for a position opened at 15:55 and for the second losing position while it is still open.
+- **FR-G22**: Both filters MUST be **fixed properties** of `G9HIC`, not per-run tunable parameters (extending FR-G18). The four numeric thresholds remain tunable, with `stop_loss_points` still unused (FR-G15).
+- **FR-G23**: The filters MUST leave every other definition unchanged: `B9H`, `B9HTC`, `G9H`, `G9HSL` and `B9HWS` take entries at any hour of their session and are not subject to a loss cap.
+
+### Key Entities
+
+- **Backtest Definition** (extended): gains a last-entry cut-off time and a maximum-losses-per-day count. Both default to "off" (None) so a definition without them behaves exactly as it does today.
+
+## Success Criteria
+
+- **SC-G10**: On a hand-built day where a valid breakout confirms at 16:00, no position is opened; on the same setup shifted to 15:55, one is.
+- **SC-G11**: On a hand-built day with three losing setups, exactly two trades are reported; with a loss/win/loss sequence, three are.
+- **SC-G12**: A position opened at 15:55 still closes at 22:00 end-of-day, proving the cut-off is an entry filter only.
+- **SC-G13**: `B9H`, `B9HTC`, `G9H`, `G9HSL` and `B9HWS` produce byte-for-byte identical golden results before and after this change; only `G9HIC`'s rows move.
+
+## Assumptions
+
+- 16:00 and "two losses" are, like the 70-point threshold, judgement calls stated to be tested rather than derived — fixed on the definition so a run's results always correspond to the rules as shipped.
+- The loss cap is evaluated when a position **closes**, so the third entry of a day is blocked only if both prior positions have already resolved as losses; this falls out of the one-position-at-a-time rule and needs no separate ordering rule.
+- Both filters reduce the number of trades and are expected to reduce the number of days that end deeply negative. Whether they improve the strategy overall is what the run is for; adding them implies no deployment decision.

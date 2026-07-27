@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 
 from api.services.backtest import (
@@ -86,6 +88,8 @@ class TestRegistry:
         assert definition.min_h1_range_points == 70.0
         assert definition.impulsive_candle_points == 70.0
         assert definition.impulsive_close_fraction == 0.25
+        assert definition.last_entry_time == datetime.time(16, 0)
+        assert definition.max_daily_losses == 2
         # Single lot, and no close-measured stop other than the impulse.
         assert definition.double_take_profit is False
         assert definition.structural_stop is False
@@ -192,6 +196,34 @@ class TestBacktestDefinitionValidation:
             self._build(
                 double_take_profit=True, first_target_fraction=fraction
             )
+
+    @pytest.mark.parametrize("cap", [0, -1])
+    def test_a_non_positive_loss_cap_is_rejected(self, cap):
+        with pytest.raises(ValueError, match="max_daily_losses"):
+            self._build(max_daily_losses=cap)
+
+    @pytest.mark.parametrize(
+        "cut_off",
+        [
+            datetime.time(8, 0),  # before the 9:00 open
+            datetime.time(9, 0),  # at it, so nothing could ever open
+            datetime.time(18, 0),  # after the 17:30 close
+        ],
+    )
+    def test_a_cut_off_outside_the_session_is_rejected(self, cut_off):
+        with pytest.raises(ValueError, match="last_entry_time"):
+            self._build(last_entry_time=cut_off)
+
+    def test_a_cut_off_inside_the_session_is_accepted(self):
+        assert self._build(
+            last_entry_time=datetime.time(16, 0)
+        ).last_entry_time == datetime.time(16, 0)
+
+    def test_the_cut_off_bound_follows_the_definition_market(self):
+        """18:00 is outside EUMarket's session but inside the CFD one."""
+        assert self._build(
+            market=EuCfdMarket(), last_entry_time=datetime.time(18, 0)
+        ).last_entry_time == datetime.time(18, 0)
 
     def test_half_configured_impulse_is_rejected(self):
         with pytest.raises(ValueError, match="impulsive-candle stop needs"):

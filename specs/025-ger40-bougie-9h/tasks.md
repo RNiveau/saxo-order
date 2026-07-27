@@ -254,3 +254,33 @@ Task: "G9H /day aggregated-trade test in tests/api/routers/test_backtest.py"    
 
 - T031 runs alongside T032–T035 (different files).
 - T032/T033/T034/T035 are four independent test files.
+
+---
+
+# Addendum 2 tasks: entry cut-off and daily loss cap (`G9HIC`)
+
+**Input**: [spec.md](./spec.md) §Addendum 2, [plan.md](./plan.md) §Addendum 2
+
+## Phase 10: The entry gate
+
+- [x] T045 Add `last_entry_time: Optional[datetime.time]` and `max_daily_losses: Optional[int]` to `BacktestDefinition` in `model/backtest.py`, with `__post_init__` guards: `max_daily_losses` positive, and `last_entry_time` strictly inside the definition's session (after the market open, at or before its close).
+- [x] T046 Add `api/services/backtest/entry_gate.py` with an `EntryGate` exposing `allows(candle_time)` / `record(trade)`, plus an always-allow gate for definitions carrying neither filter. The cut-off resolves the definition's local `last_entry_time` to naive UTC for the trading date via the existing DST-aware market conversion; the loss counter increments on `trade.points < 0`.
+- [x] T047 Add `build_entry_gate(definition, trading_date)` to `api/services/backtest/rules.py`, alongside `build_exit_chain`/`build_lot_model`, so variant flags stay read in one place.
+- [x] T048 Wire the gate into `BacktestService._evaluate_trades`: consult it before opening a position, and record each closed trade. `_evaluate_from_candles` passes the trading date through. Depends on T046, T047.
+- [x] T049 Set `last_entry_time=datetime.time(16, 0)` and `max_daily_losses=2` on the `G9HIC` definition in `api/services/backtest/definitions.py`. Depends on T045.
+
+## Phase 11: Tests
+
+- [x] T050 [P] `tests/api/services/backtest/test_entry_gate.py`: the gate in isolation — allows at 15:55 and blocks at 16:00 and later (both DST regimes); blocks after two negative-points trades; a 0-point trade does not count; a win between two losses does not; the always-allow gate ignores both.
+- [x] T051 [P] Extend `tests/api/services/backtest/test_engine_impulsive.py` with the end-to-end cases (SC-G10–SC-G12): a breakout confirming at 15:55 opens, the same setup at 16:00 does not; a third setup after two losses is refused while loss/win/loss takes all three; a position opened at 15:55 still closes END_OF_DAY at 21:55.
+- [x] T052 [P] Add the `G9HIC` field assertions to `tests/api/services/backtest/test_definitions.py` and the `__post_init__` guard cases (non-positive `max_daily_losses`, a `last_entry_time` outside the session).
+- [x] T053 [P] Add a `build_entry_gate` case to `tests/api/services/backtest/test_rules.py`: `G9HIC` gets a filtering gate, every other definition an always-allow one.
+- [x] T054 Regenerate the golden snapshot and confirm the diff touches **only** `G9HIC` rows (SC-G13). Depends on T048, T049.
+
+## Phase 12: Polish
+
+- [x] T055 `poetry run black . && poetry run isort . && poetry run flake8 && poetry run mypy .`, then the full suite.
+
+## Dependencies
+
+Phase 10 in order (fields → gate → builder → wiring → registration); Phase 11 tests are independent of each other except T054, which needs the wiring live; Phase 12 last.

@@ -82,6 +82,14 @@ class BacktestDefinition:
     # backtests so their behavior is unchanged.
     impulsive_candle_points: Optional[float] = None
     impulsive_close_fraction: Optional[float] = None
+    # Entry filters (spec 025 addendum 2, FR-G19/FR-G20). Both are about
+    # *opening* a position and never affect one already open: no new
+    # position on a candle starting at or after last_entry_time (market
+    # local, DST-aware), and none once max_daily_losses positions have
+    # closed with negative points that day. Left None on the other
+    # backtests, which take entries at any hour and under any loss run.
+    last_entry_time: Optional[datetime.time] = None
+    max_daily_losses: Optional[int] = None
 
     def __post_init__(self) -> None:
         """Reject at construction (registration) time any combination of
@@ -161,6 +169,30 @@ class BacktestDefinition:
                 "an impulsive-candle stop is not supported together with a "
                 f"structural stop (definition {self.code!r})"
             )
+        if self.max_daily_losses is not None and self.max_daily_losses <= 0:
+            raise ValueError(
+                "max_daily_losses must be positive - a cap of zero would "
+                f"forbid every entry (definition {self.code!r})"
+            )
+        if self.last_entry_time is not None and not (
+            datetime.time(self.market.open_hour, self.market.open_minutes)
+            < self.last_entry_time
+            <= self._market_close_time()
+        ):
+            raise ValueError(
+                "last_entry_time must fall inside the session - a cut-off "
+                "outside it either forbids every entry or can never fire "
+                f"(definition {self.code!r})"
+            )
+
+    def _market_close_time(self) -> datetime.time:
+        """The market's local closing time. end_minute is added as an
+        offset because it is documented to exceed 59 when close_hour
+        labels the last full H1 candle rather than the literal close."""
+        close = datetime.datetime(
+            2000, 1, 1, self.market.close_hour
+        ) + datetime.timedelta(minutes=self.market.end_minute)
+        return close.time()
 
 
 @dataclass

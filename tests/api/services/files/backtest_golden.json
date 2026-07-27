@@ -2323,34 +2323,25 @@
           "exit_reason": "take_profit",
           "exit_time": "2026-03-03T12:05:00",
           "points": 85.26
-        },
-        {
-          "direction": "Sell",
-          "entry_price": 24602.59,
-          "entry_time": "2026-03-03T16:10:00",
-          "exit_price": 24529.68,
-          "exit_reason": "end_of_day",
-          "exit_time": "2026-03-03T16:25:00",
-          "points": 72.91
         }
       ]
     },
     "exit_reasons": {
       "break_even": {
-        "count": 28,
-        "points": -18.84
+        "count": 26,
+        "points": -17.98
       },
       "end_of_day": {
-        "count": 6,
-        "points": -44.63
+        "count": 2,
+        "points": -187.76
       },
       "stop_loss": {
-        "count": 13,
-        "points": -1277.22
+        "count": 11,
+        "points": -1112.69
       },
       "take_profit": {
-        "count": 28,
-        "points": 2827.0
+        "count": 24,
+        "points": 2381.03
       }
     },
     "run": {
@@ -2375,9 +2366,9 @@
           "h1_open": 24517.88,
           "mm50_slope": 9.86641,
           "overnight_gap": 94.98,
-          "points": 158.17,
+          "points": 85.26,
           "status": "traded",
-          "trade_count": 2
+          "trade_count": 1
         },
         {
           "adx14": 14.13522,
@@ -2387,9 +2378,9 @@
           "h1_open": 24476.26,
           "mm50_slope": 10.13151,
           "overnight_gap": -2.1,
-          "points": -20.73,
-          "status": "traded",
-          "trade_count": 1
+          "points": 0,
+          "status": "no_trade",
+          "trade_count": 0
         },
         {
           "adx14": 13.50398,
@@ -2437,7 +2428,7 @@
           "overnight_gap": -4.05,
           "points": 112.35,
           "status": "traded",
-          "trade_count": 3
+          "trade_count": 2
         },
         {
           "adx14": 15.72043,
@@ -2447,9 +2438,9 @@
           "h1_open": 24670.64,
           "mm50_slope": 11.1303,
           "overnight_gap": 28.46,
-          "points": 125.24,
+          "points": 126.1,
           "status": "traded",
-          "trade_count": 3
+          "trade_count": 2
         },
         {
           "adx14": 16.95558,
@@ -2483,9 +2474,9 @@
           "h1_open": 24695.57,
           "mm50_slope": 11.27264,
           "overnight_gap": 17.2,
-          "points": 28.65,
+          "points": 0.0,
           "status": "traded",
-          "trade_count": 2
+          "trade_count": 1
         },
         {
           "adx14": 17.49488,
@@ -2507,9 +2498,9 @@
           "h1_open": 24792.03,
           "mm50_slope": 11.7235,
           "overnight_gap": -7.27,
-          "points": 237.76,
+          "points": 123.05,
           "status": "traded",
-          "trade_count": 2
+          "trade_count": 1
         },
         {
           "adx14": 19.98255,
@@ -2579,9 +2570,9 @@
           "h1_open": 24805.58,
           "mm50_slope": 11.22718,
           "overnight_gap": 64.53,
-          "points": 62.3,
+          "points": 0.0,
           "status": "traded",
-          "trade_count": 3
+          "trade_count": 2
         },
         {
           "adx14": 22.05312,
@@ -2603,9 +2594,9 @@
           "h1_open": 24878.25,
           "mm50_slope": 11.08169,
           "overnight_gap": 117.65,
-          "points": 103.56,
+          "points": -14.64,
           "status": "traded",
-          "trade_count": 3
+          "trade_count": 2
         },
         {
           "adx14": 22.46958,
@@ -2615,9 +2606,9 @@
           "h1_open": 24834.5,
           "mm50_slope": 11.03512,
           "overnight_gap": -226.45,
-          "points": 260.27,
+          "points": 122.77,
           "status": "traded",
-          "trade_count": 3
+          "trade_count": 2
         },
         {
           "adx14": 23.17763,
@@ -2663,9 +2654,9 @@
           "h1_open": 24883.25,
           "mm50_slope": 11.04254,
           "overnight_gap": -157.29,
-          "points": -125.23,
+          "points": -3.34,
           "status": "traded",
-          "trade_count": 2
+          "trade_count": 1
         },
         {
           "adx14": 22.53728,
@@ -2675,9 +2666,9 @@
           "h1_open": 24940.82,
           "mm50_slope": 10.57134,
           "overnight_gap": -40.14,
-          "points": 160.89,
+          "points": 203.53,
           "status": "traded",
-          "trade_count": 3
+          "trade_count": 2
         },
         {
           "adx14": 22.56853,
@@ -2747,9 +2738,9 @@
           "h1_open": 24922.2,
           "mm50_slope": 9.48713,
           "overnight_gap": 191.53,
-          "points": 80.3,
+          "points": 4.74,
           "status": "traded",
-          "trade_count": 4
+          "trade_count": 3
         },
         {
           "adx14": 23.50007,
@@ -2861,16 +2852,16 @@
         }
       ],
       "summary": {
-        "average_loss": 92.8569,
-        "average_win": 96.4794,
+        "average_loss": 100.0346,
+        "average_win": 99.2096,
         "definition_code": "G9HIC",
         "end_date": "2026-04-30",
-        "final_result": 1486.31,
-        "number_of_be": 28,
+        "final_result": 1062.6,
+        "number_of_be": 26,
         "number_of_days": 42,
-        "number_of_losing_positions": 16,
-        "number_of_trades": 75,
-        "number_of_winning_positions": 31,
+        "number_of_losing_positions": 13,
+        "number_of_trades": 63,
+        "number_of_winning_positions": 24,
         "start_date": "2026-03-02"
       }
     }

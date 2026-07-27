@@ -183,3 +183,62 @@ Chain for `G9HIC`: `Stop(only_when_armed=True)` → `Target()` → `ImpulsiveSto
 | Moving `Market`/`USMarket`/`EUMarket` to `model/market.py`. | `model/__init__.py` imports `model.backtest` before the market classes are defined, so `BacktestDefinition.market` would be a circular import. | Pure move + re-export; every `from model import EUMarket` keeps working, and no other module changes. |
 | A definition with **no stop-loss distance at all** while unarmed. | FR-G15 — the variant's entire premise. | Not new machinery: `B9HWS` already runs `Stop(only_when_armed=True)`. `stop_loss_points` stays on the params object (it is a shared shape) and is simply unread, as it already is for `B9HWS`. |
 | The impulse test is amplitude **and** shape **and** level, not amplitude alone. | Clarifications 2026-07-27 — amplitude alone would fire on long-wick reversal candles that closed back inside the range, which are indecision, not impulse. | Makes the name honest: "impulsive" implies a decisive move, and the 25% close fraction is what enforces it. |
+
+---
+
+# Addendum 2: entry cut-off and daily loss cap (`G9HIC`)
+
+**Branch**: `claude/dax-backtest-impulsive-candle-61dj2p` | **Date**: 2026-07-27 | **Spec**: [spec.md](./spec.md) §Addendum 2
+
+## Summary
+
+Two entry filters on `G9HIC`: no position opened on a candle starting at or after 16:00 Paris, and none once two positions have closed at a loss that day. Exit handling is untouched.
+
+## Design
+
+### Where these belong
+
+The exit-policy chain is the wrong home for both. A policy answers "does this rule close an open position?", and neither of these ever closes anything — they decide whether the engine may open one. Forcing them into the chain would mean a policy that mutates engine state it does not own, which is the coupling the #672 refactor removed.
+
+They also do not belong in `is_valid_entry`/`DirectionSearch`: that layer judges a *candidate breakout* against price levels and is deliberately stateless across positions. The clock and the day's realised losses are properties of the run, not of the breakout.
+
+So they go where the engine already decides whether to open — `service._evaluate_trades` — behind one small, testable object rather than two `if`s inline:
+
+```python
+class EntryGate:
+    """Whether the engine may open a position on this candle."""
+    def allows(self, candle_time) -> bool
+    def record(self, trade) -> None     # counts a closed loss
+```
+
+`rules.build_entry_gate(definition, trading_date)` constructs it from the definition's flags, mirroring `build_exit_chain`/`build_lot_model` — so `definitions.py` stays the only place variant flags are read, and a definition with neither filter gets a gate that always allows (the existing behavior, no branching at the call site).
+
+The engine change is then two lines: consult `gate.allows(candle_time)` before opening, and `gate.record(closed)` where trades are already appended.
+
+### Definition fields
+
+- `last_entry_time: Optional[datetime.time] = None` — 16:00 for `G9HIC`. Stored as a naive local time and resolved against the definition's market timezone per trading date, the same DST-aware path `paris_reference_window_utc` uses, so it is 14:00 UTC in summer and 15:00 in winter. Candle timestamps are naive UTC, so the gate compares in UTC.
+- `max_daily_losses: Optional[int] = None` — 2 for `G9HIC`.
+
+`__post_init__` guards, in the existing style: a positive `max_daily_losses`, and a `last_entry_time` that actually falls inside the session (a cut-off at 23:00 on a 22:00 market, or at 08:00 before the 10:00 scan start, is a filter that could never fire or could never allow — both are configuration errors worth failing at registration).
+
+### What counts as a loss
+
+`trade.points < 0`, matching `SingleLot.classify`'s losing branch and therefore the summary's "number of losing positions". Deliberately not `exit_reason == STOP_LOSS`: under an impulse stop a day can bleed through end-of-day closes without a single stop firing, and a cap that ignored those would not bound what it claims to.
+
+## Constitution Check
+
+| Principle | Check | Result |
+|---|---|---|
+| I. Layered Architecture | Definition fields in `model/`; the gate and its construction in the Service layer beside the exit chain; no router, client or frontend change. | PASS |
+| II. Clean Code First | One object with two methods rather than two inline conditions; built by the same `rules.py` that builds the chain, so variant flags stay read in one place; no `assert` — the registration guards raise `ValueError`. | PASS |
+| III. Configuration-Driven | Both are fixed strategy properties (FR-G22), not deployment config and not per-run knobs. | PASS |
+| IV. Safe Deployment | Additive to one definition; no infrastructure change. The `G9HIC` golden rows move, which is the intended, reviewable evidence. | PASS |
+| V. Domain Model Integrity | `Candle`/`Trade` throughout; no new instrument or market handling. | PASS |
+
+## Complexity Tracking
+
+| Design point | Why | Note |
+|---|---|---|
+| A new `EntryGate` concept rather than two `if`s in `_evaluate_trades`. | The engine loop is the one place that already knows both the clock and the closed trades; adding two stateful conditions inline would put day-scoped state in the middle of the candle walk. | It is ~20 lines and is unit-testable without building candles. `build_entry_gate` returns an always-allow gate for the five definitions with neither filter, so their code path is unchanged. |
+| The `G9HIC` golden snapshot moves. | FR-G19/FR-G20 change which entries are taken. | Expected and load-bearing: the diff shows exactly which trades the filters removed. The other five definitions must stay byte-for-byte identical (SC-G13). |

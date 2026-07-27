@@ -5,6 +5,9 @@ its membership is the only place a definition's variant flags are read -
 so both are asserted here rather than inferred from engine behavior.
 """
 
+import datetime
+
+from api.services.backtest.entry_gate import ALWAYS_OPEN, FilteredEntry
 from api.services.backtest.policies import (
     ArmBreakEven,
     DoubleTarget,
@@ -14,7 +17,7 @@ from api.services.backtest.policies import (
     Target,
     TimeCut,
 )
-from api.services.backtest.rules import build_exit_chain
+from api.services.backtest.rules import build_entry_gate, build_exit_chain
 from model import BacktestDefinition, BacktestParameters
 
 PARAMS = BacktestParameters()
@@ -149,6 +152,52 @@ class TestChainComposition:
             StructuralStop,
             ArmBreakEven,
         ]
+
+
+class TestEntryGate:
+    """Entry filters are read here, the same place the exit chain is
+    built, so a definition's flags stay read in exactly one module."""
+
+    TRADING_DATE = datetime.date(2026, 6, 2)
+
+    def test_a_definition_without_filters_gets_the_always_open_gate(self):
+        gate = build_entry_gate(_definition(), self.TRADING_DATE)
+
+        assert gate is ALWAYS_OPEN
+
+    def test_the_filters_are_carried_onto_the_gate(self):
+        definition = _definition(
+            last_entry_time=datetime.time(16, 0), max_daily_losses=2
+        )
+
+        gate = build_entry_gate(definition, self.TRADING_DATE)
+
+        assert isinstance(gate, FilteredEntry)
+        assert gate.cutoff_utc == datetime.datetime(2026, 6, 2, 14, 0)
+        assert gate.max_losses == 2
+
+    def test_either_filter_alone_still_builds_a_gate(self):
+        cut_off_only = build_entry_gate(
+            _definition(last_entry_time=datetime.time(16, 0)),
+            self.TRADING_DATE,
+        )
+        cap_only = build_entry_gate(
+            _definition(max_daily_losses=2), self.TRADING_DATE
+        )
+
+        assert cut_off_only.max_losses is None
+        assert cap_only.cutoff_utc is None
+
+    def test_only_g9hic_ships_with_entry_filters(self):
+        from api.services.backtest import list_definitions
+
+        filtered = [
+            definition.code
+            for definition in list_definitions()
+            if build_entry_gate(definition, self.TRADING_DATE)
+            is not ALWAYS_OPEN
+        ]
+        assert filtered == ["G9HIC"]
 
 
 class TestRegisteredDefinitionChains:
