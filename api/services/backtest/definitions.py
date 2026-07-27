@@ -2,7 +2,12 @@
 
 from typing import List, Optional
 
-from model import BacktestDefinition, BacktestParameters, Strategy
+from model import (
+    BacktestDefinition,
+    BacktestParameters,
+    EuCfdMarket,
+    Strategy,
+)
 
 BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
     BacktestDefinition(
@@ -60,6 +65,28 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         instrument="FRA40.I",
         min_h1_range_points=40.0,
         structural_stop=True,
+    ),
+    # The impulsive-candle variant: the G9HSL single-lot GER40 setup with
+    # the fixed 150-point stop replaced by "only an impulsive candle takes
+    # us out". stop_loss_points is carried for shape only - nothing reads
+    # it under an impulse stop (FR-G15), as is already true of B9HWS. It
+    # trades the 9:00-22:00 CFD session, so a position can run five hours
+    # past the Xetra cash close before an end-of-day exit.
+    BacktestDefinition(
+        code="G9HIC",
+        name=Strategy.G9HIC.value,
+        display_name="GER40 Bougie de 9h (bougie impulsive)",
+        instrument="GER40.I",
+        market=EuCfdMarket(),
+        default_parameters=BacktestParameters(
+            stop_loss_points=150,
+            take_profit_offset_points=10,
+            break_even_trigger_points=50,
+            max_entry_distance_points=40,
+        ),
+        min_h1_range_points=70.0,
+        impulsive_candle_points=70.0,
+        impulsive_close_fraction=0.25,
     ),
 ]
 

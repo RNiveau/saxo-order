@@ -186,3 +186,71 @@ Task: "G9H /day aggregated-trade test in tests/api/routers/test_backtest.py"    
 - No `assert` in production code — raise explicit exceptions (Constitution II.5 / v1.3.0).
 - B9H/B9HTC must stay byte-for-byte unchanged — all new behavior is gated behind `double_take_profit` / `stop_from_reference_level` per-definition flags.
 - Commit after each task or logical group; conventional commit prefixes (`feat:`/`test:`/`docs:`).
+
+---
+
+# Addendum tasks: "GER40 Bougie de 9h (bougie impulsive)" (`G9HIC`)
+
+**Input**: [spec.md](./spec.md) §Addendum, [plan.md](./plan.md) §Addendum
+**Base**: the refactored `api/services/backtest/` package (PR #672) — paths below supersede the `api/services/backtest_service.py` references in the tasks above.
+
+**Tests**: INCLUDED — SC-G07 requires every FR-G14 boundary verified against manual calculation.
+
+## Phase 7: Market plumbing (Blocking Prerequisites)
+
+**Purpose**: Give a `BacktestDefinition` its own market so the CFD session window exists before any strategy rule needs it. No behavior change to existing definitions.
+
+- [ ] T025 Move `Market`, `USMarket` and `EUMarket` from `model/__init__.py` into a new `model/market.py`, and re-export all three from `model/__init__.py` so existing imports are untouched (plan §Addendum/1 — required to avoid a circular import from `model/backtest.py`).
+- [ ] T026 Add `EuCfdMarket` to `model/market.py`: `open_hour=9`, `open_minutes=0`, `close_hour=21`, `end_minute=60` (a 22:00 close, `USMarket` convention), `timezone="Europe/Paris"`, `h4_blocks=[3, 4, 4, 2]`; export it from `model/__init__.py` (FR-G12). Depends on T025.
+- [ ] T027 Add `market: Market = field(default_factory=EUMarket)` to `BacktestDefinition` in `model/backtest.py` (FR-G13). Depends on T025.
+- [ ] T028 Parameterise `api/services/backtest/calendar.py` by market: `paris_reference_window_utc(trading_date, market)`, `paris_session_end_utc(trading_date, market)`, `is_today_not_yet_closed(d, market, now=None)`; drop the module-level `EUMarket()` hardcoding and update the module docstring. Depends on T026.
+- [ ] T029 Pass `definition.market` from `api/services/backtest/candle_source.py` (`_fetch_and_store`: both the H1 window and the session end) and from `BacktestService._fetch_daily_candles` in `api/services/backtest/service.py`. Depends on T027, T028.
+- [ ] T030 Thread the definition's market into `_parse_date`/`_parse_range` in `api/routers/backtest.py` (the definition is already resolved before both calls in every endpoint), so the "today's session has not closed yet" check uses the right close time. Depends on T028.
+- [ ] T031 [P] Update `tests/api/services/backtest/test_calendar.py` for the new signatures and add `EuCfdMarket` cases: the reference window is unchanged (9:00–10:00 Paris, both DST regimes), the session end is 22:00 Paris (20:00 UTC summer / 21:00 UTC winter), and `is_today_not_yet_closed` uses the 22:00 close. Update `tests/api/services/backtest/market_fixture.py` call sites. Depends on T028.
+
+**Checkpoint**: full suite green; every existing definition still runs the 9:00–17:30 `EUMarket` window (SC-G09).
+
+---
+
+## Phase 8: The impulse rule (Priority: P1) 🎯
+
+**Goal**: A definition carrying an impulse threshold exits only on an impulsive adverse candle that breaks the H1 level, its take-profit, its armed break-even stop, or end of day.
+
+**Independent Test**: Hand-built candle days exercising every FR-G14 boundary (SC-G07).
+
+### Tests for Phase 8 (write first, expect FAIL)
+
+- [ ] T032 [P] Add `closed_near_adverse_extreme` tests to `tests/api/services/backtest/test_side.py`: long stopped by a close in the bottom quarter, not by a mid-range close; the short mirror on the top quarter; the boundary (exactly 25% counts).
+- [ ] T033 [P] Add `tests/api/services/backtest/test_engine_impulsive.py` covering, per SC-G07: an adverse move far past where a 150-point stop would sit leaves the position open (FR-G15); a 70-point candle closing in the bottom quarter below the H1 low closes it at that candle's close with `stop_loss` (FR-G14); a 70-point candle closing mid-range does not; a 69-point candle closing in the bottom quarter below the level does not; an impulsive candle in our favor does not; take-profit beats an impulse on the same candle (FR-G16); an armed break-even stop beats an impulse (FR-G16); end-of-day closes at the last candle's close; the short mirror off the H1 high; and an H1 range of exactly 70 is `no_trade` (FR-G17).
+- [ ] T034 [P] Add `G9HIC` registry assertions to `tests/api/services/backtest/test_definitions.py` (code list, GER40 defaults, `EuCfdMarket`, `min_h1_range_points=70`, `impulsive_candle_points=70`, `impulsive_close_fraction=0.25`, count 5 → 6) and `__post_init__` guard cases: non-positive threshold, out-of-range fraction, one of the pair set without the other, and the rejected `structural_stop` combination.
+- [ ] T035 [P] Add the `G9HIC` chain-shape case to `tests/api/services/backtest/test_rules.py`: `Stop(only_when_armed=True)`, `Target`, `ImpulsiveStop`, `ArmBreakEven`, in that order.
+
+### Implementation for Phase 8
+
+- [ ] T036 Add `Side.closed_near_adverse_extreme(candle, fraction)` to `api/services/backtest/side.py` (plan §Addendum/2 — one expression for both directions, multiplicative so no zero-range guard is needed). Depends on T032.
+- [ ] T037 Add `impulsive_candle_points: Optional[float] = None` and `impulsive_close_fraction: Optional[float] = None` to `BacktestDefinition` in `model/backtest.py`, with `__post_init__` guards: positive threshold, fraction strictly inside (0, 1), the two set together, and rejected alongside `structural_stop`. Depends on T027.
+- [ ] T038 Add the `ImpulsiveStop` policy to `api/services/backtest/policies.py`: returns `None` when break-even is armed; requires amplitude `>= points`, `closed_near_adverse_extreme(candle, fraction)`, and `closed_beyond(position.structural_level, candle)`; closes at `candle.close` with `ExitReason.STOP_LOSS` (a market exit, no gap-fill). Docstring must state that the amplitude is the full range including wicks and that the shape test is what carries the "against us" direction. Depends on T036, T037.
+- [ ] T039 Extend `build_exit_chain` in `api/services/backtest/rules.py`: an impulse definition takes the `Stop(only_when_armed=True)` head (like `structural_stop`), and `ImpulsiveStop` is appended after `Target()`. Depends on T038.
+- [ ] T040 Export `ImpulsiveStop` from `api/services/backtest/__init__.py` alongside the other policies. Depends on T038.
+- [ ] T041 Register the `G9HIC` definition in `api/services/backtest/definitions.py` and add `G9HIC = "Bougie de 9h GER40 (bougie impulsive)"` to `Strategy` in `model/enum.py`: `GER40.I`, `market=EuCfdMarket()`, defaults 150/10/50/40, `min_h1_range_points=70.0`, `impulsive_candle_points=70.0`, `impulsive_close_fraction=0.25`, with a comment recording that `stop_loss_points` is unused here. Depends on T026, T039.
+
+**Checkpoint**: T032–T035 pass; `G9HIC` runs end to end from the menu.
+
+---
+
+## Phase 9: Polish & regression
+
+- [ ] T042 Run `poetry run black . && poetry run isort . && poetry run flake8 && poetry run mypy .` and fix violations in changed files (79-char lines).
+- [ ] T043 Run the full backend suite `poetry run pytest -q` and confirm no existing test changed behavior beyond the mechanical `calendar.py` signature updates (SC-G09).
+- [ ] T044 Confirm no frontend change is needed: the menu is driven by `GET /api/backtest/definitions`, and `G9HIC` carries no new response field (SC-G06).
+
+## Dependencies
+
+- **Phase 7** blocks Phase 8 (the definition needs a market before it can carry one).
+- Within Phase 8: `Side` predicate → definition fields → policy → chain → registration.
+- **Phase 9** last.
+
+## Parallel Opportunities
+
+- T031 runs alongside T032–T035 (different files).
+- T032/T033/T034/T035 are four independent test files.

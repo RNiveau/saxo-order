@@ -135,3 +135,92 @@ Requirements below are numbered FR-G## and are additive/override requirements on
 - **TP1 is the H1 midpoint** `(h1_high + h1_low)/2`, the same level for both directions (Clarifications, 2026-07-23). The 50% fraction and the two-lot count are fixed strategy properties, not tunable parameters.
 - A position is surfaced as **one aggregated trade** (net points = both lots summed); the two lots are an internal mechanic, not two separate trades in any output (Clarifications, 2026-07-23). Its exit reason reflects the runner's final exit; its summary classification is by net-points sign (FR-G08).
 - "CAC40 Bougie de 9h" and its time-cut variant are unchanged by this feature; the Backtest menu now lists three hardcoded backtests. No generic backtest-authoring capability is being built.
+
+---
+
+# Addendum: "GER40 Bougie de 9h (bougie impulsive)" variant
+
+**Added**: 2026-07-27
+**Input**: User description: "Let's introduce the concept of impulsive candle: it's a very biggest candle than the other one. To simplify for now, let's say 70 pts for a dax 5 min candle. For the SL we don't close the position except if we have a impulsive candle or end of day. It's a new backtest definition. We don't trade range smaller than 70 pts. Create also a new market: EuCfdMarket, open at 9 am and close 10 pm, we trade over this market."
+
+## Context
+
+This addendum defines a **fourth GER40 backtest**, `G9HIC` — "GER40 Bougie de 9h (bougie impulsive)". It is a **new definition**, not a change to `G9H` or `G9HSL`, both of which stay byte-for-byte unchanged.
+
+It takes the **single-lot** GER40 setup (`G9HSL`) and replaces the fixed 150-point stop-loss with an **impulse stop**: the position is never closed by price merely trading through a level. It is closed only by an **impulsive candle** moving against it, by its take-profit, by its break-even stop once armed, or by end of day. Two further differences: days whose 9:00–10:00 H1 range is too narrow are not traded at all, and the session runs on a new **CFD market window** (9:00–22:00 Paris) rather than the 17:30 cash close.
+
+## Clarifications
+
+### Session 2026-07-27
+
+- Q: How is an "impulsive candle" measured on a 5-minute DAX candle? → A: On the **full range including wicks**: `high − low ≥ 70` points. Not the body.
+- Q: Does an impulsive candle alone close the position? → A: No. Three conditions must hold together: (1) impulsive amplitude, (2) the candle **closes near the extreme that hurts the position** — within 25% of its own range from that extreme, so a long wick that came back does not count, and (3) the candle **closes beyond the H1 reference level** on the losing side (the same confirmed-break condition the wide-range structural variant uses). The exit is a market exit at that candle's **close**.
+- Q: Which side counts as "near the low (or high depending on the direction)"? → A: The side that hurts the open position. For a **long**, the adverse extreme is the candle's **low**, so `(close − low) / (high − low) ≤ 0.25`. For a **short** it is the **high**, so `(high − close) / (high − low) ≤ 0.25`. The shape test therefore carries the "against us" direction intrinsically — a 70-point candle closing near its high can never stop a long.
+- Q: Is the fixed stop-loss distance still applied at all? → A: No. There is **no fixed stop distance** while break-even is unarmed. Once the +50-point break-even trigger fires, the break-even stop at the entry price becomes an ordinary intrabar stop, exactly as in the wide-range structural variant.
+- Q: Single lot or the double take-profit? → A: **Single lot**, with the take-profit (H1 far level − 10) and the +50-point break-even arming kept. This isolates what the impulse stop itself changes relative to `G9HSL`.
+- Q: "We don't trade range smaller than 70 pts" — which range? → A: The **day's 9:00–10:00 H1 reference range** (`h1_high − h1_low`), reusing the existing minimum-range filter (`min_h1_range_points`), whose established semantics reject a range that is **not strictly greater** than the threshold — a range of exactly 70.0 is therefore not traded. Reused as-is rather than introducing a second convention.
+- Q: What are the `EuCfdMarket` hours, and what does the backtest use them for? → A: **09:00–22:00 Europe/Paris**, DST-aware like every other market. The backtest uses it for the **session end** — 5-minute candles are scanned from 10:00 to 22:00 instead of to the 17:30 Euronext cash close — and therefore for where an end-of-day exit lands. The 9:00–10:00 H1 reference window is unchanged (`EuCfdMarket` also opens at 9:00).
+
+## User Scenarios & Testing
+
+### User Story 4 - Run the impulsive-candle backtest (Priority: P1)
+
+A trader selects the Backtest menu, picks "GER40 Bougie de 9h (bougie impulsive)", chooses a past trading day or a date range, and sees a strategy that holds through ordinary adverse moves and only gives up when a genuinely violent 5-minute candle breaks the H1 level against it.
+
+**Why this priority**: It is the whole point of the variant — testing whether surviving noise, at the cost of an unbounded worst case, beats a fixed 150-point stop.
+
+**Independent Test**: Run the backtest against a historical GER40.I day whose 9:00–10:00 range exceeds 70 points and whose afternoon contains a known 70-point 5-minute candle, and verify the position survives every smaller adverse candle and closes at the impulsive candle's close.
+
+**Acceptance Scenarios**:
+
+1. **Given** a day whose H1 range (`h1_high − h1_low`) is not strictly greater than 70 points, **When** the backtest runs, **Then** the day is reported as **no trade**, no 5-minute candles are fetched, and no position is opened.
+2. **Given** an open long from a confirmed breakout, **When** price falls far below the entry — past where a 150-point stop would have sat — but no 5-minute candle satisfies all three impulse conditions, **Then** the position **stays open**.
+3. **Given** an open long, **When** a 5-minute candle has a range of at least 70 points, closes within the bottom 25% of its own range, and closes below the H1 low, **Then** the position is closed at **that candle's close** with exit reason `stop_loss`, with no gap-fill adjustment (it is a market exit).
+4. **Given** an open long, **When** a 5-minute candle spans 70 points but closes mid-range (a long lower wick that came back), **Then** the position **stays open** — the candle is not impulsive against it.
+5. **Given** an open long, **When** a 5-minute candle closes in the bottom 25% of its range and below the H1 low but spans only 69 points, **Then** the position **stays open**.
+6. **Given** an open long, **When** a candle satisfies all three impulse conditions **and** the same candle also reaches the take-profit level, **Then** the **take-profit wins** — a target is touched intrabar while the impulse stop is measured on the close.
+7. **Given** an open long whose break-even has been armed by the +50-point trigger, **When** price returns to the entry price, **Then** the position closes at break-even as an ordinary intrabar stop (with the FR-010 gap-fill), and the impulse rule no longer applies.
+8. **Given** an open position that meets no take-profit, no armed break-even stop and no impulsive candle, **When** the session ends at **22:00 Paris**, **Then** it is closed at the last 5-minute candle's close with exit reason `end_of_day`.
+9. **Given** the mirror-image setup off the H1 high, **When** a valid short confirms, **Then** the impulse stop fires only on a candle spanning at least 70 points that closes within the **top** 25% of its range and **above** the H1 high.
+
+---
+
+### Edge Cases
+
+- **Zero-range candle**: a candle with `high == low` cannot reach 70 points, so the amplitude test rejects it before the shape test is consulted; no division by zero is possible (the shape test is expressed multiplicatively).
+- **Impulse and armed break-even on the same candle**: once break-even is armed, the break-even stop leads the chain and closes the position at the entry price; the impulse rule is not reached. This is deliberate — an armed position has a real stop again and no longer needs the impulse fallback.
+- **Impulsive candle in our favor**: never closes the position. A 70-point candle closing near its high is, for a long, a large favorable move; it can only trigger the take-profit or arm break-even.
+- **Unbounded loss on a gap**: with no fixed stop, a single 5-minute candle can carry the position far past where a 150-point stop would have exited before the impulse rule fires on its close. This is inherent to the variant and is what the backtest is meant to measure — the loss column, not just the win rate, is the result of interest.
+- **Longer session, more candles**: extending the scan to 22:00 roughly doubles the 5-minute candles per day versus the 17:30 cash close, so a position can survive far longer, and end-of-day exits land at the 21:55 candle's close. Days already cached under other definitions are unaffected — this definition has its own cache key.
+
+## Requirements
+
+Requirements below are numbered FR-G1## and are additive on top of spec 021 and the FR-G0## requirements above. Every requirement not overridden here applies unchanged.
+
+- **FR-G11**: System MUST provide a hardcoded backtest **"GER40 Bougie de 9h (bougie impulsive)"** (code `G9HIC`, `Strategy.G9HIC`), selectable from the Backtest menu alongside the existing definitions. It runs on `GER40.I`, single lot, with the GER40 default thresholds (FR-G09). Registering it MUST NOT change the behavior of any existing definition.
+- **FR-G12**: System MUST define a new market, **`EuCfdMarket`** — Europe/Paris, open **09:00**, close **22:00**, DST-aware like the existing markets — and `G9HIC` MUST run its session against it. The 5-minute scan window is 10:00 → 22:00 Paris local, and an end-of-day exit is the close of the last 5-minute candle in that window. The 9:00–10:00 H1 reference window is unchanged.
+- **FR-G13**: A `BacktestDefinition` MUST carry the market its session is derived from, defaulting to `EUMarket` so every existing definition keeps the 9:00–17:30 window it runs today. The reference-window, session-end and "today's session has not closed yet" calculations MUST all use the definition's market rather than a hardcoded one.
+- **FR-G14**: A 5-minute candle is **impulsive against an open position** when all three hold: (a) `high − low ≥ 70` points (the definition's `impulsive_candle_points`); (b) the candle closes within **25%** of its range (`impulsive_close_fraction`) of the extreme adverse to the position — `(close − low) ≤ 0.25 × (high − low)` for a long, `(high − close) ≤ 0.25 × (high − low)` for a short; (c) the candle **closes beyond the H1 reference level** on the position's losing side (below the H1 low for a long, above the H1 high for a short).
+- **FR-G15**: For `G9HIC`, an open position MUST NOT be closed by any fixed stop-loss distance. While break-even is unarmed, the only stop is FR-G14's impulse stop, which closes the position at **that candle's close** with exit reason `stop_loss` (a market exit — the FR-010 gap-fill does not apply). The `stop_loss_points` threshold is unused by this definition.
+- **FR-G16**: The take-profit (FR-008, H1 far level − offset) and the break-even arming (FR-008a, at the GER40 default of 50 points) MUST apply unchanged. Once armed, the break-even stop at the entry price is an ordinary intrabar stop with the FR-010 gap-fill, and it takes precedence over the impulse rule. A take-profit reached on the same candle as an impulse MUST resolve as the take-profit, since a target is touched intrabar while the impulse stop is measured on the close.
+- **FR-G17**: `G9HIC` MUST NOT trade a day whose H1 range is not strictly greater than **70 points**, reusing the existing minimum-range filter: such a day is reported as `no_trade` and its 5-minute candles are not fetched.
+- **FR-G18**: The impulse threshold (70 points), the close fraction (25%), the minimum H1 range (70 points) and the single-lot structure are **fixed properties** of this backtest, NOT per-run tunable parameters — like the time-cut variant's 30-minute / 5-point settings (FR-031) and the double-TP fraction (FR-G09). The four numeric thresholds remain tunable per run, with the GER40 defaults, though `stop_loss_points` has no effect here (FR-G15).
+
+### Key Entities
+
+- **Market** (extended): `EuCfdMarket` joins `EUMarket`/`USMarket` as a session definition (09:00–22:00 Europe/Paris). `BacktestDefinition` gains a `market` field so each backtest states which session it runs on.
+- **Backtest Definition** (extended): gains `impulsive_candle_points` and `impulsive_close_fraction`. When the former is set, the exit chain swaps its fixed stop for the impulse stop. Both default to "off" so existing definitions are unaffected.
+
+## Success Criteria
+
+- **SC-G06**: A trader can select "GER40 Bougie de 9h (bougie impulsive)" and run a single day and a multi-week range, receiving the same outputs (day detail, summary, CSVs) as every other definition, with no frontend change required.
+- **SC-G07**: On hand-built candle days covering every FR-G14 boundary — impulsive-and-adverse-and-beyond-level, impulsive but closing mid-range, adverse-and-beyond-level but only 69 points, impulsive in our favor, impulse-vs-take-profit on one candle, armed-break-even-beats-impulse, and end-of-day at 22:00 — the reported exits and points match manual calculation exactly.
+- **SC-G08**: A day whose H1 range is ≤ 70 points reports `no_trade` and performs no 5-minute fetch.
+- **SC-G09**: `B9H`, `B9HTC`, `G9H`, `G9HSL` and `B9HWS` produce byte-for-byte identical results before and after this change, and continue to use the 9:00–17:30 `EUMarket` window.
+
+## Assumptions
+
+- 70 points is a placeholder calibrated by eye for a 5-minute DAX candle ("to simplify for now"), not a statistically derived threshold; it is a fixed property of the definition, so changing it means editing the definition (or registering another one), which is deliberate — it keeps the run parameters honest about what was actually tested.
+- The 25% close fraction is likewise fixed. It exists to exclude long-wick reversal candles that spanned 70 points but closed back inside the range.
+- GER40.I is quoted as a CFD outside the Xetra cash session, so 5-minute candles are expected to exist between 17:30 and 22:00. A day where Saxo returns nothing after 17:30 simply behaves as it does today (the scan ends with the last candle available).
+- The variant is expected to have a worse worst-case loss than `G9HSL` and a higher win rate; whether that trade is favorable is exactly what the backtest is being built to answer. No deployment decision is implied by adding it.

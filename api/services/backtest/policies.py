@@ -166,6 +166,52 @@ class DoubleTarget:
         return None
 
 
+class ImpulsiveStop:
+    """The only stop of the impulsive-candle variant (FR-G14/FR-G15).
+
+    That variant has no fixed stop distance at all: an ordinary adverse
+    move, however far, leaves the position open. It gives up only on an
+    *impulsive* candle against it, which takes three things at once:
+
+    1. amplitude - `high - low` of at least `points`, the full range with
+       wicks included, not the body;
+    2. shape - the close within `fraction` of that range from the extreme
+       adverse to the position, so a candle that spanned the distance on a
+       wick and closed back inside does not count. This test is also what
+       carries the "against us" direction: a wide candle closing near its
+       high can never stop a long;
+    3. confirmation - the close beyond the H1 reference level on the
+       losing side, the same condition StructuralStop uses.
+
+    The fill is that candle's close (a market exit, so no gap-fill), and
+    it sits after the target in the chain because it is measured on the
+    close while a target is touched intrabar. Once break-even is armed the
+    position has a real stop again and this rule steps aside.
+    """
+
+    def __init__(self, points: float, fraction: float):
+        self.points = points
+        self.fraction = fraction
+
+    def resolve(
+        self,
+        position: Position,
+        candle: Candle,
+        candle_time: datetime.datetime,
+    ) -> Optional[Trade]:
+        if position.be_armed:
+            return None
+        if candle.higher - candle.lower < self.points:
+            return None
+        if not position.side.closed_near_adverse_extreme(
+            candle, self.fraction
+        ):
+            return None
+        if not position.side.closed_beyond(position.structural_level, candle):
+            return None
+        return position.close(candle_time, candle.close, ExitReason.STOP_LOSS)
+
+
 class TimeCut:
     """The time-based cut for the "Bougie de 9h (time cut)" variant.
 

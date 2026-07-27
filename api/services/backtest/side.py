@@ -74,6 +74,25 @@ class Side:
         a confirmed break, not an intrabar wick."""
         return self.favorable(candle.close, level) < 0
 
+    def closed_near_adverse_extreme(
+        self, candle: Candle, fraction: float
+    ) -> bool:
+        """The candle closed within `fraction` of its own range from the
+        extreme that hurts this side - a decisive move against the
+        position rather than a long wick that came back.
+
+        For a long the adverse extreme is the low, so this asks whether
+        the close sits in the bottom `fraction` of the candle; for a short
+        it is the high and the test mirrors to the top. Written
+        multiplicatively rather than as a ratio, so a zero-range candle
+        needs no special case.
+        """
+        span = candle.higher - candle.lower
+        return (
+            self.favorable(candle.close, self.adverse_extreme(candle))
+            <= fraction * span
+        )
+
     def stop_fill(self, level: float, candle: Candle) -> float:
         """Fill for a stop-type exit: the candle open when it gapped
         adversely through the level, else the level itself (FR-010)."""

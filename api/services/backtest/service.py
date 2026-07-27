@@ -30,7 +30,6 @@ from model import (
     Candle,
     DayResult,
     DayResultSummary,
-    EUMarket,
     Trade,
     UnitTime,
 )
@@ -137,7 +136,7 @@ class BacktestService:
         all_trades: List[Trade] = []
 
         daily_candles = self._fetch_daily_candles(
-            definition.instrument, start_date, end_date
+            definition, start_date, end_date
         )
 
         current = start_date
@@ -183,7 +182,7 @@ class BacktestService:
 
     def _fetch_daily_candles(
         self,
-        instrument: str,
+        definition: BacktestDefinition,
         start_date: datetime.date,
         end_date: datetime.date,
     ) -> List[Candle]:
@@ -202,11 +201,16 @@ class BacktestService:
         )
         try:
             return self.candles_service.build_candles(
-                instrument, UnitTime.D, EUMarket(), count, reference
+                definition.instrument,
+                UnitTime.D,
+                definition.market,
+                count,
+                reference,
             )
         except SaxoException as e:
             self.logger.warning(
-                f"No daily candles for {instrument} regime measure: {e}"
+                f"No daily candles for {definition.instrument} "
+                f"regime measure: {e}"
             )
             return []
 

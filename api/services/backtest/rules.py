@@ -14,6 +14,7 @@ from api.services.backtest.policies import (
     ArmBreakEven,
     DoubleTarget,
     ExitPolicy,
+    ImpulsiveStop,
     Stop,
     StructuralStop,
     Target,
@@ -29,16 +30,20 @@ def build_exit_chain(
     each candle.
 
     The stop leads (FR-009: a stop and a target reached on the same candle
-    resolve conservatively as the stop) - except under a structural stop,
-    which is measured on the close and so is evaluated after the target,
-    which is reached intrabar. Break-even arming always trails, since it
-    closes nothing and must only apply to later candles.
+    resolve conservatively as the stop) - except for the close-measured
+    stops (structural, impulsive), which are evaluated after the target,
+    since a target is reached intrabar. Break-even arming always trails,
+    since it closes nothing and must only apply to later candles.
     """
     chain: List[ExitPolicy] = []
+    close_measured_stop = (
+        definition.structural_stop
+        or definition.impulsive_candle_points is not None
+    )
 
-    if definition.structural_stop:
+    if close_measured_stop:
         # No fixed stop distance applies until break-even arms; until then
-        # the stop is the close-beyond-level rule below.
+        # the stop is the close-measured rule appended below.
         chain.append(Stop(only_when_armed=True))
     else:
         chain.append(Stop())
@@ -48,6 +53,17 @@ def build_exit_chain(
 
     if definition.structural_stop:
         chain.append(StructuralStop())
+
+    if (
+        definition.impulsive_candle_points is not None
+        and definition.impulsive_close_fraction is not None
+    ):
+        chain.append(
+            ImpulsiveStop(
+                definition.impulsive_candle_points,
+                definition.impulsive_close_fraction,
+            )
+        )
 
     if (
         definition.time_cut_minutes is not None
