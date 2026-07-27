@@ -1,5 +1,6 @@
 """The registry of hardcoded backtests exposed by the Backtest menu."""
 
+import datetime
 from typing import List, Optional
 
 from model import (
@@ -71,7 +72,9 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
     # us out". stop_loss_points is carried for shape only - nothing reads
     # it under an impulse stop (FR-G15), as is already true of B9HWS. It
     # trades the 9:00-22:00 CFD session, so a position can run five hours
-    # past the Xetra cash close before an end-of-day exit.
+    # past the Xetra cash close before an end-of-day exit - hence the two
+    # entry filters (FR-G19/FR-G20), which bound how late and how deep
+    # into a losing day it will still open something new.
     BacktestDefinition(
         code="G9HIC",
         name=Strategy.G9HIC.value,
@@ -87,6 +90,8 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         min_h1_range_points=70.0,
         impulsive_candle_points=70.0,
         impulsive_close_fraction=0.25,
+        last_entry_time=datetime.time(16, 0),
+        max_daily_losses=2,
     ),
 ]
 

@@ -7,8 +7,15 @@ adding one policy) rather than threading another boolean through the
 engine.
 """
 
+import datetime
 from typing import List
 
+from api.services.backtest.entry_gate import (
+    ALWAYS_OPEN,
+    EntryGate,
+    FilteredEntry,
+    cutoff_utc,
+)
 from api.services.backtest.lots import SINGLE_LOT, LotModel, TwoLot
 from api.services.backtest.policies import (
     ArmBreakEven,
@@ -78,6 +85,29 @@ def build_exit_chain(
 
     chain.append(ArmBreakEven(params.break_even_trigger_points))
     return chain
+
+
+def build_entry_gate(
+    definition: BacktestDefinition, trading_date: datetime.date
+) -> EntryGate:
+    """The definition's entry filters (FR-G19/FR-G20), or a gate that
+    allows everything when it carries none - so the engine never asks
+    which backtest it is running.
+
+    Built per day, because the cut-off resolves to a different UTC instant
+    either side of a DST boundary and the loss counter is per trading
+    day."""
+    if (
+        definition.last_entry_time is None
+        and definition.max_daily_losses is None
+    ):
+        return ALWAYS_OPEN
+    cutoff = (
+        cutoff_utc(definition.last_entry_time, definition.market, trading_date)
+        if definition.last_entry_time is not None
+        else None
+    )
+    return FilteredEntry(cutoff, definition.max_daily_losses)
 
 
 def build_lot_model(definition: BacktestDefinition) -> LotModel:

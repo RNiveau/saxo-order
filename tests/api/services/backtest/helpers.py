@@ -93,6 +93,8 @@ IMPULSIVE_DEFINITION = BacktestDefinition(
     min_h1_range_points=70.0,
     impulsive_candle_points=70.0,
     impulsive_close_fraction=0.25,
+    last_entry_time=datetime.time(16, 0),
+    max_daily_losses=2,
 )
 GER_PARAMS = GER_DEFINITION.default_parameters
 

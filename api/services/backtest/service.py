@@ -19,7 +19,11 @@ from api.services.backtest.entry import DirectionSearch
 from api.services.backtest.lots import LotModel
 from api.services.backtest.policies import resolve_exit
 from api.services.backtest.position import Position
-from api.services.backtest.rules import build_exit_chain, build_lot_model
+from api.services.backtest.rules import (
+    build_entry_gate,
+    build_exit_chain,
+    build_lot_model,
+)
 from api.services.backtest.side import LONG, SHORT, Side
 from api.services.backtest.statistics import build_summary
 from client.aws_client import DynamoDBClient
@@ -110,7 +114,12 @@ class BacktestService:
 
         chronological = sorted(five_min_candles, key=candle_date)
         trades = self._evaluate_trades(
-            chronological, h1_high, h1_low, params, definition
+            chronological,
+            h1_high,
+            h1_low,
+            params,
+            definition,
+            trading_date,
         )
 
         status = DayStatus.TRADED if trades else DayStatus.NO_TRADE
@@ -234,6 +243,7 @@ class BacktestService:
         h1_low: float,
         params: BacktestParameters,
         definition: BacktestDefinition,
+        trading_date: datetime.date,
     ) -> List[Trade]:
         """Evaluate both directions concurrently, with at most one
         position open at any time. The H1 high/low reference levels are
@@ -245,6 +255,7 @@ class BacktestService:
         position: Optional[Position] = None
         chain = build_exit_chain(definition, params)
         lots = build_lot_model(definition)
+        gate = build_entry_gate(definition, trading_date)
         # TP1, where a two-lot position exits its first lot; None for a
         # single lot, where it is not consulted.
         first_target = lots.first_target_level(h1_high, h1_low)
@@ -281,6 +292,13 @@ class BacktestService:
                     side: search.feed(candle)
                     for side, search in searches.items()
                 }
+                # Checked after feeding, not before: the searches advance
+                # on every candle either way, so a gate-blocked entry
+                # leaves their state exactly where a confirmed-but-invalid
+                # entry does, and there is no second walk that behaves
+                # differently late in the day.
+                if not gate.allows(candle_time):
+                    continue
                 for side in (LONG, SHORT):
                     entry_price = entries[side]
                     if entry_price is not None:
@@ -303,6 +321,7 @@ class BacktestService:
             closed = resolve_exit(chain, position, candle, candle_time)
             if closed is not None:
                 trades.append(closed)
+                gate.record(closed)
                 position = None
                 self._reset(searches)
 

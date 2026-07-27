@@ -310,3 +310,130 @@ class TestSessionFetchWindow:
 
         assert start == datetime.datetime(2026, 6, 2, 8, 0)
         assert end == datetime.datetime(2026, 6, 2, 15, 30)
+
+
+def entry_sequence(base):
+    """The breach / candidate / breakout trio that opens a long at 8015,
+    placed so the *breakout* candle (the one the entry is timed at) starts
+    at offset `base`."""
+    return [
+        m5_candle(base - 2, 8005, 8010, 7990, 7995),
+        m5_candle(base - 1, 8000, 8015, 7995, 8010),
+        m5_candle(base, 8010, 8020, 8005, 8015),
+    ]
+
+
+class TestEntryCutoff:
+    """FR-G19: no position opened at or after 16:00 Paris.
+
+    m5_candle(n) is 08:00 UTC + 5n, and 16:00 Paris is 14:00 UTC in
+    summer, so offset 72 is exactly the cut-off and 71 is the last candle
+    that may open.
+    """
+
+    CUTOFF_OFFSET = 72
+
+    async def test_a_breakout_confirming_at_1555_still_opens(self):
+        candles = entry_sequence(self.CUTOFF_OFFSET - 1) + [
+            m5_candle(143, 8015, 8030, 8010, 8025),
+        ]
+
+        result = await run_impulsive(candles)
+
+        assert result.status == DayStatus.TRADED
+        assert len(result.trades) == 1
+        assert result.trades[0].entry_time == datetime.datetime(
+            2026, 6, 2, 13, 55
+        )
+
+    async def test_the_same_breakout_at_1600_does_not(self):
+        candles = entry_sequence(self.CUTOFF_OFFSET) + [
+            m5_candle(143, 8015, 8030, 8010, 8025),
+        ]
+
+        result = await run_impulsive(candles)
+
+        assert result.status == DayStatus.NO_TRADE
+        assert result.trades == []
+
+    async def test_nothing_opens_later_in_the_evening_either(self):
+        candles = entry_sequence(120) + [
+            m5_candle(143, 8015, 8030, 8010, 8025),
+        ]
+
+        result = await run_impulsive(candles)
+
+        assert result.trades == []
+
+    async def test_a_position_opened_at_1555_still_runs_to_22h(self):
+        """The cut-off blocks opening, never closing (FR-G21)."""
+        candles = entry_sequence(self.CUTOFF_OFFSET - 1) + [
+            m5_candle(100, 8015, 8020, 8010, 8018),
+            m5_candle(143, 8018, 8026, 8016, 8024),
+        ]
+
+        result = await run_impulsive(candles)
+
+        trade = result.trades[0]
+        assert trade.exit_reason == ExitReason.END_OF_DAY
+        assert trade.exit_time == datetime.datetime(2026, 6, 2, 19, 55)
+        assert trade.points == 9.0
+
+
+class TestDailyLossCap:
+    """FR-G20: no new position once two have closed at a loss."""
+
+    def _losing_cycle(self, base):
+        """Enter long at 8015 on offset `base`, stopped by an impulsive
+        candle on the next one for -75."""
+        return entry_sequence(base) + [
+            m5_candle(base + 1, 8010, 8012, 7935, 7940)
+        ]
+
+    def _winning_cycle(self, base):
+        """The same entry, taken to the 8090 take-profit for +75."""
+        return entry_sequence(base) + [
+            m5_candle(base + 1, 8020, 8090, 8015, 8085)
+        ]
+
+    async def test_the_third_setup_after_two_losses_is_refused(self):
+        candles = (
+            self._losing_cycle(2)
+            + self._losing_cycle(6)
+            + self._losing_cycle(10)
+        )
+
+        result = await run_impulsive(candles)
+
+        assert len(result.trades) == 2
+        assert [trade.points for trade in result.trades] == [-75.0, -75.0]
+
+    async def test_a_win_between_two_losses_leaves_the_gate_open(self):
+        """Proves the third cycle *would* have traded - the cap counts
+        losses, not trades."""
+        candles = (
+            self._losing_cycle(2)
+            + self._winning_cycle(6)
+            + self._losing_cycle(10)
+        )
+
+        result = await run_impulsive(candles)
+
+        assert len(result.trades) == 3
+        assert [trade.points for trade in result.trades] == [
+            -75.0,
+            75.0,
+            -75.0,
+        ]
+
+    async def test_the_cap_holds_for_the_rest_of_the_day(self):
+        candles = (
+            self._losing_cycle(2)
+            + self._losing_cycle(6)
+            + self._winning_cycle(10)
+            + self._winning_cycle(20)
+        )
+
+        result = await run_impulsive(candles)
+
+        assert len(result.trades) == 2
