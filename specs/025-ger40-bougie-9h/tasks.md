@@ -284,3 +284,42 @@ Task: "G9H /day aggregated-trade test in tests/api/routers/test_backtest.py"    
 ## Dependencies
 
 Phase 10 in order (fields → gate → builder → wiring → registration); Phase 11 tests are independent of each other except T054, which needs the wiring live; Phase 12 last.
+
+---
+
+# Addendum 3 tasks: two-lot impulsive variant (`G9HICD`)
+
+**Input**: [spec.md](./spec.md) §Addendum 3, [plan.md](./plan.md) §Addendum 3
+
+## Phase 13: The lot model
+
+- [x] T056 Add `runner_extension_points: Optional[float]` to `BacktestDefinition` in `model/backtest.py`, and rework the double-take-profit guards: exactly one of `first_target_fraction` / `runner_extension_points` on a double-TP definition; `runner_extension_points` positive and only valid with `double_take_profit`.
+- [x] T057 Replace `LotModel.first_target_level(h1_high, h1_low)` with `targets(side, h1_high, h1_low, take_profit_level) -> Targets` in `api/services/backtest/lots.py`, implemented for `SingleLot` and `TwoLot`, and add `ExtendedTwoLot(points)` returning `(take_profit_level, take_profit_level + side.sign * points)`.
+- [x] T058 Return `ExtendedTwoLot` from `build_lot_model` in `api/services/backtest/rules.py` when `runner_extension_points` is set. Depends on T056, T057.
+- [x] T059 Compute targets per side in `BacktestService._evaluate_trades` and pass each side's pair to its `DirectionSearch` and to `_open_position` (which now takes the runner target rather than recomputing it). Depends on T057.
+- [x] T060 Add `Strategy.G9HICD` to `model/enum.py` and register the `G9HICD` definition in `api/services/backtest/definitions.py`: `GER40.I`, `EuCfdMarket`, GER40 defaults, the inherited impulse/min-range/cut-off/loss-cap settings, `double_take_profit=True`, `runner_extension_points=100.0`. Depends on T058.
+
+## Phase 14: Tests
+
+- [x] T061 [P] Update `tests/api/services/backtest/test_lots.py` for the `targets()` API and add `ExtendedTwoLot`: TP1 is the take-profit passed in, TP2 is 100 beyond it, mirrored for a short; `SingleLot`/`TwoLot` behavior unchanged.
+- [x] T062 [P] Add `tests/api/services/backtest/test_engine_impulsive_double.py` covering SC-G14: TP1 then TP2; TP1 then break-even; an impulse before TP1 closing both lots at twice the leg; an impulse after TP1 losing to the break-even stop; the +50 trigger before TP1; end of day with both lots and with the runner alone; the short mirror.
+- [x] T063 [P] Add the `G9HICD` registry assertions and the new `__post_init__` guard cases to `tests/api/services/backtest/test_definitions.py`; add the chain shape (`Stop(only_when_armed)`, `DoubleTarget`, `ImpulsiveStop`, `ArmBreakEven`) to `test_rules.py`.
+- [x] T064 Add an SC-G15 test: over the same candles, `G9HICD` and `G9HIC` open positions at the same times and prices, and differ only in exits and points. Depends on T060.
+- [x] T065 Regenerate the golden snapshot; confirm only `G9HICD` rows are added and the other six are byte-for-byte unchanged (SC-G16). Depends on T060.
+
+## Phase 15: Polish
+
+- [x] T066 `poetry run black . && poetry run isort . && poetry run flake8 && poetry run mypy .`, then the full suite.
+
+---
+
+# Addendum 4 tasks: trail the runner to TP1 (`G9HICD`)
+
+- [x] T067 Add `ExitReason.TRAILING_STOP` to `model/enum.py` (the frontend renders reasons generically, so no UI change is needed).
+- [x] T068 Add `trail_to_first_target_points: Optional[float]` to `BacktestDefinition`, with guards: positive, and only valid with `double_take_profit` (there is no TP1 to trail to otherwise).
+- [x] T069 Add `trailed_to_first_target` to `Position` and make `stop_level` return the first target when it is set, ahead of the break-even entry level; report `TRAILING_STOP` from `_stop_exit` in that case.
+- [x] T070 Add the `TrailToFirstTarget(trigger_points)` policy to `api/services/backtest/policies.py` — arms only after the first lot has filled, never closes anything, so it trails the chain beside `ArmBreakEven`.
+- [x] T071 Append it in `build_exit_chain` when the definition carries a trigger, and set `trail_to_first_target_points=50.0` on `G9HICD`.
+- [x] T072 [P] Tests: the policy in `test_rules.py` (chain shape) and the end-to-end cases in `test_engine_impulsive_double.py` per SC-G17 — trail then fall back to TP1, trail then TP2, no trail without TP1 + 50, no trail before TP1 fills, arm-and-fall-back on one candle, the short mirror.
+- [x] T073 Regenerate the golden snapshot; only `G9HICD` rows may move (SC-G18).
+- [x] T074 `black`/`isort`/`flake8`/`mypy` and the full suite.

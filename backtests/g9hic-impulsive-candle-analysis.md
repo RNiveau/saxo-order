@@ -45,6 +45,15 @@ Third analysis in the "bougie de 9h" series, after
 > (Spearman −0.943 across the six windows, §7.2) — but it is **not
 > tradeable**: the ex-ante trailing-volatility gate fails at every
 > threshold (§7.3), and 2021 shows a quiet year can still lose.
+>
+> **The target-side fix was built and tested (§10).** `G9HICD` uncaps the
+> runner — two lots, the second targeting 100 points beyond the H1 range,
+> with a one-step trail. It works mechanically: average win rises from
+> +101 to **+162**. But the second lot doubles the pre-TP1 loss, so the
+> payoff ratio is unchanged at 0.70 and daily variance doubles. Across the
+> same six windows it nets **−5444** (t = −0.97) and is statistically
+> **indistinguishable from trading G9HIC at 1.5× size** (residual t =
+> −0.05). It is leverage, not edge.
 
 ## 1. What G9HIC is
 
@@ -530,8 +539,89 @@ survived four.
 - Tightening the daily loss cap or entry cut-off (§4).
 
 **If the idea is revisited**, it should be as a *new* strategy with a
-pre-registered hypothesis, not another variant of this entry. The one
-untried structural direction remains the **target**: §4's asymmetry comes
-from a capped take-profit facing an uncapped exit, and a trailing or
-measured-move target changes the side of the trade that is actually
-broken.
+pre-registered hypothesis, not another variant of this entry. The
+target-side direction this section previously recommended **has now been
+built and tested** — see §10.
+
+## 10. G9HICD — the uncapped-runner variant
+
+`G9HICD` (`definitions.py`, spec 025 addenda 3–4) is the fix §4 called
+for. Same entries, same impulse stop, same filters as G9HIC, but:
+
+- **Two lots.** The first banks at the ordinary take-profit
+  (`h1_high − 10`), where G9HIC exits outright.
+- **`runner_extension_points = 100`** — the runner targets 100 points
+  *beyond* that, deliberately outside the H1 range that capped every
+  earlier variant.
+- **`trail_to_first_target_points = 50`** — once the runner is 50 points
+  past TP1, its stop moves from break-even up to TP1, locking in at least
+  what the first lot banked.
+
+Run over the same six windows (2021-01-04 → 2026-06-30, 693 traded days,
+806 positions).
+
+### 10.1 The mechanism works
+
+| | G9HIC | **G9HICD** |
+|---|---|---|
+| Average win | +101 | **+162.54** |
+| Average loss | −141 | −230.66 |
+| **Payoff ratio** | 0.72 | **0.70** |
+| Win rate (excl. flats) | 55.0% | 56.1% |
+| Daily sd | 106.6 | **212.8** |
+
+Uncapping the target does raise the ceiling — average win is up 61%, and
+the §4 diagnosis was right about where the constraint sat. But the second
+lot doubles the loss before TP1 fills, so **the payoff ratio does not
+improve at all**, and daily variance exactly doubles.
+
+### 10.2 Which means it is leverage, not edge
+
+| Year | G9HIC | G9HICD | Delta |
+|---|---|---|---|
+| 2021 | −408 | **+493** | +901 |
+| 2022 | −1029 | −1883 | −855 |
+| 2023 | +583 | **+1676** | +1094 |
+| 2024 | +168 | **+1382** | +1214 |
+| 2025 | −2035 | −5137 | −3102 |
+| 2026 H1 | −832 | −1974 | −1142 |
+| **All six** | **−3553** | **−5444** | −1891 |
+
+Every window moves further from zero in the direction it was already
+going. Three improve, three worsen, and the aggregate gets worse because
+the losing windows were larger to begin with.
+
+The daily results correlate at **r = 0.936**. Subtracting a scaled G9HIC
+from G9HICD leaves nothing:
+
+| Residual | Sum | Mean/day | t |
+|---|---|---|---|
+| **G9HICD − 1.5 × G9HIC** | **−115** | **−0.17** | **−0.05** |
+| G9HICD − 1.8 × G9HIC | +951 | +1.37 | +0.48 |
+| G9HICD − 2.0 × G9HIC | +1662 | +2.40 | +0.83 |
+
+**G9HICD is statistically indistinguishable from trading G9HIC at 1.5×
+size.** The runner extension and the trail add no independent
+information — they are a position-sizing change wearing the costume of a
+strategy change.
+
+### 10.3 Headline
+
+| | |
+|---|---|
+| Traded days / positions | 693 / 806 |
+| **Net** | **−5444** |
+| Per day / per position | −7.86 / −6.75 |
+| Profit factor | 0.900 |
+| t-stat | **−0.97** |
+| **Max drawdown** | **9872** |
+| After 1 pt spread | **−6250** |
+
+Two windows in six are positive (2021, 2023, 2024 — three, but 2021 only
+just). A 9872-point drawdown against a −5444 result is unusable on its
+own terms, before any question of edge.
+
+**Verdict: the target-side experiment is answered and closed.** The
+capped take-profit really was the structural flaw §4 identified, and
+removing it really does produce bigger wins — but not bigger *relative*
+to the losses it also unlocks. There is no edge underneath to leverage.

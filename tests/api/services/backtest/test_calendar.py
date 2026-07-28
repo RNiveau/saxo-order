@@ -6,8 +6,9 @@ from api.services.backtest import (
     is_today_not_yet_closed,
     paris_reference_window_utc,
     paris_session_end_utc,
+    session_key,
 )
-from model import EuCfdMarket, EUMarket
+from model import EuCfdMarket, EUMarket, Market
 
 PARIS_TZ = ZoneInfo("Europe/Paris")
 
@@ -111,3 +112,31 @@ class TestEuCfdMarketSession:
         assert not is_today_not_yet_closed(
             datetime.date(2026, 6, 2), EuCfdMarket(), now=now
         )
+
+
+class TestSessionKey:
+    """session_key identifies the window a day's candles are fetched over
+    - the part of the raw-candle cache key that is not the instrument."""
+
+    def test_cash_session(self):
+        assert session_key(EUMarket()) == "0900-1730@Europe/Paris"
+
+    def test_cfd_session(self):
+        assert session_key(EuCfdMarket()) == "0900-2200@Europe/Paris"
+
+    def test_sessions_with_different_ends_do_not_collide(self):
+        assert session_key(EUMarket()) != session_key(EuCfdMarket())
+
+    def test_same_local_hours_in_another_timezone_do_not_collide(self):
+        """The session hours are exchange-local, so identical hours in a
+        different timezone cover a different UTC window and must not
+        share a cache entry."""
+        elsewhere = Market(
+            open_hour=9,
+            open_minutes=0,
+            close_hour=17,
+            h4_blocks=[3, 4, 2],
+            timezone="America/New_York",
+            end_minute=30,
+        )
+        assert session_key(elsewhere) != session_key(EUMarket())

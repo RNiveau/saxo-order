@@ -121,12 +121,50 @@ class TestRegistry:
             60,
         )
 
-    def test_only_the_impulsive_variant_left_the_cash_session(self):
-        """Derived from the registry rather than a second copy of it: any
-        definition that silently changed session would fail here."""
+    def test_only_the_impulsive_variants_left_the_cash_session(self):
+        """Derived from the registry rather than a second copy of it, and
+        keyed on the rule rather than on codes: the impulse stop is what
+        makes holding into the evening meaningful, so exactly the
+        definitions carrying one trade the CFD session."""
         for definition in list_definitions():
-            expected = EuCfdMarket if definition.code == "G9HIC" else EUMarket
+            expected = (
+                EuCfdMarket
+                if definition.impulsive_candle_points is not None
+                else EUMarket
+            )
             assert isinstance(definition.market, expected)
+
+    def test_g9hicd_is_the_two_lot_impulsive_variant(self):
+        definition = get_definition("G9HICD")
+        assert definition is not None
+        assert (
+            definition.display_name
+            == "GER40 Bougie de 9h (bougie impulsive, 2 lots)"
+        )
+        assert definition.double_take_profit is True
+        assert definition.runner_extension_points == 100.0
+        assert definition.trail_to_first_target_points == 50.0
+        # TP1 is the ordinary take-profit, not a fraction of the range.
+        assert definition.first_target_fraction is None
+
+    def test_g9hicd_inherits_every_g9hic_rule(self):
+        """The pair is a comparison of position management alone, so the
+        two definitions must differ *only* in the two-lot fields."""
+        single = get_definition("G9HIC")
+        double = get_definition("G9HICD")
+        assert single is not None and double is not None
+        shared = (
+            "instrument",
+            "default_parameters",
+            "min_h1_range_points",
+            "impulsive_candle_points",
+            "impulsive_close_fraction",
+            "last_entry_time",
+            "max_daily_losses",
+        )
+        for field_name in shared:
+            assert getattr(single, field_name) == getattr(double, field_name)
+        assert type(single.market) is type(double.market)
 
     def test_unknown_code_returns_none(self):
         assert get_definition("NOPE") is None
@@ -224,6 +262,54 @@ class TestBacktestDefinitionValidation:
         assert self._build(
             market=EuCfdMarket(), last_entry_time=datetime.time(18, 0)
         ).last_entry_time == datetime.time(18, 0)
+
+    def test_a_trail_without_a_first_target_is_rejected(self):
+        with pytest.raises(ValueError, match="first target to trail to"):
+            self._build(trail_to_first_target_points=50.0)
+
+    @pytest.mark.parametrize("trigger", [0, -50.0])
+    def test_a_non_positive_trail_trigger_is_rejected(self, trigger):
+        with pytest.raises(ValueError, match="must be positive"):
+            self._build(
+                double_take_profit=True,
+                runner_extension_points=100.0,
+                trail_to_first_target_points=trigger,
+            )
+
+    @pytest.mark.parametrize("trigger", [100.0, 150.0])
+    def test_a_trail_at_or_past_the_runner_target_is_rejected(self, trigger):
+        """The trail would never arm: DoubleTarget precedes it in the
+        chain, so the runner takes profit on any candle that reaches
+        TP1 + extension."""
+        with pytest.raises(ValueError, match="short of the runner"):
+            self._build(
+                double_take_profit=True,
+                runner_extension_points=100.0,
+                trail_to_first_target_points=trigger,
+            )
+
+    def test_two_target_placements_at_once_are_rejected(self):
+        with pytest.raises(ValueError, match="exactly one"):
+            self._build(
+                double_take_profit=True,
+                first_target_fraction=0.5,
+                runner_extension_points=100.0,
+            )
+
+    def test_double_take_profit_with_no_placement_is_rejected(self):
+        with pytest.raises(ValueError, match="nowhere to take profit"):
+            self._build(double_take_profit=True)
+
+    def test_runner_extension_without_double_take_profit_is_rejected(self):
+        with pytest.raises(ValueError, match="only used with"):
+            self._build(runner_extension_points=100.0)
+
+    @pytest.mark.parametrize("extension", [0, -100.0])
+    def test_a_non_positive_runner_extension_is_rejected(self, extension):
+        with pytest.raises(ValueError, match="must be positive"):
+            self._build(
+                double_take_profit=True, runner_extension_points=extension
+            )
 
     def test_half_configured_impulse_is_rejected(self):
         with pytest.raises(ValueError, match="impulsive-candle stop needs"):

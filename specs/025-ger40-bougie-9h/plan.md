@@ -140,7 +140,7 @@ A fourth GER40 backtest that keeps the single-lot `G9HSL` setup (take-profit at 
 
 `BacktestDefinition` gains `market: Market = field(default_factory=EUMarket)`. `api/services/backtest/calendar.py` stops hardcoding `EUMarket()` and takes the market as a parameter (`paris_reference_window_utc`, `paris_session_end_utc`, `is_today_not_yet_closed`); `candle_source.py` and `service._fetch_daily_candles` pass `definition.market`; `api/routers/backtest.py` threads it into `_parse_date`/`_parse_range`, which every endpoint already calls **after** `_resolve_definition`.
 
-No cache-schema bump: the raw-candle cache key is `code:instrument:vN`, so a new definition code gets its own namespace and no existing entry is reinterpreted under the longer session.
+No cache-schema bump: the raw-candle cache key is `code:instrument:vN`, so a new definition code gets its own namespace and no existing entry is reinterpreted under the longer session. *(Updated 2026-07-28: the key is now `instrument:session window:vN`, dropping the definition code. The longer CFD session is still isolated — it is now the session window itself, rather than the definition code, that keeps this variant from reading a cash-session entry.)*
 
 ### 2. The impulse rule
 
@@ -242,3 +242,58 @@ The engine change is then two lines: consult `gate.allows(candle_time)` before o
 |---|---|---|
 | A new `EntryGate` concept rather than two `if`s in `_evaluate_trades`. | The engine loop is the one place that already knows both the clock and the closed trades; adding two stateful conditions inline would put day-scoped state in the middle of the candle walk. | It is ~20 lines and is unit-testable without building candles. `build_entry_gate` returns an always-allow gate for the five definitions with neither filter, so their code path is unchanged. |
 | The `G9HIC` golden snapshot moves. | FR-G19/FR-G20 change which entries are taken. | Expected and load-bearing: the diff shows exactly which trades the filters removed. The other five definitions must stay byte-for-byte identical (SC-G13). |
+
+---
+
+# Addendum 3: two-lot impulsive variant (`G9HICD`)
+
+**Branch**: `claude/dax-backtest-impulsive-candle-61dj2p` | **Date**: 2026-07-27 | **Spec**: [spec.md](./spec.md) §Addendum 3
+
+## Summary
+
+A seventh definition: `G9HIC` plus a two-lot overlay whose first lot takes the standard take-profit and whose runner targets 100 points beyond it, with break-even armed on the TP1 fill. Everything else about `G9HIC` is inherited unchanged, and `G9HIC` itself is untouched.
+
+## Design
+
+### Where the two targets come from
+
+The existing `TwoLot` model computes TP1 as a fraction of the H1 range and leaves TP2 as the position's ordinary take-profit. This variant inverts that: TP1 *is* the ordinary take-profit and TP2 sits beyond it. Both are "where do this lot model's targets sit", so rather than bolt a second question onto the engine, `LotModel` gains one method that answers it whole:
+
+```python
+def targets(self, side, h1_high, h1_low, take_profit_level) -> Targets   # (first, runner)
+```
+
+- `SingleLot` → `(None, take_profit_level)` — no first target, runner target is the ordinary one.
+- `TwoLot(fraction)` → `(h1_low + fraction * range, take_profit_level)` — today's `G9H` behavior.
+- `ExtendedTwoLot(points)` → `(take_profit_level, take_profit_level + side.sign * points)`.
+
+This replaces `first_target_level(h1_high, h1_low)`, which could not express either half of the new model: it had no side (the midpoint is direction-independent, the standard take-profit is not) and no say over the runner's level.
+
+The engine then computes targets **per side** instead of once — a real change, since `G9H`'s midpoint was the same level for a long and a short while these are mirrored. `DirectionSearch` and `Position` each take the pair for their side.
+
+### Everything else falls out
+
+`build_exit_chain` already emits `DoubleTarget` for any two-lot definition and appends `ImpulsiveStop` for any impulse definition, so `G9HICD`'s chain — `Stop(only_when_armed=True)` → `DoubleTarget` → `ImpulsiveStop` → `ArmBreakEven` — needs no new code, and is the first shipped definition to combine those two flags. `DoubleTarget` already arms break-even on the TP1 fill (FR-G27), `TwoLot.total_points` already doubles a pre-TP1 exit leg (FR-G28), and the engine's end-of-day close already runs through the lot model (FR-G29).
+
+**A consequence worth stating**: because TP1 arming break-even is immediate and `ImpulsiveStop` stands down once armed, the impulse rule can never close the runner — it protects the pre-TP1 position only. That follows from the chosen semantics rather than from an implementation detail, and is recorded in the spec's Assumptions.
+
+### Definition fields and guards
+
+`runner_extension_points: Optional[float] = None`. `__post_init__` gains: it requires `double_take_profit`; it must be positive; and a double-take-profit definition must carry **exactly one** of `first_target_fraction` / `runner_extension_points` — two ways to place TP1 is one way too many, and the existing "double_take_profit requires first_target_fraction" guard is relaxed to that broader rule.
+
+## Constitution Check
+
+| Principle | Check | Result |
+|---|---|---|
+| I. Layered Architecture | New field in `model/`; lot model and its construction in the Service layer; no router, client or frontend change. | PASS |
+| II. Clean Code First | One `targets()` method replacing a narrower one rather than a second parallel accessor; the exit chain and points arithmetic are reused untouched; new `Strategy` enum member; guards raise rather than `assert`. | PASS |
+| III. Configuration-Driven | Two-lot structure and the 100-point extension are fixed strategy properties (FR-G31). | PASS |
+| IV. Safe Deployment | Additive: one definition, one field. Existing golden rows must not move (SC-G16). | PASS |
+| V. Domain Model Integrity | `Candle`/`Trade` throughout; no new instrument or market. | PASS |
+
+## Complexity Tracking
+
+| Design point | Why | Note |
+|---|---|---|
+| Changing `LotModel.first_target_level` into `targets()` rather than adding a second method. | The new model decides *both* levels, and the old signature had neither the side nor the runner. | Touches three implementations and their tests; the engine gets simpler (one call per side instead of a call plus a separate take-profit computation threaded into `_open_position`). |
+| Targets computed per side. | TP1 is now direction-dependent; `G9H`'s midpoint was not. | `G9H`'s behavior is unchanged because `TwoLot.targets` ignores the side it is handed. |

@@ -16,7 +16,7 @@ from api.services.backtest.definitions import (
     list_definitions,
 )
 from api.services.backtest.entry import DirectionSearch
-from api.services.backtest.lots import LotModel
+from api.services.backtest.lots import LotModel, Targets
 from api.services.backtest.policies import resolve_exit
 from api.services.backtest.position import Position
 from api.services.backtest.rules import (
@@ -256,18 +256,28 @@ class BacktestService:
         chain = build_exit_chain(definition, params)
         lots = build_lot_model(definition)
         gate = build_entry_gate(definition, trading_date)
-        # TP1, where a two-lot position exits its first lot; None for a
-        # single lot, where it is not consulted.
-        first_target = lots.first_target_level(h1_high, h1_low)
+        # Where each side's take-profits sit. Per side, not once: the
+        # extended two-lot model's first target is the ordinary
+        # take-profit and so is mirrored between long and short, unlike
+        # the H1 midpoint, which is the same level for both.
+        targets = {
+            side: lots.targets(
+                side,
+                h1_high,
+                h1_low,
+                self._take_profit_level(side, h1_high, h1_low, params),
+            )
+            for side in (LONG, SHORT)
+        }
 
         searches = {
             side: DirectionSearch(
                 side,
                 h1_high,
                 h1_low,
-                self._take_profit_level(side, h1_high, h1_low, params),
+                targets[side].runner,
                 params.max_entry_distance_points,
-                first_target,
+                targets[side].first,
             )
             for side in (LONG, SHORT)
         }
@@ -308,7 +318,7 @@ class BacktestService:
                             entry_price,
                             h1_high,
                             h1_low,
-                            first_target,
+                            targets[side],
                             lots,
                             params,
                             definition,
@@ -362,7 +372,7 @@ class BacktestService:
         entry_price: float,
         h1_high: float,
         h1_low: float,
-        first_target: Optional[float],
+        targets: Targets,
         lots: LotModel,
         params: BacktestParameters,
         definition: BacktestDefinition,
@@ -381,12 +391,10 @@ class BacktestService:
             entry_time=candle_time,
             entry_price=entry_price,
             side=side,
-            take_profit_level=BacktestService._take_profit_level(
-                side, h1_high, h1_low, params
-            ),
+            take_profit_level=targets.runner,
             stop_loss_points=params.stop_loss_points,
             lots=lots,
-            first_target_level=first_target,
+            first_target_level=targets.first,
             initial_stop_price=initial_stop_price,
             h1_high=h1_high,
             h1_low=h1_low,

@@ -308,3 +308,146 @@ A trader running "GER40 Bougie de 9h (bougie impulsive)" sees no entries taken a
 - 16:00 and "two losses" are, like the 70-point threshold, judgement calls stated to be tested rather than derived — fixed on the definition so a run's results always correspond to the rules as shipped.
 - The loss cap is evaluated when a position **closes**, so the third entry of a day is blocked only if both prior positions have already resolved as losses; this falls out of the one-position-at-a-time rule and needs no separate ordering rule.
 - Both filters reduce the number of trades and are expected to reduce the number of days that end deeply negative. Whether they improve the strategy overall is what the run is for; adding them implies no deployment decision.
+
+---
+
+# Addendum 3: two-lot impulsive variant (`G9HICD`)
+
+**Added**: 2026-07-27
+**Input**: User description: "I want to do a last test: do the same impulsive strategy with two lots. tp1 as of today. tp2 is 100 pts above (if long). As usual we close everything end of day."
+
+## Context
+
+A **seventh definition**, `G9HICD` — "GER40 Bougie de 9h (bougie impulsive, 2 lots)". It is `G9HIC` with a two-lot / double-take-profit overlay, and inherits every other rule of that variant unchanged: the impulse stop with no fixed stop distance (FR-G14/FR-G15), the 70-point minimum H1 range (FR-G17), the 9:00–22:00 CFD session (FR-G12), the 16:00 entry cut-off and the two-loss daily cap (FR-G19/FR-G20).
+
+`G9HIC` is deliberately left as-is so it remains the single-lot control this variant is measured against — the same relationship `G9HSL` has to `G9H`.
+
+The difference from the existing double-TP variant (`G9H`) is where the two targets sit. `G9H` splits *inside* the H1 range: TP1 at the midpoint, TP2 just short of the far end. `G9HICD` puts TP1 where the single-lot variant already takes profit and sends the runner **beyond the H1 range entirely**, 100 points further. It is a test of whether the impulse stop's willingness to sit through noise is worth a target the range-bound variants can never reach.
+
+## Clarifications
+
+### Session 2026-07-27 (3)
+
+- Q: "TP1 as of today" — which level is that? → A: The take-profit `G9HIC` uses now: the **H1 far level minus the take-profit offset** (H1 high − 10 for a long, H1 low + 10 for a short, at the GER40 default offset). Not the H1 midpoint that `G9H` uses for its first lot.
+- Q: TP2 is "100 pts above" — above what? → A: **100 points beyond TP1**, in the position's favorable direction: `TP1 + 100` for a long, `TP1 − 100` for a short. So for a long, TP2 = H1 high + 90 — outside the H1 range. Measuring from TP1 rather than from the entry keeps TP2 strictly beyond TP1 whatever the H1 range and whatever the entry price.
+- Q: When TP1 fills, does the runner get a break-even stop, or does it keep running under the impulse rule alone? → A: **Break-even**, exactly as `G9H` does (FR-G04). Once the first lot is banked the runner's stop moves to the entry price, and from then on it is an ordinary intrabar stop that takes precedence over the impulse rule.
+- Q: Does this replace `G9HIC` or ship alongside? → A: **Alongside**, as a new definition. `G9HIC` stays the single-lot control.
+- Q: Are the 100-point runner extension and the two-lot structure tunable per run? → A: **No** — fixed properties of the definition, like the 70-point impulse threshold and the 25% close fraction (FR-G18/FR-G22).
+
+## User Scenarios & Testing
+
+### User Story 6 - Run the two-lot impulsive backtest (Priority: P1)
+
+A trader selects "GER40 Bougie de 9h (bougie impulsive, 2 lots)", runs a day or a range, and sees positions that bank the first lot at the usual target and let the second run 100 points past it, with the runner protected at break-even once the first is banked.
+
+**Why this priority**: It is the whole variant.
+
+**Independent Test**: Run a hand-built day where price reaches TP1 and then TP2, and one where it reaches TP1 and falls back, verifying the net points of each.
+
+**Acceptance Scenarios**:
+
+1. **Given** a valid long entry, **When** the position opens, **Then** it opens **two lots** at the same price, with TP1 at H1 high − 10 and TP2 at H1 high + 90.
+2. **Given** that open position, **When** price reaches **TP1** before any impulsive candle, **Then** the first lot closes at TP1 and the runner's stop moves to **break-even** (entry).
+3. **Given** the runner from Scenario 2, **When** price reaches **TP2**, **Then** the runner closes there and the position's net points is `(TP1 − entry) + (TP2 − entry)`.
+4. **Given** the runner from Scenario 2, **When** price falls back to the entry price instead, **Then** the runner closes at break-even and the position's net points is the banked TP1 alone.
+5. **Given** the runner from Scenario 2, **When** an impulsive candle occurs after TP1 filled, **Then** the **break-even stop wins** — the runner is already protected at entry, and an armed stop takes precedence over the impulse rule (FR-G16).
+6. **Given** an open two-lot position **before** TP1 fills, **When** an impulsive candle closes beyond the H1 level against it, **Then** **both lots** close at that candle's close and the net points is twice a single lot's loss.
+7. **Given** an open two-lot position before TP1 fills, **When** a candle reaches the +50 break-even trigger, **Then** the shared stop moves to entry as usual (FR-G06), and the impulse rule no longer applies.
+8. **Given** any position still open at the session end, **When** 22:00 is reached, **Then** **every lot still open** closes at the last 5-minute candle's close, whether that is both lots or the runner alone.
+9. **Given** the mirror short setup, **When** it confirms, **Then** TP1 is H1 low + 10 and TP2 is H1 low − 90, with everything else mirrored.
+
+---
+
+### Edge Cases
+
+- **TP1 and TP2 on the same candle**: both fill on it, as in `G9H` — net points is `(TP1 − entry) + (TP2 − entry)`. They are 100 points apart, so this needs a candle spanning at least that.
+- **An impulsive candle that also reaches TP1**: the take-profit wins, since a target is touched intrabar and the impulse is measured on the close (FR-G16). The first lot banks and the runner arms break-even; whether the runner then survives depends on later candles.
+- **Entry validity**: unchanged in effect. The double-TP rule requires the entry to sit strictly on the favorable side of **both** targets (FR-G02); since TP1 is the nearer of the two here, TP1 is the binding constraint — which is exactly the single-lot check `G9HIC` already applies. Given the same state, both variants therefore accept and reject exactly the same breakouts.
+- **But the two variants do not take the same *set* of trades over a day.** The runner holds the single position slot until TP2, break-even or the session end, while `G9HIC` exits outright at that same level and is immediately free to search again. On a day with several setups the single-lot variant can therefore take entries the two-lot variant is still holding through (FR-011, one position at a time). On the 42-day synthetic golden market this affects 4 days, where `G9HIC` takes 3 trades to `G9HICD`'s 2, and once 6 to 4. The daily loss cap (FR-G20) can compound the divergence, since the two variants may classify the same setup differently and so reach two losses at different points.
+- The comparison is therefore **not** a pure position-management A/B, and should not be read as one. It is closer than `G9HSL` vs `G9H` — those differ in entry *validity* — but "same entries, different management" holds only while both variants are flat at the same moment.
+- **TP2 is outside the H1 range by construction** (H1 high + 90 for a long). No H1-range check limits it, and the 70-point minimum range does not interact with it.
+- **The daily loss cap counts positions, not lots**: a two-lot position closing net-negative is one loss (FR-G20 counts a closed trade's net points, and a position is one aggregated trade per FR-G07).
+
+## Requirements
+
+- **FR-G24**: System MUST provide a hardcoded backtest **"GER40 Bougie de 9h (bougie impulsive, 2 lots)"** (code `G9HICD`, `Strategy.G9HICD`), running `GER40.I` on the CFD session with the GER40 default thresholds, and inheriting `G9HIC`'s impulse stop, minimum H1 range, entry cut-off and daily loss cap unchanged. Adding it MUST NOT change any existing definition, `G9HIC` included.
+- **FR-G25**: Every valid entry MUST open **two lots** at the confirmed entry price, managed together while both are open and sharing the same stop, exactly as FR-G02 specifies for `G9H`.
+- **FR-G26**: The first lot's target (TP1) MUST be the **standard take-profit level** — the H1 far level minus the take-profit offset (FR-008), the same level the single-lot `G9HIC` exits at. The runner's target (TP2) MUST be **`runner_extension_points` beyond TP1 in the favorable direction**, defaulting to **100**: `TP1 + 100` for a long, `TP1 − 100` for a short.
+- **FR-G27**: When TP1 fills, the runner's stop MUST move to the entry price (break-even) immediately, as FR-G04 specifies for `G9H`, independently of the +50-point trigger. From that point the runner has an ordinary intrabar stop, which takes precedence over the impulse rule (FR-G16).
+- **FR-G28**: While both lots are open the impulse stop (FR-G14) applies to the position as a whole: an impulsive candle closes **both** lots at its close, and the net points is twice a single lot's loss (FR-G07's aggregation).
+- **FR-G29**: At the session end every lot still open MUST close at the last 5-minute candle's close, whether that is both lots or the runner alone (FR-G12/FR-G07).
+- **FR-G30**: A position MUST be surfaced as **one aggregated trade** with the net points of both lots and classified by the sign of that net, exactly as FR-G07/FR-G08 specify for `G9H`. No new response shape is introduced.
+- **FR-G31**: The two-lot structure and the 100-point runner extension MUST be **fixed properties** of the definition, not per-run tunable parameters (extending FR-G18/FR-G22).
+
+### Key Entities
+
+- **Backtest Definition** (extended): gains `runner_extension_points`. When set alongside `double_take_profit`, it selects the "TP1 at the standard take-profit, TP2 beyond it" lot model instead of the fraction-of-the-range model `first_target_fraction` selects. Exactly one of the two MUST be set on a double-take-profit definition.
+
+## Success Criteria
+
+- **SC-G14**: On hand-built days covering every FR-G26/FR-G27 boundary — TP1 then TP2, TP1 then break-even, an impulse before TP1 closing both lots, an impulse after TP1 losing to the break-even stop, the +50 trigger before TP1, end of day with both lots and with the runner alone, and the short mirror — reported exits and net points match manual calculation exactly.
+- **SC-G15**: Given the same state, `G9HICD` accepts and rejects exactly the same breakouts as `G9HIC` — the two-lot entry filter (FR-G02) adds no constraint here, because TP1 is the ordinary take-profit the single-lot variant already checks. Over a whole day the trade *sets* may still differ, because the runner occupies the one-position-at-a-time slot for longer; that divergence is expected and must be visible in the results rather than assumed away.
+- **SC-G16**: `B9H`, `B9HTC`, `G9H`, `G9HSL`, `B9HWS` and `G9HIC` produce byte-for-byte identical golden results; only the new `G9HICD` rows are added.
+
+## Assumptions
+
+- 100 points is a judgement call to be tested, like the 70-point impulse threshold — fixed on the definition so a run's results always correspond to the rules as shipped.
+- Because the runner holds the position slot longer, `G9HICD` will generally take **fewer** trades per day than `G9HIC`. When reading the pair, compare points per day rather than per trade — the trade counts are not like-for-like.
+- Sending the runner beyond the H1 range is the point of the variant: the range-bound variants cap their upside at the far end of the 9h candle, and the impulse stop is what makes holding for more than that plausible. Whether it pays is what the run answers.
+- Because TP1 fills arm break-even, the runner's realistic outcomes are TP2, break-even, or end of day — an impulsive candle can only take the runner out in the window between TP1 filling and break-even being consulted on the next candle, which does not exist. The impulse stop therefore protects the **pre-TP1** position only, and that is intended (Clarifications, 2026-07-27 (3)).
+
+---
+
+# Addendum 4: trail the runner's stop to TP1 (`G9HICD`)
+
+**Added**: 2026-07-27
+**Input**: User description: "After 50 pts, raise the BE to TP1."
+
+## Context
+
+One rule added to `G9HICD` **in place**: once the runner has gained 50 points beyond TP1, its stop moves up from break-even (the entry price) to **TP1**. A one-step trail that guarantees the runner at least matches what the first lot banked, at the cost of giving up the break-even-or-better outcomes where price stalls between entry and TP1 after having poked past TP1 + 50.
+
+It only exists after TP1 has filled. Before that the position has no TP1 to trail to, and its stop is whatever FR-G15/FR-G27 make it.
+
+## Clarifications
+
+### Session 2026-07-27 (4)
+
+- Q: 50 points measured from where? → A: **Beyond TP1**, in the position's favorable direction: `TP1 + 50` for a long, `TP1 − 50` for a short. On an 8000–8100 range that is 8140 — halfway from TP1 (8090) to TP2 (8190). It is the only anchor where TP1 sits *below* the price when the rule fires; measured from the entry (8065) TP1 would still be above the market and the stop would fill instantly.
+- Q: Does this replace the break-even stop or come after it? → A: **After it.** TP1 filling still moves the runner to break-even (FR-G27); the trail then raises that stop a second time when the trigger is reached.
+- Q: What exit reason does a trailed stop report? → A: A new **`trailing_stop`**. Reporting `break_even` would be wrong — the trade closes with the runner in profit, not flat — and `take_profit` would be wrong too, since no target was reached.
+- Q: Is the 50-point trail trigger tunable per run? → A: **No** — a fixed property of the definition, like the 100-point runner extension.
+
+## User Scenarios & Testing
+
+### User Story 7 - Lock the runner in at TP1 (Priority: P1)
+
+**Acceptance Scenarios**:
+
+1. **Given** a runner whose TP1 has filled and whose stop is at entry, **When** a candle reaches **TP1 + 50**, **Then** the runner's stop moves to **TP1**, from the next candle onward.
+2. **Given** that trailed runner, **When** price falls back to TP1, **Then** the runner closes at TP1 with exit reason **`trailing_stop`**, and the position's net points is `2 × (TP1 − entry)` — the banked first lot plus the runner matching it.
+3. **Given** that trailed runner, **When** price instead reaches TP2, **Then** it closes at TP2 as usual; the trail never prevents the target.
+4. **Given** a runner whose TP1 has filled but which has **not** reached TP1 + 50, **When** price falls back to entry, **Then** it closes at break-even as before (FR-G27) — the trail has not armed.
+5. **Given** a position where TP1 has **not** filled, **When** price moves 50 points past anything, **Then** no trail arms: there is nothing to trail to.
+6. **Given** a candle that both reaches TP1 + 50 and falls back below TP1, **When** it is evaluated, **Then** the trail arms but does **not** close the position on that candle — like break-even arming, it takes effect from the next candle (FR-008a).
+7. **Given** the short mirror, **When** the runner reaches TP1 − 50, **Then** its stop moves down to TP1 and the same rules mirror.
+
+### Edge Cases
+
+- **The trail supersedes break-even, never the reverse**: once armed it is the runner's stop, and it can only ever be better than entry (TP1 is in profit by construction, since a valid entry sits strictly on the favorable side of TP1 per FR-G02).
+- **Arming and closing on the same candle are separate events**, so a spike to TP1 + 50 that closes back below TP1 arms the trail and leaves the position open until a *later* candle trades back to TP1.
+- **Nothing changes before TP1**, so the impulse stop's role (FR-G28) is untouched.
+- **A candle that both retraces to TP1 and reaches TP2 resolves as the trailed stop**, not the target — FR-009's stop-before-target convention, applied consistently. This is a real cost of the trail: on such a candle the runner takes TP1 instead of TP2 (150 points instead of 250 at the shipped settings). It is the second way the trail can cost points, alongside cutting short a runner that would have gone further.
+- **The trail trigger must be strictly short of the runner's extension.** At or beyond it the trail could never arm at all: `DoubleTarget` precedes `TrailToFirstTarget` in the chain, so any candle reaching `TP1 + extension` closes the position at TP2 first. Both numbers are fixed per definition, so this is rejected at registration rather than shipping as a silent no-op.
+
+## Requirements
+
+- **FR-G32**: On `G9HICD`, once the first lot has filled, the runner's stop MUST move to **TP1** the first time a candle reaches `TP1 + trail_to_first_target_points` in the favorable direction (default **50**), taking effect from the next candle, at most once.
+- **FR-G33**: A stop that fires at the trailed level MUST report the exit reason **`trailing_stop`**, distinct from `break_even` (flat) and `stop_loss`. The FR-010 gap-fill applies as to any price-level stop.
+- **FR-G34**: The trail MUST NOT arm before the first lot has filled, and MUST NOT apply to definitions without `trail_to_first_target_points`. `G9HIC` and every other definition are unchanged.
+- **FR-G35**: The trail trigger MUST be a fixed property of the definition, not a per-run tunable parameter, and MUST be **strictly less than** `runner_extension_points` — a trigger at or beyond the runner's target could never arm, since the take-profit resolves first.
+
+## Success Criteria
+
+- **SC-G17**: On hand-built days, a runner that reaches TP1 + 50 and falls back closes at TP1 as `trailing_stop` with net `2 × (TP1 − entry)`; one that does not reach it still closes at break-even with the banked TP1 alone.
+- **SC-G18**: Every definition other than `G9HICD` produces byte-for-byte identical golden results.

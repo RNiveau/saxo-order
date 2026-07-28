@@ -93,6 +93,32 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         last_entry_time=datetime.time(16, 0),
         max_daily_losses=2,
     ),
+    # G9HIC at two lots (FR-G24): same entries, same impulse stop, same
+    # filters - the first lot banks where G9HIC exits outright, and the
+    # runner targets 100 points beyond that, outside the H1 range the
+    # other variants cap themselves at. Because TP1 arms break-even, the
+    # impulse stop protects the pre-TP1 position only.
+    BacktestDefinition(
+        code="G9HICD",
+        name=Strategy.G9HICD.value,
+        display_name="GER40 Bougie de 9h (bougie impulsive, 2 lots)",
+        instrument="GER40.I",
+        market=EuCfdMarket(),
+        default_parameters=BacktestParameters(
+            stop_loss_points=150,
+            take_profit_offset_points=10,
+            break_even_trigger_points=50,
+            max_entry_distance_points=40,
+        ),
+        min_h1_range_points=70.0,
+        impulsive_candle_points=70.0,
+        impulsive_close_fraction=0.25,
+        last_entry_time=datetime.time(16, 0),
+        max_daily_losses=2,
+        double_take_profit=True,
+        runner_extension_points=100.0,
+        trail_to_first_target_points=50.0,
+    ),
 ]
 
 
