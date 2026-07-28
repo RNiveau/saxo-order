@@ -140,7 +140,7 @@ A fourth GER40 backtest that keeps the single-lot `G9HSL` setup (take-profit at 
 
 `BacktestDefinition` gains `market: Market = field(default_factory=EUMarket)`. `api/services/backtest/calendar.py` stops hardcoding `EUMarket()` and takes the market as a parameter (`paris_reference_window_utc`, `paris_session_end_utc`, `is_today_not_yet_closed`); `candle_source.py` and `service._fetch_daily_candles` pass `definition.market`; `api/routers/backtest.py` threads it into `_parse_date`/`_parse_range`, which every endpoint already calls **after** `_resolve_definition`.
 
-No cache-schema bump: the raw-candle cache key is `code:instrument:vN`, so a new definition code gets its own namespace and no existing entry is reinterpreted under the longer session.
+No cache-schema bump: the raw-candle cache key is `code:instrument:vN`, so a new definition code gets its own namespace and no existing entry is reinterpreted under the longer session. *(Updated 2026-07-28: the key is now `instrument:session window:vN`, dropping the definition code. The longer CFD session is still isolated — it is now the session window itself, rather than the definition code, that keeps this variant from reading a cash-session entry.)*
 
 ### 2. The impulse rule
 
