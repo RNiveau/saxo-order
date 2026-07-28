@@ -2,49 +2,49 @@
 
 Analysis of the **G9HIC** variant (`api/services/backtest/definitions.py`,
 spec `025-ger40-bougie-9h`), based on real Saxo data exported via the
-backtest CSV feature over four windows: **2023, 2024, 2025 and 2026 H1**.
+backtest CSV feature over six windows: **2021, 2022, 2023, 2024, 2025 and
+2026 H1** — roughly 5.5 years, 693 traded days, 884 positions.
 
 Third analysis in the "bougie de 9h" series, after
 `b9h-stop-loss-analysis.md` (CAC40) and `g9h-ger40-analysis.md`
 (GER40 double-TP and single-lot).
 
-> **Verdict: not deployable, but not dead either — and sharply
-> regime-dependent.** Over four windows G9HIC nets **−2116 pts** on 448
-> traded days and 589 positions (t = −0.94, per-position −3.59) — a
-> result statistically indistinguishable from zero, not the clear loser
-> the first two windows suggested.
+> **Verdict: no usable edge. Do not deploy.** Over six windows G9HIC nets
+> **−3553 pts** on 693 traded days and 884 positions
+> (t = −1.28, per-position −4.02), **−4437** after one point of spread.
+> Four of six windows are negative.
 >
-> The windows split cleanly in two:
+> | | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 H1 |
+> |---|---|---|---|---|---|---|
+> | Net | −408 | −1029 | **+583** | **+168** | −2035 | −832 |
+> | Profit factor | 0.87 | 0.84 | 1.21 | 1.06 | 0.75 | 0.81 |
+> | Per position | −3.58 | −5.68 | +5.16 | +1.44 | −8.85 | −6.45 |
+> | Median H1 range | 97.1 | 114.8 | 88.8 | 93.7 | 118.0 | 121.5 |
 >
-> | | 2023 | 2024 | 2025 | 2026 H1 |
-> |---|---|---|---|---|
-> | Net | **+583** | **+168** | −2035 | −832 |
-> | Profit factor | 1.21 | 1.06 | 0.75 | 0.81 |
-> | Median H1 range | 88.8 | 93.7 | 118.0 | 121.5 |
-> | Days traded | 38% | 37% | 67% | 70% |
+> The only two profitable windows are **2023 and 2024 — consecutive
+> years**, which is what a lucky run looks like.
 >
-> **Two profitable years, two losing ones**, and the split tracks
-> volatility almost perfectly: the strategy makes money in quiet years
-> where it trades ~38% of days, and loses in volatile years where it
-> trades ~68%.
+> **Every candidate edge found in this study has died when a new window
+> arrived.** That is now the central result:
 >
-> **But that regime cannot be traded.** A trailing-20-day volatility gate
-> — the obvious ex-ante way to capture it — was tested directly and
-> **fails** (§7.3): the bucket means are non-monotonic, the worst bucket
-> is in the middle, and every threshold from 100 upward is net negative.
-> The regime is a property of the *year*, visible only in hindsight.
+> | Finding | Looked solid on | Killed by |
+> |---|---|---|
+> | Four-filter stack | 2025 + 2026 H1 | 2024 (inverted), 2023 (halved) |
+> | **Avoid ADX 20–25** | 2023–2026, all four | **2021 (+25.4) and 2022 (+28.6)** |
+> | Quiet-year regime | 2023–2026 | 2021: quiet *and* losing |
 >
-> The earlier four-filter stack is separately dead: it inverted on 2024
-> and merely degraded 2023. The single replicated finding across all four
-> windows is **avoid ADX(14) 20–25** (negative in every window, n = 84).
+> **Correction to the two previous revisions of this document.** The
+> revision written on 2024–2026 said "retire the family"; the revision
+> after 2023 softened that to "park it, not a demonstrated loser," and
+> called **avoid ADX 20–25** "the single most replicated result in the
+> study." 2021 and 2022 falsify that: the ADX 20–25 bucket is *strongly
+> positive* in both (+25.4 and +28.6 per day), and the six-window mean
+> collapses to −3.4 at t = −0.34. It was coincidence across four windows.
 >
-> **Correction to the previous revision of this document**, which was
-> written on 2024–2026 only and concluded "no edge, retire the family."
-> That was too strong: 2023 is the best window in the set and 2024 is
-> also positive. The strategy is closer to break-even than stated. The
-> deployment recommendation does not change — nothing here is tradeable
-> without a working regime gate, and §7.3 shows the obvious one does not
-> work — but "retire" overstated the evidence.
+> A monotone relationship between volatility and performance does survive
+> (Spearman −0.943 across the six windows, §7.2) — but it is **not
+> tradeable**: the ex-ante trailing-volatility gate fails at every
+> threshold (§7.3), and 2021 shows a quiet year can still lose.
 
 ## 1. What G9HIC is
 
@@ -70,48 +70,35 @@ figures below are the fully-filtered behaviour, not a pre-#677 baseline.
 
 ## 2. Data
 
-| Window | Traded days | No-trade | Positions |
-|---|---|---|---|
-| 2023-01-02 → 2023-12-29 | 96 (38%) | 159 | 113 |
-| 2024-01-02 → 2024-12-30 | 95 (37%) | 159 | 117 |
-| 2025-01-02 → 2025-12-30 | 169 (67%) | 84 | 230 |
-| 2026-01-02 → 2026-06-30 | 88 (70%) | 37 | 129 |
-
-Parameters, all four runs: SL 150 (unused), TP offset 10, BE 50, max
-entry distance 40. Points are raw GER40.I index differences, single lot,
-no costs unless stated.
-
-**2023 and 2024 trade far less** — 37–38% of days vs 67–70% — because the
-DAX's 9:00–10:00 range was routinely below the 70-point minimum in those
-years. That is not a quirk of the export; it is the `min_h1_range = 70`
-filter correctly reflecting two much quieter years.
+Six runs, all with SL 150 (unused), TP offset 10, BE 50, max entry
+distance 40. Points are raw GER40.I index differences, single lot, no
+costs unless stated. 2021 and 2022 arrived in a single export and are
+split by calendar year here.
 
 ## 3. Headline results
 
-| | 2023 | 2024 | 2025 | 2026 H1 | **All four** |
-|---|---|---|---|---|---|
-| Traded days | 96 | 95 | 169 | 88 | 448 |
-| Positions | 113 | 117 | 230 | 129 | 589 |
-| **Net** | **+583** | **+168** | **−2035** | **−832** | **−2116** |
-| Per day | +6.07 | +1.77 | −12.04 | −9.45 | −4.72 |
-| **Per position** | **+5.16** | **+1.44** | **−8.85** | **−6.45** | **−3.59** |
-| Win / loss / flat | 49 / 36 / 11 | 47 / 32 / 16 | 59 / 60 / 50 | 37 / 29 / 22 | 192 / 157 / 99 |
-| Win rate (excl. flats) | 57.6% | 59.5% | 49.6% | 56.1% | 55.0% |
-| **Profit factor** | **1.21** | **1.06** | **0.75** | **0.81** | **0.90** |
-| t-stat | +0.73 | +0.22 | −1.31 | −0.69 | **−0.94** |
-| Max drawdown | 1144 | 701 | 2458 | 1840 | — |
-| Median H1 range | 88.8 | 93.7 | 118.0 | 121.5 | — |
+| | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 H1 | **All six** |
+|---|---|---|---|---|---|---|---|
+| Traded days | 101 | 144 | 96 | 95 | 169 | 88 | **693** |
+| % of days | 39% | 56% | 38% | 37% | 67% | 70% | — |
+| Positions | 114 | 181 | 113 | 117 | 230 | 129 | **884** |
+| **Net** | −408 | −1029 | **+583** | **+168** | −2035 | −832 | **−3553** |
+| Per day | −4.04 | −7.14 | +6.07 | +1.77 | −12.04 | −9.45 | −5.13 |
+| **Per position** | −3.58 | −5.68 | +5.16 | +1.44 | −8.85 | −6.45 | **−4.02** |
+| **Profit factor** | 0.87 | 0.84 | **1.21** | **1.06** | 0.75 | 0.81 | — |
+| t-stat | −0.53 | −0.73 | +0.73 | +0.22 | −1.31 | −0.69 | **−1.28** |
+| Max drawdown | 1014 | 1620 | 1144 | 701 | 2458 | 1840 | — |
+| Median H1 range | 97.1 | 114.8 | 88.8 | 93.7 | 118.0 | 121.5 | — |
 
-Four-window total **−2116 at t = −0.94** — indistinguishable from zero,
-not a demonstrated loser. At 1 point of spread per position: **−2705**.
+Six-window total **−3553 at t = −1.28**. The standard error of that total
+is 2768 points, so the result is 1.28 SE below zero — still short of
+significance, but now leaning clearly negative rather than sitting on it.
+At 1 point of spread per position: **−4437**.
 
-The ordering is the striking part. Sort the windows by median H1 range
-and the per-position result falls monotonically: 88.8 → +5.16,
-93.7 → +1.44, 118.0 → −8.85, 121.5 → −6.45. Four for four. §7.2 examines
-whether that is a real effect or a two-regime coincidence.
-
-**Flat days are 22% of all traded days** — the break-even stop is doing a
-lot of work, and the strategy spends a fifth of its days going nowhere.
+**Four of six windows are negative, and the two positive ones are
+consecutive.** 2023 and 2024 being adjacent matters: a two-year good run
+inside a six-year losing record is the shape of variance, not of an edge
+that switched off.
 
 ## 4. The structural problem: capped win, uncapped loss
 
@@ -172,7 +159,7 @@ All eight columns. Bucket means are points per day.
 
 > These tables cover **2025 and 2026 H1** — the two windows available
 > when the regime scan was run, and therefore the two the §7 filter stack
-> was fitted on. The four-window version, including 2023 and 2024, is in §7 and
+> was fitted on. The six-window version, including 2021–2024, is in §7 and
 > is the one that decides which of these patterns are real. Read the
 > "stable" markers below as *stable across the fitted windows*, not as
 > validated.
@@ -332,19 +319,47 @@ Zero for two out-of-sample. The rule that broke 2024 (avoid gap
 −592 there. **The stack is dead** — it only ever worked on the windows it
 was fitted to.
 
-### 7.2 The volatility regime — real pattern, unusable
+### 7.1b And the "quiet years are good" story breaks on 2021
 
-The four-window ordering by median H1 range is perfect (§3), and the
-single rule **avoid H1 range ≥ 200** is the best filter in the study:
+Sorted by median H1 range, all six windows:
 
-| | 2023 | 2024 | 2025 | 2026 H1 | **All** |
-|---|---|---|---|---|---|
-| Baseline | +583 | +168 | −2035 | −832 | −2116 |
-| Range < 200 | **+1032** | +85 | −744 | −500 | **−127** |
-| Delta | +449 | −83 | +1291 | +332 | **+1989** |
+| Window | Median H1 range | % days traded | Per position | |
+|---|---|---|---|---|
+| 2023 | 88.8 | 38% | **+5.16** | profit |
+| 2024 | 93.7 | 37% | **+1.44** | profit |
+| **2021** | **97.1** | **39%** | **−3.58** | **loss** |
+| 2022 | 114.8 | 56% | −5.68 | loss |
+| 2025 | 118.0 | 67% | −8.85 | loss |
+| 2026 H1 | 121.5 | 70% | −6.45 | loss |
 
-Dropping 37 days out of 448 (8%) removes 94% of the total loss. But it
-lands at −127, still not positive, t = −0.06.
+**2021 is a quiet year that lost money** — median range 97.1, only 39% of
+days traded, and −3.58 per position. So "quiet year ⇒ profitable" is
+false. Quiet years (median range < 100) go 2 wins, 1 loss; volatile years
+go 0 for 3.
+
+### 7.2 The volatility regime — real ordering, unusable
+
+Even with 2021 breaking the level, the *ordering* survives: rank the six
+windows by median H1 range and by per-position result and only 2025/2026
+swap. **Spearman ρ = −0.943 on n = 6.**
+
+That is nominally significant (the 5% critical value at n = 6 is ≈ 0.886)
+and it is the most robust pattern in the study. It is also close to
+worthless in practice, for three reasons: six calendar years are not six
+independent observations; this is the pattern I went looking for after
+seeing it in four windows; and — decisively — it does not survive being
+made forward-looking (§7.3).
+
+The single rule **avoid H1 range ≥ 200**, which looked like the best
+filter on four windows, also weakens badly:
+
+| | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 H1 | **All six** |
+|---|---|---|---|---|---|---|---|
+| Baseline | −408 | −1029 | +583 | +168 | −2035 | −832 | −3553 |
+| Range < 200 | −750 | −775 | **+1032** | +85 | −744 | −500 | **−1652** |
+
+It still improves the total (−3553 → −1652) but it **makes 2021 worse**,
+remains negative in 4 of 6 windows, and lands at t = −0.64.
 
 **And the within-window evidence is weak.** Correlation of `h1_range`
 with day points, computed inside each window separately:
@@ -381,48 +396,69 @@ days only, across all 442 traded days that have one:
 **Non-monotonic — the worst bucket is in the middle**, and the years
 disagree inside every bucket. As a gate:
 
-| Gate | Days | Net | Per-position | t | Years positive |
-|---|---|---|---|---|---|
-| `tvol` < 85 | 175 | +933 | +4.42 | +0.88 | 2 of 4 |
-| `tvol` < 100 | 239 | −475 | −1.63 | −0.34 | 2 of 4 |
-| `tvol` < 110 | 276 | −414 | −1.22 | −0.27 | 2 of 4 |
-| `tvol` < 120 | 339 | −1415 | −3.31 | −0.79 | 2 of 4 |
+Re-run across all six windows:
 
-Every threshold from 100 up is net negative, and even the best one
-(`< 85`, which keeps only 39% of days) is positive in just 2 of 4 years
-at t = +0.88. **The regime effect does not survive being made
-forward-looking.** It is a property of the calendar year, not a signal.
+| Gate | Days | Positions | Net | Per position | t | After 1 pt | Years positive |
+|---|---|---|---|---|---|---|---|
+| `tvol` < 85 | 258 | 306 | +734 | +2.40 | +0.57 | +428 | **2 of 6** |
+| `tvol` < 95 | 350 | 413 | +183 | +0.44 | +0.11 | −230 | **2 of 6** |
+| `tvol` < 100 | 390 | 463 | −759 | −1.64 | −0.42 | −1222 | 2 of 6 |
+| `tvol` < 110 | 447 | 535 | −1144 | −2.14 | −0.58 | −1679 | 2 of 6 |
+| `tvol` < 120 | 540 | 663 | −2569 | −3.87 | −1.12 | −3232 | 2 of 6 |
+
+Every gate is positive in **exactly the same 2 of 6 years** — 2023 and
+2024. The gate is not selecting good *days*; it is just a roundabout way
+of keeping more of the two years that happened to work. The best
+threshold (`< 85`) discards 63% of days to reach +734 at t = +0.57, and
+after costs +428 over 5.5 years is not a strategy.
+
+**The regime effect does not survive being made forward-looking.** It is
+a property of the calendar year, visible only in hindsight.
 
 That is the finding that matters most here, and it is the reason the
 deployment answer is unchanged despite two profitable years.
 
-### 7.4 What survives all four windows
+### 7.4 ADX 20–25 — the last survivor, falsified
 
-Re-running every bucket across all four windows, exactly **one**
-non-tautological bucket keeps its sign everywhere:
+The previous revision of this document called **avoid ADX(14) 20–25**
+"the single most replicated result in the study": negative in all four
+windows then available, at consistent magnitude. 2021 and 2022 reverse
+it outright.
 
-| Bucket | 2023 | 2024 | 2025 | 2026 H1 | All |
-|---|---|---|---|---|---|
-| **ADX 20–25** | −26.5 | −27.2 | −20.3 | −14.3 | −21.5/day, n=84, t=−1.56 |
+| Window | n | Mean pts/day |
+|---|---|---|
+| **2021** | 24 | **+25.40** |
+| **2022** | 26 | **+28.59** |
+| 2023 | 18 | −26.53 |
+| 2024 | 20 | −27.23 |
+| 2025 | 21 | −20.25 |
+| 2026 H1 | 25 | −14.34 |
+| **All six** | **134** | **−3.38 (t = −0.34)** |
 
-(Plus the `trade_count` buckets, which are the tautology described above.)
+Not a weakening — a clean sign flip, at magnitude, in both added windows.
+Across six windows the bucket is worth −3.4 points/day, indistinguishable
+from zero. **Four windows of agreement was coincidence.**
 
-The `|slope|` and `open-position` buckets that looked stable on three
-windows do **not** survive 2023. ADX 20–25 does, at consistent magnitude
-in all four — the single most replicated result in the study. It is an
-**avoid** rule, and avoiding it is not enough on its own.
+As a rule it is now useless: applying `avoid ADX 20–25` across six
+windows gives −3100 (t = −1.28), essentially the baseline. The two-rule
+combination that reached +1029 on four windows gives **−1721** on six.
 
-Best honest combination — the two rules with genuine cross-window support
-(`range < 200` and `avoid ADX 20–25`):
+### 7.5 The pattern behind all of this
 
-| 2023 | 2024 | 2025 | 2026 H1 | **All** |
-|---|---|---|---|---|
-| +1220 | +630 | −318 | −502 | **+1029** (+2.33/position, t = +0.59) |
+Three candidate edges, three deaths, each time from data that did not
+exist when the claim was made:
 
-Positive overall and **+588 after 1 point of spread** — but still
-negative in 2 of 4 windows and far from significant. Two rules chosen
-with all four windows visible is a milder fit than the four-rule stack,
-not a clean one.
+| Finding | Held on | Died on |
+|---|---|---|
+| Four-filter stack | 2025, 2026 H1 | 2024 (inverted +168 → −392), 2023 (halved) |
+| Quiet-year regime | 2023, 2024, 2025, 2026 | 2021 (quiet *and* losing) |
+| Avoid ADX 20–25 | 2023, 2024, 2025, 2026 | 2021 (+25.4), 2022 (+28.6) |
+
+Two of these survived **four** windows before failing. That is the
+practical lesson worth keeping from this whole exercise: with ~100
+traded days a year and a daily standard deviation of ~107 points, four
+windows of agreement is simply not much evidence. Nothing in this study
+ever reached |t| > 2 on a rule that was not a tautology.
 
 ## 8. Tails and concentration
 
@@ -441,11 +477,10 @@ evidence for §4.
 
 ## 9. Conclusion
 
-G9HIC is **not deployable, and not demonstrably a loser either**: −2116
-points over 448 traded days and 589 positions across four windows,
-profit factor 0.90, **t = −0.94** — indistinguishable from zero. Two
-windows are profitable (2023 +583 at PF 1.21, 2024 +168 at PF 1.06) and
-two are clearly negative (2025, 2026 H1).
+G9HIC has **no usable edge**: −3553 points over 693 traded days and 884
+positions across six windows spanning 5.5 years, **t = −1.28**, −4437
+after one point of spread. Four of six windows are negative, and the two
+positive ones (2023, 2024) are consecutive.
 
 The impulse stop is not the improvement it looks like. Paired against the
 fixed-stop variant on the same days it is worth +0.65 points/day
@@ -457,53 +492,46 @@ it does not have. The #677 entry cut-off and 2-loss daily cap were active
 throughout and cannot reach this — 84% of all loss arrives on days
 holding a single position (§4).
 
-**The results are strongly regime-dependent, and the regime is not
-tradeable.** Profitability tracks volatility with a perfect four-window
-ordering (§3), but the effect is essentially a between-year one — only
-2023 shows it within a window — and the obvious ex-ante capture, a
-trailing-volatility gate, **fails outright** (§7.3): non-monotonic
-buckets, disagreement between years inside every bucket, and net-negative
-results at every threshold from 100 up. Knowing that quiet years suit
-this strategy is not the same as knowing, on any given morning, whether
-today belongs to a quiet year.
+**Every candidate edge has been falsified by data added after the claim
+was made** (§7.5). The four-filter stack died on 2023–24; the quiet-year
+regime died on 2021; avoid-ADX-20–25 died on 2021–22, flipping from −21
+to +27 points/day. Two of the three survived four windows before failing.
 
-**Both filter leads are exhausted.** The four-rule stack inverted on 2024
-and halved 2023's profit. The two-rule combination (`range < 200`,
-`avoid ADX 20–25`) does reach +1029 across four windows and +588 after
-costs — the only positive aggregate in the study — but it is still
-negative in 2 of 4 windows, sits at t = +0.59, and was chosen with all
-four windows visible.
+The volatility ordering does survive (Spearman −0.943 across six
+windows), and it is the only pattern that has not broken. But it is not
+tradeable: **2021 was a quiet year that lost money**, and the ex-ante
+trailing-volatility gate is positive in exactly the two years that were
+already profitable (§7.3) — it selects good *years*, not good *days*.
 
 ### Next steps
 
-**Do not deploy.** Nothing here clears the bar: the unfiltered strategy
-is at zero, and the best filtered version is a weak positive selected in
-hindsight.
+**Do not deploy, and stop testing this family.** Six windows, 5.5 years,
+884 positions, three falsified leads. The question has been answered as
+well as this data can answer it.
 
-**Do not retire it outright either.** An earlier revision of this
-document said "retire the family" on 2024–2026 evidence; 2023 shows that
-was too strong. What is warranted is *parking* it: the four-window record
-is break-even, not a demonstrated loser, and two of four years were
-genuinely profitable.
-
-**The one test that would settle it** is 2022 and 2021 — specifically
-whether the quiet-year/volatile-year split repeats, or whether 2023–24
-were simply two good years in a row. Two exports. If quiet years are
-reliably profitable across six windows, a regime gate becomes worth
-designing properly (on realised volatility measured over months, not the
-20-day window that failed here). If not, the family is finished.
+The deeper constraint is statistical: at ~100 traded days a year and a
+daily sd of ~107 points, detecting a +2 points/day edge would take
+roughly 33 years of data. **No amount of additional history will settle
+a small edge here** — which means any future "promising" filter found on
+this dataset should be assumed to be noise until it survives a genuinely
+untouched window, and even then treated sceptically given that two rules
+survived four.
 
 **Not worth doing:**
 
-- Tuning TP / BE / max-distance on any of these windows — every such fit
-  in this series has inverted or degraded out-of-sample.
-- More day-level regime variables. Eight were scanned across four
-  windows; one non-tautological bucket (ADX 20–25) replicates.
+- More windows on G9HIC. 2020 and earlier would add two more coin flips,
+  not resolution.
+- Tuning TP / BE / max-distance — every such fit in this series has
+  inverted or degraded out-of-sample.
+- More day-level regime variables. Eight were scanned across six windows;
+  none survives that is not a tautology.
 - A fourth stop variant. Three have been tried; the paired tests show the
   stop is not what costs the money.
 - Tightening the daily loss cap or entry cut-off (§4).
 
-**If it is revisited structurally**, the untried direction remains the
-**target**, not the stop: §4's asymmetry comes from a capped take-profit
-facing an uncapped exit, and a trailing or measured-move target would be
-a genuinely different experiment.
+**If the idea is revisited**, it should be as a *new* strategy with a
+pre-registered hypothesis, not another variant of this entry. The one
+untried structural direction remains the **target**: §4's asymmetry comes
+from a capped take-profit facing an uncapped exit, and a trailing or
+measured-move target changes the side of the trade that is actually
+broken.
