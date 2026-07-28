@@ -4,6 +4,16 @@ Source: Ouinex API landing (https://api.ouinex.com/, live endpoint https://live-
 
 > ⚠️ The Ouinex API surface below was derived from the public landing page and is **incomplete**. Items marked **VERIFY** must be confirmed against full Ouinex docs (or the Ouinex team) before or during implementation. They do not block planning but shape the task list and risk profile.
 
+## Verification results (2026-07-28)
+
+Probed against the live endpoint. Introspection is **disabled** (Apollo, `INTROSPECTION_DISABLED`), so the schema can only be discovered through validation-error suggestions.
+
+- ❌ **Auth (Decision 3) — REFUTED.** There is no `signIn` mutation; `Cannot query field "signIn" on type "Mutation"` is the 400 that broke search. No candidate name validates (`login`, `signin`, `sign_in`, `auth`, `authenticate`, `token`, `refresh_token`, `api_key_login`, …). The schema is snake_case (`create_kyc_session`, `add_push_token`). **The real auth entry point is unknown and must come from Ouinex docs or support.**
+- ✅ **Instruments (search) — CONFIRMED, and it is PUBLIC.** `query { instruments { … } }` returns 100 instruments with **no** `Authorization` header. Real field names: `instrument_id` (String, e.g. `"BTCUSD"` — not an Int), `name` (`"BTC/USD"`), `base_currency { currency_id }`, `quote_currency { currency_id }`, `price` (`InstrumentPrice`). The spec's `id` / `symbol` / `baseCurrency` / `quoteCurrency` do not exist. About half the list are `*_CONV` conversion pairs, filtered out of search.
+- ❓ **Historical candles (Decision 4) — still unresolved.** Neither `price_bars` nor `candles` exists on `Query`. Combined with the unknown auth, this keeps the primary risk open.
+
+**Consequence:** search works unauthenticated today. Candles and reporting remain blocked on real Ouinex documentation — do not re-derive their schema by guessing.
+
 ---
 
 ## Decision 1: Provider modeled as a new `Exchange.OUINEX`, mapped to Binance only at the journal boundary
