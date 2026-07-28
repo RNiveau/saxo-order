@@ -437,13 +437,15 @@ It only exists after TP1 has filled. Before that the position has no TP1 to trai
 - **The trail supersedes break-even, never the reverse**: once armed it is the runner's stop, and it can only ever be better than entry (TP1 is in profit by construction, since a valid entry sits strictly on the favorable side of TP1 per FR-G02).
 - **Arming and closing on the same candle are separate events**, so a spike to TP1 + 50 that closes back below TP1 arms the trail and leaves the position open until a *later* candle trades back to TP1.
 - **Nothing changes before TP1**, so the impulse stop's role (FR-G28) is untouched.
+- **A candle that both retraces to TP1 and reaches TP2 resolves as the trailed stop**, not the target — FR-009's stop-before-target convention, applied consistently. This is a real cost of the trail: on such a candle the runner takes TP1 instead of TP2 (150 points instead of 250 at the shipped settings). It is the second way the trail can cost points, alongside cutting short a runner that would have gone further.
+- **The trail trigger must be strictly short of the runner's extension.** At or beyond it the trail could never arm at all: `DoubleTarget` precedes `TrailToFirstTarget` in the chain, so any candle reaching `TP1 + extension` closes the position at TP2 first. Both numbers are fixed per definition, so this is rejected at registration rather than shipping as a silent no-op.
 
 ## Requirements
 
 - **FR-G32**: On `G9HICD`, once the first lot has filled, the runner's stop MUST move to **TP1** the first time a candle reaches `TP1 + trail_to_first_target_points` in the favorable direction (default **50**), taking effect from the next candle, at most once.
 - **FR-G33**: A stop that fires at the trailed level MUST report the exit reason **`trailing_stop`**, distinct from `break_even` (flat) and `stop_loss`. The FR-010 gap-fill applies as to any price-level stop.
 - **FR-G34**: The trail MUST NOT arm before the first lot has filled, and MUST NOT apply to definitions without `trail_to_first_target_points`. `G9HIC` and every other definition are unchanged.
-- **FR-G35**: The trail trigger MUST be a fixed property of the definition, not a per-run tunable parameter.
+- **FR-G35**: The trail trigger MUST be a fixed property of the definition, not a per-run tunable parameter, and MUST be **strictly less than** `runner_extension_points` — a trigger at or beyond the runner's target could never arm, since the take-profit resolves first.
 
 ## Success Criteria
 

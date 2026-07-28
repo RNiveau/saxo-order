@@ -251,11 +251,11 @@ class TestTrailToFirstTarget:
         assert trade.exit_price == ENTRY
         assert trade.points == 75.0
 
-    async def test_the_trail_never_prevents_tp2(self):
+    async def test_the_trail_does_not_prevent_tp2_on_a_later_candle(self):
         candles = ger_entry_candles() + [
             tp1_fill_candle(),
             m5_candle(4, 8090, 8145, 8085, 8140),  # arms the trail
-            m5_candle(5, 8140, 8195, 8135, 8190),  # reaches TP2
+            m5_candle(5, 8140, 8195, 8135, 8190),  # reaches TP2, no retrace
         ]
 
         result = await run_impulsive_double(candles)
@@ -263,6 +263,25 @@ class TestTrailToFirstTarget:
         trade = result.trades[0]
         assert trade.exit_reason == ExitReason.TAKE_PROFIT
         assert trade.points == 250.0
+
+    async def test_the_trailed_stop_wins_when_one_candle_hits_both(self):
+        """FR-009 applied to the trail: a candle that retraces to TP1 and
+        also reaches TP2 resolves conservatively as the stop, because Stop
+        leads the chain. So the trail can cost the runner a take-profit -
+        250 points become 150 - which is a real cost of the rule and is
+        recorded here rather than left to be rediscovered."""
+        candles = ger_entry_candles() + [
+            tp1_fill_candle(),
+            m5_candle(4, 8090, 8145, 8085, 8140),  # arms the trail
+            m5_candle(5, 8140, 8195, 8080, 8190),  # dips to 8080 AND TP2
+        ]
+
+        result = await run_impulsive_double(candles)
+
+        trade = result.trades[0]
+        assert trade.exit_reason == ExitReason.TRAILING_STOP
+        assert trade.exit_price == TP1
+        assert trade.points == 150.0
 
     async def test_arming_and_falling_back_on_one_candle_does_not_close(self):
         """Like break-even arming, the trail applies from the *next*

@@ -225,6 +225,18 @@ class BacktestDefinition:
                 "would otherwise arm the instant the first lot filled "
                 f"(definition {self.code!r})"
             )
+        if (
+            self.trail_to_first_target_points is not None
+            and self.runner_extension_points is not None
+            and self.trail_to_first_target_points
+            >= self.runner_extension_points
+        ):
+            raise ValueError(
+                "trail_to_first_target_points must be short of the "
+                "runner's target - DoubleTarget precedes the trail in the "
+                "chain, so the runner would take profit before the trail "
+                f"could ever arm (definition {self.code!r})"
+            )
         if self.max_daily_losses is not None and self.max_daily_losses <= 0:
             raise ValueError(
                 "max_daily_losses must be positive - a cap of zero would "

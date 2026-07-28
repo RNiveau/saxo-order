@@ -276,6 +276,18 @@ class TestBacktestDefinitionValidation:
                 trail_to_first_target_points=trigger,
             )
 
+    @pytest.mark.parametrize("trigger", [100.0, 150.0])
+    def test_a_trail_at_or_past_the_runner_target_is_rejected(self, trigger):
+        """The trail would never arm: DoubleTarget precedes it in the
+        chain, so the runner takes profit on any candle that reaches
+        TP1 + extension."""
+        with pytest.raises(ValueError, match="short of the runner"):
+            self._build(
+                double_take_profit=True,
+                runner_extension_points=100.0,
+                trail_to_first_target_points=trigger,
+            )
+
     def test_two_target_placements_at_once_are_rejected(self):
         with pytest.raises(ValueError, match="exactly one"):
             self._build(
