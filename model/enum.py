@@ -9,6 +9,7 @@ class Strategy(EnumWithGetValue):
     G9HSL = "Bougie de 9h GER40 (lot unique)"
     B9HWS = "Bougie de 9h (wide-range structural stop)"
     G9HIC = "Bougie de 9h GER40 (bougie impulsive)"
+    G9HICD = "Bougie de 9h GER40 (bougie impulsive, 2 lots)"
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
     CRANGE = "Cassure de range"
@@ -143,6 +144,7 @@ class ExitReason(EnumWithGetValue):
     TAKE_PROFIT = "take_profit"
     END_OF_DAY = "end_of_day"
     TIME_CUT = "time_cut"
+    TRAILING_STOP = "trailing_stop"
 
 
 class DayStatus(EnumWithGetValue):

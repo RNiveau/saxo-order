@@ -3,8 +3,15 @@ bucket the run summary files it under."""
 
 import pytest
 
-from api.services.backtest.lots import SINGLE_LOT, Outcome, TwoLot
+from api.services.backtest.lots import (
+    SINGLE_LOT,
+    ExtendedTwoLot,
+    Outcome,
+    Targets,
+    TwoLot,
+)
 from api.services.backtest.rules import build_lot_model
+from api.services.backtest.side import LONG, SHORT
 from model import BacktestDefinition
 from model.enum import ExitReason
 from tests.api.services.backtest.helpers import closed_trade
@@ -22,8 +29,9 @@ class TestSingleLotPoints:
         value must not leak into its result."""
         assert SINGLE_LOT.total_points(10, 999, True) == 10
 
-    def test_has_no_first_target(self):
-        assert SINGLE_LOT.first_target_level(8050, 8000) is None
+    def test_has_no_first_target_and_runs_to_the_take_profit(self):
+        targets = SINGLE_LOT.targets(LONG, 8050, 8000, 8040)
+        assert targets == Targets(first=None, runner=8040)
 
 
 class TestTwoLotPoints:
@@ -39,8 +47,45 @@ class TestTwoLotPoints:
         assert TWO_LOT.total_points(0, 25, True) == 25
 
     def test_first_target_is_the_fraction_across_the_range(self):
-        assert TWO_LOT.first_target_level(8050, 8000) == 8025
-        assert TwoLot(0.25).first_target_level(8050, 8000) == 8012.5
+        assert TWO_LOT.targets(LONG, 8050, 8000, 8040) == Targets(
+            first=8025, runner=8040
+        )
+        assert TwoLot(0.25).targets(LONG, 8050, 8000, 8040).first == 8012.5
+
+    def test_the_fraction_is_the_same_level_for_a_short(self):
+        """The midpoint is direction-independent, so the side it is asked
+        for makes no difference."""
+        assert (
+            TWO_LOT.targets(LONG, 8050, 8000, 8040).first
+            == TWO_LOT.targets(SHORT, 8050, 8000, 8010).first
+        )
+
+
+class TestExtendedTwoLotTargets:
+    """FR-G26: the first lot takes the ordinary take-profit, the runner
+    goes a fixed distance beyond it - outside the H1 range."""
+
+    MODEL = ExtendedTwoLot(extension_points=100.0)
+
+    def test_long_banks_at_the_take_profit_and_runs_100_beyond(self):
+        assert self.MODEL.targets(LONG, 8100, 8000, 8090) == Targets(
+            first=8090, runner=8190
+        )
+
+    def test_short_mirrors_below(self):
+        assert self.MODEL.targets(SHORT, 8100, 8000, 8010) == Targets(
+            first=8010, runner=7910
+        )
+
+    def test_the_runner_target_sits_outside_the_h1_range(self):
+        targets = self.MODEL.targets(LONG, 8100, 8000, 8090)
+        assert targets.runner > 8100
+
+    def test_it_accounts_points_like_the_other_two_lot_model(self):
+        """Only the targets differ; the x2 pre-TP1 leg and the banked-plus
+        -runner sum are shared."""
+        assert self.MODEL.total_points(-165, 0, False) == -330
+        assert self.MODEL.total_points(15, 25, True) == 40
 
 
 class TestSingleLotClassification:

@@ -90,6 +90,17 @@ class BacktestDefinition:
     # backtests, which take entries at any hour and under any loss run.
     last_entry_time: Optional[datetime.time] = None
     max_daily_losses: Optional[int] = None
+    # The other way to place a double take-profit's two targets (spec 025
+    # addendum 3, FR-G26): instead of first_target_fraction's split inside
+    # the H1 range, the first lot takes the ordinary take-profit and the
+    # runner targets this many points beyond it - outside the H1 range.
+    # Exactly one of the two is set on a double-take-profit definition.
+    runner_extension_points: Optional[float] = None
+    # One-step trail for the runner (spec 025 addendum 4, FR-G32): once
+    # the first lot has filled and the runner has gained this many points
+    # beyond TP1, its stop moves up from break-even to TP1 itself, so the
+    # runner is locked in to at least match what the first lot banked.
+    trail_to_first_target_points: Optional[float] = None
 
     def __post_init__(self) -> None:
         """Reject at construction (registration) time any combination of
@@ -99,11 +110,38 @@ class BacktestDefinition:
         built; a flag that cannot take effect there would otherwise ship
         as a silent no-op, and the backtest would report results for
         rules it never applied."""
-        if self.double_take_profit and self.first_target_fraction is None:
+        placements = [
+            self.first_target_fraction is not None,
+            self.runner_extension_points is not None,
+        ]
+        if self.double_take_profit and not any(placements):
             raise ValueError(
-                "double_take_profit requires first_target_fraction - the "
-                "first lot would have nowhere to take profit (definition "
-                f"{self.code!r})"
+                "double_take_profit requires first_target_fraction or "
+                "runner_extension_points - the first lot would have "
+                f"nowhere to take profit (definition {self.code!r})"
+            )
+        if all(placements):
+            raise ValueError(
+                "first_target_fraction and runner_extension_points are two "
+                "ways to place the same pair of targets; set exactly one "
+                f"(definition {self.code!r})"
+            )
+        if (
+            self.runner_extension_points is not None
+            and not self.double_take_profit
+        ):
+            raise ValueError(
+                "runner_extension_points is only used with "
+                f"double_take_profit (definition {self.code!r})"
+            )
+        if (
+            self.runner_extension_points is not None
+            and self.runner_extension_points <= 0
+        ):
+            raise ValueError(
+                "runner_extension_points must be positive - the runner "
+                "would otherwise target the first lot's level or worse "
+                f"(definition {self.code!r})"
             )
         if (
             not self.double_take_profit
@@ -168,6 +206,36 @@ class BacktestDefinition:
             raise ValueError(
                 "an impulsive-candle stop is not supported together with a "
                 f"structural stop (definition {self.code!r})"
+            )
+        if (
+            self.trail_to_first_target_points is not None
+            and not self.double_take_profit
+        ):
+            raise ValueError(
+                "trail_to_first_target_points needs a first target to "
+                "trail to, which only a double take-profit has "
+                f"(definition {self.code!r})"
+            )
+        if (
+            self.trail_to_first_target_points is not None
+            and self.trail_to_first_target_points <= 0
+        ):
+            raise ValueError(
+                "trail_to_first_target_points must be positive - the trail "
+                "would otherwise arm the instant the first lot filled "
+                f"(definition {self.code!r})"
+            )
+        if (
+            self.trail_to_first_target_points is not None
+            and self.runner_extension_points is not None
+            and self.trail_to_first_target_points
+            >= self.runner_extension_points
+        ):
+            raise ValueError(
+                "trail_to_first_target_points must be short of the "
+                "runner's target - DoubleTarget precedes the trail in the "
+                "chain, so the runner would take profit before the trail "
+                f"could ever arm (definition {self.code!r})"
             )
         if self.max_daily_losses is not None and self.max_daily_losses <= 0:
             raise ValueError(
