@@ -395,3 +395,57 @@ A trader selects "GER40 Bougie de 9h (bougie impulsive, 2 lots)", runs a day or 
 - Because the runner holds the position slot longer, `G9HICD` will generally take **fewer** trades per day than `G9HIC`. When reading the pair, compare points per day rather than per trade — the trade counts are not like-for-like.
 - Sending the runner beyond the H1 range is the point of the variant: the range-bound variants cap their upside at the far end of the 9h candle, and the impulse stop is what makes holding for more than that plausible. Whether it pays is what the run answers.
 - Because TP1 fills arm break-even, the runner's realistic outcomes are TP2, break-even, or end of day — an impulsive candle can only take the runner out in the window between TP1 filling and break-even being consulted on the next candle, which does not exist. The impulse stop therefore protects the **pre-TP1** position only, and that is intended (Clarifications, 2026-07-27 (3)).
+
+---
+
+# Addendum 4: trail the runner's stop to TP1 (`G9HICD`)
+
+**Added**: 2026-07-27
+**Input**: User description: "After 50 pts, raise the BE to TP1."
+
+## Context
+
+One rule added to `G9HICD` **in place**: once the runner has gained 50 points beyond TP1, its stop moves up from break-even (the entry price) to **TP1**. A one-step trail that guarantees the runner at least matches what the first lot banked, at the cost of giving up the break-even-or-better outcomes where price stalls between entry and TP1 after having poked past TP1 + 50.
+
+It only exists after TP1 has filled. Before that the position has no TP1 to trail to, and its stop is whatever FR-G15/FR-G27 make it.
+
+## Clarifications
+
+### Session 2026-07-27 (4)
+
+- Q: 50 points measured from where? → A: **Beyond TP1**, in the position's favorable direction: `TP1 + 50` for a long, `TP1 − 50` for a short. On an 8000–8100 range that is 8140 — halfway from TP1 (8090) to TP2 (8190). It is the only anchor where TP1 sits *below* the price when the rule fires; measured from the entry (8065) TP1 would still be above the market and the stop would fill instantly.
+- Q: Does this replace the break-even stop or come after it? → A: **After it.** TP1 filling still moves the runner to break-even (FR-G27); the trail then raises that stop a second time when the trigger is reached.
+- Q: What exit reason does a trailed stop report? → A: A new **`trailing_stop`**. Reporting `break_even` would be wrong — the trade closes with the runner in profit, not flat — and `take_profit` would be wrong too, since no target was reached.
+- Q: Is the 50-point trail trigger tunable per run? → A: **No** — a fixed property of the definition, like the 100-point runner extension.
+
+## User Scenarios & Testing
+
+### User Story 7 - Lock the runner in at TP1 (Priority: P1)
+
+**Acceptance Scenarios**:
+
+1. **Given** a runner whose TP1 has filled and whose stop is at entry, **When** a candle reaches **TP1 + 50**, **Then** the runner's stop moves to **TP1**, from the next candle onward.
+2. **Given** that trailed runner, **When** price falls back to TP1, **Then** the runner closes at TP1 with exit reason **`trailing_stop`**, and the position's net points is `2 × (TP1 − entry)` — the banked first lot plus the runner matching it.
+3. **Given** that trailed runner, **When** price instead reaches TP2, **Then** it closes at TP2 as usual; the trail never prevents the target.
+4. **Given** a runner whose TP1 has filled but which has **not** reached TP1 + 50, **When** price falls back to entry, **Then** it closes at break-even as before (FR-G27) — the trail has not armed.
+5. **Given** a position where TP1 has **not** filled, **When** price moves 50 points past anything, **Then** no trail arms: there is nothing to trail to.
+6. **Given** a candle that both reaches TP1 + 50 and falls back below TP1, **When** it is evaluated, **Then** the trail arms but does **not** close the position on that candle — like break-even arming, it takes effect from the next candle (FR-008a).
+7. **Given** the short mirror, **When** the runner reaches TP1 − 50, **Then** its stop moves down to TP1 and the same rules mirror.
+
+### Edge Cases
+
+- **The trail supersedes break-even, never the reverse**: once armed it is the runner's stop, and it can only ever be better than entry (TP1 is in profit by construction, since a valid entry sits strictly on the favorable side of TP1 per FR-G02).
+- **Arming and closing on the same candle are separate events**, so a spike to TP1 + 50 that closes back below TP1 arms the trail and leaves the position open until a *later* candle trades back to TP1.
+- **Nothing changes before TP1**, so the impulse stop's role (FR-G28) is untouched.
+
+## Requirements
+
+- **FR-G32**: On `G9HICD`, once the first lot has filled, the runner's stop MUST move to **TP1** the first time a candle reaches `TP1 + trail_to_first_target_points` in the favorable direction (default **50**), taking effect from the next candle, at most once.
+- **FR-G33**: A stop that fires at the trailed level MUST report the exit reason **`trailing_stop`**, distinct from `break_even` (flat) and `stop_loss`. The FR-010 gap-fill applies as to any price-level stop.
+- **FR-G34**: The trail MUST NOT arm before the first lot has filled, and MUST NOT apply to definitions without `trail_to_first_target_points`. `G9HIC` and every other definition are unchanged.
+- **FR-G35**: The trail trigger MUST be a fixed property of the definition, not a per-run tunable parameter.
+
+## Success Criteria
+
+- **SC-G17**: On hand-built days, a runner that reaches TP1 + 50 and falls back closes at TP1 as `trailing_stop` with net `2 × (TP1 − entry)`; one that does not reach it still closes at break-even with the banked TP1 alone.
+- **SC-G18**: Every definition other than `G9HICD` produces byte-for-byte identical golden results.

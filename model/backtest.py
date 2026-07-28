@@ -96,6 +96,11 @@ class BacktestDefinition:
     # runner targets this many points beyond it - outside the H1 range.
     # Exactly one of the two is set on a double-take-profit definition.
     runner_extension_points: Optional[float] = None
+    # One-step trail for the runner (spec 025 addendum 4, FR-G32): once
+    # the first lot has filled and the runner has gained this many points
+    # beyond TP1, its stop moves up from break-even to TP1 itself, so the
+    # runner is locked in to at least match what the first lot banked.
+    trail_to_first_target_points: Optional[float] = None
 
     def __post_init__(self) -> None:
         """Reject at construction (registration) time any combination of
@@ -201,6 +206,24 @@ class BacktestDefinition:
             raise ValueError(
                 "an impulsive-candle stop is not supported together with a "
                 f"structural stop (definition {self.code!r})"
+            )
+        if (
+            self.trail_to_first_target_points is not None
+            and not self.double_take_profit
+        ):
+            raise ValueError(
+                "trail_to_first_target_points needs a first target to "
+                "trail to, which only a double take-profit has "
+                f"(definition {self.code!r})"
+            )
+        if (
+            self.trail_to_first_target_points is not None
+            and self.trail_to_first_target_points <= 0
+        ):
+            raise ValueError(
+                "trail_to_first_target_points must be positive - the trail "
+                "would otherwise arm the instant the first lot filled "
+                f"(definition {self.code!r})"
             )
         if self.max_daily_losses is not None and self.max_daily_losses <= 0:
             raise ValueError(

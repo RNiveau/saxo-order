@@ -32,6 +32,7 @@ from api.services.backtest.policies import (
     StructuralStop,
     Target,
     TimeCut,
+    TrailToFirstTarget,
 )
 from model import BacktestDefinition, BacktestParameters
 
@@ -90,6 +91,11 @@ def build_exit_chain(
         )
 
     chain.append(ArmBreakEven(params.break_even_trigger_points))
+
+    if definition.trail_to_first_target_points is not None:
+        chain.append(
+            TrailToFirstTarget(definition.trail_to_first_target_points)
+        )
     return chain
 
 

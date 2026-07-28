@@ -117,6 +117,7 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         max_daily_losses=2,
         double_take_profit=True,
         runner_extension_points=100.0,
+        trail_to_first_target_points=50.0,
     ),
 ]
 

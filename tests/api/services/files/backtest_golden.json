@@ -2888,20 +2888,24 @@
     },
     "exit_reasons": {
       "break_even": {
-        "count": 33,
-        "points": 861.73
+        "count": 31,
+        "points": 761.56
       },
       "end_of_day": {
-        "count": 3,
-        "points": 186.13
+        "count": 1,
+        "points": -122.0
       },
       "stop_loss": {
         "count": 11,
         "points": -2225.38
       },
       "take_profit": {
-        "count": 11,
-        "points": 3357.4
+        "count": 6,
+        "points": 1703.26
+      },
+      "trailing_stop": {
+        "count": 9,
+        "points": 1831.38
       }
     },
     "run": {
@@ -2962,7 +2966,7 @@
           "h1_open": 24544.45,
           "mm50_slope": 10.57154,
           "overnight_gap": 84.18,
-          "points": 311.74,
+          "points": 211.74,
           "status": "traded",
           "trade_count": 1
         },
@@ -2986,7 +2990,7 @@
           "h1_open": 24582.28,
           "mm50_slope": 10.66631,
           "overnight_gap": -4.05,
-          "points": 135.96,
+          "points": 224.7,
           "status": "traded",
           "trade_count": 2
         },
@@ -2998,7 +3002,7 @@
           "h1_open": 24670.64,
           "mm50_slope": 11.1303,
           "overnight_gap": 28.46,
-          "points": 172.17,
+          "points": 252.2,
           "status": "traded",
           "trade_count": 2
         },
@@ -3046,7 +3050,7 @@
           "h1_open": 24704.18,
           "mm50_slope": 11.32341,
           "overnight_gap": 23.53,
-          "points": 257.6,
+          "points": 157.6,
           "status": "traded",
           "trade_count": 3
         },
@@ -3082,7 +3086,7 @@
           "h1_open": 24756.37,
           "mm50_slope": 11.91662,
           "overnight_gap": -24.66,
-          "points": 639.7,
+          "points": 539.7,
           "status": "traded",
           "trade_count": 2
         },
@@ -3094,7 +3098,7 @@
           "h1_open": 24809.1,
           "mm50_slope": 11.63338,
           "overnight_gap": 168.98,
-          "points": 299.38,
+          "points": 199.38,
           "status": "traded",
           "trade_count": 2
         },
@@ -3118,7 +3122,7 @@
           "h1_open": 24792.52,
           "mm50_slope": 11.41358,
           "overnight_gap": 66.52,
-          "points": 58.99,
+          "points": 117.98,
           "status": "traded",
           "trade_count": 2
         },
@@ -3142,7 +3146,7 @@
           "h1_open": 24823.81,
           "mm50_slope": 11.23198,
           "overnight_gap": -29.54,
-          "points": 456.64,
+          "points": 356.64,
           "status": "traded",
           "trade_count": 2
         },
@@ -3190,7 +3194,7 @@
           "h1_open": 24963.16,
           "mm50_slope": 10.59234,
           "overnight_gap": 133.32,
-          "points": 286.07,
+          "points": 327.25,
           "status": "traded",
           "trade_count": 4
         },
@@ -3413,10 +3417,10 @@
       ],
       "summary": {
         "average_loss": 170.2386,
-        "average_win": 207.4191,
+        "average_win": 196.9164,
         "definition_code": "G9HICD",
         "end_date": "2026-04-30",
-        "final_result": 2179.88,
+        "final_result": 1948.82,
         "number_of_be": 22,
         "number_of_days": 42,
         "number_of_losing_positions": 14,

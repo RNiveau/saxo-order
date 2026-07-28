@@ -115,6 +115,7 @@ IMPULSIVE_DOUBLE_DEFINITION = BacktestDefinition(
     max_daily_losses=2,
     double_take_profit=True,
     runner_extension_points=100.0,
+    trail_to_first_target_points=50.0,
 )
 GER_PARAMS = GER_DEFINITION.default_parameters
 

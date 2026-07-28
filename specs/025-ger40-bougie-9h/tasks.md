@@ -310,3 +310,16 @@ Phase 10 in order (fields → gate → builder → wiring → registration); Pha
 ## Phase 15: Polish
 
 - [x] T066 `poetry run black . && poetry run isort . && poetry run flake8 && poetry run mypy .`, then the full suite.
+
+---
+
+# Addendum 4 tasks: trail the runner to TP1 (`G9HICD`)
+
+- [x] T067 Add `ExitReason.TRAILING_STOP` to `model/enum.py` (the frontend renders reasons generically, so no UI change is needed).
+- [x] T068 Add `trail_to_first_target_points: Optional[float]` to `BacktestDefinition`, with guards: positive, and only valid with `double_take_profit` (there is no TP1 to trail to otherwise).
+- [x] T069 Add `trailed_to_first_target` to `Position` and make `stop_level` return the first target when it is set, ahead of the break-even entry level; report `TRAILING_STOP` from `_stop_exit` in that case.
+- [x] T070 Add the `TrailToFirstTarget(trigger_points)` policy to `api/services/backtest/policies.py` — arms only after the first lot has filled, never closes anything, so it trails the chain beside `ArmBreakEven`.
+- [x] T071 Append it in `build_exit_chain` when the definition carries a trigger, and set `trail_to_first_target_points=50.0` on `G9HICD`.
+- [x] T072 [P] Tests: the policy in `test_rules.py` (chain shape) and the end-to-end cases in `test_engine_impulsive_double.py` per SC-G17 — trail then fall back to TP1, trail then TP2, no trail without TP1 + 50, no trail before TP1 fills, arm-and-fall-back on one candle, the short mirror.
+- [x] T073 Regenerate the golden snapshot; only `G9HICD` rows may move (SC-G18).
+- [x] T074 `black`/`isort`/`flake8`/`mypy` and the full suite.

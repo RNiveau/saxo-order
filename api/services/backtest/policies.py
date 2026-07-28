@@ -40,12 +40,18 @@ class ExitPolicy(Protocol):
 def _stop_exit(
     position: Position, candle: Candle, candle_time: datetime.datetime
 ) -> Trade:
-    """Close at the stop with the FR-010 gap-fill convention. An armed
-    break-even stop is reported as a break-even rather than a stop-loss."""
+    """Close at the stop with the FR-010 gap-fill convention.
+
+    The reason names where the stop had got to: a trailed stop closes the
+    runner in profit at TP1, an armed break-even stop closes it flat, and
+    an unmoved stop is an ordinary stop-loss."""
     exit_price = position.side.stop_fill(position.stop_level, candle)
-    reason = (
-        ExitReason.BREAK_EVEN if position.be_armed else ExitReason.STOP_LOSS
-    )
+    if position.trailed_to_first_target:
+        reason = ExitReason.TRAILING_STOP
+    elif position.be_armed:
+        reason = ExitReason.BREAK_EVEN
+    else:
+        reason = ExitReason.STOP_LOSS
     return position.close(candle_time, exit_price, reason)
 
 
@@ -271,6 +277,42 @@ class ArmBreakEven:
         arm_level = position.break_even_arm_level(self.trigger_points)
         if position.side.reached(arm_level, candle):
             position.be_armed = True
+        return None
+
+
+class TrailToFirstTarget:
+    """Raises the runner's stop from break-even to TP1 (FR-G32).
+
+    Only meaningful once the first lot has banked: before that there is no
+    TP1 to trail to and the position's stop is whatever its variant makes
+    it. Arms at TP1 plus the trigger in the position's favor - halfway to
+    TP2 at the shipped 100/50 settings.
+
+    Like ArmBreakEven it never closes anything and takes effect from the
+    next candle, so it goes at the tail of the chain: a candle that spikes
+    to the trigger and closes back below TP1 arms the trail without being
+    stopped by it.
+    """
+
+    def __init__(self, trigger_points: float):
+        self.trigger_points = trigger_points
+
+    def resolve(
+        self,
+        position: Position,
+        candle: Candle,
+        candle_time: datetime.datetime,
+    ) -> Optional[Trade]:
+        if position.trailed_to_first_target:
+            return None
+        if not position.first_target_taken:
+            return None
+        first_target = position.first_target_level
+        if first_target is None:
+            return None
+        arm_level = first_target + position.side.sign * self.trigger_points
+        if position.side.reached(arm_level, candle):
+            position.trailed_to_first_target = True
         return None
 
 

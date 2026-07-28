@@ -45,6 +45,10 @@ class Position:
         self.first_target_level = first_target_level
         self.first_target_taken = False
         self.banked_points = 0.0
+        # Set by the TrailToFirstTarget policy once the runner has gained
+        # its trigger beyond TP1: from then on TP1 is the runner's stop,
+        # which is strictly better than the break-even it replaces.
+        self.trailed_to_first_target = False
         # Absolute initial stop level. When set (GER40, stop measured from
         # the H1 reference level) it overrides the entry-relative stop; both
         # lots share it until break-even moves the stop to entry.
@@ -62,6 +66,11 @@ class Position:
 
     @property
     def stop_level(self) -> float:
+        if (
+            self.trailed_to_first_target
+            and self.first_target_level is not None
+        ):
+            return self.first_target_level
         if self.be_armed:
             return self.entry_price
         if self.initial_stop_price is not None:

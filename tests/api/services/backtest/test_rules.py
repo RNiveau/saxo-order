@@ -17,6 +17,7 @@ from api.services.backtest.policies import (
     StructuralStop,
     Target,
     TimeCut,
+    TrailToFirstTarget,
 )
 from api.services.backtest.rules import (
     build_entry_gate,
@@ -142,6 +143,43 @@ class TestChainShape:
             assert isinstance(chain[-1], ArmBreakEven)
 
 
+class TestTrailPolicy:
+    def test_the_trail_is_appended_after_break_even_arming(self):
+        """Both are arming policies that close nothing and take effect on
+        later candles, so both trail the chain."""
+        definition = _definition(
+            double_take_profit=True,
+            runner_extension_points=100.0,
+            trail_to_first_target_points=50.0,
+        )
+        assert _shape(definition) == [
+            Stop,
+            DoubleTarget,
+            ArmBreakEven,
+            TrailToFirstTarget,
+        ]
+
+    def test_the_trigger_is_carried_onto_the_policy(self):
+        definition = _definition(
+            double_take_profit=True,
+            runner_extension_points=100.0,
+            trail_to_first_target_points=50.0,
+        )
+        trail = build_exit_chain(definition, PARAMS)[-1]
+        assert isinstance(trail, TrailToFirstTarget)
+        assert trail.trigger_points == 50.0
+
+    def test_definitions_without_a_trigger_get_no_trail(self):
+        for definition in (
+            _definition(),
+            _definition(double_take_profit=True, first_target_fraction=0.5),
+        ):
+            chain = build_exit_chain(definition, PARAMS)
+            assert not any(
+                isinstance(policy, TrailToFirstTarget) for policy in chain
+            )
+
+
 class TestLotModelSelection:
     def test_a_plain_definition_is_a_single_lot(self):
         assert build_lot_model(_definition()) is SINGLE_LOT
@@ -263,7 +301,13 @@ class TestRegisteredDefinitionChains:
             "G9HSL": [Stop, Target, ArmBreakEven],
             "B9HWS": [Stop, Target, StructuralStop, ArmBreakEven],
             "G9HIC": [Stop, Target, ImpulsiveStop, ArmBreakEven],
-            "G9HICD": [Stop, DoubleTarget, ImpulsiveStop, ArmBreakEven],
+            "G9HICD": [
+                Stop,
+                DoubleTarget,
+                ImpulsiveStop,
+                ArmBreakEven,
+                TrailToFirstTarget,
+            ],
         }
         actual = {
             definition.code: _shape(definition)

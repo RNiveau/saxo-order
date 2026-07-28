@@ -143,6 +143,7 @@ class TestRegistry:
         )
         assert definition.double_take_profit is True
         assert definition.runner_extension_points == 100.0
+        assert definition.trail_to_first_target_points == 50.0
         # TP1 is the ordinary take-profit, not a fraction of the range.
         assert definition.first_target_fraction is None
 
@@ -261,6 +262,19 @@ class TestBacktestDefinitionValidation:
         assert self._build(
             market=EuCfdMarket(), last_entry_time=datetime.time(18, 0)
         ).last_entry_time == datetime.time(18, 0)
+
+    def test_a_trail_without_a_first_target_is_rejected(self):
+        with pytest.raises(ValueError, match="first target to trail to"):
+            self._build(trail_to_first_target_points=50.0)
+
+    @pytest.mark.parametrize("trigger", [0, -50.0])
+    def test_a_non_positive_trail_trigger_is_rejected(self, trigger):
+        with pytest.raises(ValueError, match="must be positive"):
+            self._build(
+                double_take_profit=True,
+                runner_extension_points=100.0,
+                trail_to_first_target_points=trigger,
+            )
 
     def test_two_target_placements_at_once_are_rejected(self):
         with pytest.raises(ValueError, match="exactly one"):

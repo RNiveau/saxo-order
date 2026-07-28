@@ -214,3 +214,109 @@ class TestEntryParityWithTheSingleLotVariant:
         # break-even. The losing trade costs twice as much at two lots.
         assert [trade.points for trade in single.trades] == [75.0, -75.0]
         assert [trade.points for trade in double.trades] == [75.0, -150.0]
+
+
+class TestTrailToFirstTarget:
+    """FR-G32: once the runner is 50 points past TP1 (8140), its stop
+    moves up from break-even (8015) to TP1 (8090)."""
+
+    TRAIL_TRIGGER = 8140.0
+
+    async def test_the_runner_falls_back_to_tp1_not_to_break_even(self):
+        candles = ger_entry_candles() + [
+            tp1_fill_candle(),
+            m5_candle(4, 8090, 8145, 8085, 8140),  # reaches TP1 + 50
+            m5_candle(5, 8140, 8142, 8080, 8085),  # back through TP1
+        ]
+
+        result = await run_impulsive_double(candles)
+
+        trade = result.trades[0]
+        assert trade.exit_reason == ExitReason.TRAILING_STOP
+        assert trade.exit_price == TP1
+        # Banked TP1 plus the runner matching it: 2 x (8090 - 8015).
+        assert trade.points == 150.0
+
+    async def test_without_the_trigger_it_still_falls_back_to_break_even(self):
+        candles = ger_entry_candles() + [
+            tp1_fill_candle(),
+            m5_candle(4, 8090, 8135, 8085, 8130),  # 8135 < 8140, no trail
+            m5_candle(5, 8130, 8132, 8010, 8020),
+        ]
+
+        result = await run_impulsive_double(candles)
+
+        trade = result.trades[0]
+        assert trade.exit_reason == ExitReason.BREAK_EVEN
+        assert trade.exit_price == ENTRY
+        assert trade.points == 75.0
+
+    async def test_the_trail_never_prevents_tp2(self):
+        candles = ger_entry_candles() + [
+            tp1_fill_candle(),
+            m5_candle(4, 8090, 8145, 8085, 8140),  # arms the trail
+            m5_candle(5, 8140, 8195, 8135, 8190),  # reaches TP2
+        ]
+
+        result = await run_impulsive_double(candles)
+
+        trade = result.trades[0]
+        assert trade.exit_reason == ExitReason.TAKE_PROFIT
+        assert trade.points == 250.0
+
+    async def test_arming_and_falling_back_on_one_candle_does_not_close(self):
+        """Like break-even arming, the trail applies from the *next*
+        candle - so a spike to 8145 closing back at 8085 arms it and
+        leaves the position open."""
+        candles = ger_entry_candles() + [
+            tp1_fill_candle(),
+            m5_candle(4, 8090, 8145, 8080, 8085),  # spike and back
+            # Stays clear of the now-trailed 8090 stop, so the position
+            # survives to the close - which is the point: the arming
+            # candle itself dipped to 8080 and did not close it.
+            m5_candle(5, 8095, 8100, 8092, 8098),
+        ]
+
+        result = await run_impulsive_double(candles)
+
+        trade = result.trades[0]
+        assert trade.exit_reason == ExitReason.END_OF_DAY
+        assert trade.exit_price == 8098.0
+        # banked 75, plus the runner's 8098 - 8015
+        assert trade.points == 158.0
+
+    async def test_no_trail_before_the_first_lot_fills(self):
+        """8140 is past TP1, but TP1 has not been reached on the way -
+        impossible for a long, so this asserts the guard directly: a
+        position whose first lot has not filled never trails."""
+        candles = ger_entry_candles() + [
+            m5_candle(3, 8015, 8020, 8010, 8018),
+            m5_candle(4, 8018, 8022, 8010, 8020),
+        ]
+
+        result = await run_impulsive_double(candles)
+
+        assert result.trades[0].exit_reason == ExitReason.END_OF_DAY
+        # Both lots still open: 2 x (8020 - 8015).
+        assert result.trades[0].points == 10.0
+
+
+class TestTrailShortMirror:
+    async def test_the_short_runner_trails_down_to_tp1(self):
+        candles = [
+            m5_candle(0, 8095, 8110, 8090, 8105),
+            m5_candle(1, 8105, 8108, 8085, 8095),
+            m5_candle(2, 8090, 8095, 8080, 8085),  # entry @8085 short
+            m5_candle(3, 8080, 8082, 8005, 8008),  # TP1 (8010) fills
+            m5_candle(4, 8008, 8012, 7955, 7960),  # reaches TP1 - 50 (7960)
+            m5_candle(5, 7960, 8015, 7958, 8012),  # back through TP1
+        ]
+
+        result = await run_impulsive_double(candles)
+
+        trade = result.trades[0]
+        assert trade.direction == Direction.SELL
+        assert trade.exit_reason == ExitReason.TRAILING_STOP
+        assert trade.exit_price == 8010.0
+        # 2 x (8085 - 8010)
+        assert trade.points == 150.0

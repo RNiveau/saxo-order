@@ -144,6 +144,7 @@ class ExitReason(EnumWithGetValue):
     TAKE_PROFIT = "take_profit"
     END_OF_DAY = "end_of_day"
     TIME_CUT = "time_cut"
+    TRAILING_STOP = "trailing_stop"
 
 
 class DayStatus(EnumWithGetValue):
