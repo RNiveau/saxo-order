@@ -90,6 +90,12 @@ class BacktestDefinition:
     # backtests, which take entries at any hour and under any loss run.
     last_entry_time: Optional[datetime.time] = None
     max_daily_losses: Optional[int] = None
+    # The other way to place a double take-profit's two targets (spec 025
+    # addendum 3, FR-G26): instead of first_target_fraction's split inside
+    # the H1 range, the first lot takes the ordinary take-profit and the
+    # runner targets this many points beyond it - outside the H1 range.
+    # Exactly one of the two is set on a double-take-profit definition.
+    runner_extension_points: Optional[float] = None
 
     def __post_init__(self) -> None:
         """Reject at construction (registration) time any combination of
@@ -99,11 +105,38 @@ class BacktestDefinition:
         built; a flag that cannot take effect there would otherwise ship
         as a silent no-op, and the backtest would report results for
         rules it never applied."""
-        if self.double_take_profit and self.first_target_fraction is None:
+        placements = [
+            self.first_target_fraction is not None,
+            self.runner_extension_points is not None,
+        ]
+        if self.double_take_profit and not any(placements):
             raise ValueError(
-                "double_take_profit requires first_target_fraction - the "
-                "first lot would have nowhere to take profit (definition "
-                f"{self.code!r})"
+                "double_take_profit requires first_target_fraction or "
+                "runner_extension_points - the first lot would have "
+                f"nowhere to take profit (definition {self.code!r})"
+            )
+        if all(placements):
+            raise ValueError(
+                "first_target_fraction and runner_extension_points are two "
+                "ways to place the same pair of targets; set exactly one "
+                f"(definition {self.code!r})"
+            )
+        if (
+            self.runner_extension_points is not None
+            and not self.double_take_profit
+        ):
+            raise ValueError(
+                "runner_extension_points is only used with "
+                f"double_take_profit (definition {self.code!r})"
+            )
+        if (
+            self.runner_extension_points is not None
+            and self.runner_extension_points <= 0
+        ):
+            raise ValueError(
+                "runner_extension_points must be positive - the runner "
+                "would otherwise target the first lot's level or worse "
+                f"(definition {self.code!r})"
             )
         if (
             not self.double_take_profit

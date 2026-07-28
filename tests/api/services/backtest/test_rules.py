@@ -8,6 +8,7 @@ so both are asserted here rather than inferred from engine behavior.
 import datetime
 
 from api.services.backtest.entry_gate import ALWAYS_OPEN, FilteredEntry
+from api.services.backtest.lots import SINGLE_LOT, ExtendedTwoLot, TwoLot
 from api.services.backtest.policies import (
     ArmBreakEven,
     DoubleTarget,
@@ -17,7 +18,11 @@ from api.services.backtest.policies import (
     Target,
     TimeCut,
 )
-from api.services.backtest.rules import build_entry_gate, build_exit_chain
+from api.services.backtest.rules import (
+    build_entry_gate,
+    build_exit_chain,
+    build_lot_model,
+)
 from model import BacktestDefinition, BacktestParameters
 
 PARAMS = BacktestParameters()
@@ -61,6 +66,23 @@ class TestChainShape:
             Stop,
             Target,
             StructuralStop,
+            ArmBreakEven,
+        ]
+
+    def test_a_two_lot_impulse_definition_composes_both(self):
+        """G9HICD is the first shipped definition to combine the double
+        take-profit with the impulse stop; they compose without either
+        being special-cased."""
+        definition = _definition(
+            impulsive_candle_points=70.0,
+            impulsive_close_fraction=0.25,
+            double_take_profit=True,
+            runner_extension_points=100.0,
+        )
+        assert _shape(definition) == [
+            Stop,
+            DoubleTarget,
+            ImpulsiveStop,
             ArmBreakEven,
         ]
 
@@ -118,6 +140,25 @@ class TestChainShape:
         ):
             chain = build_exit_chain(definition, PARAMS)
             assert isinstance(chain[-1], ArmBreakEven)
+
+
+class TestLotModelSelection:
+    def test_a_plain_definition_is_a_single_lot(self):
+        assert build_lot_model(_definition()) is SINGLE_LOT
+
+    def test_a_fraction_selects_the_range_split_model(self):
+        model = build_lot_model(
+            _definition(double_take_profit=True, first_target_fraction=0.5)
+        )
+        assert isinstance(model, TwoLot)
+        assert model.first_target_fraction == 0.5
+
+    def test_a_runner_extension_selects_the_extended_model(self):
+        model = build_lot_model(
+            _definition(double_take_profit=True, runner_extension_points=100.0)
+        )
+        assert isinstance(model, ExtendedTwoLot)
+        assert model.extension_points == 100.0
 
 
 class TestChainComposition:
@@ -188,16 +229,24 @@ class TestEntryGate:
         assert cut_off_only.max_losses is None
         assert cap_only.cutoff_utc is None
 
-    def test_only_g9hic_ships_with_entry_filters(self):
+    def test_exactly_the_impulsive_variants_ship_with_entry_filters(self):
+        """Keyed on the rule rather than on codes: the entry filters bound
+        a strategy whose worst case is unbounded, which is what the
+        impulse stop creates - so the two travel together."""
         from api.services.backtest import list_definitions
 
-        filtered = [
+        filtered = {
             definition.code
             for definition in list_definitions()
             if build_entry_gate(definition, self.TRADING_DATE)
             is not ALWAYS_OPEN
-        ]
-        assert filtered == ["G9HIC"]
+        }
+        impulsive = {
+            definition.code
+            for definition in list_definitions()
+            if definition.impulsive_candle_points is not None
+        }
+        assert filtered == impulsive
 
 
 class TestRegisteredDefinitionChains:
@@ -214,6 +263,7 @@ class TestRegisteredDefinitionChains:
             "G9HSL": [Stop, Target, ArmBreakEven],
             "B9HWS": [Stop, Target, StructuralStop, ArmBreakEven],
             "G9HIC": [Stop, Target, ImpulsiveStop, ArmBreakEven],
+            "G9HICD": [Stop, DoubleTarget, ImpulsiveStop, ArmBreakEven],
         }
         actual = {
             definition.code: _shape(definition)

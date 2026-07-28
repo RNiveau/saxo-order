@@ -16,7 +16,13 @@ from api.services.backtest.entry_gate import (
     FilteredEntry,
     cutoff_utc,
 )
-from api.services.backtest.lots import SINGLE_LOT, LotModel, TwoLot
+from api.services.backtest.lots import (
+    SINGLE_LOT,
+    ExtendedTwoLot,
+    LotModel,
+    TwoLot,
+    TwoLotAccounting,
+)
 from api.services.backtest.policies import (
     ArmBreakEven,
     DoubleTarget,
@@ -55,7 +61,7 @@ def build_exit_chain(
     else:
         chain.append(Stop())
 
-    two_lot = isinstance(build_lot_model(definition), TwoLot)
+    two_lot = isinstance(build_lot_model(definition), TwoLotAccounting)
     chain.append(DoubleTarget() if two_lot else Target())
 
     if definition.structural_stop:
@@ -119,10 +125,12 @@ def build_lot_model(definition: BacktestDefinition) -> LotModel:
     silently not applying, which is the thing this refactor removed."""
     if not definition.double_take_profit:
         return SINGLE_LOT
+    if definition.runner_extension_points is not None:
+        return ExtendedTwoLot(definition.runner_extension_points)
     if definition.first_target_fraction is None:
         raise ValueError(
-            "double_take_profit requires first_target_fraction - the "
-            f"first lot would have nowhere to exit (definition "
-            f"{definition.code!r})"
+            "double_take_profit requires first_target_fraction or "
+            "runner_extension_points - the first lot would have nowhere "
+            f"to exit (definition {definition.code!r})"
         )
     return TwoLot(definition.first_target_fraction)

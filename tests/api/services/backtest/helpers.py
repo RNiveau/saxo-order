@@ -96,6 +96,26 @@ IMPULSIVE_DEFINITION = BacktestDefinition(
     last_entry_time=datetime.time(16, 0),
     max_daily_losses=2,
 )
+IMPULSIVE_DOUBLE_DEFINITION = BacktestDefinition(
+    code="G9HICD",
+    name="Bougie de 9h GER40 (bougie impulsive, 2 lots)",
+    display_name="GER40 Bougie de 9h (bougie impulsive, 2 lots)",
+    instrument="GER40.I",
+    market=EuCfdMarket(),
+    default_parameters=BacktestParameters(
+        stop_loss_points=150,
+        take_profit_offset_points=10,
+        break_even_trigger_points=50,
+        max_entry_distance_points=40,
+    ),
+    min_h1_range_points=70.0,
+    impulsive_candle_points=70.0,
+    impulsive_close_fraction=0.25,
+    last_entry_time=datetime.time(16, 0),
+    max_daily_losses=2,
+    double_take_profit=True,
+    runner_extension_points=100.0,
+)
 GER_PARAMS = GER_DEFINITION.default_parameters
 
 # The impulsive variant needs an H1 range wider than 70 points to trade at
@@ -227,6 +247,15 @@ async def run_impulsive(m5_candles, higher=IMPULSIVE_H1_HIGH, lower=H1_LOW):
     )
 
 
+async def run_impulsive_double(
+    m5_candles, higher=IMPULSIVE_H1_HIGH, lower=H1_LOW
+):
+    service = make_service([h1_candle(higher=higher, lower=lower)], m5_candles)
+    return await service.evaluate_day(
+        IMPULSIVE_DOUBLE_DEFINITION, TRADING_DATE, GER_PARAMS
+    )
+
+
 __all__ = [
     "DEFINITION",
     "GER_DEFINITION",
@@ -234,6 +263,7 @@ __all__ = [
     "GER_SINGLE_LOT_DEFINITION",
     "H1_HIGH",
     "IMPULSIVE_DEFINITION",
+    "IMPULSIVE_DOUBLE_DEFINITION",
     "IMPULSIVE_H1_HIGH",
     "H1_LOW",
     "NO_CACHE_CLIENT",
@@ -250,6 +280,7 @@ __all__ = [
     "run_ger",
     "run_ger_single",
     "run_impulsive",
+    "run_impulsive_double",
     "uptrend_daily_series",
     "ExitReason",
     "Direction",
