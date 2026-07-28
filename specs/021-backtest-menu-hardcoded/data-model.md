@@ -182,7 +182,9 @@ The one entity in this feature that is actually written to DynamoDB. One item pe
 | `m5_fetched` | `bool` | `False` on a partial entry: a definition with a minimum H1 range skipped the 5-minute fetch on a day failing the filter (FR-033), so `m5_candles` is empty because nothing was asked for. A definition without the filter completes such an entry instead of trusting the empty list. The partial write is conditional on nothing being cached for the key yet (`attribute_not_exists`), so it can never downgrade a complete entry a concurrent run just wrote |
 | `cached_at` | `int` | Unix timestamp of first write, for observability only — not used for expiry (no TTL, FR-040) |
 
-**Migration**: entries written under the v1 per-definition key are moved onto this key by `k-order internal migrate-backtest-cache` (`--dry-run` to preview), which collapses the duplicate copies and reconstructs `m5_fetched` from the writing definition's minimum-range threshold. It is idempotent.
+**Migration**: entries written under the v1 per-definition key are moved onto this key by `k-order internal migrate-backtest-cache` (`--dry-run` to preview), which collapses the duplicate copies and reconstructs `m5_fetched` from the writing definition's minimum-range threshold. It is idempotent, and a row already stored under the current key is treated as a contender rather than ignored — a v1 row only overwrites it if it is strictly better, so re-running after a partly-failed run cannot push a stale copy over an entry the application has since improved.
+
+Runbook: `--dry-run` first and check the counts; run for real with no backtest executing (the scan happens up front, so an entry written mid-run could still be overwritten); confirm `write failures` is 0 afterwards. Note that reverting the re-key after the migration has run puts `CACHE_SCHEMA_VERSION` back to 1 with the v1 rows already deleted — not data loss, but a full cold refetch from Saxo.
 
 **No TTL attribute** — entries never expire (FR-040); a bad entry is corrected by manually deleting that item, not through any feature capability.
 

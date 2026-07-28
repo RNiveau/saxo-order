@@ -17,14 +17,33 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from api.services.backtest.candle_source import cache_key
+from api.services.backtest.candle_source import (
+    CACHE_SCHEMA_VERSION,
+    cache_key,
+)
 from api.services.backtest.definitions import get_definition
 from client.aws_client import DynamoDBClient, DynamoDBOperationError
 
 # v1 keys, e.g. "B9HWS:FRA40.I:v1". The version is matched explicitly so a
 # re-run over an already-migrated table finds nothing to do rather than
-# re-processing v2 keys.
+# re-processing current-schema keys.
 V1_KEY_PATTERN = re.compile(r"^(?P<code>[^:]+):(?P<instrument>[^:]+):v1$")
+
+CURRENT_KEY_SUFFIX = f":v{CACHE_SCHEMA_VERSION}"
+
+
+@dataclass
+class _Candidate:
+    """One contender for a target (new key, trading date) slot: either a
+    v1 row to be rewritten, or the current-schema row already sitting
+    there."""
+
+    item: Dict[str, Any]
+    m5_fetched: bool
+    # False for a row already stored under the current key - it is a
+    # contender so a v1 row cannot silently replace something better,
+    # but nothing needs writing if it wins.
+    needs_write: bool
 
 
 @dataclass
@@ -36,37 +55,62 @@ class MigrationPlan:
     writes: List[Tuple[Dict[str, Any], bool]] = field(default_factory=list)
     # (old key, trading_date) pairs to remove once the writes land.
     deletes: List[Tuple[str, str]] = field(default_factory=list)
+    # Target slots a current-schema row already covers at least as well as
+    # anything v1 holds. Nothing is written for them, but the v1 rows
+    # feeding them are still safe to delete.
+    already_present: List[Tuple[str, str]] = field(default_factory=list)
     # Old keys whose definition code is no longer in the registry: they
     # can't be mapped to an instrument/session, so they are reported and
     # left in place rather than guessed at or dropped.
     orphans: List[str] = field(default_factory=list)
-    # Keys already on v2 (or otherwise not v1): a re-run leaves them be.
+    # Rows left untouched: already on the current key, or a key shape this
+    # migration doesn't recognise.
     skipped: int = 0
+    # Distinct target slots the v1 rows map onto, for duplicates_removed.
+    target_slots: int = 0
+
+    @property
+    def v1_entries(self) -> int:
+        """Every v1 row found, mappable or not."""
+        return len(self.deletes) + len(self.orphans)
 
     @property
     def duplicates_removed(self) -> int:
-        """Entries the migration collapses: every old row that isn't kept
-        as a distinct new one."""
-        return len(self.deletes) - len(self.writes)
+        """Entries the migration collapses: every v1 row that doesn't
+        survive as a distinct entry of its own."""
+        return len(self.deletes) - self.target_slots
 
 
 @dataclass
 class MigrationResult:
     written: int = 0
     deleted: int = 0
-    failed: int = 0
+    # Kept apart because the consequences differ: a failed write means a
+    # day was not migrated (its v1 row is deliberately left in place), a
+    # failed delete means a migrated day left a duplicate v1 row behind.
+    write_failures: int = 0
+    delete_failures: int = 0
+
+    @property
+    def failed(self) -> int:
+        return self.write_failures + self.delete_failures
 
 
-def _entry_rank(item: Dict[str, Any], m5_fetched: bool) -> Tuple:
-    """How useful an item is, for picking a winner when several old
-    entries collapse onto the same new key. Real data beats a no-data
-    marker, a complete 5-minute series beats a partial one, and a longer
-    series beats a shorter one (two entries for the same day should hold
-    the same candles, but if they don't, keep the fuller one)."""
+def _entry_rank(
+    item: Dict[str, Any], m5_fetched: bool, needs_write: bool = True
+) -> Tuple:
+    """How useful an item is, for picking a winner when several entries
+    contend for the same target slot. Real data beats a no-data marker, a
+    complete 5-minute series beats a partial one, and a longer series
+    beats a shorter one (two entries for the same day should hold the
+    same candles, but if they don't, keep the fuller one). On a tie a row
+    already stored under the current key wins, so an equally-good v1 row
+    doesn't cause a pointless rewrite."""
     return (
         bool(item.get("has_data")),
         m5_fetched,
         len(item.get("m5_candles") or []),
+        not needs_write,
     )
 
 
@@ -96,11 +140,23 @@ def _was_m5_fetched(item: Dict[str, Any], definition_code: str) -> bool:
 
 def build_plan(items: List[Dict[str, Any]]) -> MigrationPlan:
     """Turn the table's current contents into the writes and deletes that
-    move it onto the v2 key. Pure - no I/O."""
+    move it onto the current key. Pure - no I/O.
+
+    Rows already stored under the current key are contenders rather than
+    noise: a v1 row only overwrites one if it is strictly better. Without
+    that, a partially-completed run followed by a second one (exactly the
+    documented recovery path) could push a stale v1 copy over an entry
+    the running application had since improved."""
     plan = MigrationPlan()
-    # (new key, trading_date) -> (item, m5_fetched), keeping the best
-    # candidate seen so far.
-    best: Dict[Tuple[str, str], Tuple[Dict[str, Any], bool]] = {}
+    best: Dict[Tuple[str, str], _Candidate] = {}
+    v1_targets: set = set()
+
+    def offer(slot: Tuple[str, str], candidate: _Candidate) -> None:
+        current = best.get(slot)
+        if current is None or _entry_rank(
+            candidate.item, candidate.m5_fetched, candidate.needs_write
+        ) > _entry_rank(current.item, current.m5_fetched, current.needs_write):
+            best[slot] = candidate
 
     for item in items:
         old_key = item.get("definition_code")
@@ -112,6 +168,15 @@ def build_plan(items: List[Dict[str, Any]]) -> MigrationPlan:
         match = V1_KEY_PATTERN.match(old_key)
         if match is None:
             plan.skipped += 1
+            if old_key.endswith(CURRENT_KEY_SUFFIX):
+                offer(
+                    (old_key, trading_date),
+                    _Candidate(
+                        item=item,
+                        m5_fetched=bool(item.get("m5_fetched", True)),
+                        needs_write=False,
+                    ),
+                )
             continue
 
         code = match.group("code")
@@ -122,18 +187,25 @@ def build_plan(items: List[Dict[str, Any]]) -> MigrationPlan:
 
         plan.deletes.append((old_key, trading_date))
         new_key = cache_key(definition)
-        m5_fetched = _was_m5_fetched(item, code)
         migrated = dict(item)
         migrated["definition_code"] = new_key
+        v1_targets.add((new_key, trading_date))
+        offer(
+            (new_key, trading_date),
+            _Candidate(
+                item=migrated,
+                m5_fetched=_was_m5_fetched(item, code),
+                needs_write=True,
+            ),
+        )
 
-        slot = (new_key, trading_date)
-        current = best.get(slot)
-        if current is None or _entry_rank(item, m5_fetched) > _entry_rank(
-            current[0], current[1]
-        ):
-            best[slot] = (migrated, m5_fetched)
-
-    plan.writes = list(best.values())
+    plan.target_slots = len(v1_targets)
+    plan.writes = [
+        (c.item, c.m5_fetched) for c in best.values() if c.needs_write
+    ]
+    plan.already_present = [
+        slot for slot, c in best.items() if not c.needs_write
+    ]
     return plan
 
 
@@ -159,7 +231,10 @@ class CacheMigration:
         removed its source rows, so nothing is lost; the migration is
         idempotent, so the fix is to run it again."""
         result = MigrationResult()
-        written_keys = set()
+        # A slot a current-schema row already covers needs no write, but
+        # the v1 rows feeding it are just as safe to delete as if one had
+        # been made.
+        written_keys = set(plan.already_present)
 
         for item, m5_fetched in plan.writes:
             key = (item["definition_code"], item["trading_date"])
@@ -174,7 +249,7 @@ class CacheMigration:
                 )
             except (DynamoDBOperationError, RuntimeError) as e:
                 self.logger.error(f"Failed to migrate {key}: {e}")
-                result.failed += 1
+                result.write_failures += 1
                 continue
             written_keys.add(key)
             result.written += 1
@@ -190,7 +265,7 @@ class CacheMigration:
                 self.logger.error(
                     f"Failed to delete {old_key}/{trading_date}: {e}"
                 )
-                result.failed += 1
+                result.delete_failures += 1
                 continue
             result.deleted += 1
 

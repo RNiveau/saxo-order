@@ -365,10 +365,12 @@ async def migrate_backtest_cache(dry_run: bool):
         migration = CacheMigration(dynamodb_client, logger)
         plan = await migration.build_plan()
 
-        print(f"v1 entries found:      {len(plan.deletes)}")
+        print(f"v1 entries found:      {plan.v1_entries}")
+        print(f"  of those, mappable:  {len(plan.deletes)}")
         print(f"v2 entries to write:   {len(plan.writes)}")
         print(f"duplicates collapsed:  {plan.duplicates_removed}")
-        print(f"already migrated:      {plan.skipped}")
+        print(f"already covered by v2: {len(plan.already_present)}")
+        print(f"rows left untouched:   {plan.skipped}")
         if plan.orphans:
             print(
                 f"orphans left in place: {len(plan.orphans)} "
@@ -385,5 +387,16 @@ async def migrate_backtest_cache(dry_run: bool):
         result = await migration.apply(plan)
         print(
             f"\nWritten: {result.written}, deleted: {result.deleted}, "
-            f"failed: {result.failed}"
+            f"write failures: {result.write_failures}, "
+            f"delete failures: {result.delete_failures}"
         )
+        if result.write_failures:
+            print(
+                "Some days were not migrated; their v1 entries were kept. "
+                "Re-run to finish."
+            )
+        elif result.delete_failures:
+            print(
+                "Every day was migrated, but some v1 entries could not be "
+                "removed. Re-run to clean them up."
+            )

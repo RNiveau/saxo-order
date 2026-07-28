@@ -83,9 +83,11 @@ class CandleSource:
         cached = await self._cache_hit(definition, trading_date)
         if cached is None:
             return await self._fetch_and_store(definition, trading_date)
-        if not cached.has_data:
+        if not cached.has_data or cached.h1_candle is None:
+            # _cache_hit already rejects an entry claiming data without an
+            # H1 candle; the check is repeated rather than asserted so the
+            # invariant is enforced at runtime, not just under -O.
             return None
-        assert cached.h1_candle is not None  # guaranteed by _cache_hit
         if cached.m5_fetched or is_below_min_range(
             definition, cached.h1_candle.higher, cached.h1_candle.lower
         ):
