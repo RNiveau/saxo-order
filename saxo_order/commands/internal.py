@@ -7,11 +7,13 @@ import click
 from click.core import Context
 from slack_sdk import WebClient
 
+from api.services.backtest.cache_migration import CacheMigration
 from client.aws_client import S3Client
 from client.client_helper import map_data_to_candles
 from client.saxo_client import SaxoClient
 from engines.workflow_loader import load_workflows
 from model import AssetType, UnitTime
+from saxo_order.async_utils import create_dynamodb_client, run_async
 from saxo_order.commands import catch_exception
 from utils.configuration import Configuration
 from utils.exception import SaxoException
@@ -343,3 +345,58 @@ def sync_workflows(ctx: Context, direction: str):
         text=f"{slack_message}```",
     )
     print("Workflows file is synchronized")
+
+
+@click.command()
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Show what would be migrated without writing anything",
+)
+@catch_exception(handle=SaxoException)
+@run_async
+async def migrate_backtest_cache(dry_run: bool):
+    """Re-key the backtest raw-candle cache from the per-definition v1 key
+    onto the v2 (instrument, session) key, collapsing the duplicate copies
+    the definitions used to keep of the same candles. Idempotent: a second
+    run finds nothing left on v1."""
+    async with create_dynamodb_client() as dynamodb_client:
+        migration = CacheMigration(dynamodb_client, logger)
+        plan = await migration.build_plan()
+
+        print(f"v1 entries found:      {plan.v1_entries}")
+        print(f"  of those, mappable:  {len(plan.deletes)}")
+        print(f"v2 entries to write:   {len(plan.writes)}")
+        print(f"duplicates collapsed:  {plan.duplicates_removed}")
+        print(f"already covered by v2: {len(plan.already_present)}")
+        print(f"rows left untouched:   {plan.skipped}")
+        if plan.orphans:
+            print(
+                f"orphans left in place: {len(plan.orphans)} "
+                f"(unknown definition: {sorted(set(plan.orphans))})"
+            )
+
+        if dry_run:
+            print("\nDry run, nothing written.")
+            return
+        if not plan.writes and not plan.deletes:
+            print("\nNothing to migrate.")
+            return
+
+        result = await migration.apply(plan)
+        print(
+            f"\nWritten: {result.written}, deleted: {result.deleted}, "
+            f"write failures: {result.write_failures}, "
+            f"delete failures: {result.delete_failures}"
+        )
+        if result.write_failures:
+            print(
+                "Some days were not migrated; their v1 entries were kept. "
+                "Re-run to finish."
+            )
+        elif result.delete_failures:
+            print(
+                "Every day was migrated, but some v1 entries could not be "
+                "removed. Re-run to clean them up."
+            )

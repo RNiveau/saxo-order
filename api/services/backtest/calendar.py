@@ -76,6 +76,26 @@ def paris_session_end_utc(
     return close_hour_start + datetime.timedelta(minutes=utc_market.end_minute)
 
 
+def session_key(market: Market) -> str:
+    """Compact identifier of the market's session window
+    ("0900-1730@Europe/Paris" for EUMarket, "0900-2200@Europe/Paris" for
+    EuCfdMarket), built from the same fields the UTC bounds are derived
+    from. Two markets sharing this string fetch exactly the same candles
+    for a given instrument and day, which is what makes it usable as part
+    of a cache key.
+
+    The timezone is part of it because the session hours are exchange-
+    local: market_in_utc resolves them against market.timezone, so two
+    markets with the same local hours in different timezones cover
+    different UTC windows and must not share a cache entry."""
+    close_minutes = market.close_hour * 60 + market.end_minute
+    return (
+        f"{market.open_hour:02d}{market.open_minutes:02d}-"
+        f"{close_minutes // 60:02d}{close_minutes % 60:02d}"
+        f"@{market.timezone}"
+    )
+
+
 def is_future_paris_date(
     d: datetime.date, now: Optional[datetime.datetime] = None
 ) -> bool:

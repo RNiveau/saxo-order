@@ -13,7 +13,7 @@ Add a "Backtest" menu that runs one hardcoded strategy — "CAC40 Bougie de 9h" 
 
 **Language/Version**: Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) — no change from existing stack.
 **Primary Dependencies**: FastAPI (backend, existing), Pydantic v2 (existing), `zoneinfo` (Python stdlib — new usage in this codebase for DST-aware Paris-local time math, see research.md §1), Python stdlib `csv` module (CSV export, FR-017/FR-018 — same stdlib usage as 022-trade-republic-report), existing `SaxoClient`/`CandlesService`; React Router DOM v7+, Axios, Vite (frontend, existing).
-**Storage**: Computed Backtest Run/Day Result output remains ephemeral, computed on demand per request (Clarifications, Session 2026-07-14). Added 2026-07-24: a new DynamoDB table caches raw Saxo candle data (H1 reference candle + 5-minute session candles, or an explicit "no data" marker) per (backtest definition code, trading date), with no TTL — see research.md §8 and data-model.md.
+**Storage**: Computed Backtest Run/Day Result output remains ephemeral, computed on demand per request (Clarifications, Session 2026-07-14). Added 2026-07-24: a new DynamoDB table caches raw Saxo candle data (H1 reference candle + 5-minute session candles, or an explicit "no data" marker) with no TTL — see research.md §8 and data-model.md. Re-keyed 2026-07-28 from (backtest definition code, trading date) to (instrument, session window, trading date), so the definitions on an instrument share one entry instead of each storing its own copy of identical candles.
 **Testing**: pytest with mocked `SaxoClient`/`MockSaxoClient` (backend, existing convention); no frontend test framework configured (existing gap, unchanged by this feature).
 **Target Platform**: Existing FastAPI backend (Lambda-deployable) + React SPA (Vite), served locally via `run_api.py` / `npm run dev` in development.
 **Project Type**: Web application (existing backend at repo root + `frontend/`) — matches the codebase's established layout, not the generic `backend/`+`frontend/` template split.
@@ -68,8 +68,9 @@ services/
 client/
 └── aws_client.py                  # + DynamoDBClient.get_cached_backtest_candles(...)
                                     #   / store_backtest_candles(...) — raw H1/M5
-                                    #   candle cache keyed by (definition_code,
-                                    #   trading_date), no TTL (added 2026-07-24)
+                                    #   candle cache keyed by (instrument +
+                                    #   session window, trading_date), no TTL
+                                    #   (added 2026-07-24, re-keyed 2026-07-28)
 
 pulumi/
 └── dynamodb.py                    # + backtest_candle_cache_table() (added 2026-07-24)

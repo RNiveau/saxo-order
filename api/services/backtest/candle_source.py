@@ -21,6 +21,7 @@ from typing import List, Optional
 from api.services.backtest.calendar import (
     paris_reference_window_utc,
     paris_session_end_utc,
+    session_key,
 )
 from api.services.backtest.candles import candle_date
 from api.services.backtest.definitions import is_below_min_range
@@ -36,21 +37,27 @@ from utils.exception import SaxoException
 FIVE_MINUTE_HORIZON = 5
 H1_HORIZON = 60
 
-# Bump whenever a change to a BacktestDefinition's instrument, 9h reference
-# window, or session windows would change what candles are fetched under
-# the same code (e.g. re-pointing a definition at a different instrument).
-# Without this, an edited definition would otherwise keep serving cache
-# entries fetched under its old shape forever - there is no TTL on the
-# candle cache (FR-040).
-CACHE_SCHEMA_VERSION = 1
+# Bump whenever a change to how the raw candles are fetched or stored
+# would make existing entries wrong under the same key. Without this,
+# entries written under an older shape would be served forever - there is
+# no TTL on the candle cache (FR-040).
+#
+# v2 dropped the definition code from the key: the cached bytes are raw
+# Saxo candles, identical for every definition on the same instrument and
+# session, so v1 stored one copy per strategy of the exact same data.
+CACHE_SCHEMA_VERSION = 2
 
 
 def cache_key(definition: BacktestDefinition) -> str:
-    """Cache key for the raw-candle cache (FR-036), covering not just the
-    definition's code but also its instrument and the schema version, so a
-    definition edit or a strategy-shape change can invalidate old entries
-    just by bumping CACHE_SCHEMA_VERSION."""
-    return f"{definition.code}:{definition.instrument}:v{CACHE_SCHEMA_VERSION}"
+    """Cache key for the raw-candle cache (FR-036): what the fetch itself
+    depends on, and nothing else - the instrument, the session window the
+    candles are fetched over, and the schema version. Deliberately not the
+    definition code: every strategy on the same instrument and session
+    reads the same candles, so they share one entry."""
+    return (
+        f"{definition.instrument}:{session_key(definition.market)}"
+        f":v{CACHE_SCHEMA_VERSION}"
+    )
 
 
 class CandleSource:
@@ -74,9 +81,20 @@ class CandleSource:
         (nothing from Saxo, or a fetch that failed). A returned value
         always carries an h1_candle."""
         cached = await self._cache_hit(definition, trading_date)
-        if cached is not None:
-            return None if not cached.has_data else cached
-        return await self._fetch_and_store(definition, trading_date)
+        if cached is None:
+            return await self._fetch_and_store(definition, trading_date)
+        if not cached.has_data or cached.h1_candle is None:
+            # _cache_hit already rejects an entry claiming data without an
+            # H1 candle; the check is repeated rather than asserted so the
+            # invariant is enforced at runtime, not just under -O.
+            return None
+        if cached.m5_fetched or is_below_min_range(
+            definition, cached.h1_candle.higher, cached.h1_candle.lower
+        ):
+            return cached
+        return await self._complete_m5(
+            definition, trading_date, cached.h1_candle
+        )
 
     async def _cache_hit(
         self, definition: BacktestDefinition, trading_date: datetime.date
@@ -95,6 +113,48 @@ class CandleSource:
             )
             return None
         return cached
+
+    async def _complete_m5(
+        self,
+        definition: BacktestDefinition,
+        trading_date: datetime.date,
+        h1_candle: Candle,
+    ) -> Optional[CachedDayCandles]:
+        """Upgrade a partial entry - one whose 5-minute fetch was skipped
+        by a minimum-H1-range definition (FR-033) - for a definition that
+        does need those candles. Only the 5-minute fetch is paid for; the
+        cached H1 candle is reused as-is."""
+        session_end_utc = paris_session_end_utc(
+            trading_date, definition.market
+        )
+        _, h1_end_utc = paris_reference_window_utc(
+            trading_date, definition.market
+        )
+        try:
+            m5_candles = self._fetch_five_minute_candles(
+                definition.instrument, h1_end_utc, session_end_utc
+            )
+        except SaxoException as e:
+            self.logger.warning(
+                f"5-minute completion fetch failed for "
+                f"{definition.instrument} on {trading_date}, "
+                f"not caching: {e}"
+            )
+            return CachedDayCandles(
+                has_data=True, h1_candle=h1_candle, m5_candles=[]
+            )
+
+        await self._store(
+            cache_key(definition),
+            trading_date,
+            has_data=True,
+            h1_candle=h1_candle,
+            m5_candles=m5_candles,
+            m5_fetched=True,
+        )
+        return CachedDayCandles(
+            has_data=True, h1_candle=h1_candle, m5_candles=m5_candles
+        )
 
     async def _fetch_and_store(
         self, definition: BacktestDefinition, trading_date: datetime.date
@@ -121,7 +181,11 @@ class CandleSource:
 
         # Wide-range variant (FR-033): a day whose H1 range doesn't clear
         # the threshold is a NO_TRADE whatever the 5-minute candles hold,
-        # so don't pay for the second fetch.
+        # so don't pay for the second fetch. The entry is stored as
+        # partial (m5_fetched=False) so a definition without the filter
+        # completes it instead of reading the empty list as real data -
+        # and written only if nothing is cached yet, so a concurrent run
+        # that already stored the day's full candles is not downgraded.
         if is_below_min_range(definition, h1_candle.higher, h1_candle.lower):
             await self._store(
                 cache_key(definition),
@@ -129,9 +193,14 @@ class CandleSource:
                 has_data=True,
                 h1_candle=h1_candle,
                 m5_candles=[],
+                m5_fetched=False,
+                only_if_absent=True,
             )
             return CachedDayCandles(
-                has_data=True, h1_candle=h1_candle, m5_candles=[]
+                has_data=True,
+                h1_candle=h1_candle,
+                m5_candles=[],
+                m5_fetched=False,
             )
 
         session_end_utc = paris_session_end_utc(
@@ -154,6 +223,7 @@ class CandleSource:
                 has_data=True,
                 h1_candle=h1_candle,
                 m5_candles=m5_candles,
+                m5_fetched=True,
             )
 
         return CachedDayCandles(
@@ -218,6 +288,7 @@ class CandleSource:
                 m5_candles=[
                     Candle.from_dict(c) for c in item.get("m5_candles", [])
                 ],
+                m5_fetched=bool(item.get("m5_fetched", True)),
             )
         except (KeyError, ValueError, TypeError) as e:
             # An item written under an earlier schema (or otherwise
@@ -236,6 +307,8 @@ class CandleSource:
         has_data: bool,
         h1_candle: Optional[Candle] = None,
         m5_candles: Optional[List[Candle]] = None,
+        m5_fetched: bool = True,
+        only_if_absent: bool = False,
     ) -> None:
         """Store the day's raw candles (FR-037/FR-038). A DynamoDB failure
         (including no active resource - local/dev without AWS) degrades to
@@ -252,6 +325,8 @@ class CandleSource:
                     if m5_candles is not None
                     else None
                 ),
+                m5_fetched,
+                only_if_absent,
             )
         except (DynamoDBOperationError, RuntimeError) as e:
             self.logger.warning(
