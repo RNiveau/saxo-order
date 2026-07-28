@@ -170,17 +170,20 @@ The numeric magnitudes in the diagrams above (`entry-50`, `entry+50`, `H1_high-1
 
 ## `BacktestCandleCache` (persisted, added 2026-07-24 — FR-036–FR-040)
 
-The one entity in this feature that is actually written to DynamoDB. One item per (backtest definition code, trading date) pair, storing the raw Saxo candle data that pair's day evaluation depends on — never the computed `Trade`/`DayResult`/summary (research.md §8, Clarifications Session 2026-07-24).
+The one entity in this feature that is actually written to DynamoDB. One item per (instrument, session window, trading date) key, storing the raw Saxo candle data that day's evaluation depends on — never the computed `Trade`/`DayResult`/summary (research.md §8, Clarifications Session 2026-07-24).
 
 | Field | Type | Notes |
 |---|---|---|
-| `definition_code` | `str` (hash key) | `BacktestDefinition.code` (e.g. `"B9H"`) — each hardcoded backtest caches its candles separately, even where two definitions share the same underlying instrument/day |
+| `definition_code` | `str` (hash key) | The cache key: `{instrument}:{session window}:v{schema version}` (e.g. `"FRA40.I:0900-1730:v2"`). Every definition on the same instrument and session shares one entry — the cached bytes are raw Saxo candles, identical whatever strategy reads them. The attribute keeps its original name because renaming a DynamoDB key attribute means replacing the table; it held `BacktestDefinition.code` under the v1 key |
 | `trading_date` | `str`, ISO date (range key) | The trading day this entry's candles cover |
 | `has_data` | `bool` | `False` when no 9:00–10:00 H1 reference candle was available for this day (FR-004/FR-038); when `False`, `h1_candle` and `m5_candles` are absent |
 | `h1_candle` | `Optional[Dict]` | The 9:00–10:00 H1 reference candle (open/high/low/close/date), serialized the same way `Candle` fields are stored elsewhere in this codebase (`Decimal` for prices, per `DynamoDBClient._convert_floats_to_decimal`) |
 | `m5_candles` | `Optional[List[Dict]]` | The 5-minute candles from 10:00 Paris local to end of day, same serialization as `h1_candle` |
+| `m5_fetched` | `bool` | `False` on a partial entry: a definition with a minimum H1 range skipped the 5-minute fetch on a day failing the filter (FR-033), so `m5_candles` is empty because nothing was asked for. A definition without the filter completes such an entry instead of trusting the empty list |
 | `cached_at` | `int` | Unix timestamp of first write, for observability only — not used for expiry (no TTL, FR-040) |
+
+**Migration**: entries written under the v1 per-definition key are moved onto this key by `k-order internal migrate-backtest-cache` (`--dry-run` to preview), which collapses the duplicate copies and reconstructs `m5_fetched` from the writing definition's minimum-range threshold. It is idempotent.
 
 **No TTL attribute** — entries never expire (FR-040); a bad entry is corrected by manually deleting that item, not through any feature capability.
 
-**Read/write path**: `api/services/backtest_service.py` calls `DynamoDBClient.get_cached_backtest_candles(definition_code, trading_date)` before fetching candles for a day; on a hit, it reconstructs the `Candle` objects (`model.workflow.Candle`) directly from the cached fields instead of calling `CandlesService.get_candles_in_window`. On a miss, it fetches from Saxo as today, then calls `DynamoDBClient.store_backtest_candles(...)` (or a `has_data=False` variant, FR-038) before proceeding to `evaluate_day`, which is unchanged and always runs against the resulting `Candle` list.
+**Read/write path**: `api/services/backtest_service.py` calls `DynamoDBClient.get_cached_backtest_candles(cache_key, trading_date)` before fetching candles for a day; on a hit, it reconstructs the `Candle` objects (`model.workflow.Candle`) directly from the cached fields instead of calling `CandlesService.get_candles_in_window`. On a miss, it fetches from Saxo as today, then calls `DynamoDBClient.store_backtest_candles(...)` (or a `has_data=False` variant, FR-038) before proceeding to `evaluate_day`, which is unchanged and always runs against the resulting `Candle` list.

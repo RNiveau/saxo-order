@@ -276,3 +276,11 @@ class CachedDayCandles:
     has_data: bool
     h1_candle: Optional[Candle] = None
     m5_candles: List[Candle] = field(default_factory=list)
+    # Whether the 5-minute fetch actually happened. False marks a partial
+    # entry: a definition with a minimum H1 range skipped the 5-minute
+    # fetch on a day that fails the filter (FR-033), so m5_candles is
+    # empty because nothing was asked for, not because Saxo had nothing.
+    # Since the cache is shared by every definition on the instrument, a
+    # definition the filter doesn't apply to must complete such an entry
+    # rather than read its empty m5_candles as the day's real data.
+    m5_fetched: bool = True

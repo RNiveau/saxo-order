@@ -76,6 +76,20 @@ def paris_session_end_utc(
     return close_hour_start + datetime.timedelta(minutes=utc_market.end_minute)
 
 
+def session_key(market: Market) -> str:
+    """Compact identifier of the market's session window ("0900-1730" for
+    EUMarket, "0900-2200" for EuCfdMarket), built from the same fields
+    paris_reference_window_utc/paris_session_end_utc derive their bounds
+    from. Two markets sharing this string fetch exactly the same candles
+    for a given instrument and day, which is what makes it usable as part
+    of a cache key."""
+    close_minutes = market.close_hour * 60 + market.end_minute
+    return (
+        f"{market.open_hour:02d}{market.open_minutes:02d}-"
+        f"{close_minutes // 60:02d}{close_minutes % 60:02d}"
+    )
+
+
 def is_future_paris_date(
     d: datetime.date, now: Optional[datetime.datetime] = None
 ) -> bool:

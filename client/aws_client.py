@@ -970,14 +970,19 @@ class DynamoDBClient(AwsClient):
         items = response.get("Items", [])
         return items[0] if items else None
 
+    # The table's hash key attribute is named "definition_code" for
+    # historical reasons: it held a per-definition key until the cache was
+    # re-keyed on (instrument, session). Renaming a DynamoDB key attribute
+    # means replacing the table, so the attribute keeps its name while the
+    # value it carries is now whatever cache key the caller computed.
     @_dynamo_operation
     async def get_cached_backtest_candles(
-        self, definition_code: str, trading_date: str
+        self, cache_key: str, trading_date: str
     ) -> Optional[Dict[str, Any]]:
         table = await self._get_table("backtest_candle_cache")
         response = await table.get_item(
             Key={
-                "definition_code": definition_code,
+                "definition_code": cache_key,
                 "trading_date": trading_date,
             }
         )
@@ -991,14 +996,15 @@ class DynamoDBClient(AwsClient):
     @_dynamo_operation
     async def store_backtest_candles(
         self,
-        definition_code: str,
+        cache_key: str,
         trading_date: str,
         has_data: bool,
         h1_candle: Optional[Dict[str, Any]] = None,
         m5_candles: Optional[List[Dict[str, Any]]] = None,
+        m5_fetched: bool = True,
     ) -> Dict[str, Any]:
         item: Dict[str, Any] = {
-            "definition_code": definition_code,
+            "definition_code": cache_key,
             "trading_date": trading_date,
             "has_data": has_data,
             "cached_at": int(time.time()),
@@ -1006,6 +1012,7 @@ class DynamoDBClient(AwsClient):
         if has_data:
             item["h1_candle"] = h1_candle
             item["m5_candles"] = m5_candles or []
+            item["m5_fetched"] = m5_fetched
         item = self._convert_floats_to_decimal(item)
 
         table = await self._get_table("backtest_candle_cache")
@@ -1013,5 +1020,46 @@ class DynamoDBClient(AwsClient):
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB put_item error: {response}")
+
+        return response
+
+    @_dynamo_operation
+    async def scan_backtest_candles(self) -> List[Dict[str, Any]]:
+        """Every item in the raw-candle cache. Only the cache migration
+        needs this - the backtests themselves always read a single
+        (cache key, trading date) item."""
+        table = await self._get_table("backtest_candle_cache")
+        response = await table.scan()
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB scan error: {response}")
+            return []
+
+        items = response.get("Items", [])
+        while "LastEvaluatedKey" in response:
+            response = await table.scan(
+                ExclusiveStartKey=response["LastEvaluatedKey"]
+            )
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB scan error: {response}")
+                break
+            items.extend(response.get("Items", []))
+
+        return items
+
+    @_dynamo_operation
+    async def delete_backtest_candles(
+        self, cache_key: str, trading_date: str
+    ) -> Dict[str, Any]:
+        table = await self._get_table("backtest_candle_cache")
+        response = await table.delete_item(
+            Key={
+                "definition_code": cache_key,
+                "trading_date": trading_date,
+            }
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB delete_item error: {response}")
 
         return response
