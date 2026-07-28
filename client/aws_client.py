@@ -1002,7 +1002,12 @@ class DynamoDBClient(AwsClient):
         h1_candle: Optional[Dict[str, Any]] = None,
         m5_candles: Optional[List[Dict[str, Any]]] = None,
         m5_fetched: bool = True,
+        only_if_absent: bool = False,
     ) -> Dict[str, Any]:
+        """only_if_absent makes the write conditional on nothing being
+        cached for this key yet. Used for a partial entry, which must
+        never overwrite the richer entry another concurrent run may have
+        just written for the same day."""
         item: Dict[str, Any] = {
             "definition_code": cache_key,
             "trading_date": trading_date,
@@ -1015,8 +1020,26 @@ class DynamoDBClient(AwsClient):
             item["m5_fetched"] = m5_fetched
         item = self._convert_floats_to_decimal(item)
 
+        kwargs: Dict[str, Any] = {"Item": item}
+        if only_if_absent:
+            kwargs["ConditionExpression"] = (
+                "attribute_not_exists(definition_code)"
+            )
+
         table = await self._get_table("backtest_candle_cache")
-        response = await table.put_item(Item=item)
+        try:
+            response = await table.put_item(**kwargs)
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code")
+            if code != "ConditionalCheckFailedException":
+                raise
+            # Someone else cached this day first, which is the whole point
+            # of the condition - not an error.
+            self.logger.debug(
+                f"Skipped conditional write for {cache_key}/{trading_date}: "
+                "an entry already exists"
+            )
+            return {}
 
         if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
             self.logger.error(f"DynamoDB put_item error: {response}")

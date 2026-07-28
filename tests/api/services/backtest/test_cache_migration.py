@@ -11,8 +11,8 @@ from client.aws_client import DynamoDBClient, DynamoDBOperationError
 from tests.api.services.backtest.helpers import h1_candle, m5_candle
 
 TRADING_DATE = "2026-06-02"
-FRA40_KEY = "FRA40.I:0900-1730:v2"
-GER40_CFD_KEY = "GER40.I:0900-2200:v2"
+FRA40_KEY = "FRA40.I:0900-1730@Europe/Paris:v2"
+GER40_CFD_KEY = "GER40.I:0900-2200@Europe/Paris:v2"
 
 
 def item(old_key, trading_date=TRADING_DATE, has_data=True, m5_count=1):

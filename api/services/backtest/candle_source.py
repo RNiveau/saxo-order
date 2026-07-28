@@ -181,7 +181,9 @@ class CandleSource:
         # the threshold is a NO_TRADE whatever the 5-minute candles hold,
         # so don't pay for the second fetch. The entry is stored as
         # partial (m5_fetched=False) so a definition without the filter
-        # completes it instead of reading the empty list as real data.
+        # completes it instead of reading the empty list as real data -
+        # and written only if nothing is cached yet, so a concurrent run
+        # that already stored the day's full candles is not downgraded.
         if is_below_min_range(definition, h1_candle.higher, h1_candle.lower):
             await self._store(
                 cache_key(definition),
@@ -190,6 +192,7 @@ class CandleSource:
                 h1_candle=h1_candle,
                 m5_candles=[],
                 m5_fetched=False,
+                only_if_absent=True,
             )
             return CachedDayCandles(
                 has_data=True,
@@ -303,6 +306,7 @@ class CandleSource:
         h1_candle: Optional[Candle] = None,
         m5_candles: Optional[List[Candle]] = None,
         m5_fetched: bool = True,
+        only_if_absent: bool = False,
     ) -> None:
         """Store the day's raw candles (FR-037/FR-038). A DynamoDB failure
         (including no active resource - local/dev without AWS) degrades to
@@ -320,6 +324,7 @@ class CandleSource:
                     else None
                 ),
                 m5_fetched,
+                only_if_absent,
             )
         except (DynamoDBOperationError, RuntimeError) as e:
             self.logger.warning(

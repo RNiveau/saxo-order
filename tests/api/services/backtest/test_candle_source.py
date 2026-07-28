@@ -26,8 +26,9 @@ from tests.api.services.backtest.helpers import (
 from utils.exception import SaxoException
 
 # The v2 key for the FRA40.I cash-session definitions: instrument and
-# session window only, no definition code.
-FRA40_KEY = "FRA40.I:0900-1730:v2"
+# session window (hours plus the timezone they are local to), no
+# definition code.
+FRA40_KEY = "FRA40.I:0900-1730@Europe/Paris:v2"
 
 
 class TestBacktestCandleCache:
@@ -133,6 +134,7 @@ class TestBacktestCandleCache:
             None,
             None,
             True,
+            False,
         )
 
     async def test_h1_fetch_failure_is_not_cached(self):
@@ -256,7 +258,7 @@ class TestBacktestCandleCache:
         await service.evaluate_day(IMPULSIVE_DEFINITION, TRADING_DATE)
 
         dynamodb_client.get_cached_backtest_candles.assert_called_once_with(
-            "GER40.I:0900-2200:v2",
+            "GER40.I:0900-2200@Europe/Paris:v2",
             TRADING_DATE.isoformat(),
         )
 
@@ -300,6 +302,9 @@ class TestPartialCacheEntries:
         args = dynamodb_client.store_backtest_candles.call_args[0]
         assert args[0] == FRA40_KEY
         assert args[5] is False
+        # Conditional: a concurrent run may already have cached the day's
+        # full candles, and a partial entry must not downgrade them.
+        assert args[6] is True
 
     async def test_partial_entry_is_completed_for_other_definitions(self):
         dynamodb_client = MagicMock(spec=DynamoDBClient)
