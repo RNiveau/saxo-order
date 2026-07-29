@@ -22,6 +22,7 @@ from services.indicator_service import (
     double_top,
     exponentiel_mobile_average,
     find_linear_function,
+    is_far_from_supports,
     macd0lag,
     mm50_touch,
     number_of_day_between_dates,
@@ -685,6 +686,84 @@ class TestIndicatorService:
     def test_mm50_touch_returns_none_when_fewer_than_sixty_candles(self):
         candles = _make_candles([100.0] * 59)
         assert mm50_touch(candles) is None
+
+
+def _candle(lower: float, higher: float, close: float) -> Candle:
+    return Candle(lower=lower, higher=higher, open=close, close=close)
+
+
+class TestIsFarFromSupports:
+    """
+    The buy cases use a geometry where the ma50 (1000) sits above the
+    bollinger bottom (960), so the ma50 leg decides the outcome on its own.
+    """
+
+    BAND = 960.0
+    MA50 = 1000.0
+    MARGIN_BAND = 3.0
+    MARGIN_MA50 = 1.0
+
+    def _is_far(self, candles: List[Candle], direction: Direction) -> bool:
+        return is_far_from_supports(
+            candles,
+            self.BAND if direction == Direction.BUY else 1040.0,
+            self.MA50,
+            self.MARGIN_BAND,
+            self.MARGIN_MA50,
+            direction,
+        )
+
+    def test_buy_far_from_both_levels(self):
+        candles = [
+            _candle(lower=1010.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is True
+
+    def test_buy_low_wicking_into_the_ma50_is_not_far(self):
+        """The close stays above the ma50 but the low pierces it: the
+        pullback did touch, so the signal must not be discarded."""
+        candles = [
+            _candle(lower=999.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is False
+
+    def test_buy_previous_low_wicking_into_the_ma50_is_not_far(self):
+        candles = [
+            _candle(lower=1010.0, higher=1030.0, close=1020.0),
+            _candle(lower=1000.5, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is False
+
+    def test_buy_close_below_the_band_is_not_far(self):
+        candles = [
+            _candle(lower=955.0, higher=1030.0, close=962.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is False
+
+    def test_sell_far_from_both_levels(self):
+        candles = [
+            _candle(lower=970.0, higher=990.0, close=980.0),
+            _candle(lower=975.0, higher=992.0, close=985.0),
+        ]
+        assert self._is_far(candles, Direction.SELL) is True
+
+    def test_sell_high_wicking_into_the_ma50_is_not_far(self):
+        candles = [
+            _candle(lower=970.0, higher=1000.0, close=980.0),
+            _candle(lower=975.0, higher=992.0, close=985.0),
+        ]
+        assert self._is_far(candles, Direction.SELL) is False
+
+    def test_only_the_last_two_candles_are_considered(self):
+        candles = [
+            _candle(lower=1010.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+            _candle(lower=900.0, higher=900.0, close=900.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is True
 
 
 def _trending_daily(count: int, step: float = 5.0) -> List[Candle]:
