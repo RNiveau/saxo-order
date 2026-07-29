@@ -23,6 +23,7 @@ from services.indicator_service import (
     exponentiel_mobile_average,
     find_linear_function,
     is_far_from_levels,
+    is_price_within_bands,
     macd0lag,
     mm50_touch,
     number_of_day_between_dates,
@@ -690,6 +691,118 @@ class TestIndicatorService:
 
 def _candle(lower: float, higher: float, close: float) -> Candle:
     return Candle(lower=lower, higher=higher, open=close, close=close)
+
+
+class TestIsPriceWithinBands:
+    """
+    The zone is widened by COMBO_BB_TOLERANCE (0.5%) at both ends. The
+    values just inside each end are the ones that pin the tolerance down:
+    they fall outside the zone under the 0.05% factor the buy side used
+    before, so these cases fail if the tolerance regresses.
+    """
+
+    OUTER = 1000.0  # the 2.5 band
+    INNER = 1100.0  # the 2.0 band
+
+    @pytest.mark.parametrize(
+        "close, expected",
+        [
+            (996.0, True),  # inside only thanks to the 0.5% tolerance
+            (995.5, True),
+            (994.0, False),  # past the widened outer edge
+            (1050.0, True),
+            (1105.0, True),  # inside only thanks to the 0.5% tolerance
+            (1106.0, False),  # past the widened inner edge
+        ],
+    )
+    def test_buy_zone(self, close: float, expected: bool):
+        assert (
+            is_price_within_bands(close, self.OUTER, self.INNER, Direction.BUY)
+            is expected
+        )
+
+    @pytest.mark.parametrize(
+        "close, expected",
+        [
+            (996.0, True),
+            (995.5, True),
+            (994.0, False),
+            (1050.0, True),
+            (1105.0, True),
+            (1106.0, False),
+        ],
+    )
+    def test_sell_zone(self, close: float, expected: bool):
+        """Mirrored: the 2.0 band is the lower edge and the 2.5 the upper."""
+        assert (
+            is_price_within_bands(
+                close, self.INNER, self.OUTER, Direction.SELL
+            )
+            is expected
+        )
+
+
+class TestComboBandOffsets:
+    """
+    The previous candle must be compared against bands read at its own
+    offset. No recorded fixture separates the shifted from the unshifted
+    2.5 band - the perturbation is too small for any recorded close to land
+    in the gap - so the two leading candles are constructed on top of 233
+    recorded ones: the spike in candle 0 lifts the 20-period deviation
+    enough to pull bb25 and bb25_1 apart, and candle 1 is placed in the
+    resulting gap.
+    """
+
+    def _candles(self) -> List[Candle]:
+        with open("tests/services/files/combo_buy_h4_dax.obj", "r") as f:
+            candles = eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+        candles[0] = Candle(
+            lower=18670.0,
+            higher=18730.0,
+            open=18690.0,
+            close=18700.0,
+            ut=candles[0].ut,
+            date=candles[0].date,
+        )
+        candles[1] = Candle(
+            lower=18355.0,
+            higher=18415.0,
+            open=18395.0,
+            close=18385.0,
+            ut=candles[1].ut,
+            date=candles[1].date,
+        )
+        return candles
+
+    def test_the_two_offsets_disagree_on_this_input(self):
+        """Guards the premise of the test below: if a future change makes
+        both offsets agree here, the next test stops proving anything."""
+        candles = self._candles()
+        previous_close = candles[1].close
+        bb25 = bollinger_bands(candles, 2.5)
+        bb25_1 = bollinger_bands(candles[1:], 2.5)
+        bb20_1 = bollinger_bands(candles[1:], 2.0)
+
+        assert (
+            is_price_within_bands(
+                previous_close, bb25_1.bottom, bb20_1.bottom, Direction.BUY
+            )
+            is True
+        )
+        assert (
+            is_price_within_bands(
+                previous_close, bb25.bottom, bb20_1.bottom, Direction.BUY
+            )
+            is False
+        )
+
+    def test_combo_reads_the_previous_candle_band_at_its_own_offset(self):
+        signal = combo(self._candles())
+        assert signal is not None
+        assert signal.details["price_within_bb"] is True
 
 
 class TestIsFarFromLevels:

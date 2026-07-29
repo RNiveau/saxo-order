@@ -147,6 +147,27 @@ def containing_candle(candles: List[Candle]) -> Optional[Candle]:
     return None
 
 
+def is_price_within_bands(
+    close: float, outer: float, inner: float, direction: Direction
+) -> bool:
+    """
+    True when close sits in the zone between the 2.0 (inner) and the 2.5
+    (outer) bollinger band, widened by COMBO_BB_TOLERANCE at both ends.
+    Both bands must be read at the same candle offset as the close.
+    """
+    if direction == Direction.BUY:
+        return (
+            outer * (1 - COMBO_BB_TOLERANCE)
+            < close
+            < inner * (1 + COMBO_BB_TOLERANCE)
+        )
+    return (
+        inner * (1 - COMBO_BB_TOLERANCE)
+        < close
+        < outer * (1 + COMBO_BB_TOLERANCE)
+    )
+
+
 def is_far_from_levels(
     candles: List[Candle],
     band: float,
@@ -260,14 +281,10 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
             signal += 1
             buy_combo.details["strong_ma50"] = True
 
-        if (
-            bb25_1.bottom * (1 - COMBO_BB_TOLERANCE)
-            < candles[1].close
-            < bb20_1.bottom * (1 + COMBO_BB_TOLERANCE)
-        ) or (
-            bb_last.bottom * (1 - COMBO_BB_TOLERANCE)
-            < candles[0].close
-            < bb20.bottom * (1 + COMBO_BB_TOLERANCE)
+        if is_price_within_bands(
+            candles[1].close, bb25_1.bottom, bb20_1.bottom, Direction.BUY
+        ) or is_price_within_bands(
+            candles[0].close, bb_last.bottom, bb20.bottom, Direction.BUY
         ):  # candle -1 or candle is between bb 2.0 / 2.5
             signal += 1
             buy_combo.details["price_within_bb"] = True
@@ -331,14 +348,10 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
             signal += 1
             sell_combo.details["strong_ma50"] = True
 
-        if (
-            bb20_1.up * (1 - COMBO_BB_TOLERANCE)
-            < candles[1].close
-            < bb25_1.up * (1 + COMBO_BB_TOLERANCE)
-        ) or (
-            bb20.up * (1 - COMBO_BB_TOLERANCE)
-            < candles[0].close
-            < bb_last.up * (1 + COMBO_BB_TOLERANCE)
+        if is_price_within_bands(
+            candles[1].close, bb25_1.up, bb20_1.up, Direction.SELL
+        ) or is_price_within_bands(
+            candles[0].close, bb_last.up, bb20.up, Direction.SELL
         ):  # candle -1 or candle is between bb 2.0 / 2.5
             signal += 1
             sell_combo.details["price_within_bb"] = True
