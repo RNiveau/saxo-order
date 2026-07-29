@@ -1,5 +1,5 @@
 import datetime
-from typing import List
+from typing import List, Optional
 
 import pytest
 
@@ -22,7 +22,7 @@ from services.indicator_service import (
     double_top,
     exponentiel_mobile_average,
     find_linear_function,
-    is_far_from_supports,
+    is_far_from_levels,
     macd0lag,
     mm50_touch,
     number_of_day_between_dates,
@@ -692,21 +692,30 @@ def _candle(lower: float, higher: float, close: float) -> Candle:
     return Candle(lower=lower, higher=higher, open=close, close=close)
 
 
-class TestIsFarFromSupports:
+class TestIsFarFromLevels:
     """
-    The buy cases use a geometry where the ma50 (1000) sits above the
-    bollinger bottom (960), so the ma50 leg decides the outcome on its own.
+    Both legs of the conjunction have to be exercised on their own, so the
+    geometry changes per test: whichever level is the harder one to clear is
+    the leg that decides the outcome. The default geometry puts the ma50
+    (1000) above the bollinger bottom (960), making the ma50 the deciding
+    leg for a buy; `band` is overridden where the band leg must decide.
     """
 
-    BAND = 960.0
     MA50 = 1000.0
     MARGIN_BAND = 3.0
     MARGIN_MA50 = 1.0
 
-    def _is_far(self, candles: List[Candle], direction: Direction) -> bool:
-        return is_far_from_supports(
+    def _is_far(
+        self,
+        candles: List[Candle],
+        direction: Direction,
+        band: Optional[float] = None,
+    ) -> bool:
+        if band is None:
+            band = 960.0 if direction == Direction.BUY else 1040.0
+        return is_far_from_levels(
             candles,
-            self.BAND if direction == Direction.BUY else 1040.0,
+            band,
             self.MA50,
             self.MARGIN_BAND,
             self.MARGIN_MA50,
@@ -736,12 +745,16 @@ class TestIsFarFromSupports:
         ]
         assert self._is_far(candles, Direction.BUY) is False
 
-    def test_buy_close_below_the_band_is_not_far(self):
+    def test_buy_band_leg_alone_decides(self):
+        """Band (1000 + 3) above the ma50 (1000 + 1), so only the band leg
+        can fail: the low clears the ma50 but not the band."""
         candles = [
-            _candle(lower=955.0, higher=1030.0, close=962.0),
+            _candle(lower=1002.0, higher=1030.0, close=1020.0),
             _candle(lower=1008.0, higher=1025.0, close=1015.0),
         ]
-        assert self._is_far(candles, Direction.BUY) is False
+        assert self._is_far(candles, Direction.BUY, band=1000.0) is False
+        candles[0] = _candle(lower=1004.0, higher=1030.0, close=1020.0)
+        assert self._is_far(candles, Direction.BUY, band=1000.0) is True
 
     def test_sell_far_from_both_levels(self):
         candles = [
@@ -756,6 +769,32 @@ class TestIsFarFromSupports:
             _candle(lower=975.0, higher=992.0, close=985.0),
         ]
         assert self._is_far(candles, Direction.SELL) is False
+
+    def test_sell_previous_high_wicking_into_the_ma50_is_not_far(self):
+        """Only the second candle pierces: the first one stays clear."""
+        candles = [
+            _candle(lower=970.0, higher=990.0, close=980.0),
+            _candle(lower=975.0, higher=999.5, close=985.0),
+        ]
+        assert self._is_far(candles, Direction.SELL) is False
+
+    def test_sell_band_leg_alone_decides(self):
+        """Band (990 - 3) below the ma50 (1000 - 1), so only the band leg
+        can fail: the high clears the ma50 but not the band."""
+        candles = [
+            _candle(lower=970.0, higher=990.0, close=980.0),
+            _candle(lower=975.0, higher=985.0, close=980.0),
+        ]
+        assert self._is_far(candles, Direction.SELL, band=990.0) is False
+        candles[0] = _candle(lower=970.0, higher=986.0, close=980.0)
+        assert self._is_far(candles, Direction.SELL, band=990.0) is True
+
+    def test_fewer_than_two_candles_raises(self):
+        candle = _candle(lower=1010.0, higher=1030.0, close=1020.0)
+        with pytest.raises(SaxoException):
+            self._is_far([candle], Direction.BUY)
+        with pytest.raises(SaxoException):
+            self._is_far([], Direction.BUY)
 
     def test_only_the_last_two_candles_are_considered(self):
         candles = [

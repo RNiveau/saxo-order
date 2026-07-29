@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy
 
@@ -147,7 +147,7 @@ def containing_candle(candles: List[Candle]) -> Optional[Candle]:
     return None
 
 
-def is_far_from_supports(
+def is_far_from_levels(
     candles: List[Candle],
     band: float,
     ma50: float,
@@ -158,9 +158,16 @@ def is_far_from_supports(
     """
     True when the last two candles sit clear of both the 2.0 bollinger band
     and the ma50: the pullback never came close enough to be tradable.
+    The levels are supports for a buy and resistances for a sell.
     The candle extreme facing the level is used - the low for a buy, the
     high for a sell - so a wick reaching the level counts as a touch.
     """
+    if len(candles) < 2:
+        Logger.get_logger("is_far_from_levels").error(
+            "Two candles are needed to measure the distance,"
+            f" got {len(candles)}"
+        )
+        raise SaxoException("Missing candles")
     closes = [candle.close for candle in candles[:2]]
     if direction == Direction.BUY:
         values = closes + [candle.lower for candle in candles[:2]]
@@ -216,7 +223,7 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
                 f"close {candles[0].close} is bellow bbb 2.5 {bb_last.bottom}"
             )
             return None
-        if is_far_from_supports(
+        if is_far_from_levels(
             candles,
             bb20.bottom,
             ma50_last,
@@ -288,7 +295,7 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
                 f"close {candles[0].close} is above bbb 2.5 {bb_last.up}"
             )
             return None
-        if is_far_from_supports(
+        if is_far_from_levels(
             candles,
             bb20.up,
             ma50_last,
@@ -365,7 +372,7 @@ def macd0lag(
 
     # The loops below ask for the ema of heavily overlapping suffixes of the
     # same list, so cache each (offset, period) result.
-    ema_cache: Dict[tuple, float] = {}
+    ema_cache: Dict[Tuple[int, int], float] = {}
 
     def _ema(offset: int, period: int) -> float:
         key = (offset, period)
