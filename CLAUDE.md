@@ -143,6 +143,8 @@ Examples:
 - AWS DynamoDB `watchlist` table (existing `exchange` attribute, unchanged schema); Google Sheets trading journal (existing "Liste d'ordre" sheet, unchanged schema). No new tables. (024-ouinex-provider)
 - Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) — no change from existing stack. + FastAPI + Pydantic v2 (existing), `zoneinfo` (already used by the backtest service for Paris-local math), Python stdlib `csv` (existing exports), existing `SaxoClient`/`CandlesService`; React Router DOM v7+, Axios, Vite (frontend, existing). **No new dependency.** (025-ger40-bougie-9h)
 - N/A — ephemeral, computed on demand per request, nothing persisted (inherits spec 021's decision). (025-ger40-bougie-9h)
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI + Pydantic v2, existing `services/indicator_service.py` (`combo`, `bollinger_bands`), existing `services/candles_service.py` (`get_candles_in_window`), `aioboto3` (DynamoDB), `zoneinfo`; React Router DOM v7+, Axios, Vite. **No new dependency.** (026-combo-ger40-backtest)
+- existing DynamoDB backtest raw-candle table, under a **new key namespace** for arbitrary-timeframe series (`{instrument}:{session}:{ut}:v1`). No new table, no migration of existing entries. (026-combo-ger40-backtest)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)

@@ -53,6 +53,38 @@ class EUMarket(Market):
         )
 
 
+class DaxCfdMarket(Market):
+    """The DAX index CFD session: 02:00-22:00 Paris local.
+
+    GER40.I quotes from 02:00, twenty hours before the 22:00 close and
+    seven before the 09:00 Xetra cash open, so a strategy that reads the
+    instrument continuously rather than off a session reference range
+    sees a materially longer day than EuCfdMarket describes.
+
+    Kept separate from EuCfdMarket rather than widening it: the "bougie
+    de 9h" backtests derive their 09:00-10:00 reference window from
+    open_hour, so moving that market's open to 02:00 would silently
+    relocate their reference candle to the middle of the night.
+
+    close_hour/end_minute follow the EuCfdMarket convention (21 + 60 for
+    a literal 22:00 close - close_hour labels the last full H1 candle).
+    02:00 local is also the earliest open this Market can express: it
+    resolves to 00:00 UTC under CEST, and an earlier one would put the
+    session's UTC open on the previous calendar day, which market_in_utc
+    documents it does not handle.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            open_hour=2,
+            close_hour=21,
+            open_minutes=0,
+            h4_blocks=[4, 4, 4, 4, 4],
+            timezone="Europe/Paris",
+            end_minute=60,
+        )
+
+
 class EuCfdMarket(Market):
     """The European index CFD session: 09:00-22:00 Paris local.
 
