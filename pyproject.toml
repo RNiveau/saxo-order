@@ -48,7 +48,7 @@ types-boto3 = "^1.42.40"
 types-pyyaml = "^6.0.12.20250915"
 flake8 = "^7.3.0"
 httpx = "^0.28.1"
-types-cachetools = "^6.2.0.20251022"
+types-cachetools = ">=6.2.0.20251022,<8.0.0.0"
 
 [build-system]
 requires = ["poetry>=0.12"]
