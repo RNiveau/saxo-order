@@ -39,6 +39,8 @@ A trader opens the Backtest menu, picks "GER40 Combo 15m" (or the 5m / H1 siblin
 
 **Why this priority**: The date range *is* the deliverable. Unlike the session backtests, a single day of an indicator strategy tells a trader almost nothing — a 5m combo may fire twice a week, and a position opened Tuesday may still be open Friday. Without the range run the feature has no value.
 
+Running that same range on each of the three timeframes and comparing the summaries — which is the reason three were asked for rather than one — needs nothing beyond this story: the three are separate registered backtests evaluated on their own candle series, so the comparison falls out of the three definitions existing. It is measured by SC-C03 and SC-C04 rather than carried as a story of its own.
+
 **Independent Test**: Run the 15m backtest over a known multi-week GER40.I range and verify each reported position's entry, exits and net points against a manual evaluation of the combo indicator and the Bollinger/MM20 levels on the same candles.
 
 **Acceptance Scenarios**:
@@ -58,19 +60,18 @@ A trader opens the Backtest menu, picks "GER40 Combo 15m" (or the 5m / H1 siblin
 
 ---
 
-### User Story 2 - Compare the three timeframes (Priority: P2)
+### User Story 2 - Only the parameters that do something are offered (Priority: P2)
 
-A trader runs the same date range on "GER40 Combo 5m", "GER40 Combo 15m" and "GER40 Combo H1" and compares the three summaries to judge which timeframe the combo signal actually pays on.
+A trader selecting a "GER40 Combo" backtest is offered exactly one tunable threshold — the stop distance — instead of the four the "bougie de 9h" backtests expose.
 
-**Why this priority**: The reason the user asked for three timeframes rather than one. It requires User Story 1 to work but adds no new strategy rules — only that each definition is independently selectable and that the three produce genuinely independent results.
+**Why this priority**: Three of the four existing thresholds (take-profit offset, break-even trigger, max entry distance) have **no meaning** for this strategy: its targets come from the Bollinger bands and its break-even from TP1, and there is no reference level to be too far from. Leaving them editable invites a trader to tune a number that does nothing, watch the result not move, and conclude the strategy is insensitive to it — a wrong conclusion produced by the UI, not by the market. It is not P1 because the strategy is fully measurable without it.
 
-**Independent Test**: Run one range on all three definitions and confirm three distinct result sets, each evaluated on its own candle series, none of them affected by running the others.
+**Independent Test**: Select each combo backtest and confirm only the stop-distance input is offered, then select an existing "bougie de 9h" backtest and confirm all four are still offered.
 
 **Acceptance Scenarios**:
 
-1. **Given** the Backtest menu, **When** a trader opens it, **Then** the three "GER40 Combo" backtests are listed alongside the existing CAC40 and GER40 backtests, each clearly identifying its timeframe.
-2. **Given** the same date range run on each of the three definitions, **When** the runs complete, **Then** each returns its own summary (days, trades, wins, losses, BE, average win, average loss, final result) computed only from its own timeframe's signals.
-3. **Given** any of the three runs, **When** it completes, **Then** the existing CAC40 and GER40 "bougie de 9h" backtests are entirely unaffected by this feature.
+1. **Given** the Backtest menu, **When** a trader selects any "GER40 Combo" backtest, **Then** only the stop-distance parameter is offered for editing, defaulted to 50 points.
+2. **Given** the Backtest menu, **When** a trader selects any existing "bougie de 9h" backtest, **Then** all four thresholds are still offered, unchanged by this feature.
 
 ---
 

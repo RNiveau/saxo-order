@@ -12,8 +12,9 @@ six shipped backtests untouched (SC-C03).
 
 - **[P]**: can run in parallel — different files, no dependency on another
   incomplete task.
-- **[Story]**: US1 (P1, run a combo backtest over a range), US2 (P2,
-  compare the three timeframes), US3 (P3, inspect a position).
+- **[Story]**: US1 (P1, run a combo backtest over a range), US2 (P2, only
+  the parameters that do something are offered), US3 (P3, inspect a
+  position).
 
 ---
 
@@ -193,13 +194,14 @@ returns real positions over a real range.
 
 ---
 
-## Phase 4: User Story 2 — compare the three timeframes (P2)
+## Phase 4: User Story 2 — only the parameters that do something are offered (P2)
 
-**Goal**: the three definitions selectable and independently correct,
-with only the meaningful parameter exposed.
+**Goal**: a combo backtest exposes exactly one tunable threshold (the
+stop distance); the "bougie de 9h" backtests still expose all four.
 
-**Independent Test**: run one range on all three and get three distinct
-result sets, none affected by running the others.
+**Independent Test**: select each combo backtest and confirm only the
+stop-distance input is offered; select an existing backtest and confirm
+all four still are.
 
 - [ ] **T029** [US2] Add `tunable_parameters: List[str] = []` to
   `BacktestDefinitionResponse` and populate it in
@@ -217,11 +219,8 @@ result sets, none affected by running the others.
   `tests/api/` covering the definitions endpoint: existing definitions
   report four tunables, combo ones report one, and existing payloads are
   otherwise unchanged.
-- [ ] **T033** [US2] Verify the three timeframes independently: 15m is
-  served natively at horizon 15 with no reconstruction (research R3), and
-  each definition's run reads only its own series.
-
-**Checkpoint**: US2 delivered — the side-by-side comparison works.
+**Checkpoint**: US2 delivered — no inert inputs on a combo backtest, no
+change to the existing ones.
 
 ---
 
@@ -258,8 +257,10 @@ entry and exits against the displayed candles.
   mypy . && flake8`, `poetry run pytest --cov`, and in `frontend/`:
   `npm run lint && npm run build`.
 - [ ] **T039** Manual smoke test per quickstart: run all three timeframes
-  from the UI, open a day detail, export both CSVs, and confirm the
-  existing CAC40/GER40 backtests still behave identically.
+  from the UI and confirm each reads only its own candle series (15m is
+  served natively at horizon 15 with no reconstruction, research R3),
+  open a day detail, export both CSVs, and confirm the existing
+  CAC40/GER40 backtests still behave identically.
 - [ ] **T040** Hand-verify the SC-C02 set — at least 8 historical signals
   across the three timeframes covering every outcome type — against
   manual calculation. This is the acceptance evidence for the whole
@@ -271,7 +272,7 @@ entry and exits against the displayed candles.
 
 ```text
 Phase 1 (T001-T005)  ─┐
-Phase 2 (T006-T009)  ─┴─> Phase 3 (T010-T028) ─> Phase 4 (T029-T033)
+Phase 2 (T006-T009)  ─┴─> Phase 3 (T010-T028) ─> Phase 4 (T029-T032)
                                               └─> Phase 5 (T034-T036)
                                                        └─> Phase 6
 ```
@@ -294,5 +295,5 @@ Phase 2 (T006-T009)  ─┴─> Phase 3 (T010-T028) ─> Phase 4 (T029-T033)
 
 **Phases 1-3 (T001-T028) are the MVP.** They deliver a working, correct
 combo backtest reachable through the existing API and the existing menu.
-Phase 4 makes the comparison ergonomic; Phase 5 makes the day view
+Phase 4 removes the inert parameter inputs; Phase 5 makes the day view
 honest. Neither is required for the strategy to be measurable.
