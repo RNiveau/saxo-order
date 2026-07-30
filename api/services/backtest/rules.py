@@ -18,6 +18,7 @@ from api.services.backtest.entry_gate import (
 )
 from api.services.backtest.lots import (
     SINGLE_LOT,
+    ComboTwoLot,
     ExtendedTwoLot,
     LotModel,
     TwoLot,
@@ -90,7 +91,14 @@ def build_exit_chain(
             )
         )
 
-    chain.append(ArmBreakEven(params.break_even_trigger_points))
+    if not definition.combo_entry:
+        # The combo strategy has exactly one path to break-even: TP1
+        # filling, which DoubleTarget arms itself (FR-C08). It has no
+        # favorable-move trigger, and break_even_trigger_points is one
+        # of the three thresholds that mean nothing to it (FR-C16), so
+        # arming off that value would invent a rule the spec does not
+        # have.
+        chain.append(ArmBreakEven(params.break_even_trigger_points))
 
     if definition.trail_to_first_target_points is not None:
         chain.append(
@@ -125,12 +133,19 @@ def build_entry_gate(
 def build_lot_model(definition: BacktestDefinition) -> LotModel:
     """The definition's position sizing.
 
-    BacktestDefinition already rejects a double take-profit with no
-    first-target fraction, so this raises rather than degrading to a
-    single lot: two answers to one question is how a flag ends up
-    silently not applying, which is the thing this refactor removed."""
+    A combo definition is the one two-lot setup that places no target at
+    entry - its mm20 and opposite band are read from each candle - so it
+    is answered before the placement fields are consulted.
+
+    For every other definition BacktestDefinition rejects a double
+    take-profit with no first-target fraction, so the tail raises rather
+    than degrading to a single lot: two answers to one question is how a
+    flag ends up silently not applying, which is the thing this refactor
+    removed."""
     if not definition.double_take_profit:
         return SINGLE_LOT
+    if definition.combo_entry:
+        return ComboTwoLot()
     if definition.runner_extension_points is not None:
         return ExtendedTwoLot(definition.runner_extension_points)
     if definition.first_target_fraction is None:

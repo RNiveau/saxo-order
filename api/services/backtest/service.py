@@ -29,8 +29,10 @@ class BacktestService:
         candles_service: CandlesService,
         dynamodb_client: DynamoDBClient,
     ):
+        # Kept as an attribute only because the backtest tests reach
+        # through it to the shared CandlesService mock; nothing here
+        # calls it. The engines hold their own reference.
         self.candles_service = candles_service
-        self.dynamodb_client = dynamodb_client
         self.strategies = StrategySelector(candles_service, dynamodb_client)
 
     def list_definitions(self) -> List[BacktestDefinition]:

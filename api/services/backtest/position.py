@@ -11,7 +11,11 @@ from utils.exception import SaxoException
 
 
 class Position:
-    """A position open on one side of the H1 range.
+    """An open position on one side of the market.
+
+    A session-range position is opened off the H1 range and carries it;
+    a combo position is opened from an indicator signal and has no
+    reference range at all, hence the optional h1_high/h1_low.
 
     Direction-dependent arithmetic is delegated to `self.side`, so nothing
     here branches on long vs short.

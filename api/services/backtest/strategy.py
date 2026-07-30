@@ -28,7 +28,7 @@ from services.candles_service import CandlesService
 from utils.exception import SaxoException
 
 
-class Strategy(Protocol):
+class BacktestStrategy(Protocol):
     async def evaluate_day(
         self,
         definition: BacktestDefinition,
@@ -50,12 +50,16 @@ class Strategy(Protocol):
 
 
 class StrategySelector:
-    """Builds each engine once and hands out the one a definition names.
+    """Builds the engines once and hands out the one a definition names.
 
-    Both engines need the same collaborators, so they are constructed
-    here rather than per call: an engine holds a candle source, and
-    rebuilding it per request would drop whatever it had already
-    fetched.
+    Construction happens here rather than per call because an engine
+    holds a candle source, and rebuilding it per request would drop
+    whatever that source had already fetched.
+
+    `dynamodb_client` is taken but not yet used: the combo engine reads
+    its own candle cache through it, and it is threaded now so adding
+    that engine does not also change this constructor's signature and
+    every call site with it.
     """
 
     def __init__(
@@ -67,7 +71,9 @@ class StrategySelector:
             candles_service, dynamodb_client
         )
 
-    def for_definition(self, definition: BacktestDefinition) -> Strategy:
+    def for_definition(
+        self, definition: BacktestDefinition
+    ) -> BacktestStrategy:
         if definition.combo_entry:
             raise SaxoException(
                 "the combo strategy is not implemented yet; definition "

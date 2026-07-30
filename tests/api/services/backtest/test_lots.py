@@ -14,9 +14,9 @@ from api.services.backtest.lots import (
     TwoLot,
 )
 from api.services.backtest.position import Position
-from api.services.backtest.rules import build_lot_model
+from api.services.backtest.rules import build_exit_chain, build_lot_model
 from api.services.backtest.side import LONG, SHORT
-from model import BacktestDefinition
+from model import BacktestDefinition, BacktestParameters, UnitTime
 from model.enum import ExitReason
 from tests.api.services.backtest.helpers import closed_trade
 from utils.exception import SaxoException
@@ -162,6 +162,59 @@ class TestBuildLotModel:
         from api.services.backtest import get_definition
 
         assert build_lot_model(get_definition("G9H")) == TwoLot(0.5)
+
+
+COMBO_DEFINITION = BacktestDefinition(
+    code="CTEST",
+    name="combo test",
+    display_name="combo test",
+    instrument="GER40.I",
+    unit_time=UnitTime.M15,
+    combo_entry=True,
+    double_take_profit=True,
+)
+
+
+class TestComboDefinitionRules:
+    """What rules.py makes of a combo definition. Both answers used to
+    be wrong in a way nothing could catch, because no registered
+    definition sets combo_entry yet."""
+
+    def test_it_builds_the_combo_lot_model(self):
+        """A combo definition is double-take-profit with neither
+        placement field - exactly the combination the tail of
+        build_lot_model rejects - so it has to be answered first."""
+        assert build_lot_model(COMBO_DEFINITION) == ComboTwoLot()
+
+    def test_its_exit_chain_is_the_stop_and_the_double_target(self):
+        """FR-C14 puts the stop first; DoubleTarget carries TP1, TP2 and
+        the break-even arming that TP1 triggers."""
+        chain = build_exit_chain(COMBO_DEFINITION, BacktestParameters())
+        assert [type(policy).__name__ for policy in chain] == [
+            "Stop",
+            "DoubleTarget",
+        ]
+
+    def test_its_chain_has_no_favorable_move_break_even(self):
+        """FR-C08: TP1 is the only path to break-even. Arming off
+        break_even_trigger_points would invent a rule the spec does not
+        have - and that threshold is one of the three a combo run
+        ignores entirely (FR-C16)."""
+        chain = build_exit_chain(COMBO_DEFINITION, BacktestParameters())
+        assert not any(
+            type(policy).__name__ == "ArmBreakEven" for policy in chain
+        )
+
+    def test_a_session_range_definition_still_arms_on_a_favorable_move(self):
+        """The combo exemption must not remove break-even arming from
+        everyone else."""
+        chain = build_exit_chain(
+            BacktestDefinition(
+                code="X", name="x", display_name="x", instrument="FRA40.I"
+            ),
+            BacktestParameters(),
+        )
+        assert any(type(policy).__name__ == "ArmBreakEven" for policy in chain)
 
 
 class TestComboTwoLot:

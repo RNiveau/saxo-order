@@ -278,22 +278,25 @@ class BacktestDefinition:
         # would read these; rejecting them here keeps a flag from
         # shipping as a silent no-op, which is what the rest of this
         # method exists for.
+        # Truthiness rather than `is not None`: these are a mix of
+        # booleans and optional numbers, and 0/0.0 means "not set" for
+        # every one of them - an `or None` normalisation would read the
+        # same today but silently pass a future numeric field set to 0.
         session_range_only = {
             "min_h1_range_points": self.min_h1_range_points,
-            "structural_stop": self.structural_stop or None,
+            "structural_stop": self.structural_stop,
             "impulsive_candle_points": self.impulsive_candle_points,
             "last_entry_time": self.last_entry_time,
             "max_daily_losses": self.max_daily_losses,
             "time_cut_minutes": self.time_cut_minutes,
-            "stop_from_reference_level": self.stop_from_reference_level
-            or None,
+            "stop_from_reference_level": self.stop_from_reference_level,
             "first_target_fraction": self.first_target_fraction,
             "runner_extension_points": self.runner_extension_points,
             "trail_to_first_target_points": self.trail_to_first_target_points,
         }
         if self.combo_entry:
             for name, value in session_range_only.items():
-                if value is not None:
+                if value:
                     raise ValueError(
                         f"{name} describes the 9h reference range, which a "
                         "combo_entry definition does not have "
