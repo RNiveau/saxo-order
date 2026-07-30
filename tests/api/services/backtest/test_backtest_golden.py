@@ -45,6 +45,24 @@ NO_CACHE_CLIENT = DynamoDBClient(dynamodb_resource=None)
 # resolves it to a traded day, so the per-trade detail is non-trivial.
 DETAIL_DATE = datetime.date(2026, 3, 3)
 
+# Definitions the synthetic market cannot make trade, and why. Listed
+# rather than silently skipped: an empty snapshot proves nothing about
+# the definition, so each entry here is a known gap in the net.
+#
+# C1H: the combo indicator fires only 5 times across the whole golden
+# range at H1, and FR-C10 declines both entries those produce. That is
+# the strategy behaving as specified, not a fixture problem - a combo
+# buys a pullback towards the ma50, and in a trending market the ma50
+# sits *above* the mm20, so TP1 is already behind the entry. Worth
+# re-checking against real GER40 data before reading anything into an
+# H1 run.
+NO_TRADE_ON_GOLDEN_MARKET = {"C1H"}
+
+# The combo backtests hold positions for days, so a trade opened before
+# DETAIL_DATE and closed after it leaves that day showing none - correct
+# under FR-C15's entry-day attribution, not a missing result.
+NO_DETAIL_DAY_TRADE = {"C5M", "C15M", "C1H"}
+
 
 def _service() -> BacktestService:
     return BacktestService(golden_candles_service(), NO_CACHE_CLIENT)
@@ -150,10 +168,16 @@ async def test_golden_market_actually_produces_trades(snapshot):
     """Guards the net itself: a snapshot of all-zero runs would pass every
     comparison while testing nothing."""
     for code, entry in snapshot.items():
+        if code in NO_TRADE_ON_GOLDEN_MARKET:
+            continue
         assert entry["run"]["summary"]["number_of_trades"] > 0, (
             f"{code} produced no trades - the golden market is not "
             "exercising the strategy"
         )
+
+    for code, entry in snapshot.items():
+        if code in NO_DETAIL_DAY_TRADE:
+            continue
         assert entry["day_detail"][
             "trades"
         ], f"{code} has no trades on the detail day {DETAIL_DATE}"

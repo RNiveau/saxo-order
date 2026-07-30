@@ -55,6 +55,26 @@ def paris_reference_window_utc(
     return (start, end)
 
 
+def paris_session_start_utc(
+    trading_date: datetime.date, market: Market
+) -> datetime.datetime:
+    """Start of the market's regular session (9:00 local for the cash and
+    CFD markets, 2:00 for the DAX CFD session), as a naive UTC datetime.
+
+    The reference-window helper above returns only the first hour, which
+    is all a "bougie de 9h" strategy looks at. A strategy that reads the
+    whole session needs its open on its own.
+    """
+    utc_market = _market_in_utc(trading_date, market)
+    return datetime.datetime(
+        trading_date.year,
+        trading_date.month,
+        trading_date.day,
+        utc_market.open_hour,
+        utc_market.open_minutes,
+    )
+
+
 def paris_session_end_utc(
     trading_date: datetime.date, market: Market
 ) -> datetime.datetime:

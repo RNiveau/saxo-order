@@ -1046,6 +1046,54 @@ class DynamoDBClient(AwsClient):
 
         return response
 
+    # The combo backtests read one arbitrary-timeframe series per trading
+    # day rather than an H1 reference candle plus 5-minute candles, so
+    # they use their own key namespace ("{instrument}:{session}:{ut}:v1")
+    # in the same table. Existing entries and their shape are untouched.
+    @_dynamo_operation
+    async def get_cached_backtest_series(
+        self, cache_key: str, trading_date: str
+    ) -> Optional[Dict[str, Any]]:
+        table = await self._get_table("backtest_candle_cache")
+        response = await table.get_item(
+            Key={
+                "definition_code": cache_key,
+                "trading_date": trading_date,
+            }
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB get_item error: {response}")
+            return None
+
+        return response.get("Item")
+
+    @_dynamo_operation
+    async def store_backtest_series(
+        self,
+        cache_key: str,
+        trading_date: str,
+        has_data: bool,
+        candles: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        item: Dict[str, Any] = {
+            "definition_code": cache_key,
+            "trading_date": trading_date,
+            "has_data": has_data,
+            "cached_at": int(time.time()),
+        }
+        if has_data:
+            item["candles"] = candles or []
+        item = self._convert_floats_to_decimal(item)
+
+        table = await self._get_table("backtest_candle_cache")
+        response = await table.put_item(Item=item)
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB put_item error: {response}")
+
+        return response
+
     @_dynamo_operation
     async def scan_backtest_candles(self) -> List[Dict[str, Any]]:
         """Every item in the raw-candle cache. Only the cache migration
