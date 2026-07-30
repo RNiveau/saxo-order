@@ -175,7 +175,7 @@ async def run_detection_for_asset(
     country_code: Optional[str],
     exchange: str,
     asset_description: str,
-    saxo_uic: Optional[str],
+    saxo_uic: Optional[str | int],
     saxo_client: SaxoClient,
     dynamodb_client: DynamoDBClient,
 ) -> List[Alert]:
