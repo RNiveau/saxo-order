@@ -1,5 +1,5 @@
 import datetime
-from typing import List
+from typing import List, Optional
 
 import pytest
 
@@ -22,6 +22,8 @@ from services.indicator_service import (
     double_top,
     exponentiel_mobile_average,
     find_linear_function,
+    is_far_from_levels,
+    is_price_within_bands,
     macd0lag,
     mm50_touch,
     number_of_day_between_dates,
@@ -685,6 +687,235 @@ class TestIndicatorService:
     def test_mm50_touch_returns_none_when_fewer_than_sixty_candles(self):
         candles = _make_candles([100.0] * 59)
         assert mm50_touch(candles) is None
+
+
+def _candle(lower: float, higher: float, close: float) -> Candle:
+    return Candle(lower=lower, higher=higher, open=close, close=close)
+
+
+class TestIsPriceWithinBands:
+    """
+    The zone is widened by COMBO_BB_TOLERANCE (0.5%) at both ends. The
+    values just inside each end are the ones that pin the tolerance down:
+    they fall outside the zone under the 0.05% factor the buy side used
+    before, so these cases fail if the tolerance regresses.
+    """
+
+    OUTER = 1000.0  # the 2.5 band
+    INNER = 1100.0  # the 2.0 band
+
+    @pytest.mark.parametrize(
+        "close, expected",
+        [
+            (996.0, True),  # inside only thanks to the 0.5% tolerance
+            (995.5, True),
+            (994.0, False),  # past the widened outer edge
+            (1050.0, True),
+            (1105.0, True),  # inside only thanks to the 0.5% tolerance
+            (1106.0, False),  # past the widened inner edge
+        ],
+    )
+    def test_buy_zone(self, close: float, expected: bool):
+        assert (
+            is_price_within_bands(close, self.OUTER, self.INNER, Direction.BUY)
+            is expected
+        )
+
+    @pytest.mark.parametrize(
+        "close, expected",
+        [
+            (996.0, True),
+            (995.5, True),
+            (994.0, False),
+            (1050.0, True),
+            (1105.0, True),
+            (1106.0, False),
+        ],
+    )
+    def test_sell_zone(self, close: float, expected: bool):
+        """Mirrored: the 2.0 band is the lower edge and the 2.5 the upper."""
+        assert (
+            is_price_within_bands(
+                close, self.INNER, self.OUTER, Direction.SELL
+            )
+            is expected
+        )
+
+
+class TestComboBandOffsets:
+    """
+    The previous candle must be compared against bands read at its own
+    offset. No recorded fixture separates the shifted from the unshifted
+    2.5 band - the perturbation is too small for any recorded close to land
+    in the gap - so the two leading candles are constructed on top of 233
+    recorded ones: the spike in candle 0 lifts the 20-period deviation
+    enough to pull bb25 and bb25_1 apart, and candle 1 is placed in the
+    resulting gap.
+    """
+
+    def _candles(self) -> List[Candle]:
+        with open("tests/services/files/combo_buy_h4_dax.obj", "r") as f:
+            candles = eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+        candles[0] = Candle(
+            lower=18670.0,
+            higher=18730.0,
+            open=18690.0,
+            close=18700.0,
+            ut=candles[0].ut,
+            date=candles[0].date,
+        )
+        candles[1] = Candle(
+            lower=18355.0,
+            higher=18415.0,
+            open=18395.0,
+            close=18385.0,
+            ut=candles[1].ut,
+            date=candles[1].date,
+        )
+        return candles
+
+    def test_the_two_offsets_disagree_on_this_input(self):
+        """Guards the premise of the test below: if a future change makes
+        both offsets agree here, the next test stops proving anything."""
+        candles = self._candles()
+        previous_close = candles[1].close
+        bb25 = bollinger_bands(candles, 2.5)
+        bb25_1 = bollinger_bands(candles[1:], 2.5)
+        bb20_1 = bollinger_bands(candles[1:], 2.0)
+
+        assert (
+            is_price_within_bands(
+                previous_close, bb25_1.bottom, bb20_1.bottom, Direction.BUY
+            )
+            is True
+        )
+        assert (
+            is_price_within_bands(
+                previous_close, bb25.bottom, bb20_1.bottom, Direction.BUY
+            )
+            is False
+        )
+
+    def test_combo_reads_the_previous_candle_band_at_its_own_offset(self):
+        signal = combo(self._candles())
+        assert signal is not None
+        assert signal.details["price_within_bb"] is True
+
+
+class TestIsFarFromLevels:
+    """
+    Both legs of the conjunction have to be exercised on their own, so the
+    geometry changes per test: whichever level is the harder one to clear is
+    the leg that decides the outcome. The default geometry puts the ma50
+    (1000) above the bollinger bottom (960), making the ma50 the deciding
+    leg for a buy; `band` is overridden where the band leg must decide.
+    """
+
+    MA50 = 1000.0
+    MARGIN_BAND = 3.0
+    MARGIN_MA50 = 1.0
+
+    def _is_far(
+        self,
+        candles: List[Candle],
+        direction: Direction,
+        band: Optional[float] = None,
+    ) -> bool:
+        if band is None:
+            band = 960.0 if direction == Direction.BUY else 1040.0
+        return is_far_from_levels(
+            candles,
+            band,
+            self.MA50,
+            self.MARGIN_BAND,
+            self.MARGIN_MA50,
+            direction,
+        )
+
+    def test_buy_far_from_both_levels(self):
+        candles = [
+            _candle(lower=1010.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is True
+
+    def test_buy_low_wicking_into_the_ma50_is_not_far(self):
+        """The close stays above the ma50 but the low pierces it: the
+        pullback did touch, so the signal must not be discarded."""
+        candles = [
+            _candle(lower=999.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is False
+
+    def test_buy_previous_low_wicking_into_the_ma50_is_not_far(self):
+        candles = [
+            _candle(lower=1010.0, higher=1030.0, close=1020.0),
+            _candle(lower=1000.5, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is False
+
+    def test_buy_band_leg_alone_decides(self):
+        """Band (1000 + 3) above the ma50 (1000 + 1), so only the band leg
+        can fail: the low clears the ma50 but not the band."""
+        candles = [
+            _candle(lower=1002.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY, band=1000.0) is False
+        candles[0] = _candle(lower=1004.0, higher=1030.0, close=1020.0)
+        assert self._is_far(candles, Direction.BUY, band=1000.0) is True
+
+    def test_sell_far_from_both_levels(self):
+        candles = [
+            _candle(lower=970.0, higher=990.0, close=980.0),
+            _candle(lower=975.0, higher=992.0, close=985.0),
+        ]
+        assert self._is_far(candles, Direction.SELL) is True
+
+    def test_sell_high_wicking_into_the_ma50_is_not_far(self):
+        candles = [
+            _candle(lower=970.0, higher=1000.0, close=980.0),
+            _candle(lower=975.0, higher=992.0, close=985.0),
+        ]
+        assert self._is_far(candles, Direction.SELL) is False
+
+    def test_sell_previous_high_wicking_into_the_ma50_is_not_far(self):
+        """Only the second candle pierces: the first one stays clear."""
+        candles = [
+            _candle(lower=970.0, higher=990.0, close=980.0),
+            _candle(lower=975.0, higher=999.5, close=985.0),
+        ]
+        assert self._is_far(candles, Direction.SELL) is False
+
+    def test_sell_band_leg_alone_decides(self):
+        """Band (990 - 3) below the ma50 (1000 - 1), so only the band leg
+        can fail: the high clears the ma50 but not the band."""
+        candles = [
+            _candle(lower=970.0, higher=990.0, close=980.0),
+            _candle(lower=975.0, higher=985.0, close=980.0),
+        ]
+        assert self._is_far(candles, Direction.SELL, band=990.0) is False
+        candles[0] = _candle(lower=970.0, higher=986.0, close=980.0)
+        assert self._is_far(candles, Direction.SELL, band=990.0) is True
+
+    def test_fewer_than_two_candles_raises(self):
+        candle = _candle(lower=1010.0, higher=1030.0, close=1020.0)
+        with pytest.raises(SaxoException):
+            self._is_far([candle], Direction.BUY)
+        with pytest.raises(SaxoException):
+            self._is_far([], Direction.BUY)
+
+    def test_only_the_last_two_candles_are_considered(self):
+        candles = [
+            _candle(lower=1010.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+            _candle(lower=900.0, higher=900.0, close=900.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is True
 
 
 def _trending_daily(count: int, step: float = 5.0) -> List[Candle]:

@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy
 
@@ -103,6 +103,15 @@ def mobile_average(candles: List[Candle], period: int) -> float:
 MM50_TOUCH_PROXIMITY = 0.01
 MM50_TOUCH_SLOPE_MIN = 3.0
 
+COMBO_MA50_SLOPE_MIN = 3.0
+COMBO_MA50_SLOPE_STRONG = 10.0
+COMBO_BB_FLAT_SLOPE_MAX = 5.0
+COMBO_BB_BREACH_TOLERANCE = 0.001
+COMBO_BB_TOLERANCE = 0.005
+COMBO_ATR_BB_MARGIN = 0.3
+COMBO_ATR_MA50_MARGIN = 0.1
+COMBO_STRONG_SIGNAL_MIN = 4
+
 
 def mm50_touch(candles: List[Candle]) -> Optional[Dict[str, float]]:
     if len(candles) < 60:
@@ -138,6 +147,60 @@ def containing_candle(candles: List[Candle]) -> Optional[Candle]:
     return None
 
 
+def is_price_within_bands(
+    close: float, outer: float, inner: float, direction: Direction
+) -> bool:
+    """
+    True when close sits in the zone between the 2.0 (inner) and the 2.5
+    (outer) bollinger band, widened by COMBO_BB_TOLERANCE at both ends.
+    Both bands must be read at the same candle offset as the close.
+    """
+    if direction == Direction.BUY:
+        return (
+            outer * (1 - COMBO_BB_TOLERANCE)
+            < close
+            < inner * (1 + COMBO_BB_TOLERANCE)
+        )
+    return (
+        inner * (1 - COMBO_BB_TOLERANCE)
+        < close
+        < outer * (1 + COMBO_BB_TOLERANCE)
+    )
+
+
+def is_far_from_levels(
+    candles: List[Candle],
+    band: float,
+    ma50: float,
+    margin_band: float,
+    margin_ma50: float,
+    direction: Direction,
+) -> bool:
+    """
+    True when the last two candles sit clear of both the 2.0 bollinger band
+    and the ma50: the pullback never came close enough to be tradable.
+    The levels are supports for a buy and resistances for a sell.
+    The candle extreme facing the level is used - the low for a buy, the
+    high for a sell - so a wick reaching the level counts as a touch.
+    """
+    if len(candles) < 2:
+        Logger.get_logger("is_far_from_levels").error(
+            "Two candles are needed to measure the distance,"
+            f" got {len(candles)}"
+        )
+        raise SaxoException("Missing candles")
+    closes = [candle.close for candle in candles[:2]]
+    if direction == Direction.BUY:
+        values = closes + [candle.lower for candle in candles[:2]]
+        return all(value > band + margin_band for value in values) and all(
+            value > ma50 + margin_ma50 for value in values
+        )
+    values = closes + [candle.higher for candle in candles[:2]]
+    return all(value < band - margin_band for value in values) and all(
+        value < ma50 - margin_ma50 for value in values
+    )
+
+
 def combo(candles: List[Candle]) -> Optional[ComboSignal]:
     logger = Logger.get_logger("combo")
     logger.debug(
@@ -146,7 +209,7 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
     ma50_last = mobile_average(candles, 50)
     ma50_first = mobile_average(candles[10:], 50)
     bb_last = bollinger_bands(candles, 2.5)
-    bb25_1 = bollinger_bands(candles, 2.5)
+    bb25_1 = bollinger_bands(candles[1:], 2.5)
     bb_first = bollinger_bands(candles[2:], 2.5)
     bb20 = bollinger_bands(candles, 2.0)
     bb20_1 = bollinger_bands(candles[1:], 2.0)
@@ -155,13 +218,20 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
     bbb_slope = slope_percentage(0, bb_first.bottom, 3, bb_last.bottom)
     macd_0lag = macd0lag(candles)
     atr = average_true_range(candles)
-    margin_variation_bb = atr * 0.3
-    margin_variation_ma50 = atr * 0.1
+    margin_variation_bb = atr * COMBO_ATR_BB_MARGIN
+    margin_variation_ma50 = atr * COMBO_ATR_MA50_MARGIN
+    both_bb_flat = (
+        abs(bbh_slope) < COMBO_BB_FLAT_SLOPE_MAX
+        and abs(bbb_slope) < COMBO_BB_FLAT_SLOPE_MAX
+    )
 
-    if (bbh_slope < -5 or bbh_slope > 5) and (bbb_slope < -5 or bbb_slope > 5):
+    if (
+        abs(bbh_slope) > COMBO_BB_FLAT_SLOPE_MAX
+        and abs(bbb_slope) > COMBO_BB_FLAT_SLOPE_MAX
+    ):
         logger.debug(f"BB bands are not flat bbh={bbh_slope}, bbb={bbb_slope}")
         return None
-    if ma50_slope > 3:
+    if ma50_slope > COMBO_MA50_SLOPE_MIN:
         logger.debug(f"testing a buying combo ma50_slope={ma50_slope}")
         signal = 0
         if candles[0].close < ma50_last:
@@ -169,28 +239,24 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
                 f"close {candles[0].close} is bellow ma50 {ma50_last}"
             )
             return None
-        if candles[0].close < bb_last.bottom * 0.999:
+        if candles[0].close < bb_last.bottom * (1 - COMBO_BB_BREACH_TOLERANCE):
             logger.debug(
                 f"close {candles[0].close} is bellow bbb 2.5 {bb_last.bottom}"
             )
             return None
-        if (
-            candles[0].close > bb20.bottom + margin_variation_bb
-            and candles[1].close > bb20.bottom + margin_variation_bb
-            and candles[0].lower > bb20.bottom + margin_variation_bb
-            and candles[1].lower > bb20.bottom + margin_variation_bb
+        if is_far_from_levels(
+            candles,
+            bb20.bottom,
+            ma50_last,
+            margin_variation_bb,
+            margin_variation_ma50,
+            Direction.BUY,
         ):
-            if (
-                candles[0].close > ma50_last + margin_variation_ma50
-                and candles[1].close > ma50_last + margin_variation_ma50
-                and candles[0].higher > ma50_last + margin_variation_ma50
-                and candles[1].higher > ma50_last + margin_variation_ma50
-            ):
-                logger.debug(
-                    f"candle {candles[0]} is far from the bbb 2.0 "
-                    f"{bb20.bottom} and from the ma50 {ma50_last}"
-                )
-                return None
+            logger.debug(
+                f"candle {candles[0]} is far from the bbb 2.0 "
+                f"{bb20.bottom} and from the ma50 {ma50_last}"
+            )
+            return None
         buy_combo = ComboSignal(
             price=0,
             direction=Direction.BUY,
@@ -204,21 +270,21 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
                 "both_bb_flat": False,
             },
         )
-        if 5 > bbh_slope > -5 and 5 > bbb_slope > -5:  # both bb are flat
+        if both_bb_flat:
             signal += 1
             buy_combo.details["both_bb_flat"] = True
         if ma50_last < bb_last.bottom:
             signal += 1
             buy_combo.details["ma50_over_bb"] = True
 
-        if ma50_slope > 10:
+        if ma50_slope > COMBO_MA50_SLOPE_STRONG:
             signal += 1
             buy_combo.details["strong_ma50"] = True
 
-        if (
-            bb25_1.bottom * 0.9995 < candles[1].close < bb20_1.bottom * 1.005
-        ) or (
-            bb_last.bottom * 0.9995 < candles[0].close < bb20.bottom * 1.005
+        if is_price_within_bands(
+            candles[1].close, bb25_1.bottom, bb20_1.bottom, Direction.BUY
+        ) or is_price_within_bands(
+            candles[0].close, bb_last.bottom, bb20.bottom, Direction.BUY
         ):  # candle -1 or candle is between bb 2.0 / 2.5
             signal += 1
             buy_combo.details["price_within_bb"] = True
@@ -232,37 +298,33 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
             buy_combo.price = candles[0].higher
         if signal == 0:
             buy_combo.strength = SignalStrength.WEAK
-        elif signal > 3:
+        elif signal >= COMBO_STRONG_SIGNAL_MIN:
             buy_combo.strength = SignalStrength.STRONG
         return buy_combo
-    elif ma50_slope < -3:
+    elif ma50_slope < -COMBO_MA50_SLOPE_MIN:
         logger.debug(f"testing a selling combo ma50_slope={ma50_slope}")
         signal = 0
         if candles[0].close > ma50_last:
             logger.debug(f"close {candles[0].close} is above ma50 {ma50_last}")
             return None
-        if candles[0].close > bb_last.up * 1.001:
+        if candles[0].close > bb_last.up * (1 + COMBO_BB_BREACH_TOLERANCE):
             logger.debug(
                 f"close {candles[0].close} is above bbb 2.5 {bb_last.up}"
             )
             return None
-        if (
-            candles[0].close < bb20.up - margin_variation_bb
-            and candles[1].close < bb20.up - margin_variation_bb
-            and candles[0].higher < bb20.up - margin_variation_bb
-            and candles[1].higher < bb20.up - margin_variation_bb
+        if is_far_from_levels(
+            candles,
+            bb20.up,
+            ma50_last,
+            margin_variation_bb,
+            margin_variation_ma50,
+            Direction.SELL,
         ):
-            if (
-                candles[0].close < ma50_last - margin_variation_ma50
-                and candles[1].close < ma50_last - margin_variation_ma50
-                and candles[0].higher < ma50_last - margin_variation_ma50
-                and candles[1].higher < ma50_last - margin_variation_ma50
-            ):
-                logger.debug(
-                    f"candle {candles[0]} is far from the bbb 2.0 "
-                    f"{bb20.up} and from the ma50 {ma50_last}"
-                )
-                return None
+            logger.debug(
+                f"candle {candles[0]} is far from the bbb 2.0 "
+                f"{bb20.up} and from the ma50 {ma50_last}"
+            )
+            return None
         sell_combo = ComboSignal(
             price=0,
             direction=Direction.SELL,
@@ -276,18 +338,20 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
                 "both_bb_flat": False,
             },
         )
-        if 5 > bbh_slope > -5 and 5 > bbb_slope > -5:  # both bb are flat
+        if both_bb_flat:
             signal += 1
             sell_combo.details["both_bb_flat"] = True
         if ma50_last > bb_last.up:
             signal += 1
             sell_combo.details["ma50_over_bb"] = True
-        if ma50_slope < -10:
+        if ma50_slope < -COMBO_MA50_SLOPE_STRONG:
             signal += 1
             sell_combo.details["strong_ma50"] = True
 
-        if (bb25_1.up * 1.005 > candles[1].close > bb20_1.up * 0.9995) or (
-            bb_last.up * 1.005 > candles[0].close > bb20.up * 0.995
+        if is_price_within_bands(
+            candles[1].close, bb25_1.up, bb20_1.up, Direction.SELL
+        ) or is_price_within_bands(
+            candles[0].close, bb_last.up, bb20.up, Direction.SELL
         ):  # candle -1 or candle is between bb 2.0 / 2.5
             signal += 1
             sell_combo.details["price_within_bb"] = True
@@ -301,7 +365,7 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
             sell_combo.price = candles[0].lower
         if signal == 0:
             sell_combo.strength = SignalStrength.WEAK
-        elif signal > 3:
+        elif signal >= COMBO_STRONG_SIGNAL_MIN:
             sell_combo.strength = SignalStrength.STRONG
         return sell_combo
     return None
@@ -319,42 +383,48 @@ def macd0lag(
     return a tuple(last macd0lag, signal)
     """
 
-    def _macd0lag(
-        candles: List[Candle],
-        short_term_period: int = 12,
-        long_term_period: int = 26,
-    ) -> float:
-        if len(candles) < long_term_period * 4:
+    # The loops below ask for the ema of heavily overlapping suffixes of the
+    # same list, so cache each (offset, period) result.
+    ema_cache: Dict[Tuple[int, int], float] = {}
+
+    def _ema(offset: int, period: int) -> float:
+        key = (offset, period)
+        if key not in ema_cache:
+            ema_cache[key] = exponentiel_mobile_average(
+                candles[offset:], period
+            )
+        return ema_cache[key]
+
+    def _macd0lag(offset: int) -> float:
+        if len(candles) - offset < long_term_period * 4:
             Logger.get_logger("macd0lag").error(
-                f"Missing candles to calculate a macd0lag len={len(candles)}:"
+                "Missing candles to calculate a macd0lag"
+                f" len={len(candles) - offset}:"
                 f"needed {long_term_period * 4}"
             )
             raise SaxoException("Missing candles")
-        short_ma = exponentiel_mobile_average(candles, short_term_period)
-        long_ma = exponentiel_mobile_average(candles, long_term_period)
-        short_ma_list = [short_ma]
-        for i in range(1, short_term_period * 3):
-            short_ma_list.append(
-                exponentiel_mobile_average(candles[i:], short_term_period)
-            )
+        short_ma = _ema(offset, short_term_period)
+        long_ma = _ema(offset, long_term_period)
         short_ma_ma = exponentiel_mobile_average(
-            short_ma_list,
+            [
+                _ema(offset + i, short_term_period)
+                for i in range(short_term_period * 3)
+            ],
             short_term_period,
         )
-        long_ma_list = [long_ma]
-        for i in range(1, long_term_period * 3):
-            long_ma_list.append(
-                exponentiel_mobile_average(candles[i:], long_term_period)
-            )
-        long_ma_ma = exponentiel_mobile_average(long_ma_list, long_term_period)
+        long_ma_ma = exponentiel_mobile_average(
+            [
+                _ema(offset + i, long_term_period)
+                for i in range(long_term_period * 3)
+            ],
+            long_term_period,
+        )
         macd = (2 * short_ma - short_ma_ma) - (2 * long_ma - long_ma_ma)
         return macd
 
     macd_list = []
     for i in range(0, signal_period * 9):
-        macd_list.append(
-            _macd0lag(candles[i:], short_term_period, long_term_period)
-        )
+        macd_list.append(_macd0lag(i))
     macd_ma_list = []
     for i in range(0, signal_period * 3):
         macd_ma_list.append(
