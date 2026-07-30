@@ -701,8 +701,10 @@ class TestIsPriceWithinBands:
     before, so these cases fail if the tolerance regresses.
     """
 
-    OUTER = 1000.0  # the 2.5 band
-    INNER = 1100.0  # the 2.0 band
+    # Same two numbers in both directions; which one is the outer 2.5 band
+    # flips with the direction, which is what the mirror is about.
+    LOWER_BAND = 1000.0
+    UPPER_BAND = 1100.0
 
     @pytest.mark.parametrize(
         "close, expected",
@@ -716,8 +718,14 @@ class TestIsPriceWithinBands:
         ],
     )
     def test_buy_zone(self, close: float, expected: bool):
+        """The 2.5 band is the lower edge and the 2.0 the upper."""
         assert (
-            is_price_within_bands(close, self.OUTER, self.INNER, Direction.BUY)
+            is_price_within_bands(
+                close,
+                outer=self.LOWER_BAND,
+                inner=self.UPPER_BAND,
+                direction=Direction.BUY,
+            )
             is expected
         )
 
@@ -736,7 +744,10 @@ class TestIsPriceWithinBands:
         """Mirrored: the 2.0 band is the lower edge and the 2.5 the upper."""
         assert (
             is_price_within_bands(
-                close, self.INNER, self.OUTER, Direction.SELL
+                close,
+                outer=self.UPPER_BAND,
+                inner=self.LOWER_BAND,
+                direction=Direction.SELL,
             )
             is expected
         )
@@ -788,13 +799,19 @@ class TestComboBandOffsets:
 
         assert (
             is_price_within_bands(
-                previous_close, bb25_1.bottom, bb20_1.bottom, Direction.BUY
+                previous_close,
+                outer=bb25_1.bottom,
+                inner=bb20_1.bottom,
+                direction=Direction.BUY,
             )
             is True
         )
         assert (
             is_price_within_bands(
-                previous_close, bb25.bottom, bb20_1.bottom, Direction.BUY
+                previous_close,
+                outer=bb25.bottom,
+                inner=bb20_1.bottom,
+                direction=Direction.BUY,
             )
             is False
         )
@@ -803,6 +820,44 @@ class TestComboBandOffsets:
         signal = combo(self._candles())
         assert signal is not None
         assert signal.details["price_within_bb"] is True
+
+
+class TestComboDefersMacd0lag:
+    """
+    macd0lag needs 233 candles, far more than the 60 the rest of combo
+    needs. Computing it up front made combo raise on any shorter history,
+    and in run_detection_for_asset that exception discards every alert
+    already collected for the asset. It must only be reached once a
+    direction is actually being scored.
+    """
+
+    def _short_flat_candles(self) -> List[Candle]:
+        """60 candles with a flat ma50: rejected before macd0lag is needed."""
+        return _make_candles([100.0] * 60)
+
+    def test_short_history_returns_none_instead_of_raising(self):
+        assert combo(self._short_flat_candles()) is None
+
+    def test_macd0lag_is_not_called_when_the_ma50_is_flat(self, mocker):
+        spy = mocker.patch(
+            "services.indicator_service.macd0lag", return_value=(1.0, 0.0)
+        )
+        assert combo(self._short_flat_candles()) is None
+        spy.assert_not_called()
+
+    def test_macd0lag_is_called_when_a_direction_is_scored(self, mocker):
+        with open("tests/services/files/combo_buy_daily_cac.obj", "r") as f:
+            candles = eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+        spy = mocker.patch(
+            "services.indicator_service.macd0lag", return_value=(1.0, 0.0)
+        )
+        signal = combo(candles)
+        assert signal is not None
+        spy.assert_called_once()
+        assert signal.details["macd"] is True
 
 
 class TestIsFarFromLevels:
