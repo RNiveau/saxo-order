@@ -102,11 +102,12 @@ make the cache key per-day, matching the existing cache's granularity.
 
 **Warm-up (FR-C13)**: extend the fetch backwards over prior *trading*
 days until at least **250 candles** precede the range's first candle, or
-15 calendar days are exhausted. 250 matches what the live alerting path
+30 calendar days are exhausted. 250 matches what the live alerting path
 feeds `combo` (`alerting.py::_build_candles` fetches `count=250`), which
 matters because `macd0lag` is a recursive EMA — a truncated window gives
-a *different* MACD than the live engine would have seen. On H1 over a
-13-hour session that is ~19 trading days of lead-in; on 5m, ~2 days.
+a *different* MACD than the live engine would have seen. Over the 20-hour session that is
+~13 trading days of lead-in on H1 (20 candles/day), ~4 on 15m, and ~2 on
+5m - hence the 30-calendar-day cap rather than 15.
 
 **Caching**: the existing DynamoDB raw-candle cache stores an
 `h1_candle` + `m5_candles` pair, which does not fit an arbitrary-UT
@@ -162,11 +163,11 @@ ending at the candle under evaluation, mirroring the live path (R3).
 `combo` requires ≥60 (`mobile_average(candles[10:], 50)`); 250 is what
 makes the MACD comparable to live.
 
-**Cost**: a 6-month 5m CFD-session run is ~156 candles/day × ~130 days ≈
-20k candles. Each `combo` call does 5 `bollinger_bands`, 2
+**Cost**: a 6-month 5m run over the 20-hour session is ~240 candles/day
+× ~130 trading days ≈ **31k candles**. Each `combo` call does 5 `bollinger_bands`, 2
 `mobile_average`, 1 `macd0lag` and 1 `average_true_range` over the
 window. `macd0lag` was made materially faster in `1aab598`. **Action**:
-task T-PERF measures a 6-month 5m run and, if it exceeds ~30s, caches the
+task T037 measures a 6-month 5m run and, if it exceeds ~30s, caches the
 rolling band computation rather than changing the strategy.
 
 **Ordering**: `combo` expects newest-first (`candles[0]` = the candle
@@ -273,3 +274,52 @@ edits touching shared code are `Position`'s optional H1 levels (R2) and
 the additive `retarget` method. **Regression guard**: the existing
 `tests/api/services/backtest/` suite must pass unmodified, and a task
 adds an explicit golden-range assertion for one existing definition.
+
+---
+
+## R12. The DAX CFD session is 02:00-22:00, and needs its own `Market`
+
+**Decision**: add `DaxCfdMarket` to `model/market.py` (open 02:00, close
+22:00 Paris local) and give the three combo definitions that market.
+`EuCfdMarket` (09:00-22:00) is left exactly as it is.
+
+**Rationale**: GER40.I quotes from 02:00 — twenty hours a day, seven of
+them before the Xetra cash open. A strategy that reads the instrument
+continuously rather than off a session reference range should see all of
+them; the first draft's 09:00 open would have discarded a third of the
+session's candles and every signal in it.
+
+**Why a separate market rather than widening `EuCfdMarket`**: the two
+GER40 impulsive variants (`G9HIC`, `G9HICD`) are "bougie de 9h"
+strategies whose 09:00-10:00 reference candle is derived from
+`market.open_hour` via `calendar.paris_reference_window_utc`. Moving that
+market's open to 02:00 would silently relocate their reference candle to
+the middle of the night and change six months of shipped results without
+a single line of their own code changing. Kept apart, the golden suite
+stays green by construction.
+
+**Shape** (following the `EuCfdMarket` conventions):
+
+```python
+open_hour=2, open_minutes=0, close_hour=21, end_minute=60,
+h4_blocks=[4, 4, 4, 4, 4], timezone="Europe/Paris"
+```
+
+`close_hour=21` with `end_minute=60` is the existing "last full H1 candle
+label, not the literal close" convention. `h4_blocks` sums to the 20
+session hours.
+
+**Verified against both DST regimes** (the constraint that actually
+bounds this): `market_in_utc` documents that it only handles a session
+staying inside one UTC day with `open_hour < close_hour`. A 02:00 Paris
+open resolves to **01:00 UTC in winter and 00:00 UTC in summer** — inside
+the day in both, but with no margin. An 01:00 local open would resolve to
+23:00 UTC the *previous* day under CEST and break that assumption, so
+02:00 is the earliest open this `Market` can express. `session_key`
+returns `0200-2200@Europe/Paris`, which puts the combo cache in its own
+namespace automatically.
+
+**Knock-on effects**: ~240 5-minute candles per day instead of ~156
+(R5's cost estimate becomes ~31k candles over six months), and the
+warm-up lead-in needs a 30-calendar-day cap rather than 15 to reach 250
+H1 candles (R3).

@@ -31,7 +31,7 @@ continuous multi-day candle source at an arbitrary timeframe.
 **Testing**: pytest (`tests/api/services/backtest/`), including the existing golden/characterization suite as the no-regression net.
 **Target Platform**: Linux (FastAPI backend + AWS Lambda), browser frontend.
 **Project Type**: Web (existing `api/` + `services/` backend, `frontend/` React app).
-**Performance Goals**: a 6-month range run returns in under ~30s on the slowest timeframe (5m, ~20k candles). Warm-cache runs are dominated by computation, not I/O.
+**Performance Goals**: a 6-month range run returns in under ~30s on the slowest timeframe (5m over the 20-hour session, ~31k candles). Warm-cache runs are dominated by computation, not I/O.
 **Constraints**: existing backtests must stay **bit-for-bit identical** (SC-C03), enforced by `tests/api/services/backtest/test_backtest_golden.py`; `combo` itself and the live workflow engine are not modified.
 **Scale/Scope**: 3 new definitions; ~6 new backend modules; ~2 shared-model edits; 1 new enum value + 3 `Strategy` entries; ~40 lines of frontend.
 
@@ -93,7 +93,9 @@ api/services/backtest/
 
 model/
 ├── backtest.py            # EDIT - BacktestDefinition.unit_time + combo_entry
-└── enum.py                # EDIT - ExitReason.END_OF_RUN, Strategy.C5M/C15M/C1H
+├── enum.py                # EDIT - ExitReason.END_OF_RUN, Strategy.C5M/C15M/C1H
+├── market.py              # EDIT - DaxCfdMarket (02:00-22:00 Paris)
+└── __init__.py            # EDIT - re-export DaxCfdMarket
 
 client/aws_client.py       # EDIT - store_backtest_series / get_cached_backtest_series
 api/models/backtest.py     # EDIT - tunable_parameters on the definition response
@@ -120,11 +122,13 @@ repository level.
 
 ## Phase 0 — Research
 
-Complete: [research.md](./research.md). Eleven decisions, each with
+Complete: [research.md](./research.md). Twelve decisions, each with
 rationale and rejected alternatives. Every unknown is resolved; the three
 assumptions the spec flagged for the user (TP2 band deviation,
-one-candle pending validity, CFD session) are carried forward as stated,
-each isolated to a single constant or requirement.
+one-candle pending validity, CFD session) are carried forward; the
+session one has since been resolved by the owner to 02:00-22:00 and is
+pinned in `DaxCfdMarket` (R12). The other two remain isolated to a single
+constant each.
 
 ## Phase 1 — Design
 
@@ -166,6 +170,7 @@ after the last candle:
 | FR-C11 (carry overnight) | `combo_strategy.py` — no end-of-day close |
 | FR-C12 (end-of-run close) | `combo_strategy.py` + `ExitReason.END_OF_RUN` |
 | FR-C13 (250-candle warm-up) | `combo_candle_source.py` |
+| Session bounds 02:00-22:00 | `model/market.py::DaxCfdMarket`, used by `definitions.py` |
 | FR-C14 (stop before target) | chain order `[Stop(), DoubleTarget()]` |
 | FR-C15 (existing outputs) | reused `statistics.py`, router, `api/models/backtest.py` |
 | FR-C16 (only the stop is tunable) | `api/models/backtest.py` + `Backtest.tsx` |
@@ -175,8 +180,9 @@ after the last candle:
 | Risk | Mitigation |
 |---|---|
 | The strategy seam silently changes an existing backtest | `test_backtest_golden.py` runs every registered definition against a fixed synthetic market and diffs a committed snapshot. It must pass **unmodified**; regenerating it is a red flag, not a fix. |
-| `combo` evaluated ~20k times is too slow on 5m | Evaluate only while flat (behavior-preserving, R5); measure in T037 before optimizing anything else. |
+| `combo` evaluated ~31k times is too slow on 5m | Evaluate only while flat (behavior-preserving, R5); measure in T037 before optimizing anything else. |
 | MACD differs from what the live engine would have seen | Fixed 250-candle window matching `alerting.py::_build_candles` (R5). |
 | A moving target that crosses the entry produces a "take-profit" at a loss | Specified behavior (spec edge case), not a bug; covered by an explicit test. |
 | 15m candles need reconstruction | They do not — Saxo serves horizon 15 natively and only closed windows are read (R3). Verified against `get_candles_in_window`. |
-| The three flagged assumptions turn out wrong | Each is one constant: TP2 deviation (`bands.py`), pending validity (`signals.py`), session (`definitions.py`). |
+| The two remaining flagged assumptions turn out wrong | Each is one constant: TP2 deviation (`bands.py`), pending validity (`signals.py`). The session is no longer an assumption — 02:00-22:00 was confirmed by the owner and is pinned in `DaxCfdMarket`. |
+| Widening `EuCfdMarket` instead of adding a market would move `G9HIC`/`G9HICD`'s 9h reference candle to 02:00 | A separate `DaxCfdMarket` (R12); the golden suite is the backstop, not the plan. |

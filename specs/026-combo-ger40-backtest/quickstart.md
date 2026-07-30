@@ -94,7 +94,8 @@ cd frontend && npm run lint && npm run build
 
 ## Performance sanity
 
-A 6-month 5m run evaluates ~20k candles. Time it once:
+A 6-month 5m run over the 02:00-22:00 session evaluates ~31k candles
+(~240 per trading day). Time it once:
 
 ```bash
 time curl -s "http://localhost:8000/api/backtest/run?definition=C5M\

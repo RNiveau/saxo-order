@@ -26,6 +26,7 @@ from model.enum import (  # noqa: F401
     TriggerOrder,
 )
 from model.market import (  # noqa: F401
+    DaxCfdMarket,
     EuCfdMarket,
     EUMarket,
     Market,

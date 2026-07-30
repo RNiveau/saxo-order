@@ -38,10 +38,11 @@
   1. **TP2 band deviation** — the spec assumes the inner (2.0) band; the outer (2.5) band would
      change FR-C07 only.
   2. **Pending-level validity of one candle** (FR-C04) — a longer window would change FR-C04 only.
-  3. **CFD session (9:00–22:00) candle construction** — the cash session would shrink the signal
-     universe on all three timeframes.
+  3. **Session bounds (02:00–22:00 Paris)** — confirmed by the owner after the first draft, which
+     assumed the 09:00–22:00 window the impulsive GER40 variants use. A narrower session would
+     shrink the signal universe on all three timeframes.
 - The largest engineering risk is called out in Assumptions rather than hidden in the
   requirements: **FR-C11 (positions carry overnight) breaks the day-independent run engine**
   every existing backtest is built on. `/speckit.plan` must address that first.
-- The 15-minute timeframe is not used by any existing backtest and may need to be assembled
-  from smaller candles; also a plan-phase concern.
+- The 15-minute timeframe is not used by any existing backtest, but the plan phase confirmed it
+  is served natively at horizon 15 and needs no reconstruction.

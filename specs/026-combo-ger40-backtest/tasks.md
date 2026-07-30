@@ -21,8 +21,15 @@ six shipped backtests untouched (SC-C03).
 ## Phase 1: Foundation — shared model and enum changes
 
 **Purpose**: the vocabulary every later phase needs. Nothing here changes
-behavior on its own.
+behavior on its own. T000 is already done.
 
+- [x] **T000** Add `DaxCfdMarket` (02:00-22:00 Paris) to
+  `model/market.py` and re-export it from `model/__init__.py`
+  (data-model §9, research R12). Purely additive — `EuCfdMarket` is
+  **not** widened, because `G9HIC`/`G9HICD` derive their 09:00-10:00
+  reference window from `market.open_hour`. **Done**: verified under both
+  DST regimes (01:00 UTC winter / 00:00 UTC summer, `session_key` =
+  `0200-2200@Europe/Paris`), and the 367 existing backtest tests pass.
 - [ ] **T001** [P] Add `ExitReason.END_OF_RUN = "end_of_run"` and
   `Strategy.C5M / C15M / C1H` in `model/enum.py` (data-model §2).
 - [ ] **T002** Add `unit_time: Optional[UnitTime] = None` and
@@ -107,7 +114,8 @@ of `combo` and the bands on the same candles.
   T010, T011.
 - [ ] **T013** [US1] Add the warm-up lead-in to T012 (FR-C13): extend
   backwards over prior trading days until ≥250 candles precede the
-  range's first candle, or 15 calendar days are exhausted. 250 matches
+  range's first candle, or 30 calendar days are exhausted (~13 trading
+  days of H1 lead-in over the 20-hour session). 250 matches
   `alerting.py::_build_candles`, which is what keeps the MACD comparable
   to live (research R3/R5).
 - [ ] **T014** [P] [US1] `tests/api/services/backtest/test_combo_candle_source.py`:
@@ -180,7 +188,7 @@ of `combo` and the bands on the same candles.
 
 - [ ] **T026** [US1] Register `C5M`, `C15M`, `C1H` in
   `api/services/backtest/definitions.py` per data-model §1 —
-  `GER40.I`, `EuCfdMarket`, `combo_entry=True`,
+  `GER40.I`, **`DaxCfdMarket`** (T000), `combo_entry=True`,
   `double_take_profit=True`, `stop_loss_points=50`.
 - [ ] **T027** [US1] Make `resolve_parameters` ignore the three
   non-tunable thresholds for combo definitions (FR-C16), and extend
@@ -250,7 +258,8 @@ entry and exits against the displayed candles.
 
 ## Phase 6: Polish and gates
 
-- [ ] **T037** Measure a 6-month `C5M` run (quickstart §Performance). If
+- [ ] **T037** Measure a 6-month `C5M` run — ~31k candles over the
+  20-hour session (quickstart §Performance). If
   warm-cache runtime exceeds ~30s, cache the rolling band computation —
   **never** change the strategy rules to go faster.
 - [ ] **T038** [P] Full quality gates: `poetry run black . && isort . &&

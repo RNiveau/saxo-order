@@ -38,13 +38,20 @@ flag combinations at registration time; these follow the same pattern):
 
 | code | `Strategy` | display_name | instrument | market | unit_time | default `stop_loss_points` |
 |---|---|---|---|---|---|---|
-| `C5M` | `Strategy.C5M` | GER40 Combo 5m | `GER40.I` | `EuCfdMarket` | `UnitTime.M5` | 50 |
-| `C15M` | `Strategy.C15M` | GER40 Combo 15m | `GER40.I` | `EuCfdMarket` | `UnitTime.M15` | 50 |
-| `C1H` | `Strategy.C1H` | GER40 Combo H1 | `GER40.I` | `EuCfdMarket` | `UnitTime.H1` | 50 |
+| `C5M` | `Strategy.C5M` | GER40 Combo 5m | `GER40.I` | `DaxCfdMarket` | `UnitTime.M5` | 50 |
+| `C15M` | `Strategy.C15M` | GER40 Combo 15m | `GER40.I` | `DaxCfdMarket` | `UnitTime.M15` | 50 |
+| `C1H` | `Strategy.C1H` | GER40 Combo H1 | `GER40.I` | `DaxCfdMarket` | `UnitTime.H1` | 50 |
 
 All three set `combo_entry=True`, `double_take_profit=True`. The other
 three `BacktestParameters` fields keep their dataclass defaults and are
 never read (FR-C16).
+
+### Session
+
+All three run on **`DaxCfdMarket`** (§9), not `EuCfdMarket`: the combo
+strategy reads GER40.I continuously and should see the full 02:00-22:00
+CFD day, while the impulsive GER40 variants keep the 09:00-22:00 window
+their 9h reference candle depends on.
 
 ---
 
@@ -171,3 +178,26 @@ cached; any cache failure in either direction degrades to going to Saxo.
 `DayResultSummary.h1_high` / `h1_low` / `h1_open` are simply `None` on a
 combo day; `mm50_slope`, `adx14` and `overnight_gap` are still populated
 because they measure the instrument, not the strategy (research R8).
+
+---
+
+## 9. `DaxCfdMarket` (`model/market.py`) — NEW
+
+A `Market` subclass beside `EUMarket` / `EuCfdMarket` / `USMarket`
+(research R12). Re-exported from `model/__init__.py` like the others.
+
+| Field | Value | Note |
+|---|---|---|
+| `open_hour` / `open_minutes` | `2` / `0` | 02:00 Paris local. The earliest open this `Market` can express — see R12 on the UTC-day constraint. |
+| `close_hour` / `end_minute` | `21` / `60` | The existing "last full H1 candle label + offset" convention for a literal 22:00 close, identical to `EuCfdMarket`. |
+| `h4_blocks` | `[4, 4, 4, 4, 4]` | Sums to the 20 session hours. |
+| `timezone` | `"Europe/Paris"` | DST resolved per date by `utils.helper.market_in_utc`. |
+
+`session_key(DaxCfdMarket())` is `"0200-2200@Europe/Paris"`, so the combo
+candle cache lands in its own namespace with no extra work (§7).
+
+**Not a change to `EuCfdMarket`.** `G9HIC` and `G9HICD` derive their
+09:00-10:00 reference window from `market.open_hour`; widening that
+market would move their reference candle to 02:00 and change shipped
+results. The golden suite would catch it — this design means it never has
+to.
