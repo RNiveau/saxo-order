@@ -3,7 +3,8 @@ import datetime
 import json
 import os
 import time
-from typing import Dict, List, Optional, Tuple
+from functools import partial
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar
 
 import click
 from click.core import Context
@@ -24,6 +25,43 @@ from utils.helper import build_daily_candles_from_h1
 from utils.logger import Logger
 
 logger = Logger.get_logger("alerting")
+
+T = TypeVar("T")
+
+
+def _safe_detect(
+    alert_type: AlertType, asset_description: str, detector: Callable[[], T]
+) -> Optional[T]:
+    """
+    Run one detector in isolation, returning None when it cannot run.
+
+    Each detector has its own history requirement - combo needs 235 candles,
+    double_inside_bar 3, double_top a non-empty list - and they used to share
+    one try/except wrapping the whole chain plus the DynamoDB write. So the
+    most demanding detector decided how much history an asset needed before
+    *any* of its alerts were persisted, and an error type nobody had listed
+    (IndexError on an asset that returned no candle) escaped the handler and
+    aborted the entire scan. A detector that cannot run is not an error for
+    the others, and never a reason to drop what has already been found.
+
+    Insufficient history is routine and logs at warning; anything else is a
+    bug that must stay visible, so it logs at error with a traceback rather
+    than being flattened into the same routine-looking line.
+    """
+    try:
+        return detector()
+    except (SaxoException, IndexError) as e:
+        logger.warning(
+            f"{alert_type.value} skipped for {asset_description}: {e}"
+        )
+        return None
+    except Exception as e:
+        logger.error(
+            f"{alert_type.value} failed unexpectedly for"
+            f" {asset_description}: {e}",
+            exc_info=True,
+        )
+        return None
 
 
 def _parse_asset_code(code: str) -> Tuple[str, Optional[str]]:
@@ -148,7 +186,7 @@ async def run_detection_for_asset(
     country_code: Optional[str],
     exchange: str,
     asset_description: str,
-    saxo_uic: Optional[str],
+    saxo_uic: Optional[str | int],
     saxo_client: SaxoClient,
     dynamodb_client: DynamoDBClient,
 ) -> List[Alert]:
@@ -173,242 +211,178 @@ async def run_detection_for_asset(
         logger.warning(f"No saxo_uic for {asset_code}, skipping detection")
         return asset_alerts
 
+    asset_dict = {
+        "name": asset_description,
+        "code": asset_code,
+        "saxo_uic": saxo_uic,
+    }
     try:
-        # Build candles for detection
-        asset_dict = {
-            "name": asset_description,
-            "code": asset_code,
-            "saxo_uic": saxo_uic,
-        }
         candles = _build_candles(saxo_client, asset_dict)
+    except Exception as e:
+        logger.error(f"{asset_description} can't be scanned: {e}")
+        return asset_alerts
+    if len(candles) == 0:
+        logger.warning(f"No candle for {asset_description}, nothing to scan")
+        return asset_alerts
 
-        # Calculate MA50 slope for this asset (used for sorting alerts)
-        ma50_slope: Optional[float] = None
+    # Calculate MA50 slope for this asset (used for sorting alerts)
+    ma50_slope: Optional[float] = None
+    try:
+        if len(candles) >= 60:  # Need at least 60 candles for MA50 calculation
+            ma50_last = indicator_service.mobile_average(candles, 50)
+            ma50_first = indicator_service.mobile_average(candles[10:], 50)
+            ma50_slope = indicator_service.slope_percentage(
+                0, ma50_first, 10, ma50_last
+            )
+    except SaxoException:
+        logger.warning(
+            f"Could not calculate ma50_slope for {asset_code} - "
+            "insufficient candle data"
+        )
+
+    def detect(
+        alert_type: AlertType, detector: Callable[[], T]
+    ) -> Optional[T]:
+        return _safe_detect(alert_type, asset_description, detector)
+
+    def candle_alert(alert_type: AlertType, candle: Candle) -> Alert:
+        return Alert(
+            alert_type=alert_type,
+            date=candle.date if candle.date else datetime.datetime.now(),
+            data={
+                "close": candle.close,
+                "open": candle.open,
+                "higher": candle.higher,
+                "lower": candle.lower,
+                "ma50_slope": ma50_slope,
+            },
+            asset_code=asset_code,
+            asset_description=asset_description,
+            exchange=exchange,
+            country_code=country_code,
+        )
+
+    for alert_type, length, minimal_touch_points in (
+        (AlertType.CONGESTION20, 20, 2),
+        (AlertType.CONGESTION100, 100, 3),
+    ):
+        congestion_result = detect(
+            alert_type,
+            partial(
+                _run_congestion_indicator,
+                asset_dict,
+                candles,
+                length,
+                minimal_touch_points,
+            ),
+        )
+        if congestion_result is not None and len(congestion_result[0]) > 0:
+            touch_points = [
+                f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "
+                + f"{c.higher} {c.lower}"
+                for c in congestion_result[0]
+            ]
+            asset_alerts.append(
+                Alert(
+                    alert_type=alert_type,
+                    date=datetime.datetime.now(),
+                    data={
+                        "touch_points": touch_points,
+                        "candles": [
+                            {
+                                "date": (
+                                    c.date.isoformat() if c.date else None
+                                ),
+                                "higher": c.higher,
+                                "lower": c.lower,
+                            }
+                            for c in congestion_result[0]
+                        ],
+                        "ma50_slope": ma50_slope,
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
+
+    for alert_type, candle_detector in (
+        (
+            AlertType.DOUBLE_TOP,
+            partial(_run_double_top, saxo_client, asset_dict, candles),
+        ),
+        (
+            AlertType.DOUBLE_BOTTOM,
+            partial(_run_double_bottom, saxo_client, asset_dict, candles),
+        ),
+        (
+            AlertType.CONTAINING_CANDLE,
+            partial(_run_containing_candle, asset_dict, candles),
+        ),
+        (
+            AlertType.DOUBLE_INSIDE_BAR,
+            partial(_run_double_inside_bar, asset_dict, candles),
+        ),
+    ):
+        if (candle := detect(alert_type, candle_detector)) is not None:
+            asset_alerts.append(candle_alert(alert_type, candle))
+
+    if (
+        combo := detect(
+            AlertType.COMBO, partial(indicator_service.combo, candles)
+        )
+    ) is not None:
+        asset_alerts.append(
+            Alert(
+                alert_type=AlertType.COMBO,
+                date=datetime.datetime.now(),
+                data={
+                    "price": combo.price,
+                    "direction": combo.direction.value,
+                    "strength": combo.strength.value,
+                    "has_been_triggered": combo.has_been_triggered,
+                    "details": combo.details,
+                    "ma50_slope": ma50_slope,
+                },
+                asset_code=asset_code,
+                asset_description=asset_description,
+                exchange=exchange,
+                country_code=country_code,
+            )
+        )
+
+    mm50_touch_result = detect(
+        AlertType.MM50_TOUCH, partial(indicator_service.mm50_touch, candles)
+    )
+    if mm50_touch_result is not None:
+        asset_alerts.append(
+            Alert(
+                alert_type=AlertType.MM50_TOUCH,
+                date=datetime.datetime.now(),
+                data={
+                    **mm50_touch_result,
+                    "ma50_slope": ma50_slope,
+                },
+                asset_code=asset_code,
+                asset_description=asset_description,
+                exchange=exchange,
+                country_code=country_code,
+            )
+        )
+
+    # Store what was found even if some detector above could not run
+    if len(asset_alerts) > 0:
         try:
-            if (
-                len(candles) >= 60
-            ):  # Need at least 60 candles for MA50 calculation
-                ma50_last = indicator_service.mobile_average(candles, 50)
-                ma50_first = indicator_service.mobile_average(candles[10:], 50)
-                ma50_slope = indicator_service.slope_percentage(
-                    0, ma50_first, 10, ma50_last
-                )
-        except SaxoException:
-            logger.warning(
-                f"Could not calculate ma50_slope for {asset_code} - "
-                "insufficient candle data"
-            )
-
-        # Run CONGESTION20 detection
-        congestion_result = _run_congestion_indicator(
-            asset_dict, candles, 20, 2
-        )
-        if congestion_result is not None and len(congestion_result[0]) > 0:
-            touch_points = [
-                f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "
-                + f"{c.higher} {c.lower}"
-                for c in congestion_result[0]
-            ]
-            asset_alerts.append(
-                Alert(
-                    alert_type=AlertType.CONGESTION20,
-                    date=datetime.datetime.now(),
-                    data={
-                        "touch_points": touch_points,
-                        "candles": [
-                            {
-                                "date": (
-                                    c.date.isoformat() if c.date else None
-                                ),
-                                "higher": c.higher,
-                                "lower": c.lower,
-                            }
-                            for c in congestion_result[0]
-                        ],
-                        "ma50_slope": ma50_slope,
-                    },
-                    asset_code=asset_code,
-                    asset_description=asset_description,
-                    exchange=exchange,
-                    country_code=country_code,
-                )
-            )
-
-        # Run CONGESTION100 detection
-        congestion_result = _run_congestion_indicator(
-            asset_dict, candles, 100, 3
-        )
-        if congestion_result is not None and len(congestion_result[0]) > 0:
-            touch_points = [
-                f"{c.date.strftime('%Y-%m-%d') if c.date else 'Unknown'}: "
-                + f"{c.higher} {c.lower}"
-                for c in congestion_result[0]
-            ]
-            asset_alerts.append(
-                Alert(
-                    alert_type=AlertType.CONGESTION100,
-                    date=datetime.datetime.now(),
-                    data={
-                        "touch_points": touch_points,
-                        "candles": [
-                            {
-                                "date": (
-                                    c.date.isoformat() if c.date else None
-                                ),
-                                "higher": c.higher,
-                                "lower": c.lower,
-                            }
-                            for c in congestion_result[0]
-                        ],
-                        "ma50_slope": ma50_slope,
-                    },
-                    asset_code=asset_code,
-                    asset_description=asset_description,
-                    exchange=exchange,
-                    country_code=country_code,
-                )
-            )
-
-        # Run DOUBLE_TOP detection
-        if (
-            candle := _run_double_top(saxo_client, asset_dict, candles)
-        ) is not None:
-            asset_alerts.append(
-                Alert(
-                    alert_type=AlertType.DOUBLE_TOP,
-                    date=(
-                        candle.date if candle.date else datetime.datetime.now()
-                    ),
-                    data={
-                        "close": candle.close,
-                        "open": candle.open,
-                        "higher": candle.higher,
-                        "lower": candle.lower,
-                        "ma50_slope": ma50_slope,
-                    },
-                    asset_code=asset_code,
-                    asset_description=asset_description,
-                    exchange=exchange,
-                    country_code=country_code,
-                )
-            )
-
-        # Run DOUBLE_BOTTOM detection
-        if (
-            candle := _run_double_bottom(saxo_client, asset_dict, candles)
-        ) is not None:
-            asset_alerts.append(
-                Alert(
-                    alert_type=AlertType.DOUBLE_BOTTOM,
-                    date=(
-                        candle.date if candle.date else datetime.datetime.now()
-                    ),
-                    data={
-                        "close": candle.close,
-                        "open": candle.open,
-                        "higher": candle.higher,
-                        "lower": candle.lower,
-                        "ma50_slope": ma50_slope,
-                    },
-                    asset_code=asset_code,
-                    asset_description=asset_description,
-                    exchange=exchange,
-                    country_code=country_code,
-                )
-            )
-
-        # Run CONTAINING_CANDLE detection
-        if (candle := _run_containing_candle(asset_dict, candles)) is not None:
-            asset_alerts.append(
-                Alert(
-                    alert_type=AlertType.CONTAINING_CANDLE,
-                    date=(
-                        candle.date if candle.date else datetime.datetime.now()
-                    ),
-                    data={
-                        "close": candle.close,
-                        "open": candle.open,
-                        "higher": candle.higher,
-                        "lower": candle.lower,
-                        "ma50_slope": ma50_slope,
-                    },
-                    asset_code=asset_code,
-                    asset_description=asset_description,
-                    exchange=exchange,
-                    country_code=country_code,
-                )
-            )
-
-        # Run DOUBLE_INSIDE_BAR detection
-        if (candle := _run_double_inside_bar(asset_dict, candles)) is not None:
-            asset_alerts.append(
-                Alert(
-                    alert_type=AlertType.DOUBLE_INSIDE_BAR,
-                    date=(
-                        candle.date if candle.date else datetime.datetime.now()
-                    ),
-                    data={
-                        "close": candle.close,
-                        "open": candle.open,
-                        "higher": candle.higher,
-                        "lower": candle.lower,
-                        "ma50_slope": ma50_slope,
-                    },
-                    asset_code=asset_code,
-                    asset_description=asset_description,
-                    exchange=exchange,
-                    country_code=country_code,
-                )
-            )
-
-        # Run COMBO detection
-        if (combo := indicator_service.combo(candles)) is not None:
-            asset_alerts.append(
-                Alert(
-                    alert_type=AlertType.COMBO,
-                    date=datetime.datetime.now(),
-                    data={
-                        "price": combo.price,
-                        "direction": combo.direction.value,
-                        "strength": combo.strength.value,
-                        "has_been_triggered": combo.has_been_triggered,
-                        "details": combo.details,
-                        "ma50_slope": ma50_slope,
-                    },
-                    asset_code=asset_code,
-                    asset_description=asset_description,
-                    exchange=exchange,
-                    country_code=country_code,
-                )
-            )
-
-        mm50_touch_result = indicator_service.mm50_touch(candles)
-        if mm50_touch_result is not None:
-            asset_alerts.append(
-                Alert(
-                    alert_type=AlertType.MM50_TOUCH,
-                    date=datetime.datetime.now(),
-                    data={
-                        **mm50_touch_result,
-                        "ma50_slope": ma50_slope,
-                    },
-                    asset_code=asset_code,
-                    asset_description=asset_description,
-                    exchange=exchange,
-                    country_code=country_code,
-                )
-            )
-
-        # Store alerts in DynamoDB if any were detected
-        if len(asset_alerts) > 0:
             await dynamodb_client.store_alerts(
                 asset_code,
                 country_code,
                 asset_alerts,
             )
-
-    except SaxoException as e:
-        logger.error(f"{asset_description} can't be scanned: {e}")
+        except Exception as e:
+            logger.error(
+                f"Failed to store the alerts of {asset_description}: {e}"
+            )
 
     return asset_alerts
 
