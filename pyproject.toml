@@ -28,7 +28,11 @@ python-multipart = "^0.0.32"
 anthropic = "^0.117.0"
 tzdata = "^2026.3"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.scripts]
+k-order = "saxo_order.commands.k_order:k_order"
+k-api = "run_api:main"
+
+[tool.poetry.group.dev.dependencies]
 black = "^26.3.1"
 pytest = "^9.0.0"
 pytest-cov = "^7.0.0"
@@ -44,12 +48,6 @@ types-boto3 = "^1.42.40"
 types-pyyaml = "^6.0.12.20250915"
 flake8 = "^7.3.0"
 httpx = "^0.28.1"
-
-[tool.poetry.scripts]
-k-order = "saxo_order.commands.k_order:k_order"
-k-api = "run_api:main"
-
-[tool.poetry.group.dev.dependencies]
 types-cachetools = "^6.2.0.20251022"
 
 [build-system]
