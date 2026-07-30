@@ -6,6 +6,7 @@ import pytest
 
 from model import AlertType, Candle, UnitTime
 from saxo_order.commands.alerting import run_detection_for_asset
+from utils.exception import SaxoException
 
 
 def _make_candles(closes: List[float]) -> List[Candle]:
@@ -422,3 +423,120 @@ class TestAssetExclusionFiltering:
         assert len(filtered_assets) == 1
         assert filtered_assets[0]["code"] == "SAN:xpar"
         assert filtered_assets[0]["name"] == "Santander"
+
+
+class TestRunDetectionForAssetIsolatesDetectors:
+    """
+    Every detector has its own history requirement, and they used to share
+    one try/except that also wrapped the DynamoDB write. So the most
+    demanding detector decided how much history an asset needed before *any*
+    of its alerts were kept, and an unlisted error type escaped the handler
+    entirely and aborted the whole scan.
+    """
+
+    @staticmethod
+    def _saxo_client() -> MagicMock:
+        """A bare MagicMock makes `"TickSizeScheme" not in detail` true, which
+        sends _run_double_top down a branch that never reads candles[0] - so
+        the mock has to carry a tick size scheme for the no-candle case to
+        exercise the code path it is about."""
+        saxo_client = MagicMock()
+        saxo_client.get_asset_detail.return_value = {
+            "TickSizeScheme": {
+                "DefaultTickSize": 0.01,
+                "Elements": [{"HighPrice": 100000, "TickSize": 0.01}],
+            }
+        }
+        return saxo_client
+
+    async def _run(self, mocker, candles: List[Candle]) -> tuple:
+        mocker.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        saxo_client = self._saxo_client()
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock()
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+        return alerts, dynamodb_client
+
+    async def test_no_candle_is_skipped_without_raising(self, mocker):
+        """A delisted or brand new instrument returns no candle at all. That
+        used to reach _run_double_top and raise IndexError, which the
+        SaxoException handler did not catch, killing the whole run."""
+        alerts, dynamodb_client = await self._run(mocker, [])
+        assert alerts == []
+        dynamodb_client.store_alerts.assert_not_called()
+
+    @pytest.mark.parametrize("count", [1, 2, 3, 59, 60, 234])
+    async def test_short_history_never_raises(self, mocker, count: int):
+        alerts, _ = await self._run(mocker, _make_candles([100.0] * count))
+        assert isinstance(alerts, list)
+
+    async def test_a_failing_detector_does_not_discard_the_others(
+        self, mocker
+    ):
+        """combo raising must not cost the asset its mm50_touch alert, nor
+        the DynamoDB write that persists it."""
+        mocker.patch(
+            "saxo_order.commands.alerting.indicator_service.combo",
+            side_effect=SaxoException("Missing candles"),
+        )
+        mocker.patch(
+            "saxo_order.commands.alerting._run_double_top", return_value=None
+        )
+        mocker.patch(
+            "saxo_order.commands.alerting._run_double_bottom",
+            return_value=None,
+        )
+        mocker.patch(
+            "saxo_order.commands.alerting._run_containing_candle",
+            return_value=None,
+        )
+        mocker.patch(
+            "saxo_order.commands.alerting._run_double_inside_bar",
+            return_value=None,
+        )
+        mocker.patch(
+            "saxo_order.commands.alerting._run_congestion_indicator",
+            return_value=None,
+        )
+        alerts, dynamodb_client = await self._run(
+            mocker, _mm50_touch_candles()
+        )
+
+        assert [a.alert_type for a in alerts] == [AlertType.MM50_TOUCH]
+        dynamodb_client.store_alerts.assert_awaited_once()
+        assert dynamodb_client.store_alerts.await_args.args[2] == alerts
+
+    async def test_a_failing_store_does_not_raise(self, mocker):
+        mocker.patch(
+            "saxo_order.commands.alerting._run_congestion_indicator",
+            return_value=None,
+        )
+        mocker.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=_mm50_touch_candles(),
+        )
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock(
+            side_effect=RuntimeError("dynamo is down")
+        )
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=self._saxo_client(),
+            dynamodb_client=dynamodb_client,
+        )
+        assert len(alerts) > 0
