@@ -210,7 +210,7 @@ def combo(candles: List[Candle]) -> Optional[ComboSignal]:
     ma50_first = mobile_average(candles[10:], 50)
     bb_last = bollinger_bands(candles, 2.5)
     bb25_1 = bollinger_bands(candles[1:], 2.5)
-    bb_first = bollinger_bands(candles[2:], 2.5)
+    bb_first = bollinger_bands(candles[3:], 2.5)
     bb20 = bollinger_bands(candles, 2.0)
     bb20_1 = bollinger_bands(candles[1:], 2.0)
     ma50_slope = slope_percentage(0, ma50_first, 10, ma50_last)

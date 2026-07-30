@@ -411,20 +411,12 @@ class TestIndicatorService:
         "file_candles, expected",
         [
             (
+                # Was a buy signal while bb_first was read 2 candles back
+                # but scaled over 3: the correct slope (bbh -6.96, bbb
+                # -21.23) fails the flat-bands gate, so the combo is now
+                # discarded. See the bb slope offset fix.
                 "combo_buy_daily_cac.obj",
-                ComboSignal(
-                    7401.35,
-                    True,
-                    Direction.BUY,
-                    SignalStrength.MEDIUM,
-                    {
-                        "macd": True,
-                        "ma50_over_bb": False,
-                        "price_within_bb": True,
-                        "strong_ma50": True,
-                        "both_bb_flat": False,
-                    },
-                ),
+                None,
             ),
             (
                 "combo_buy_h4_dax.obj",
