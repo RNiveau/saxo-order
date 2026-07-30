@@ -17,6 +17,7 @@ from typing import Optional, Protocol
 from api.services.backtest.side import Side
 from model import Trade
 from model.enum import ExitReason
+from utils.exception import SaxoException
 
 
 @dataclass(frozen=True)
@@ -136,6 +137,30 @@ class TwoLot(TwoLotAccounting):
         return Targets(
             first=h1_low + self.first_target_fraction * (h1_high - h1_low),
             runner=take_profit_level,
+        )
+
+
+@dataclass(frozen=True)
+class ComboTwoLot(TwoLotAccounting):
+    """Two lots whose targets come from the indicator rather than the H1
+    range (spec 026, FR-C05/FR-C07).
+
+    The first lot takes the mm20 and the runner the opposite bollinger
+    band, both re-read on every candle, so there is nothing to place at
+    entry time - the strategy calls Position.retarget instead. Points
+    accounting and classification are the shared two-lot ones.
+    """
+
+    def targets(
+        self,
+        side: Side,
+        h1_high: float,
+        h1_low: float,
+        take_profit_level: float,
+    ) -> Targets:
+        raise SaxoException(
+            "combo targets are read from each candle by "
+            "Position.retarget, not placed at entry"
         )
 
 
