@@ -104,16 +104,16 @@ of `combo` and the bands on the same candles.
 
 ### Candle acquisition
 
-- [ ] **T010** [US1] Add `store_backtest_series` /
+- [x] **T010** [US1] Add `store_backtest_series` /
   `get_cached_backtest_series` to `client/aws_client.py::DynamoDBClient`
   (data-model §7): same table, new key namespace
   `"{instrument}:{session}:{ut}:v1"`, item `{has_data, candles}`. Client
   layer only — no business logic (constitution §I).
-- [ ] **T011** [US1] Add a session-start helper beside
+- [x] **T011** [US1] Add a session-start helper beside
   `paris_session_end_utc` in `api/services/backtest/calendar.py` (the
   reference-window helper returns a 1-hour window; the combo source needs
   the whole session).
-- [ ] **T012** [US1] Add `api/services/backtest/combo_candle_source.py`:
+- [x] **T012** [US1] Add `api/services/backtest/combo_candle_source.py`:
   `series(definition, start, end)` returning one chronological candle list
   across the range, fetched per trading day via
   `CandlesService.get_candles_in_window(instrument, ut, horizon, start,
@@ -121,34 +121,34 @@ of `combo` and the bands on the same candles.
   `CandleSource` — cache a genuine empty day, **never** cache a
   `SaxoException`, degrade to Saxo on any cache error. Depends on
   T010, T011.
-- [ ] **T013** [US1] Add the warm-up lead-in to T012 (FR-C13): extend
+- [x] **T013** [US1] Add the warm-up lead-in to T012 (FR-C13): extend
   backwards over prior trading days until ≥250 candles precede the
   range's first candle, or 30 calendar days are exhausted (~13 trading
   days of H1 lead-in over the 20-hour session). 250 matches
   `alerting.py::_build_candles`, which is what keeps the MACD comparable
   to live (research R3/R5).
-- [ ] **T014** [P] [US1] `tests/api/services/backtest/test_combo_candle_source.py`:
+- [x] **T014** [P] [US1] `tests/api/services/backtest/test_combo_candle_source.py`:
   cache hit / miss / malformed item, an empty day cached as
   `has_data=False`, a `SaxoException` **not** cached, warm-up length per
   timeframe, and chronological contiguity across a weekend.
 
 ### Signal → entry
 
-- [ ] **T015** [US1] Add `api/services/backtest/bands.py`: `BandLevels`
+- [x] **T015** [US1] Add `api/services/backtest/bands.py`: `BandLevels`
   (data-model §5) and `levels(window)` computing
   `bollinger_bands(window, 2.0)` once per candle — `.middle` is TP1,
   `.up` / `.bottom` is TP2 by side.
-- [ ] **T016** [P] [US1] `tests/api/services/backtest/test_bands.py`:
+- [x] **T016** [P] [US1] `tests/api/services/backtest/test_bands.py`:
   `opposite()` resolves per side; levels move as the window advances;
   fewer than 20 candles is handled without raising into the engine.
-- [ ] **T017** [US1] Add `api/services/backtest/signals.py`:
+- [x] **T017** [US1] Add `api/services/backtest/signals.py`:
   `PendingEntry` (data-model §6) and `ComboEntrySearch.feed(candle,
   window)` implementing research R6 in order — fill or drop yesterday's
   pending level **first**, then evaluate this candle's `combo`; WEAK
   ignored (FR-C02); triggered → entry at the close; untriggered → arm a
   one-candle pending level (FR-C03/FR-C04). Fills use
   `side.worse(level, candle.open)`, the existing conservative gap-fill.
-- [ ] **T018** [P] [US1] `tests/api/services/backtest/test_signals.py`,
+- [x] **T018** [P] [US1] `tests/api/services/backtest/test_signals.py`,
   with `combo` mocked so the state machine is tested and not the
   indicator: WEAK skipped; triggered entry at the close; untriggered
   filled on the next candle; untriggered **not** filled → dropped, no
@@ -157,57 +157,77 @@ of `combo` and the bands on the same candles.
 
 ### The engine
 
-- [ ] **T019** [US1] Add `api/services/backtest/combo_strategy.py`
+- [x] **T019** [US1] Add `api/services/backtest/combo_strategy.py`
   implementing the loop in plan.md §Phase 1: retarget-then-resolve while
   in a position, feed the entry search while flat, ignore every signal
   while in a position (FR-C09), never close at end of day (FR-C11), close
   any open position after the last candle as `END_OF_RUN` (FR-C12).
   Depends on T004, T005, T012, T015, T017.
-- [ ] **T020** [US1] Open-position construction in T019: two lots,
+- [x] **T020** [US1] Open-position construction in T019: two lots,
   `initial_stop_price` = the **signal** candle's adverse extreme ∓
   `params.stop_loss_points` (FR-C06), `lots=ComboTwoLot()`, `h1_high` /
   `h1_low` left `None`. Reject the entry when the current MM20 is not
   strictly favorable (FR-C10).
-- [ ] **T021** [US1] Exit chain for a combo definition in
+- [x] **T021** [US1] Exit chain for a combo definition in
   `api/services/backtest/rules.py::build_exit_chain`: exactly
   `[Stop(), DoubleTarget()]` — no `ArmBreakEven` (FR-C08), no
   structural/impulsive stop, no time cut, no trail. Route
   `build_lot_model` to `ComboTwoLot` for `combo_entry` definitions.
-- [ ] **T022** [US1] `run_range` in `ComboStrategy`: walk the series once,
+- [x] **T022** [US1] `run_range` in `ComboStrategy`: walk the series once,
   attribute each trade to its **entry** day, build `DayResultSummary`
   rows with `h1_*` as `None` and `mm50_slope` / `adx14` /
   `overnight_gap` still populated from the daily series (research R8),
   and reuse `statistics.build_summary` unchanged.
-- [ ] **T023** [US1] Evaluate `combo` **only while flat** (research R5) —
+- [x] **T023** [US1] Evaluate `combo` **only while flat** (research R5) —
   behavior-preserving under FR-C09 and the single biggest cost saving on
   the 5m timeframe.
-- [ ] **T024** [P] [US1] `tests/api/services/backtest/test_combo_strategy.py`,
+- [x] **T024** [P] [US1] `tests/api/services/backtest/test_combo_strategy.py`,
   one test per acceptance scenario of spec US1: triggered entry;
   pending-level entry; pending level expiring; WEAK skipped; TP1 at the
   MM20 arming break-even; TP2 at the band; runner back to break-even;
   both lots stopped out (the ×2 loss); short mirror; a position carried
   across a day boundary; a signal ignored while in a position; a position
   open at range end reported `END_OF_RUN`.
-- [ ] **T025** [P] [US1] Edge-case tests in the same file: entry rejected
+- [x] **T025** [P] [US1] Edge-case tests in the same file: entry rejected
   because the MM20 is already past (FR-C10); stop and TP1 on one candle →
   stop wins (FR-C14); TP1 and TP2 on one candle; the MM20 crossing below
   the entry so TP1 banks a loss; a gap through the stop over a weekend.
 
 ### Registration
 
-- [ ] **T026** [US1] Register `C5M`, `C15M`, `C1H` in
+- [x] **T026** [US1] Register `C5M`, `C15M`, `C1H` in
   `api/services/backtest/definitions.py` per data-model §1 —
   `GER40.I`, **`DaxCfdMarket`** (T000), `combo_entry=True`,
   `double_take_profit=True`, `stop_loss_points=50`.
-- [ ] **T027** [US1] Make `resolve_parameters` ignore the three
+- [x] **T027** [US1] Make `resolve_parameters` ignore the three
   non-tunable thresholds for combo definitions (FR-C16), and extend
   `tests/api/services/backtest/test_parameters.py`.
-- [ ] **T028** [US1] Regenerate the golden snapshot **once, deliberately**,
+- [x] **T028** [US1] Regenerate the golden snapshot **once, deliberately**,
   to add the three new definitions. Review the diff line by line: the six
   existing definitions' blocks must be **byte-identical**.
 
 **Checkpoint**: US1 delivered. `GET /api/backtest/run?definition=C15M`
 returns real positions over a real range.
+
+**Done.** The golden snapshot was regenerated once (T028) and the seven
+existing definitions came back byte-identical.
+
+Two findings worth carrying into the review:
+
+1. **FR-C10 declines a large share of entries.** On the synthetic golden
+   market the H1 definition produces 5 signals, 2 entries, and **both**
+   are rejected because the mm20 sits behind the fill. That is the rule
+   working as written, and it has a structural cause: a combo buys a
+   pullback towards the ma50, and in a trending market the ma50 sits
+   *above* the mm20 - so TP1 is already passed before the trade opens.
+   Needs checking against real GER40 data before anything is read into
+   an H1 run.
+2. **The golden fixture had to learn about timeframes.** It served a
+   single H1 *reference* candle per day, so a combo definition saw ~21
+   candles where the indicator needs 235. It now serves a whole session
+   at the requested timeframe, discriminated by window width rather than
+   by timeframe - keying on `ut` alone captured the session strategy's
+   own 5-minute call and changed all seven existing snapshots.
 
 ---
 

@@ -34,6 +34,13 @@ GOLDEN_END = datetime.date(2026, 4, 30)
 H1_STEPS = 12
 SESSION_STEPS = 90
 
+# Minutes per candle for the timeframes the combo backtests run on.
+COMBO_HORIZONS = {UnitTime.M5: 5, UnitTime.M15: 15, UnitTime.H1: 60}
+
+# Shortest window only a combo backtest asks for. Its 02:00-22:00 day is
+# 20 hours; the widest a session backtest asks for is 10:00-22:00 (12).
+COMBO_WINDOW_MIN = datetime.timedelta(hours=15)
+
 
 def _rng(instrument: str, d: datetime.date, tag: str) -> random.Random:
     return random.Random(f"{instrument}:{d.isoformat()}:{tag}")
@@ -149,6 +156,50 @@ def daily_candles(
     return candles
 
 
+def timeframe_session_candles(
+    instrument: str,
+    d: datetime.date,
+    ut: UnitTime,
+    start: datetime.datetime,
+    end: datetime.datetime,
+) -> List[Candle]:
+    """A session's worth of candles at an arbitrary timeframe, for the
+    combo backtests - which read a whole day at 5m, 15m or H1 rather than
+    a reference candle plus a 5-minute scan.
+
+    Drifting rather than driftless: a pure random walk almost never
+    produces the sloping ma50 the combo indicator requires, so the golden
+    market would exercise the strategy's plumbing and none of its rules.
+    The drift alternates by day so both directions are covered.
+    """
+    horizon = COMBO_HORIZONS[ut]
+    steps = max(1, int((end - start).total_seconds() // (60 * horizon)))
+    base, sigma = INSTRUMENT_PROFILE[instrument]
+    rng = _rng(instrument, d, f"combo-{ut.value}")
+    drift = (1 if d.toordinal() % 2 else -1) * sigma * 0.35
+    price = _session_open_price(instrument, d)
+    candles: List[Candle] = []
+    for index in range(steps):
+        open_price = price
+        close = open_price + drift + rng.gauss(0, sigma)
+        candles.append(
+            Candle(
+                lower=round(
+                    min(open_price, close) - abs(rng.gauss(0, sigma / 2)), 2
+                ),
+                higher=round(
+                    max(open_price, close) + abs(rng.gauss(0, sigma / 2)), 2
+                ),
+                open=round(open_price, 2),
+                close=round(close, 2),
+                ut=ut,
+                date=start + datetime.timedelta(minutes=horizon * index),
+            )
+        )
+        price = close
+    return candles
+
+
 def golden_candles_service() -> MagicMock:
     """A CandlesService stub serving the synthetic market."""
     service = MagicMock(spec=CandlesService)
@@ -157,6 +208,15 @@ def golden_candles_service() -> MagicMock:
         trading_date = start.date()
         if trading_date in NO_DATA_DATES:
             return []
+        # Only a combo backtest asks for a whole 02:00-22:00 DAX CFD day
+        # (20 hours). The session backtests ask for the 1-hour reference
+        # window and then a post-10:00 5-minute scan of at most 12 hours,
+        # so the width of the window is what separates them - not the
+        # timeframe, which M5 shares.
+        if end - start >= COMBO_WINDOW_MIN:
+            return timeframe_session_candles(
+                code, trading_date, ut, start, end
+            )
         if ut == UnitTime.H1:
             return [h1_reference_candle(code, trading_date)]
         return m5_session_candles(code, trading_date)
