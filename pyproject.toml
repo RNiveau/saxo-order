@@ -25,7 +25,7 @@ uvicorn = {extras = ["standard"], version = "^0.38.0"}
 pydantic = "^2.12.4"
 cachetools = "^6.2.6"
 python-multipart = "^0.0.32"
-anthropic = "^0.117.0"
+anthropic = ">=0.117,<0.121"
 tzdata = "^2026.3"
 
 [tool.poetry.scripts]
