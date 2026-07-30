@@ -12,6 +12,7 @@ from model import (
     UnitTime,
 )
 from services.indicator_service import (
+    COMBO_MIN_CANDLES,
     adx,
     apply_linear_function,
     average_true_range,
@@ -824,11 +825,12 @@ class TestComboBandOffsets:
 
 class TestComboDefersMacd0lag:
     """
-    macd0lag needs 233 candles, far more than the 60 the rest of combo
-    needs. Computing it up front made combo raise on any shorter history,
-    and in run_detection_for_asset that exception discards every alert
-    already collected for the asset. It must only be reached once a
-    direction is actually being scored.
+    macd0lag needs COMBO_MIN_CANDLES candles, far more than the 60 the rest
+    of combo needs. Computing it up front made combo raise on any shorter
+    history, and in run_detection_for_asset that exception discarded every
+    alert already collected for the asset. It must only be reached once a
+    direction is actually being scored, and a history too short to reach it
+    at all must be declined rather than raised on.
     """
 
     def _short_flat_candles(self) -> List[Candle]:
@@ -837,6 +839,31 @@ class TestComboDefersMacd0lag:
 
     def test_short_history_returns_none_instead_of_raising(self):
         assert combo(self._short_flat_candles()) is None
+
+    def test_a_scored_direction_on_short_history_returns_none(self):
+        """The flat-ma50 sets above bail before macd0lag is reached, so they
+        say nothing about the path that does reach it. This fixture produces
+        a real signal at full length; truncated below the minimum it must
+        decline rather than raise part-way through scoring."""
+        with open("tests/services/files/combo_buy_daily_cac.obj", "r") as f:
+            candles = eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+        assert combo(candles) is not None
+        assert combo(candles[: COMBO_MIN_CANDLES - 1]) is None
+
+    def test_the_minimum_matches_what_macd0lag_actually_needs(self):
+        """Pins the two numbers together: COMBO_MIN_CANDLES is a constant but
+        macd0lag derives its own from the periods, so they can drift."""
+        with open("tests/services/files/combo_buy_daily_cac.obj", "r") as f:
+            candles = eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+        macd0lag(candles[:COMBO_MIN_CANDLES])
+        with pytest.raises(SaxoException):
+            macd0lag(candles[: COMBO_MIN_CANDLES - 1])
 
     def test_macd0lag_is_not_called_when_the_ma50_is_flat(self, mocker):
         spy = mocker.patch(

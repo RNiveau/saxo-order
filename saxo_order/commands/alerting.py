@@ -43,12 +43,23 @@ def _safe_detect(
     (IndexError on an asset that returned no candle) escaped the handler and
     aborted the entire scan. A detector that cannot run is not an error for
     the others, and never a reason to drop what has already been found.
+
+    Insufficient history is routine and logs at warning; anything else is a
+    bug that must stay visible, so it logs at error with a traceback rather
+    than being flattened into the same routine-looking line.
     """
     try:
         return detector()
-    except Exception as e:
+    except (SaxoException, IndexError) as e:
         logger.warning(
             f"{alert_type.value} skipped for {asset_description}: {e}"
+        )
+        return None
+    except Exception as e:
+        logger.error(
+            f"{alert_type.value} failed unexpectedly for"
+            f" {asset_description}: {e}",
+            exc_info=True,
         )
         return None
 

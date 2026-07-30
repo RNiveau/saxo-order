@@ -111,6 +111,11 @@ COMBO_BB_TOLERANCE = 0.005
 COMBO_ATR_BB_MARGIN = 0.3
 COMBO_ATR_MA50_MARGIN = 0.1
 COMBO_STRONG_SIGNAL_MIN = 4
+# macd0lag feeds one scoring criterion but is the deepest reader here: see its
+# docstring for where 235 comes from. Deferring it spares the candle sets that
+# never reach it, but a set that does reach it still needs the full history,
+# so combo declines up front rather than raising mid-scoring.
+COMBO_MIN_CANDLES = 235
 
 
 def mm50_touch(candles: List[Candle]) -> Optional[Dict[str, float]]:
@@ -342,6 +347,12 @@ def _combo_for_direction(
 
 def combo(candles: List[Candle]) -> Optional[ComboSignal]:
     logger = Logger.get_logger("combo")
+    if len(candles) < COMBO_MIN_CANDLES:
+        logger.debug(
+            f"not enough candles for a combo {len(candles)},"
+            f" needed {COMBO_MIN_CANDLES}"
+        )
+        return None
     logger.debug(
         f"do we have a combo {candles[0].ut} at the date {candles[0].date} ?"
     )
@@ -374,11 +385,21 @@ def macd0lag(
     https://www.axialfinance.fr/manuel/pagesindicateurs/pageMZLD.html
     return a tuple(last macd0lag, signal)
 
-    The nested emas read progressively older suffixes, so the whole call
-    needs more candles than any single _macd0lag guard reports: with the
-    default periods the deepest read is candles[157:] against an ema
-    needing 78 values, so 235 candles at minimum.
+    The nested emas read progressively older suffixes, so the whole call needs
+    far more candles than one macd step does. The deepest read is at offset
+    (signal_period * 9 - 1) + (long_term_period * 3 - 1) against an ema
+    needing long_term_period * 3 values, hence the minimum below - 235 with
+    the default periods. The old guard checked only one step's worth
+    (long_term_period * 4, i.e. 104) and so reported a requirement less than
+    half the real one.
     """
+    minimum = signal_period * 9 + long_term_period * 6 - 2
+    if len(candles) < minimum:
+        Logger.get_logger("macd0lag").error(
+            f"Missing candles to calculate a macd0lag {len(candles)},"
+            f" needed {minimum}"
+        )
+        raise SaxoException("Missing candles")
 
     # The loops below ask for the ema of heavily overlapping suffixes of the
     # same list, so cache each (offset, period) result.
@@ -393,13 +414,6 @@ def macd0lag(
         return ema_cache[key]
 
     def _macd0lag(offset: int) -> float:
-        if len(candles) - offset < long_term_period * 4:
-            Logger.get_logger("macd0lag").error(
-                "Missing candles to calculate a macd0lag"
-                f" len={len(candles) - offset}:"
-                f"needed {long_term_period * 4}"
-            )
-            raise SaxoException("Missing candles")
         short_ma = _ema(offset, short_term_period)
         long_ma = _ema(offset, long_term_period)
         short_ma_ma = exponentiel_mobile_average(
