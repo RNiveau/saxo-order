@@ -30,29 +30,29 @@ behavior on its own. T000 is already done.
   reference window from `market.open_hour`. **Done**: verified under both
   DST regimes (01:00 UTC winter / 00:00 UTC summer, `session_key` =
   `0200-2200@Europe/Paris`), and the 367 existing backtest tests pass.
-- [ ] **T001** [P] Add `ExitReason.END_OF_RUN = "end_of_run"` and
+- [x] **T001** [P] Add `ExitReason.END_OF_RUN = "end_of_run"` and
   `Strategy.C5M / C15M / C1H` in `model/enum.py` (data-model §2).
-- [ ] **T002** Add `unit_time: Optional[UnitTime] = None` and
+- [x] **T002** Add `unit_time: Optional[UnitTime] = None` and
   `combo_entry: bool = False` to `BacktestDefinition` in
   `model/backtest.py`, plus the `__post_init__` validation from
   data-model §1 (combo requires `unit_time` and `double_take_profit`;
   combo rejects every session-range flag). Depends on T001.
-- [ ] **T003** [P] Extend `tests/api/services/backtest/test_definitions.py`
+- [x] **T003** [P] Extend `tests/api/services/backtest/test_definitions.py`
   with the `__post_init__` rejection cases from T002 — each invalid combo
   flag combination must raise at construction, which is what stops a flag
   shipping as a silent no-op.
-- [ ] **T004** Make `Position.h1_high` / `h1_low` `Optional[float] = None`
+- [x] **T004** Make `Position.h1_high` / `h1_low` `Optional[float] = None`
   and have `structural_level` raise `SaxoException` when they are absent
   (**never `assert`** — constitution §II.5), in
   `api/services/backtest/position.py`. Add `Position.retarget(first_target,
   take_profit)` (data-model §3).
-- [ ] **T005** [P] Add `ComboTwoLot(TwoLotAccounting)` to
+- [x] **T005** [P] Add `ComboTwoLot(TwoLotAccounting)` to
   `api/services/backtest/lots.py` with a `targets` that raises
   (data-model §4), and cover it in
   `tests/api/services/backtest/test_lots.py`.
 
 **Checkpoint**: `poetry run pytest tests/api/services/backtest/ -q` still
-green, golden snapshot **not** regenerated.
+green, golden snapshot **not** regenerated. **Done.**
 
 ---
 
@@ -61,27 +61,36 @@ green, golden snapshot **not** regenerated.
 **⚠️ This is the phase that can break shipped backtests.** Do it as a pure
 code move and prove it.
 
-- [ ] **T006** Add `api/services/backtest/strategy.py`: a `Strategy`
+- [x] **T006** Add `api/services/backtest/strategy.py`: a `Strategy`
   protocol with `run_range(definition, start, end, params)` and
   `evaluate_day(definition, date, params)`, plus a `for_definition()`
   selector keying off `definition.combo_entry`.
-- [ ] **T007** Move today's engine from
+- [x] **T007** Move today's engine from
   `api/services/backtest/service.py` into
   `api/services/backtest/session_range.py` as `SessionRangeStrategy`
   **verbatim** — `_evaluate_from_candles`, `_evaluate_trades`,
   `_open_position`, `_take_profit_level`, `_reset`, `_fetch_daily_candles`.
   No logic edits in this task; behavior changes belong to no task at all.
-- [ ] **T008** Reduce `BacktestService` to construction + dispatch:
+- [x] **T008** Reduce `BacktestService` to construction + dispatch:
   `list_definitions` / `get_definition` unchanged, `run_range` /
   `evaluate_day` delegating to `strategy.for_definition(definition)`. The
   public method signatures the router calls must not change. Depends on
   T006, T007.
-- [ ] **T009** Run `poetry run pytest tests/api/services/backtest/ -q`.
+- [x] **T009** Run `poetry run pytest tests/api/services/backtest/ -q`.
   **`test_backtest_golden.py` must pass without regeneration.** If it
   fails, the move was not a move — fix the seam, never the snapshot.
 
 **Checkpoint**: six shipped backtests provably unchanged; the combo
 strategy has somewhere to live.
+
+**Done.** `test_backtest_golden.py` passed unregenerated. One
+consequence worth recording: `test_run_range.py` patched
+`service.evaluate_day` and called `service.run_range`, which worked only
+because both lived on one object. The delegation moved that call inside
+`SessionRangeStrategy`, so the six patch sites now target
+`service.strategies.session_range`. Production behavior is unchanged -
+these tests assert the internal call graph, which is exactly what the
+golden suite's docstring says it deliberately does not.
 
 ---
 

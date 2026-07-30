@@ -1,20 +1,25 @@
 """Position sizing: how a closed position's points are computed and which
 bucket the run summary files it under."""
 
+import datetime
+
 import pytest
 
 from api.services.backtest.lots import (
     SINGLE_LOT,
+    ComboTwoLot,
     ExtendedTwoLot,
     Outcome,
     Targets,
     TwoLot,
 )
+from api.services.backtest.position import Position
 from api.services.backtest.rules import build_lot_model
 from api.services.backtest.side import LONG, SHORT
 from model import BacktestDefinition
 from model.enum import ExitReason
 from tests.api.services.backtest.helpers import closed_trade
+from utils.exception import SaxoException
 
 TWO_LOT = TwoLot(first_target_fraction=0.5)
 
@@ -157,3 +162,60 @@ class TestBuildLotModel:
         from api.services.backtest import get_definition
 
         assert build_lot_model(get_definition("G9H")) == TwoLot(0.5)
+
+
+class TestComboTwoLot:
+    """The combo lot model: the shared two-lot accounting, with targets
+    that are read per candle rather than placed at entry."""
+
+    def test_it_shares_the_two_lot_points_accounting(self):
+        combo = ComboTwoLot()
+        assert combo.total_points(-30.0, 0.0, False) == TWO_LOT.total_points(
+            -30.0, 0.0, False
+        )
+        assert combo.total_points(20.0, 15.0, True) == TWO_LOT.total_points(
+            20.0, 15.0, True
+        )
+
+    def test_a_banked_tp1_and_a_break_even_runner_is_a_win(self):
+        """The reason the two-lot models classify by points rather than
+        by exit reason: this closes BREAK_EVEN but nets a gain."""
+        trade = closed_trade(15.0, ExitReason.BREAK_EVEN)
+        assert ComboTwoLot().classify(trade) == Outcome.WIN
+
+    def test_asking_for_entry_time_targets_raises(self):
+        """The mm20 and the opposite band only exist relative to a
+        candle, so there is no honest answer here - raising says so
+        instead of returning a level nothing computed."""
+        with pytest.raises(SaxoException, match="Position.retarget"):
+            ComboTwoLot().targets(LONG, 8050.0, 8000.0, 8040.0)
+
+
+class TestPositionRetarget:
+    """Position's two additions for the combo strategy (spec 026)."""
+
+    def _position(self, **kwargs):
+        return Position(
+            entry_time=datetime.datetime(2026, 6, 2, 8, 20),
+            entry_price=8015.0,
+            side=LONG,
+            take_profit_level=8040.0,
+            stop_loss_points=50.0,
+            **kwargs,
+        )
+
+    def test_retarget_moves_both_levels(self):
+        position = self._position(first_target_level=8020.0)
+        position.retarget(8025.0, 8060.0)
+        assert position.first_target_level == 8025.0
+        assert position.take_profit_level == 8060.0
+
+    def test_a_position_without_a_reference_range_has_no_structural_level(
+        self,
+    ):
+        with pytest.raises(SaxoException, match="no H1 reference range"):
+            self._position().structural_level
+
+    def test_a_position_with_a_reference_range_still_has_one(self):
+        position = self._position(h1_high=8050.0, h1_low=8000.0)
+        assert position.structural_level == 8000.0
