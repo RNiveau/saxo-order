@@ -148,6 +148,13 @@ def mm50_touch(candles: List[Candle]) -> Optional[Dict[str, float]]:
 
 
 def _mm7_at(candles: List[Candle], offset: int) -> float:
+    """
+    The MM7 as it stood at candles[offset], i.e. that candle and the 6 older
+    ones. Newest is index 0, so dropping the first `offset` entries walks
+    backwards in time and `mobile_average` then reads the 7 newest of what
+    remains - candles[offset:offset+7]. Same idiom as mm50_touch's
+    mobile_average(candles[10:], 50) for the MA50 of 10 candles ago.
+    """
     return mobile_average(candles[offset:], MM7_PERIOD)
 
 
