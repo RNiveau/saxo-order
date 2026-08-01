@@ -18,7 +18,11 @@ from model import Alert, AlertType, AssetType, Candle, EUMarket, UnitTime
 from saxo_order.async_utils import create_dynamodb_client
 from saxo_order.commands import catch_exception
 from services import congestion_indicator, indicator_service
-from services.alert_triage_service import TriageAgent, format_slack_digest
+from services.alert_triage_service import (
+    TriageAgent,
+    current_run_date,
+    format_slack_digest,
+)
 from services.workflow_trigger_service import collect_todays_triggers
 from utils.configuration import Configuration
 from utils.exception import SaxoException
@@ -551,12 +555,13 @@ async def run_alerting(
                 AnthropicClient(configuration),
                 configuration.triage_slope_threshold,
             )
+            run_date = current_run_date()
             triggers = await collect_todays_triggers(
-                dynamodb_client,
-                datetime.datetime.now().strftime("%Y-%m-%d"),
-                all_alerts,
+                dynamodb_client, run_date, all_alerts
             )
-            digest = triage_agent.synthesize(all_alerts, triggers)
+            digest = triage_agent.synthesize(
+                all_alerts, triggers, run_date=run_date
+            )
             try:
                 await dynamodb_client.store_alert_digest(digest)
             except Exception as e:

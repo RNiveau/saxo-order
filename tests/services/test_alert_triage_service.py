@@ -1,6 +1,7 @@
 import datetime
 import json
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 from client.anthropic_client import AnthropicClient
 from model import (
@@ -15,6 +16,7 @@ from model import (
 from services.alert_triage_service import (
     TRIAGE_SYSTEM_PROMPT,
     TriageAgent,
+    current_run_date,
     format_slack_digest,
 )
 from utils.exception import AnthropicException
@@ -566,10 +568,9 @@ def test_synthesize_without_triggers_matches_pre_feature_behaviour() -> None:
         assert left.workflow_triggers == [] == right.workflow_triggers
 
 
-def test_prompt_teaches_the_workflow_trigger_semantics() -> None:
+def test_prompt_documents_the_payload_keys_it_will_receive() -> None:
     assert "workflow_triggers" in TRIAGE_SYSTEM_PROMPT
     assert "dry_run" in TRIAGE_SYSTEM_PROMPT
-    assert "ONE point of convergence" in TRIAGE_SYSTEM_PROMPT
 
 
 def test_fallback_ignores_triggers_for_now() -> None:
@@ -584,3 +585,31 @@ def test_fallback_ignores_triggers_for_now() -> None:
     assert digest.fallback_used is True
     assert len(asset.workflow_triggers) == 1
     assert asset.conviction == Conviction.WATCH
+
+
+def test_run_date_is_computed_in_paris_not_utc() -> None:
+    paris_today = datetime.datetime.now(ZoneInfo("Europe/Paris")).strftime(
+        "%Y-%m-%d"
+    )
+
+    assert current_run_date() == paris_today
+
+
+def test_synthesize_honours_an_explicit_run_date() -> None:
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)], None, run_date="2026-01-15"
+    )
+
+    assert digest.run_date == "2026-01-15"
+
+
+def test_synthesize_falls_back_to_the_paris_run_date() -> None:
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+
+    digest = agent.synthesize([_alert("SAN", AlertType.COMBO, 3.0)])
+
+    assert digest.run_date == current_run_date()

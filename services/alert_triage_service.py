@@ -18,6 +18,16 @@ from utils.logger import Logger
 
 PARIS = ZoneInfo("Europe/Paris")
 
+
+def current_run_date() -> str:
+    """Today's date in Paris, the timezone the whole scan reasons in.
+
+    A naive now() is UTC inside Lambda, which disagrees with the Paris
+    session window for any run between midnight Paris and midnight UTC.
+    """
+    return datetime.datetime.now(PARIS).strftime("%Y-%m-%d")
+
+
 TRIAGE_SYSTEM_PROMPT = """You are a trading-desk analyst triaging the day's \
 technical alerts on French stocks.
 
@@ -217,9 +227,10 @@ class TriageAgent:
         self,
         alerts: List[Alert],
         triggers: Optional[Dict[str, List[WorkflowTrigger]]] = None,
+        run_date: Optional[str] = None,
     ) -> AlertDigest:
         grouped = self._group_by_asset(alerts, triggers or {})
-        run_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        run_date = run_date or current_run_date()
         created_at = int(
             datetime.datetime.now(datetime.timezone.utc).timestamp()
         )
