@@ -94,11 +94,17 @@ keep row if start <= placed_at <= end
 `run_date` comes from the digest being built, so manual and off-schedule runs compute their own
 window rather than assuming the 18:15 schedule.
 
-## 6. Collector output
+## 6. Collector signature and output
 
 ```python
-Dict[str, List[WorkflowTrigger]]
+async def collect_todays_triggers(
+    dynamodb_client, run_date: str, alerts: List[Alert]
+) -> Dict[str, List[WorkflowTrigger]]
 ```
+
+The alert set is a **parameter, not an afterthought**: FR-002 makes the scanned assets the domain
+of the result, and the output is keyed by `Alert.id`, which only the alerts can supply. (Earlier
+drafts of this document showed a two-argument signature; that could not have satisfied FR-002.)
 
 Keyed by the same key `TriageAgent._group_by_asset` uses (`Alert.id`), so attaching is a dict
 lookup with no second matching rule. Assets with no trigger are **absent** from the map, not present

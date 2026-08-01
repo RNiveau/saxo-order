@@ -53,8 +53,9 @@
 ## R4. Where the logic lives
 
 - **Decision**: A new `services/workflow_trigger_service.py` exposing an async
-  `collect_todays_triggers(dynamodb_client, run_date) -> Dict[str, List[WorkflowTrigger]]`, keyed by
-  the alert-asset key. `TriageAgent.synthesize` gains an optional `triggers` parameter and stays
+  `collect_todays_triggers(dynamodb_client, run_date, alerts) -> Dict[str, List[WorkflowTrigger]]`,
+  keyed by the alert-asset key. The alert set is a parameter because FR-002 makes it the domain of
+  the result. `TriageAgent.synthesize` gains an optional `triggers` parameter and stays
   **synchronous and pure** — it receives the already-resolved map and never touches storage.
   `run_alerting` calls the collector and passes the result in.
 - **Rationale**: Constitution I — the fetch-and-join is business logic and belongs in the Service
