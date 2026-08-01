@@ -371,6 +371,25 @@ async def run_detection_for_asset(
             )
         )
 
+    mm7_break_result = detect(
+        AlertType.MM7_BREAK, partial(indicator_service.mm7_break, candles)
+    )
+    if mm7_break_result is not None:
+        asset_alerts.append(
+            Alert(
+                alert_type=AlertType.MM7_BREAK,
+                date=datetime.datetime.now(),
+                data={
+                    **mm7_break_result,
+                    "ma50_slope": ma50_slope,
+                },
+                asset_code=asset_code,
+                asset_description=asset_description,
+                exchange=exchange,
+                country_code=country_code,
+            )
+        )
+
     # Store what was found even if some detector above could not run
     if len(asset_alerts) > 0:
         try:

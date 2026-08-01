@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from model import AlertType, Candle, UnitTime
+from model import AlertType, Candle, Direction, UnitTime
 from saxo_order.commands.alerting import run_detection_for_asset
 from utils.exception import SaxoException
 
@@ -146,6 +146,66 @@ class TestRunDetectionForAssetMM50Touch:
         assert len(mm50_alerts) == 1
         assert mm50_alerts[0].country_code is None
         assert mm50_alerts[0].exchange == "binance"
+
+
+class TestRunDetectionForAssetMM7Break:
+
+    async def test_emits_mm7_break_when_conditions_met(self, patched_alerting):
+        # close 95 under a 7-MA near 99.3, after 3 candles closing above it
+        candles = _make_candles([95.0] + [100.0] * 9)
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        saxo_client = MagicMock()
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock()
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        mm7_alerts = [a for a in alerts if a.alert_type == AlertType.MM7_BREAK]
+        assert len(mm7_alerts) == 1
+        data = mm7_alerts[0].data
+        assert data["direction"] == Direction.SELL.value
+        assert data["close"] == 95.0
+        assert data["distance_pct"] < 0
+        assert data["streak"] >= 3
+        assert "mm7" in data
+        assert "ma50_slope" in data
+        assert mm7_alerts[0].asset_code == "TST"
+        dynamodb_client.store_alerts.assert_awaited_once()
+
+    async def test_no_mm7_break_when_price_hugs_the_average(
+        self, patched_alerting
+    ):
+        candles = _make_candles([100.0] * 60)
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        saxo_client = MagicMock()
+        dynamodb_client = MagicMock()
+        dynamodb_client.store_alerts = AsyncMock()
+
+        alerts = await run_detection_for_asset(
+            asset_code="FLAT",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Flat Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        assert all(a.alert_type != AlertType.MM7_BREAK for a in alerts)
 
 
 class TestStockDeduplication:
