@@ -32,9 +32,13 @@ Frontend: `frontend/src/`. Tests mirror source under `tests/`.
 
 **Purpose**: Establish a known-good baseline so any later failure is attributable to this feature.
 
-- [ ] T001 Run the full backend gate on a clean tree and record the result: `poetry run pytest`, `poetry run mypy .`, `poetry run flake8`
-- [ ] T002 [P] Capture a pre-feature digest sample from `GET /api/alert-digests?limit=1` into `/tmp/digest-before.json` — the byte-comparison baseline for FR-019 and SC-004
-- [ ] T003 [P] Run quickstart step 2 (`get_all_workflows()` dump) and record which `index` values match scanned asset codes — confirms A-001 against live data before any code is written
+- [x] T001 Run the full backend gate on a clean tree and record the result: `poetry run pytest`, `poetry run mypy .`, `poetry run flake8`
+- [ ] T002 [P] ⚠️ BLOCKED — no AWS credentials in the dev container (`UnrecognizedClientException`). Capture a pre-feature digest sample from `GET /api/alert-digests?limit=1` into `/tmp/digest-before.json` — the byte-comparison baseline for FR-019 and SC-004. Must be run from an environment with AWS access before T038.
+- [ ] T003 [P] ⚠️ BLOCKED — same missing credentials. Run quickstart step 2 (`get_all_workflows()` dump) and record which `index` values match scanned asset codes — confirms A-001 against live data. Not blocking Phase 2 (the trader confirmed the overlap), but it is the cheapest way to catch an `index`-format mismatch before US1 ships.
+
+> **Phase 1 result**: T001 baseline recorded — 873 passed, 10 skipped; flake8 clean; mypy reports 4
+> pre-existing `aioboto3` missing-stub errors (unchanged by this feature). T002 and T003 need AWS
+> credentials this container does not have.
 
 ---
 
@@ -44,14 +48,14 @@ Frontend: `frontend/src/`. Tests mirror source under `tests/`.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T004 Add the `WorkflowTrigger` dataclass to `model/__init__.py` with fields `workflow_name`, `direction: Direction`, `order_price: float`, `trigger_close: Optional[float]`, `placed_at: int`, `dry_run: bool` per data-model.md §1
-- [ ] T005 Add `workflow_triggers: List[WorkflowTrigger] = field(default_factory=list)` to `TriagedAsset` in `model/__init__.py` (data-model.md §2)
-- [ ] T006 Create `services/workflow_trigger_service.py` with async `collect_todays_triggers(dynamodb_client, run_date) -> Dict[str, List[WorkflowTrigger]]`, returning `{}` on any exception (research R4, R10)
-- [ ] T007 Implement the Paris session window in `services/workflow_trigger_service.py` using `zoneinfo.ZoneInfo("Europe/Paris")`, deriving bounds from `run_date` rather than an assumed schedule (data-model.md §5, FR-004)
-- [ ] T008 Implement workflow resolution in `services/workflow_trigger_service.py`: one `get_all_workflows()` read into a `{workflow_id: (name, index, dry_run)}` map; drop triggers whose `workflow_id` is absent (research R1, FR-003)
-- [ ] T009 Implement asset matching in `services/workflow_trigger_service.py` — case-insensitive `index` against `asset_code` and `f"{asset_code}:{country_code}"`, matching on Alert **fields** not `Alert.id`; log both sides of every non-match (data-model.md §4, FR-003)
-- [ ] T010 Parse `order_direction` with `Direction[value]` (enum **name**, not value) in `services/workflow_trigger_service.py`, raising `SaxoException` on an unknown value — no `assert` (research R5, Constitution II.5)
-- [ ] T011 [P] Create `tests/services/test_workflow_trigger_service.py` covering: in-window vs out-of-window rows, deleted-workflow drop, unmatched-index drop, `BUY`-name parse, dry-run flag read from the workflow record, and `{}` on a raising client
+- [x] T004 Add the `WorkflowTrigger` dataclass to `model/__init__.py` with fields `workflow_name`, `direction: Direction`, `order_price: float`, `trigger_close: Optional[float]`, `placed_at: int`, `dry_run: bool` per data-model.md §1
+- [x] T005 Add `workflow_triggers: List[WorkflowTrigger] = field(default_factory=list)` to `TriagedAsset` in `model/__init__.py` (data-model.md §2)
+- [x] T006 Create `services/workflow_trigger_service.py` with async `collect_todays_triggers(dynamodb_client, run_date, alerts) -> Dict[str, List[WorkflowTrigger]]`, returning `{}` on any exception (research R4, R10)
+- [x] T007 Implement the Paris session window in `services/workflow_trigger_service.py` using `zoneinfo.ZoneInfo("Europe/Paris")`, deriving bounds from `run_date` rather than an assumed schedule (data-model.md §5, FR-004)
+- [x] T008 Implement workflow resolution in `services/workflow_trigger_service.py`: one `get_all_workflows()` read into a `{workflow_id: (name, index, dry_run)}` map; drop triggers whose `workflow_id` is absent (research R1, FR-003)
+- [x] T009 Implement asset matching in `services/workflow_trigger_service.py` — case-insensitive `order_code` then `index` against `asset_code` and `f"{asset_code}:{country_code}"`, matching on Alert **fields** not `Alert.id`; log all candidates on every non-match (data-model.md §4, FR-003)
+- [x] T010 Parse `order_direction` with the enum's own `Direction.get_value(...)` in `services/workflow_trigger_service.py` — it accepts the stored `"BUY"` name form as well as `"Buy"`, and raises `ValueError` on anything else; no hand-rolled parsing, no `assert` (research R5, Constitution II.3/II.5)
+- [x] T011 [P] Create `tests/services/test_workflow_trigger_service.py` covering: in-window vs out-of-window rows, deleted-workflow drop, unmatched-index drop, `BUY`-name parse, dry-run flag read from the workflow record, and `{}` on a raising client
 
 **Checkpoint**: Triggers can be collected and resolved. Nothing consumes them yet.
 
