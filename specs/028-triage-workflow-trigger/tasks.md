@@ -54,7 +54,7 @@ Frontend: `frontend/src/`. Tests mirror source under `tests/`.
 - [x] T007 Implement the Paris session window in `services/workflow_trigger_service.py` using `zoneinfo.ZoneInfo("Europe/Paris")`, deriving bounds from `run_date` rather than an assumed schedule (data-model.md §5, FR-004)
 - [x] T008 Implement workflow resolution in `services/workflow_trigger_service.py`: one `get_all_workflows()` read into a `{workflow_id: (name, index, dry_run)}` map; drop triggers whose `workflow_id` is absent (research R1, FR-003)
 - [x] T009 Implement asset matching in `services/workflow_trigger_service.py` — case-insensitive `order_code` then `index` against `asset_code` and `f"{asset_code}:{country_code}"`, matching on Alert **fields** not `Alert.id`; log all candidates on every non-match (data-model.md §4, FR-003)
-- [x] T010 Parse `order_direction` with `Direction[value]` (enum **name**, not value) in `services/workflow_trigger_service.py`, raising `SaxoException` on an unknown value — no `assert` (research R5, Constitution II.5)
+- [x] T010 Parse `order_direction` with the enum's own `Direction.get_value(...)` in `services/workflow_trigger_service.py` — it accepts the stored `"BUY"` name form as well as `"Buy"`, and raises `ValueError` on anything else; no hand-rolled parsing, no `assert` (research R5, Constitution II.3/II.5)
 - [x] T011 [P] Create `tests/services/test_workflow_trigger_service.py` covering: in-window vs out-of-window rows, deleted-workflow drop, unmatched-index drop, `BUY`-name parse, dry-run flag read from the workflow record, and `{}` on a raising client
 
 **Checkpoint**: Triggers can be collected and resolved. Nothing consumes them yet.

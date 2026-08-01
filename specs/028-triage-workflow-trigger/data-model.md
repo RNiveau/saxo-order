@@ -88,9 +88,11 @@ because `dry_run` has no other source.
 `workflow.index` uses a colon (`AI:xpar`). Comparing ids would silently never match and the feature
 would appear to do nothing. Match on the `asset_code` / `country_code` fields.
 
-**Trap — `order_direction` is stored as the enum NAME.** `WorkflowEngine` writes
-`order_direction.name`, so the stored value is `"BUY"`, while `Direction.BUY.value` is `"Buy"`.
-Parse with `Direction[value]`, not `Direction(value)`.
+**`order_direction` is stored as the enum NAME.** `WorkflowEngine` writes `order_direction.name`,
+so the stored value is `"BUY"`, while `Direction.BUY.value` is `"Buy"` — `Direction("BUY")` raises.
+Use the enum's own `EnumWithGetValue.get_value`, which compares case-insensitively on the value and
+therefore accepts both `"BUY"` and `"Buy"`. No hand-rolled parsing: the base enum already does this,
+and it raises `ValueError` on anything unrecognised.
 
 Unmatched triggers are logged with both sides of the comparison — a mismatch must be diagnosable
 from one run's logs, not inferred from an absence of corroboration.

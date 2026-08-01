@@ -29,13 +29,6 @@ def _to_float(value: Any) -> Optional[float]:
     return float(value)
 
 
-def _parse_direction(value: Any) -> Direction:
-    try:
-        return Direction[str(value)]
-    except KeyError:
-        raise SaxoException(f"Unknown order direction: {value!r}")
-
-
 def _asset_keys(alert: Alert) -> List[str]:
     keys = [alert.asset_code.lower()]
     if alert.country_code:
@@ -82,7 +75,7 @@ def _build_trigger(
 
     return WorkflowTrigger(
         workflow_name=order.get("workflow_name", workflow.get("name", "")),
-        direction=_parse_direction(order.get("order_direction")),
+        direction=Direction.get_value(str(order.get("order_direction"))),
         order_price=order_price,
         placed_at=int(order["placed_at"]),
         dry_run=bool(workflow.get("dry_run", False)),
@@ -145,7 +138,7 @@ async def _collect(
 
         try:
             trigger = _build_trigger(order, workflow)
-        except SaxoException as e:
+        except (SaxoException, ValueError) as e:
             logger.warning(f"Dropping malformed trigger: {e}")
             continue
 

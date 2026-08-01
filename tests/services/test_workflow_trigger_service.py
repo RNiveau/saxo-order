@@ -204,7 +204,7 @@ async def test_never_introduces_an_asset_outside_the_alert_set():
 
 
 @pytest.mark.asyncio
-async def test_direction_is_parsed_from_the_enum_name():
+async def test_direction_is_parsed_from_the_stored_enum_name():
     client = FakeDynamoDBClient([order(order_direction="SELL")], [workflow()])
 
     triggers = await collect_todays_triggers(client, RUN_DATE, [alert()])
@@ -213,8 +213,26 @@ async def test_direction_is_parsed_from_the_enum_name():
 
 
 @pytest.mark.asyncio
-async def test_drops_trigger_with_unknown_direction():
+async def test_direction_also_accepts_the_enum_value_form():
     client = FakeDynamoDBClient([order(order_direction="Buy")], [workflow()])
+
+    triggers = await collect_todays_triggers(client, RUN_DATE, [alert()])
+
+    assert triggers["AI_xpar"][0].direction == Direction.BUY
+
+
+@pytest.mark.asyncio
+async def test_drops_trigger_with_unknown_direction():
+    client = FakeDynamoDBClient([order(order_direction="HOLD")], [workflow()])
+
+    triggers = await collect_todays_triggers(client, RUN_DATE, [alert()])
+
+    assert triggers == {}
+
+
+@pytest.mark.asyncio
+async def test_drops_trigger_with_missing_direction():
+    client = FakeDynamoDBClient([order(order_direction=None)], [workflow()])
 
     triggers = await collect_todays_triggers(client, RUN_DATE, [alert()])
 

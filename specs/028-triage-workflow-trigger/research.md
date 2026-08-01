@@ -86,8 +86,10 @@
   introduced.
 - **Rationale**: Constitution II.3 (enum-driven) and V. `workflow_orders` stores
   `order_direction` as the enum **name** (`WorkflowEngine` writes `order_direction.name`), so
-  parsing is `Direction[value]`, not `Direction(value)` — a real trap, since `Direction.BUY.value`
-  is `"Buy"` while its name is `"BUY"`.
+  `Direction("BUY")` raises — `Direction.BUY.value` is `"Buy"`. Parsing goes through the base
+  enum's own `EnumWithGetValue.get_value`, which compares case-insensitively on the value and so
+  accepts both stored forms. Corrected in review: an earlier draft hand-rolled `Direction[value]`
+  instead of using the method the enum already provides.
 - **Alternatives considered**: Passing raw dicts into the agent — rejected: the model layer exists so
   that the reasoning payload and the persistence layer agree on shape.
 
