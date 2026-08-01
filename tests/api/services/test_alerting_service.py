@@ -20,36 +20,52 @@ def alerting_service(mock_dynamodb_client):
     return AlertingService(mock_dynamodb_client)
 
 
+def make_alert(
+    asset_code: str,
+    alert_type: AlertType = AlertType.COMBO,
+    hour: int = 10,
+    ma50_slope: float = 15.2,
+) -> Alert:
+    descriptions = {"SAN": "Santander", "ITP": "Interparfums"}
+    return Alert(
+        alert_type=alert_type,
+        date=datetime.datetime(2026, 1, 26, hour, 0, 0),
+        data={"ma50_slope": ma50_slope},
+        asset_code=asset_code,
+        asset_description=descriptions.get(asset_code, asset_code),
+        exchange="saxo",
+        country_code="xpar",
+    )
+
+
+@pytest.fixture
+def san_alert() -> Alert:
+    return make_alert("SAN")
+
+
+@pytest.fixture
+def itp_alert() -> Alert:
+    """A DOUBLE_TOP on ITP, an hour older than the SAN combo."""
+    return make_alert(
+        "ITP", alert_type=AlertType.DOUBLE_TOP, hour=9, ma50_slope=8.3
+    )
+
+
+@pytest.fixture
+def sample_alerts(san_alert, itp_alert) -> list:
+    return [san_alert, itp_alert]
+
+
 class TestAlertExclusionFiltering:
     async def test_get_all_alerts_with_no_exclusions(
-        self, alerting_service, mock_dynamodb_client
+        self, alerting_service, mock_dynamodb_client, sample_alerts
     ):
         """Test get_all_alerts with no excluded assets returns all alerts."""
         # Setup: No excluded assets
         mock_dynamodb_client.get_excluded_assets.return_value = []
 
         # Setup: Sample alerts
-        alerts = [
-            Alert(
-                alert_type=AlertType.COMBO,
-                date=datetime.datetime(2026, 1, 26, 10, 0, 0),
-                data={"ma50_slope": 15.2},
-                asset_code="SAN",
-                asset_description="Santander",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-            Alert(
-                alert_type=AlertType.DOUBLE_TOP,
-                date=datetime.datetime(2026, 1, 26, 9, 0, 0),
-                data={"ma50_slope": 8.3},
-                asset_code="ITP",
-                asset_description="Interparfums",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-        ]
-        mock_dynamodb_client.get_all_alerts.return_value = alerts
+        mock_dynamodb_client.get_all_alerts.return_value = sample_alerts
         mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         # Execute
@@ -60,34 +76,14 @@ class TestAlertExclusionFiltering:
         assert len(response.alerts) == 2
 
     async def test_get_all_alerts_with_some_exclusions(
-        self, alerting_service, mock_dynamodb_client
+        self, alerting_service, mock_dynamodb_client, sample_alerts
     ):
         """Test get_all_alerts filters out excluded asset alerts."""
         # Setup: SAN:xpar is excluded (must match full asset_id format)
         mock_dynamodb_client.get_excluded_assets.return_value = ["SAN:xpar"]
 
         # Setup: Alerts for both SAN and ITP
-        alerts = [
-            Alert(
-                alert_type=AlertType.COMBO,
-                date=datetime.datetime(2026, 1, 26, 10, 0, 0),
-                data={"ma50_slope": 15.2},
-                asset_code="SAN",
-                asset_description="Santander",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-            Alert(
-                alert_type=AlertType.DOUBLE_TOP,
-                date=datetime.datetime(2026, 1, 26, 9, 0, 0),
-                data={"ma50_slope": 8.3},
-                asset_code="ITP",
-                asset_description="Interparfums",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-        ]
-        mock_dynamodb_client.get_all_alerts.return_value = alerts
+        mock_dynamodb_client.get_all_alerts.return_value = sample_alerts
         mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         # Execute
@@ -99,7 +95,7 @@ class TestAlertExclusionFiltering:
         assert response.alerts[0].asset_code == "ITP"
 
     async def test_get_all_alerts_with_all_excluded(
-        self, alerting_service, mock_dynamodb_client
+        self, alerting_service, mock_dynamodb_client, sample_alerts
     ):
         """Test get_all_alerts returns empty when all alerts are excluded."""
         # Setup: All assets excluded (must match full asset_id format)
@@ -110,27 +106,7 @@ class TestAlertExclusionFiltering:
         ]
 
         # Setup: Alerts from excluded assets
-        alerts = [
-            Alert(
-                alert_type=AlertType.COMBO,
-                date=datetime.datetime(2026, 1, 26, 10, 0, 0),
-                data={"ma50_slope": 15.2},
-                asset_code="SAN",
-                asset_description="Santander",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-            Alert(
-                alert_type=AlertType.DOUBLE_TOP,
-                date=datetime.datetime(2026, 1, 26, 9, 0, 0),
-                data={"ma50_slope": 8.3},
-                asset_code="ITP",
-                asset_description="Interparfums",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-        ]
-        mock_dynamodb_client.get_all_alerts.return_value = alerts
+        mock_dynamodb_client.get_all_alerts.return_value = sample_alerts
         mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         # Execute
@@ -141,34 +117,14 @@ class TestAlertExclusionFiltering:
         assert len(response.alerts) == 0
 
     async def test_get_all_alerts_filters_dont_include_excluded(
-        self, alerting_service, mock_dynamodb_client
+        self, alerting_service, mock_dynamodb_client, sample_alerts
     ):
         """Test available filters don't include excluded assets."""
         # Setup: SAN is excluded
         mock_dynamodb_client.get_excluded_assets.return_value = ["SAN:xpar"]
 
         # Setup: Alerts for both SAN and ITP
-        alerts = [
-            Alert(
-                alert_type=AlertType.COMBO,
-                date=datetime.datetime(2026, 1, 26, 10, 0, 0),
-                data={"ma50_slope": 15.2},
-                asset_code="SAN",
-                asset_description="Santander",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-            Alert(
-                alert_type=AlertType.DOUBLE_TOP,
-                date=datetime.datetime(2026, 1, 26, 9, 0, 0),
-                data={"ma50_slope": 8.3},
-                asset_code="ITP",
-                asset_description="Interparfums",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-        ]
-        mock_dynamodb_client.get_all_alerts.return_value = alerts
+        mock_dynamodb_client.get_all_alerts.return_value = sample_alerts
         mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         # Execute
@@ -179,43 +135,23 @@ class TestAlertExclusionFiltering:
         assert "SAN" not in response.available_filters["asset_codes"]
 
     async def test_get_all_alerts_with_user_filter_and_exclusion(
-        self, alerting_service, mock_dynamodb_client
+        self, alerting_service, mock_dynamodb_client, san_alert
     ):
         """Test both user filters and exclusions are applied correctly."""
         # Setup: SAN is excluded
         mock_dynamodb_client.get_excluded_assets.return_value = ["SAN:xpar"]
 
         # Setup: Multiple alerts with different types
-        alerts = [
-            Alert(
-                alert_type=AlertType.COMBO,
-                date=datetime.datetime(2026, 1, 26, 10, 0, 0),
-                data={"ma50_slope": 15.2},
-                asset_code="SAN",
-                asset_description="Santander",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-            Alert(
-                alert_type=AlertType.COMBO,
-                date=datetime.datetime(2026, 1, 26, 9, 0, 0),
-                data={"ma50_slope": 8.3},
-                asset_code="ITP",
-                asset_description="Interparfums",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-            Alert(
+        mock_dynamodb_client.get_all_alerts.return_value = [
+            san_alert,
+            make_alert("ITP", hour=9, ma50_slope=8.3),
+            make_alert(
+                "ITP",
                 alert_type=AlertType.DOUBLE_TOP,
-                date=datetime.datetime(2026, 1, 26, 8, 0, 0),
-                data={"ma50_slope": 5.1},
-                asset_code="ITP",
-                asset_description="Interparfums",
-                exchange="saxo",
-                country_code="xpar",
+                hour=8,
+                ma50_slope=5.1,
             ),
         ]
-        mock_dynamodb_client.get_all_alerts.return_value = alerts
         mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         # Execute: Filter by alert_type=combo
@@ -243,22 +179,11 @@ class TestAlertExclusionFiltering:
 
 class TestAlertsCaching:
     async def test_get_all_alerts_uses_cache_on_second_call(
-        self, alerting_service, mock_dynamodb_client
+        self, alerting_service, mock_dynamodb_client, san_alert
     ):
         """Test that get_all_alerts uses cache on subsequent calls."""
         mock_dynamodb_client.get_excluded_assets.return_value = []
-        alerts = [
-            Alert(
-                alert_type=AlertType.COMBO,
-                date=datetime.datetime(2026, 1, 26, 10, 0, 0),
-                data={"ma50_slope": 15.2},
-                asset_code="SAN",
-                asset_description="Santander",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-        ]
-        mock_dynamodb_client.get_all_alerts.return_value = alerts
+        mock_dynamodb_client.get_all_alerts.return_value = [san_alert]
         mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         response1 = await alerting_service.get_all_alerts()
@@ -271,22 +196,11 @@ class TestAlertsCaching:
         mock_dynamodb_client.get_all_tradingview_links.assert_called_once()
 
     async def test_cache_invalidation_clears_cache(
-        self, alerting_service, mock_dynamodb_client
+        self, alerting_service, mock_dynamodb_client, san_alert
     ):
         """Test that cache invalidation forces fresh data fetch."""
         mock_dynamodb_client.get_excluded_assets.return_value = []
-        alerts = [
-            Alert(
-                alert_type=AlertType.COMBO,
-                date=datetime.datetime(2026, 1, 26, 10, 0, 0),
-                data={"ma50_slope": 15.2},
-                asset_code="SAN",
-                asset_description="Santander",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-        ]
-        mock_dynamodb_client.get_all_alerts.return_value = alerts
+        mock_dynamodb_client.get_all_alerts.return_value = [san_alert]
         mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         response1 = await alerting_service.get_all_alerts()
@@ -302,31 +216,11 @@ class TestAlertsCaching:
         assert mock_dynamodb_client.get_all_tradingview_links.call_count == 2
 
     async def test_cache_with_different_filters_uses_same_base_data(
-        self, alerting_service, mock_dynamodb_client
+        self, alerting_service, mock_dynamodb_client, sample_alerts
     ):
         """Test that different filters use the same cached base data."""
         mock_dynamodb_client.get_excluded_assets.return_value = []
-        alerts = [
-            Alert(
-                alert_type=AlertType.COMBO,
-                date=datetime.datetime(2026, 1, 26, 10, 0, 0),
-                data={"ma50_slope": 15.2},
-                asset_code="SAN",
-                asset_description="Santander",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-            Alert(
-                alert_type=AlertType.DOUBLE_TOP,
-                date=datetime.datetime(2026, 1, 26, 9, 0, 0),
-                data={"ma50_slope": 8.3},
-                asset_code="ITP",
-                asset_description="Interparfums",
-                exchange="saxo",
-                country_code="xpar",
-            ),
-        ]
-        mock_dynamodb_client.get_all_alerts.return_value = alerts
+        mock_dynamodb_client.get_all_alerts.return_value = sample_alerts
         mock_dynamodb_client.get_all_tradingview_links.return_value = {}
 
         response1 = await alerting_service.get_all_alerts(asset_code="SAN")

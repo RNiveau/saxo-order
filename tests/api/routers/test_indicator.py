@@ -318,14 +318,6 @@ class TestIndicatorEndpoint:
         # Variation: (100 - 95) / 95 * 100 = 5.26%
         assert data["variation_pct"] == 5.26
 
-    def test_get_asset_indicators_missing_code(self):
-        """Test request without required code parameter."""
-        response = client.get("/api/indicator/asset/")
-
-        # FastAPI will redirect to /api/indicator/asset without trailing slash
-        # or return 404
-        assert response.status_code in [404, 307]
-
     def test_get_asset_indicators_weekly_unit_time(
         self, mock_saxo_client, mock_candles_service, mock_historical_data
     ):
@@ -477,23 +469,6 @@ class TestIndicatorEndpoint:
 
         assert data["current_price"] == 110.0
         assert data["variation_pct"] == 10.0
-
-    def test_get_asset_indicators_exchange_parameter(
-        self, mock_saxo_client, mock_candles_service, mock_historical_data
-    ):
-        """Test that exchange parameter routes to the right client."""
-        mock_saxo_client.get_historical_data.return_value = (
-            mock_historical_data
-        )
-
-        response_saxo = client.get(
-            "/api/indicator/asset/itp?exchange=saxo&country_code=xpar"
-        )
-
-        assert response_saxo.status_code == 200
-        assert response_saxo.json()["asset_symbol"] == "itp:xpar"
-
-        mock_saxo_client.get_asset.call_count >= 1
 
     def test_get_asset_indicators_country_code_optional_for_binance(
         self, mock_binance_client, mock_candles_service

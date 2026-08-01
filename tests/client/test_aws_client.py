@@ -8,23 +8,29 @@ from client.aws_client import DynamoDBClient, DynamoDBOperationError
 from model import Alert, AlertType
 
 
+@pytest.fixture
+def mock_dynamodb_resource():
+    """Create a mock async DynamoDB resource."""
+    mock_resource = AsyncMock()
+    mock_table = AsyncMock()
+    mock_resource.Table.return_value = mock_table
+    return mock_resource, mock_table
+
+
+@pytest.fixture
+def mock_table(mock_dynamodb_resource):
+    return mock_dynamodb_resource[1]
+
+
+@pytest.fixture
+def client(mock_dynamodb_resource):
+    """Create DynamoDBClient with mocked resource."""
+    mock_resource, _ = mock_dynamodb_resource
+    return DynamoDBClient(dynamodb_resource=mock_resource)
+
+
 class TestDynamoDBClient:
-    @pytest.fixture
-    def mock_dynamodb_resource(self):
-        """Create a mock async DynamoDB resource."""
-        mock_resource = AsyncMock()
-        mock_table = AsyncMock()
-        mock_resource.Table.return_value = mock_table
-        return mock_resource, mock_table
-
-    @pytest.fixture
-    def client(self, mock_dynamodb_resource):
-        """Create DynamoDBClient with mocked resource."""
-        mock_resource, _ = mock_dynamodb_resource
-        return DynamoDBClient(dynamodb_resource=mock_resource)
-
-    async def test_store_alerts(self, mock_dynamodb_resource, client):
-        _, mock_table = mock_dynamodb_resource
+    async def test_store_alerts(self, mock_table, client):
         # Mock get_item for get_alerts (no existing alerts)
         mock_table.get_item.return_value = {
             "ResponseMetadata": {"HTTPStatusCode": 200},
@@ -64,10 +70,7 @@ class TestDynamoDBClient:
         assert isinstance(call_args["ExpressionAttributeValues"][":ttl"], int)
         assert "list_append" in call_args["UpdateExpression"]
 
-    async def test_store_alerts_without_country_code(
-        self, mock_dynamodb_resource, client
-    ):
-        _, mock_table = mock_dynamodb_resource
+    async def test_store_alerts_without_country_code(self, mock_table, client):
         # Mock get_item for get_alerts (no existing alerts)
         mock_table.get_item.return_value = {
             "ResponseMetadata": {"HTTPStatusCode": 200},
@@ -98,11 +101,8 @@ class TestDynamoDBClient:
         assert ":ttl" in call_args["ExpressionAttributeValues"]
         assert isinstance(call_args["ExpressionAttributeValues"][":ttl"], int)
 
-    async def test_store_alerts_deduplication(
-        self, mock_dynamodb_resource, client
-    ):
+    async def test_store_alerts_deduplication(self, mock_table, client):
         """Test that duplicate alerts are filtered out."""
-        _, mock_table = mock_dynamodb_resource
         # Mock existing alerts
         mock_table.get_item.return_value = {
             "ResponseMetadata": {"HTTPStatusCode": 200},
@@ -153,11 +153,8 @@ class TestDynamoDBClient:
         assert len(stored_alerts) == 1
         assert stored_alerts[0]["alert_type"] == "congestion20"
 
-    async def test_store_alerts_all_duplicates(
-        self, mock_dynamodb_resource, client
-    ):
+    async def test_store_alerts_all_duplicates(self, mock_table, client):
         """Test that when all alerts are duplicates, no update is made."""
-        _, mock_table = mock_dynamodb_resource
         # Mock existing alerts
         mock_table.get_item.return_value = {
             "ResponseMetadata": {"HTTPStatusCode": 200},
@@ -194,22 +191,9 @@ class TestDynamoDBClient:
 
 
 class TestDynamoDBErrorHandling:
-    @pytest.fixture
-    def mock_dynamodb_resource(self):
-        mock_resource = AsyncMock()
-        mock_table = AsyncMock()
-        mock_resource.Table.return_value = mock_table
-        return mock_resource, mock_table
-
-    @pytest.fixture
-    def client(self, mock_dynamodb_resource):
-        mock_resource, _ = mock_dynamodb_resource
-        return DynamoDBClient(dynamodb_resource=mock_resource)
-
     async def test_client_error_raises_dynamodb_operation_error(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
-        _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ClientError(
             {
                 "Error": {
@@ -227,9 +211,8 @@ class TestDynamoDBErrorHandling:
         assert "ResourceNotFoundException" in exc_info.value.message
 
     async def test_throughput_exceeded_raises_dynamodb_operation_error(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
-        _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ClientError(
             {
                 "Error": {
@@ -248,9 +231,8 @@ class TestDynamoDBErrorHandling:
         )
 
     async def test_connection_error_raises_dynamodb_operation_error(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
-        _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ConnectionError("Connection refused")
 
         with pytest.raises(DynamoDBOperationError) as exc_info:
@@ -260,10 +242,9 @@ class TestDynamoDBErrorHandling:
         assert "Connection error" in exc_info.value.message
 
     async def test_graceful_degradation_get_all_tradingview_links(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
         """Methods with internal try/except return defaults on ClientError."""
-        _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ClientError(
             {
                 "Error": {
@@ -278,9 +259,8 @@ class TestDynamoDBErrorHandling:
         assert result == {}
 
     async def test_graceful_degradation_get_excluded_assets(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
-        _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ClientError(
             {"Error": {"Code": "InternalServerError", "Message": "Error"}},
             "Scan",
@@ -290,9 +270,8 @@ class TestDynamoDBErrorHandling:
         assert result == []
 
     async def test_graceful_degradation_get_workflow_orders(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
-        _, mock_table = mock_dynamodb_resource
         mock_table.query.side_effect = ClientError(
             {"Error": {"Code": "InternalServerError", "Message": "Error"}},
             "Query",
