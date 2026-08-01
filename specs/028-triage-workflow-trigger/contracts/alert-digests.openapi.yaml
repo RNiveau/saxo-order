@@ -1,0 +1,130 @@
+openapi: 3.1.0
+info:
+  title: Alert Digests API — workflow-trigger corroboration (delta)
+  version: 1.1.0
+  description: >
+    Additive change to the Alert Digests read API introduced by spec 028. No new
+    path, no new parameter, no changed response code: TriagedAssetResponse gains
+    an optional workflow_triggers array carrying the same-day workflow firings
+    that corroborated the asset.
+
+    Existing clients are unaffected — the field is omitted entirely when an asset
+    has no triggers, which is the case for most assets, for every day with no
+    triggers, and for every digest written before this feature (no backfill).
+
+    Both existing paths (/api/alert-digests and /api/alert-digests/{run_date})
+    return the enriched shape; only the changed schemas are reproduced here.
+    See specs/023-alert-triage/contracts/alert-digests.openapi.yaml for the full
+    contract.
+servers:
+  - url: http://localhost:8000
+
+components:
+  schemas:
+    WorkflowTriggerResponse:
+      type: object
+      description: >
+        A registered workflow that fired during the current Paris trading day on
+        this asset. Evidence produced by a mechanism independent of the chart
+        pattern detectors — pre-registered by the trader rather than matched
+        after the fact.
+      required: [workflow_name, direction, order_price, placed_at, dry_run]
+      additionalProperties: false
+      properties:
+        workflow_name:
+          type: string
+          description: Name of the workflow that fired.
+          examples: ["AI breakout H1"]
+        direction:
+          type: string
+          enum: [BUY, SELL]
+          description: >
+            Order direction, as the Direction enum NAME — matching how the
+            workflow_orders table stores it. Note this is the name (BUY), not
+            the value (Buy).
+        order_price:
+          type: number
+          format: float
+          description: Price of the order the workflow produced.
+          examples: [158.4]
+        trigger_close:
+          type: [number, "null"]
+          format: float
+          default: null
+          description: >
+            Market close at the moment the workflow fired. Null when the engine
+            could not record it.
+          examples: [157.9]
+        placed_at:
+          type: integer
+          format: int64
+          description: >
+            Epoch seconds when the workflow fired. Clients render the Paris-local
+            time of day from this.
+          examples: [1785412200]
+        dry_run:
+          type: boolean
+          description: >
+            True when the workflow was in dry-run mode — the rule fired but no
+            capital was committed. Read from the workflow definition, not the
+            order row. Displayed distinctly and weighed one step lower in
+            ranking.
+
+    TriagedAssetResponse:
+      type: object
+      description: >
+        Unchanged except for the final property. Reproduced in full so the
+        addition is unambiguous.
+      required: [asset_code, asset_description, exchange, conviction, rationale, patterns]
+      properties:
+        asset_code:
+          type: string
+          description: Asset symbol or ticker.
+        asset_description:
+          type: string
+          description: Human-readable asset name.
+        exchange:
+          type: string
+          description: Exchange name (e.g. 'saxo', 'binance').
+        country_code:
+          type: [string, "null"]
+          default: null
+          description: Exchange or country code (null for crypto assets).
+        conviction:
+          type: string
+          enum: [high, watch, noise]
+          description: Conviction tier.
+        rank:
+          type: [integer, "null"]
+          default: null
+          description: 1-based rank within high+watch (null for noise).
+        rationale:
+          type: string
+          description: >
+            One-line rationale (empty for noise). When a workflow trigger
+            influenced the ranking, it is named here.
+        patterns:
+          type: array
+          items:
+            type: string
+          description: Distinct patterns that fired on this asset.
+        ma50_slope:
+          type: [number, "null"]
+          format: float
+          default: null
+          description: MA50 slope used in ranking.
+        tradingview_url:
+          type: [string, "null"]
+          default: null
+          description: Custom TradingView URL if configured.
+        workflow_triggers:
+          type: [array, "null"]
+          default: null
+          description: >
+            NEW in 1.1.0. Same-day workflow firings that corroborated this asset.
+            Omitted entirely when the asset has none — clients MUST treat an
+            absent field as "no corroboration", never as an error. Multiple
+            entries still represent a single point of convergence for ranking
+            purposes.
+          items:
+            $ref: "#/components/schemas/WorkflowTriggerResponse"
