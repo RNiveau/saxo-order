@@ -1,9 +1,16 @@
 """Deterministic synthetic market for the backtest golden tests.
 
-Builds reproducible H1 / 5-minute / daily candle series from a seeded RNG so
-a full BacktestService run can be snapshotted and compared across a
-refactor. Every series is a pure function of (instrument, date), so the
-snapshot is stable regardless of the order or range a test asks for.
+Draws one seeded 5-minute price path per (instrument, day) across the
+widest session any backtest trades, and serves whatever timeframe and
+window a caller asks for by aggregating it. Every series is a pure
+function of (instrument, date), so the snapshot is stable regardless of
+the order or range a test asks for.
+
+Deliberately knows nothing about strategies. It used to answer in the
+shapes the strategies of the day happened to ask for - one H1 reference
+candle, a post-10:00 5-minute scan - which meant a backtest with a new
+shape could not be added without editing the market, and a combo
+definition saw 21 candles where its indicator needed 235.
 """
 
 import datetime
@@ -12,8 +19,11 @@ import random
 from typing import List, Tuple
 from unittest.mock import MagicMock
 
-from api.services.backtest import paris_reference_window_utc
-from model import Candle, EUMarket, UnitTime
+from api.services.backtest import (
+    paris_session_end_utc,
+    paris_session_start_utc,
+)
+from model import Candle, DaxCfdMarket, UnitTime
 from services.candles_service import CandlesService
 
 # (base price, 5-minute step sigma) per instrument. GER40's sigma is scaled
@@ -31,15 +41,12 @@ NO_DATA_DATES = {datetime.date(2026, 3, 11), datetime.date(2026, 4, 8)}
 GOLDEN_START = datetime.date(2026, 3, 2)
 GOLDEN_END = datetime.date(2026, 4, 30)
 
-H1_STEPS = 12
-SESSION_STEPS = 90
+# Resolution the day's price path is drawn at - the finest any backtest
+# asks for. Everything coarser is aggregated from it.
+BASE_HORIZON = 5
 
-# Minutes per candle for the timeframes the combo backtests run on.
-COMBO_HORIZONS = {UnitTime.M5: 5, UnitTime.M15: 15, UnitTime.H1: 60}
-
-# Shortest window only a combo backtest asks for. Its 02:00-22:00 day is
-# 20 hours; the widest a session backtest asks for is 10:00-22:00 (12).
-COMBO_WINDOW_MIN = datetime.timedelta(hours=15)
+# Minutes per candle for each timeframe a backtest can request.
+HORIZONS = {UnitTime.M5: 5, UnitTime.M15: 15, UnitTime.H1: 60}
 
 
 def _rng(instrument: str, d: datetime.date, tag: str) -> random.Random:
@@ -79,35 +86,29 @@ def _session_open_price(instrument: str, d: datetime.date) -> float:
     return base + drift + noise
 
 
-def h1_reference_candle(instrument: str, d: datetime.date) -> Candle:
-    """The 9h-10h reference candle, aggregated from the first hour's walk."""
+def base_bars(instrument: str, d: datetime.date) -> List[Candle]:
+    """The day's price path as 5-minute candles across the widest session
+    any backtest trades (02:00-22:00 Paris).
+
+    One path per (instrument, day), sampled - never re-drawn - by
+    `candles_in_window`. This is what keeps the fixture a *market* rather
+    than a set of answers shaped like the questions the current
+    strategies happen to ask: a new strategy on a new timeframe reads the
+    same prices as every existing one, and adding it touches nothing
+    here.
+    """
     _, sigma = INSTRUMENT_PROFILE[instrument]
+    session_start = paris_session_start_utc(d, DaxCfdMarket())
+    session_end = paris_session_end_utc(d, DaxCfdMarket())
+    steps = int((session_end - session_start).total_seconds() // 60) // (
+        BASE_HORIZON
+    )
     bars = _walk(
-        _rng(instrument, d, "h1"),
+        _rng(instrument, d, "base"),
         _session_open_price(instrument, d),
         sigma,
-        H1_STEPS,
+        steps,
     )
-    start, _ = paris_reference_window_utc(d, EUMarket())
-    return Candle(
-        lower=round(min(bar[2] for bar in bars), 2),
-        higher=round(max(bar[1] for bar in bars), 2),
-        open=bars[0][0],
-        close=bars[-1][3],
-        ut=UnitTime.H1,
-        date=start,
-    )
-
-
-def m5_session_candles(instrument: str, d: datetime.date) -> List[Candle]:
-    """The post-10h session as 5-minute candles, continuing from the
-    reference candle's close."""
-    _, sigma = INSTRUMENT_PROFILE[instrument]
-    reference = h1_reference_candle(instrument, d)
-    bars = _walk(
-        _rng(instrument, d, "m5"), reference.close, sigma, SESSION_STEPS
-    )
-    _, session_start = paris_reference_window_utc(d, EUMarket())
     return [
         Candle(
             lower=bar[2],
@@ -115,10 +116,53 @@ def m5_session_candles(instrument: str, d: datetime.date) -> List[Candle]:
             open=bar[0],
             close=bar[3],
             ut=UnitTime.M5,
-            date=session_start + datetime.timedelta(minutes=5 * index),
+            date=session_start
+            + datetime.timedelta(minutes=BASE_HORIZON * index),
         )
         for index, bar in enumerate(bars)
     ]
+
+
+def candles_in_window(
+    instrument: str,
+    d: datetime.date,
+    ut: UnitTime,
+    start: datetime.datetime,
+    end: datetime.datetime,
+) -> List[Candle]:
+    """The day's base path aggregated to `ut` and cut to [start, end).
+
+    Buckets are anchored to midnight rather than to the window, so the
+    same clock minute always falls in the same candle whatever window it
+    is asked for - a 09:00-10:00 request and a 02:00-22:00 request agree
+    on the 09:00 hourly candle.
+    """
+    horizon = HORIZONS.get(ut, BASE_HORIZON)
+    buckets: dict = {}
+    for bar in base_bars(instrument, d):
+        if bar.date is None or not (start <= bar.date < end):
+            continue
+        minute_of_day = bar.date.hour * 60 + bar.date.minute
+        key = minute_of_day // horizon
+        buckets.setdefault(key, []).append(bar)
+
+    candles = []
+    for key in sorted(buckets):
+        group = buckets[key]
+        candles.append(
+            Candle(
+                lower=round(min(bar.lower for bar in group), 2),
+                higher=round(max(bar.higher for bar in group), 2),
+                open=group[0].open,
+                close=group[-1].close,
+                ut=ut,
+                date=datetime.datetime.combine(
+                    group[0].date.date(), datetime.time()
+                )
+                + datetime.timedelta(minutes=key * horizon),
+            )
+        )
+    return candles
 
 
 def daily_candles(
@@ -156,70 +200,19 @@ def daily_candles(
     return candles
 
 
-def timeframe_session_candles(
-    instrument: str,
-    d: datetime.date,
-    ut: UnitTime,
-    start: datetime.datetime,
-    end: datetime.datetime,
-) -> List[Candle]:
-    """A session's worth of candles at an arbitrary timeframe, for the
-    combo backtests - which read a whole day at 5m, 15m or H1 rather than
-    a reference candle plus a 5-minute scan.
-
-    Drifting rather than driftless: a pure random walk almost never
-    produces the sloping ma50 the combo indicator requires, so the golden
-    market would exercise the strategy's plumbing and none of its rules.
-    The drift alternates by day so both directions are covered.
-    """
-    horizon = COMBO_HORIZONS[ut]
-    steps = max(1, int((end - start).total_seconds() // (60 * horizon)))
-    base, sigma = INSTRUMENT_PROFILE[instrument]
-    rng = _rng(instrument, d, f"combo-{ut.value}")
-    drift = (1 if d.toordinal() % 2 else -1) * sigma * 0.35
-    price = _session_open_price(instrument, d)
-    candles: List[Candle] = []
-    for index in range(steps):
-        open_price = price
-        close = open_price + drift + rng.gauss(0, sigma)
-        candles.append(
-            Candle(
-                lower=round(
-                    min(open_price, close) - abs(rng.gauss(0, sigma / 2)), 2
-                ),
-                higher=round(
-                    max(open_price, close) + abs(rng.gauss(0, sigma / 2)), 2
-                ),
-                open=round(open_price, 2),
-                close=round(close, 2),
-                ut=ut,
-                date=start + datetime.timedelta(minutes=horizon * index),
-            )
-        )
-        price = close
-    return candles
-
-
 def golden_candles_service() -> MagicMock:
     """A CandlesService stub serving the synthetic market."""
     service = MagicMock(spec=CandlesService)
 
     def get_candles_in_window(code, ut, horizon, start, end):
+        """Whatever the caller asks for, sampled from the day's one price
+        path. Nothing here branches on which strategy is asking - that
+        coupling is what made this fixture need editing every time a
+        backtest with a new shape was added."""
         trading_date = start.date()
         if trading_date in NO_DATA_DATES:
             return []
-        # Only a combo backtest asks for a whole 02:00-22:00 DAX CFD day
-        # (20 hours). The session backtests ask for the 1-hour reference
-        # window and then a post-10:00 5-minute scan of at most 12 hours,
-        # so the width of the window is what separates them - not the
-        # timeframe, which M5 shares.
-        if end - start >= COMBO_WINDOW_MIN:
-            return timeframe_session_candles(
-                code, trading_date, ut, start, end
-            )
-        if ut == UnitTime.H1:
-            return [h1_reference_candle(code, trading_date)]
-        return m5_session_candles(code, trading_date)
+        return candles_in_window(code, trading_date, ut, start, end)
 
     def build_candles(code, ut, market, count, reference):
         return daily_candles(code, reference.date(), count)
