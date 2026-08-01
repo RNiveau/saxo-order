@@ -1,11 +1,11 @@
 import datetime
 import logging
-from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from model import Alert, Direction, WorkflowTrigger
 from utils.exception import SaxoException
+from utils.helper import to_float
 from utils.logger import Logger
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -19,14 +19,6 @@ def _session_window(run_date: str) -> Tuple[int, int]:
         day, datetime.time.min, tzinfo=PARIS
     ).timestamp()
     return int(start), int(datetime.datetime.now(PARIS).timestamp())
-
-
-def _to_float(value: Any) -> Optional[float]:
-    if value is None:
-        return None
-    if isinstance(value, Decimal):
-        return float(value)
-    return float(value)
 
 
 def _asset_keys(alert: Alert) -> List[str]:
@@ -69,7 +61,7 @@ def _build_workflow_map(
 def _build_trigger(
     order: Dict[str, Any], workflow: Dict[str, Any]
 ) -> WorkflowTrigger:
-    order_price = _to_float(order.get("order_price"))
+    order_price = to_float(order.get("order_price"))
     if order_price is None or order_price <= 0:
         raise SaxoException(f"Invalid order_price: {order.get('order_price')}")
 
@@ -79,7 +71,7 @@ def _build_trigger(
         order_price=order_price,
         placed_at=int(order["placed_at"]),
         dry_run=bool(workflow.get("dry_run", False)),
-        trigger_close=_to_float(order.get("trigger_close")),
+        trigger_close=to_float(order.get("trigger_close")),
     )
 
 

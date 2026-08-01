@@ -1,9 +1,20 @@
 import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from zoneinfo import ZoneInfo
 
 from model import Candle, Market, UnitTime
 from utils.logger import Logger
+
+
+def to_float(value: Any) -> Optional[float]:
+    """Normalise a DynamoDB numeric attribute to a float.
+
+    DynamoDB returns numbers as Decimal; every read path has to widen them
+    before they reach a model or a Pydantic response.
+    """
+    if value is None:
+        return None
+    return float(value)
 
 
 def _local_hour_to_utc(
