@@ -51,6 +51,18 @@ def _index_to_alert_id(alerts: List[Alert]) -> Dict[str, str]:
     return lookup
 
 
+def _first_match(
+    candidates: List[Optional[str]], alert_ids: Dict[str, str]
+) -> Optional[str]:
+    for candidate in candidates:
+        if not candidate:
+            continue
+        alert_id = alert_ids.get(candidate.lower())
+        if alert_id is not None:
+            return alert_id
+    return None
+
+
 def _build_workflow_map(
     workflows: List[Dict[str, Any]],
 ) -> Dict[str, Dict[str, Any]]:
@@ -122,12 +134,12 @@ async def _collect(
             )
             continue
 
-        index = workflow.get("index", "")
-        alert_id = alert_ids.get(index.lower())
+        candidates = [order.get("order_code"), workflow.get("index")]
+        alert_id = _first_match(candidates, alert_ids)
         if alert_id is None:
             logger.info(
-                f"Dropping trigger: workflow index {index!r} "
-                f"({workflow.get('name')!r}) matches no scanned asset"
+                f"Dropping trigger: neither {candidates!r} "
+                f"({workflow.get('name')!r}) matches a scanned asset"
             )
             continue
 

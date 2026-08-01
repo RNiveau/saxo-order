@@ -149,8 +149,43 @@ async def test_drops_trigger_when_workflow_was_deleted():
 
 
 @pytest.mark.asyncio
-async def test_drops_trigger_when_index_matches_no_scanned_asset():
-    client = FakeDynamoDBClient([order()], [workflow(index="GER40.I")])
+async def test_matches_on_order_code_when_index_does_not():
+    client = FakeDynamoDBClient(
+        [order(order_code="AI:xpar")], [workflow(index="something-else")]
+    )
+
+    triggers = await collect_todays_triggers(client, RUN_DATE, [alert()])
+
+    assert list(triggers) == ["AI_xpar"]
+
+
+@pytest.mark.asyncio
+async def test_matches_on_bare_order_code():
+    client = FakeDynamoDBClient(
+        [order(order_code="AI")], [workflow(index="something-else")]
+    )
+
+    triggers = await collect_todays_triggers(client, RUN_DATE, [alert()])
+
+    assert list(triggers) == ["AI_xpar"]
+
+
+@pytest.mark.asyncio
+async def test_order_code_matching_is_case_insensitive():
+    client = FakeDynamoDBClient(
+        [order(order_code="ai:XPAR")], [workflow(index="something-else")]
+    )
+
+    triggers = await collect_todays_triggers(client, RUN_DATE, [alert()])
+
+    assert list(triggers) == ["AI_xpar"]
+
+
+@pytest.mark.asyncio
+async def test_drops_trigger_when_neither_code_nor_index_matches():
+    client = FakeDynamoDBClient(
+        [order(order_code="GER40.I")], [workflow(index="GER40.I")]
+    )
 
     triggers = await collect_todays_triggers(client, RUN_DATE, [alert()])
 

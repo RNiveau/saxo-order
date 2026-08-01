@@ -37,12 +37,23 @@
 
 ## R3. Matching the underlying to the alert asset
 
-- **Decision**: Reuse the matching semantics already established in
-  `WorkflowService.get_workflows_by_asset`: case-insensitive equality of `workflow.index` against
-  either the bare `asset_code` or the composite `f"{asset_code}:{country_code}"`. Match on the
-  `Alert`'s `asset_code`/`country_code` **fields**, never on `Alert.id`.
-- **Rationale**: FR-003. One matching rule for "which workflows watch this asset" already exists
-  and is proven; a second, subtly different rule would drift. The field-level caution matters:
+> **Revised after implementation.** This decision originally treated `order_code` as an opaque CFD
+> instrument name and matched only on `workflow.index`. The repo owner corrected it: `order_code`
+> **is** the asset code, despite deriving from the field named `cfd`. `WorkflowEngine._get_market`
+> confirms it — market detection tests `workflow.cfd.lower().endswith(":xnys")`, which only works on
+> a `CODE:exchange` value. `order_code` is now the primary join key.
+
+- **Decision**: Try two candidate identifiers in order — `order.order_code` first, then
+  `workflow.index` — each compared case-insensitively against the bare `asset_code` and the
+  composite `f"{asset_code}:{country_code}"`, reusing the semantics established in
+  `WorkflowService.get_workflows_by_asset`. Match on the `Alert`'s `asset_code`/`country_code`
+  **fields**, never on `Alert.id`.
+- **Rationale**: FR-003. Preferring `order_code` means the common case resolves straight from the
+  order row, without depending on how `index` happens to be formatted — removing the failure mode
+  this feature was most exposed to. `workflow.index` is kept as a fallback rather than deleted,
+  since the two fields can legitimately differ. One matching rule for "which workflows watch this
+  asset" already exists and is proven; a second, subtly different rule would drift. The field-level
+  caution matters:
   `Alert.id` joins with an underscore (`AI_xpar`) while `workflow.index` uses a colon
   (`AI:xpar`), so an id-level comparison would silently never match.
 - **Alternatives considered**: (a) Normalising both sides through a new shared helper — worth doing

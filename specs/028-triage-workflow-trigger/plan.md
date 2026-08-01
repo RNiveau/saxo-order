@@ -10,9 +10,9 @@ from one mechanism, on one set of candles, at one moment. This feature adds the 
 system that is structurally independent: a same-day workflow trigger, meaning a rule the trader
 registered in advance fired during the session and produced a directional order.
 
-A new `WorkflowTriggerService` reads the day's `workflow_orders` rows and resolves each one from the
-traded CFD back to the underlying asset the workflow watches, using a single read of the workflow
-definitions. The resulting map is handed to `TriageAgent.synthesize`, which stays synchronous and
+A new `WorkflowTriggerService` reads the day's `workflow_orders` rows and matches each one to a
+scanned asset — by the code on the order itself, falling back to the workflow's watched underlying —
+alongside a single read of the workflow definitions for the dry-run label. The resulting map is handed to `TriageAgent.synthesize`, which stays synchronous and
 pure. Triggers enrich assets already in the alert set and never add new ones. The reasoning prompt
 learns that a trigger is one point of convergence from a separate mechanism, that it carries
 directional authority at least equal to `combo`, and that a trigger contradicting the pattern read
@@ -109,10 +109,11 @@ tests/
 ```
 
 **Structure Decision**: Standard backend layering for this repo — new Service, existing Clients,
-Model extension — with the frontend change confined to a type and a component. The one deliberate
-divergence from the feature description is the workflow-resolution path: a single
-`get_all_workflows()` scan instead of per-trigger `get_workflow_by_id` calls (research R1), because
-the same record carries both `index` and `dry_run` and the table is one item per workflow.
+Model extension — with the frontend change confined to a type and a component. Two deliberate
+divergences from the feature description, both recorded in research: a single `get_all_workflows()`
+scan instead of per-trigger `get_workflow_by_id` calls (R1), and `order_code` as the primary join
+key rather than an opaque CFD name (R3, corrected by the repo owner during implementation). The
+workflow read survives the second change because `dry_run` has no other source.
 
 ## Phase Handoff
 
@@ -127,7 +128,7 @@ the same record carries both `index` and `dry_run` and the table is one item per
 
 | Risk | Mitigation |
 |------|------------|
-| `workflow.index` formatting drifts from the alert asset code, so triggers silently never match | FR-003 drops rather than guesses, and the drop is logged with both sides of the comparison so a mismatch is diagnosable from one run's logs rather than inferred from an absence |
+| Identifier formatting drifts from the alert asset code, so triggers silently never match | Largely retired: `order_code` is the asset code and is tried first, so matching no longer hinges on `index` formatting. `index` remains a fallback, FR-003 drops rather than guesses, and every drop is logged with all candidates so a mismatch is diagnosable from one run's logs rather than inferred from an absence |
 | Reasoning over-weights a trigger and floods the top tier | A-004 fixes it at one convergence point with no multiplier; the prompt states the cap explicitly, and the fallback uses the same weight so the two paths agree |
 | `order_direction` parsed as value instead of name, yielding a wrong or crashed direction | Called out in R5 and data-model.md; covered by a dedicated round-trip test against a row written by `WorkflowEngine`'s own format |
 | Enrichment slows the end-of-day scan | Two scans of small tables, once per run, after all detection has completed; a failure or timeout returns `{}` rather than retrying |
