@@ -121,7 +121,7 @@ cd frontend && npm run lint && npm run build
 
 | Symptom | Likely cause |
 |---------|--------------|
-| No asset ever shows corroboration | `workflow.index` doesn't match any scanned asset code — run step 2 and read the drop logs, which print both sides of the comparison |
+| No asset ever shows corroboration | Neither `order_code` nor `workflow.index` matches a scanned asset code — run step 2 and read the drop logs, which print every candidate tried |
 | `ValueError: 'BUY' is not a valid Direction` | Parsed with `Direction(value)` instead of `Direction[value]` — see data-model §4 |
 | Triggers appear on the workflow orders page but not in the brief | The asset isn't in the alert set (excluded, or index-only) — working as specified, FR-002 |
 | Brief has triggers but ranking looks unchanged | Expected when the trigger agrees with an already-strong read; corroboration breaks ties, it doesn't multiply (A-004) |

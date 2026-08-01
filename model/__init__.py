@@ -1,5 +1,5 @@
 import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 
 from model.backtest import (  # noqa: F401
@@ -74,6 +74,16 @@ class Alert:
 
 
 @dataclass
+class WorkflowTrigger:
+    workflow_name: str
+    direction: Direction
+    order_price: float
+    placed_at: int
+    dry_run: bool
+    trigger_close: Optional[float] = None
+
+
+@dataclass
 class TriagedAsset:
     asset_code: str
     asset_description: str
@@ -84,6 +94,7 @@ class TriagedAsset:
     ma50_slope: Optional[float] = None
     rank: Optional[int] = None
     country_code: Optional[str] = None
+    workflow_triggers: List[WorkflowTrigger] = field(default_factory=list)
 
 
 @dataclass

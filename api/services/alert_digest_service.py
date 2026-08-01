@@ -1,5 +1,4 @@
 import asyncio
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from cachetools import TTLCache
@@ -9,6 +8,7 @@ from api.models.alert_digest import (
     TriagedAssetResponse,
 )
 from client.aws_client import DynamoDBClient
+from utils.helper import to_float
 from utils.logger import Logger
 
 logger = Logger.get_logger("alert_digest_api_service")
@@ -89,10 +89,6 @@ class AlertDigestService:
             ),
             rationale=asset["rationale"],
             patterns=asset["patterns"],
-            ma50_slope=(
-                float(asset["ma50_slope"])
-                if isinstance(asset.get("ma50_slope"), Decimal)
-                else asset.get("ma50_slope")
-            ),
+            ma50_slope=to_float(asset.get("ma50_slope")),
             tradingview_url=tradingview_links.get(asset_id),
         )

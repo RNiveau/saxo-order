@@ -58,27 +58,41 @@ Three steps, each of which can drop a trigger without affecting the rest.
 
 **Step 1 — window filter.** Keep rows whose `placed_at` is inside the session window (§5).
 
-**Step 2 — resolve the underlying.** `workflow_orders.order_code` is the **CFD actually traded**,
-not the asset the alert scan sees. Join `workflow_orders.workflow_id` against the
-`{workflow_id: (name, index, dry_run)}` map built from one `get_all_workflows()` read.
-`workflow.index` is the underlying; `workflow.dry_run` is the label. A `workflow_id` absent from the
-map (deleted workflow) drops the trigger.
+**Step 2 — load the workflow record.** Join `workflow_orders.workflow_id` against the
+`{workflow_id: workflow}` map built from one `get_all_workflows()` read. A `workflow_id` absent from
+the map (deleted workflow) drops the trigger — not because the asset is unresolvable (step 3 can
+often still resolve it from the order alone) but because `dry_run` lives only on the workflow
+record, and mislabelling a dry-run trigger as live would inflate conviction. FR-006 makes that
+worse than losing the corroboration.
 
-**Step 3 — match to an alert asset.** Case-insensitive, reusing the semantics of
-`WorkflowService.get_workflows_by_asset`:
+**Step 3 — match to an alert asset.** Two candidate identifiers are tried in order, both
+case-insensitive, against the `asset_code` and `f"{asset_code}:{country_code}"` forms:
 
-```
-index.lower() == asset_code.lower()
-  or index.lower() == f"{asset_code}:{country_code}".lower()
-```
+1. `order.order_code` — **this is the asset code.** Despite the `cfd` field name it comes from, it
+   carries the ordinary `CODE:exchange` form. Confirmed by the repo owner and corroborated by
+   `WorkflowEngine._get_market`, which market-detects by testing
+   `workflow.cfd.lower().endswith(":xnys")` — an opaque CFD instrument name would not carry an
+   exchange suffix.
+2. `workflow.index` — the underlying used for indicator calculation, kept as a fallback for
+   workflows where the two differ.
+
+Trying `order_code` first means the common case resolves without depending on `index` formatting at
+all. A trigger matching neither is dropped, never guessed at (FR-003).
+
+**Superseded assumption.** Spec and plan describe `order_code` as "the CFD actually traded (NOT the
+join key)". That was wrong: it is the code, and it is now the primary join key. The `workflow.index`
+indirection is retained as a fallback rather than removed, and the workflow read stays regardless
+because `dry_run` has no other source.
 
 **Trap — never match on `Alert.id`.** `Alert.id` joins with an underscore (`AI_xpar`);
 `workflow.index` uses a colon (`AI:xpar`). Comparing ids would silently never match and the feature
 would appear to do nothing. Match on the `asset_code` / `country_code` fields.
 
-**Trap — `order_direction` is stored as the enum NAME.** `WorkflowEngine` writes
-`order_direction.name`, so the stored value is `"BUY"`, while `Direction.BUY.value` is `"Buy"`.
-Parse with `Direction[value]`, not `Direction(value)`.
+**`order_direction` is stored as the enum NAME.** `WorkflowEngine` writes `order_direction.name`,
+so the stored value is `"BUY"`, while `Direction.BUY.value` is `"Buy"` — `Direction("BUY")` raises.
+Use the enum's own `EnumWithGetValue.get_value`, which compares case-insensitively on the value and
+therefore accepts both `"BUY"` and `"Buy"`. No hand-rolled parsing: the base enum already does this,
+and it raises `ValueError` on anything unrecognised.
 
 Unmatched triggers are logged with both sides of the comparison — a mismatch must be diagnosable
 from one run's logs, not inferred from an absence of corroboration.
@@ -94,11 +108,17 @@ keep row if start <= placed_at <= end
 `run_date` comes from the digest being built, so manual and off-schedule runs compute their own
 window rather than assuming the 18:15 schedule.
 
-## 6. Collector output
+## 6. Collector signature and output
 
 ```python
-Dict[str, List[WorkflowTrigger]]
+async def collect_todays_triggers(
+    dynamodb_client, run_date: str, alerts: List[Alert]
+) -> Dict[str, List[WorkflowTrigger]]
 ```
+
+The alert set is a **parameter, not an afterthought**: FR-002 makes the scanned assets the domain
+of the result, and the output is keyed by `Alert.id`, which only the alerts can supply. (Earlier
+drafts of this document showed a two-argument signature; that could not have satisfied FR-002.)
 
 Keyed by the same key `TriageAgent._group_by_asset` uses (`Alert.id`), so attaching is a dict
 lookup with no second matching rule. Assets with no trigger are **absent** from the map, not present
@@ -169,11 +189,11 @@ Workflow (workflows)
   └─ id ──────────────┐
                       │  (resolution: 1 read for all)
 WorkflowOrder (workflow_orders, TTL'd)
-  ├─ workflow_id ─────┘
-  ├─ order_code  → the CFD traded  (NOT the join key)
+  ├─ workflow_id ─────┘  (needed for dry_run)
+  ├─ order_code  → the asset code — PRIMARY join key
   └─ placed_at   → window filter
                       │
-                      ▼  workflow.index ≈ asset_code[:country_code]
+                      ▼  order_code (else workflow.index) ≈ asset_code[:country_code]
 Alert (in memory, this run)
   └─ asset_code + country_code
                       │

@@ -83,7 +83,7 @@ When the triage reasoning is unavailable and the brief falls back to determinist
 
 - **FR-001**: The system MUST read the workflow triggers recorded during the current Paris trading day and make them available to the triage step.
 - **FR-002**: The system MUST attach a trigger only to an asset that already appears in the day's alert set. Triggers MUST NOT introduce assets into the brief.
-- **FR-003**: The system MUST resolve each recorded trigger from the instrument actually traded (the CFD) to the underlying asset the workflow watches, and match that underlying against the alert asset identifier. A trigger whose underlying cannot be resolved or matched MUST be dropped, not approximated.
+- **FR-003**: The system MUST match each recorded trigger to the asset it was placed on, trying the code recorded on the trigger itself first and the workflow's watched underlying second. A trigger matching neither MUST be dropped, not approximated.
 - **FR-004**: The system MUST bound the session window to the current run date in Paris local time, computed from the run itself rather than from an assumed schedule.
 - **FR-005**: The system MUST record, for each trigger it attaches: the workflow name, the order direction, the order price, the market price at the moment the workflow fired, the time of day it fired, and whether the workflow was in dry-run mode.
 - **FR-006**: The system MUST distinguish dry-run triggers from live ones everywhere a trigger is used — in reasoning, in fallback ranking, and in every display surface.
