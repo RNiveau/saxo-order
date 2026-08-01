@@ -26,6 +26,7 @@ from api.services.backtest.calendar import (
     is_today_not_yet_closed,
     paris_reference_window_utc,
     paris_session_end_utc,
+    paris_session_start_utc,
     session_key,
 )
 from api.services.backtest.candles import candle_date
@@ -57,6 +58,7 @@ __all__ = [
     "overnight_gap",
     "paris_reference_window_utc",
     "paris_session_end_utc",
+    "paris_session_start_utc",
     "resolve_parameters",
     "session_key",
 ]
