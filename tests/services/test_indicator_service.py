@@ -26,6 +26,7 @@ from services.indicator_service import (
     is_far_from_levels,
     is_price_within_bands,
     macd0lag,
+    mm7_break,
     mm50_touch,
     number_of_day_between_dates,
     slope_percentage,
@@ -1055,3 +1056,39 @@ class TestAdx:
         # period * 3 = 42 required; 41 is one short
         with pytest.raises(SaxoException):
             adx(_trending_daily(41))
+
+
+class TestMm7Break:
+
+    def test_breakdown_below_average(self):
+        # close 95 against a 7-MA near 99.3 → ~-4.3%, after 3 candles above
+        result = mm7_break(_make_candles([95.0] + [100.0] * 9))
+
+        assert result is not None
+        assert result["direction"] == Direction.SELL.value
+        assert result["close"] == 95.0
+        assert result["distance_pct"] < 0
+        assert result["streak"] >= 3
+
+    def test_reclaim_above_average(self):
+        result = mm7_break(_make_candles([105.0] + [100.0] * 9))
+
+        assert result is not None
+        assert result["direction"] == Direction.BUY.value
+        assert result["distance_pct"] > 0
+        assert result["streak"] >= 3
+
+    def test_none_when_close_only_grazes_the_average(self):
+        # ~-0.43%, inside MM7_BREAK_MIN_DISTANCE
+        assert mm7_break(_make_candles([99.5] + [100.0] * 9)) is None
+
+    def test_none_when_price_chops_around_the_average(self):
+        # alternating closes → the previous candles never hold one side
+        candles = _make_candles(
+            [90.0, 100.0, 95.0, 100.0, 95.0, 100.0, 95.0, 100.0, 95.0, 100.0]
+        )
+
+        assert mm7_break(candles) is None
+
+    def test_none_when_not_enough_candles(self):
+        assert mm7_break(_make_candles([95.0] + [100.0] * 8)) is None

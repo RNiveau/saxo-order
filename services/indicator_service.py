@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy
 
@@ -103,6 +103,16 @@ def mobile_average(candles: List[Candle], period: int) -> float:
 MM50_TOUCH_PROXIMITY = 0.01
 MM50_TOUCH_SLOPE_MIN = 3.0
 
+MM7_PERIOD = 7
+# A close that merely grazes the average is not a break: price has to clear it
+# by a margin to count.
+MM7_BREAK_MIN_DISTANCE = 0.005
+# ...and it has to flip a short-term run rather than cross back and forth. A
+# raw cross fires on a large share of the universe every day, which would
+# drown the daily digest instead of informing it.
+MM7_BREAK_MIN_STREAK = 3
+MM7_BREAK_MIN_CANDLES = MM7_PERIOD + MM7_BREAK_MIN_STREAK
+
 COMBO_MA50_SLOPE_MIN = 3.0
 COMBO_MA50_SLOPE_STRONG = 10.0
 COMBO_BB_FLAT_SLOPE_MAX = 5.0
@@ -134,6 +144,68 @@ def mm50_touch(candles: List[Candle]) -> Optional[Dict[str, float]]:
         "ma50": ma50_last,
         "distance_pct": (close - ma50_last) / ma50_last * 100,
         "slope": slope,
+    }
+
+
+def _mm7_at(candles: List[Candle], offset: int) -> float:
+    return mobile_average(candles[offset:], MM7_PERIOD)
+
+
+def _mm7_streak(candles: List[Candle], direction: Direction) -> int:
+    """
+    Number of consecutive candles before the break that closed on the side the
+    price is leaving. Stops as soon as the history runs short of a full MM7.
+    """
+    streak = 0
+    offset = 1
+    while len(candles) - offset >= MM7_PERIOD:
+        mm7 = _mm7_at(candles, offset)
+        close = candles[offset].close
+        on_previous_side = (
+            close >= mm7 if direction == Direction.SELL else close <= mm7
+        )
+        if not on_previous_side:
+            break
+        streak += 1
+        offset += 1
+    return streak
+
+
+def mm7_break(candles: List[Candle]) -> Optional[Dict[str, Any]]:
+    """
+    Detect the last candle closing through the 7-period mobile average.
+
+    A break is a short-term timing signal, not a thesis: it only fires when
+    the close clears the average by MM7_BREAK_MIN_DISTANCE and the previous
+    MM7_BREAK_MIN_STREAK candles all closed on the other side, so chop around
+    a flat average stays silent.
+    """
+    if len(candles) < MM7_BREAK_MIN_CANDLES:
+        return None
+
+    mm7 = _mm7_at(candles, 0)
+    close = candles[0].close
+    distance = (close - mm7) / mm7
+
+    if distance < -MM7_BREAK_MIN_DISTANCE:
+        direction = Direction.SELL
+    elif distance > MM7_BREAK_MIN_DISTANCE:
+        direction = Direction.BUY
+    else:
+        return None
+
+    streak = _mm7_streak(candles, direction)
+    if streak < MM7_BREAK_MIN_STREAK:
+        return None
+
+    return {
+        "close": close,
+        "mm7": mm7,
+        "previous_close": candles[1].close,
+        "previous_mm7": _mm7_at(candles, 1),
+        "distance_pct": distance * 100,
+        "direction": direction.value,
+        "streak": streak,
     }
 
 

@@ -28,6 +28,16 @@ bearish thesis or as "trend-aligned" with a negative slope. If you see \
 mm50_touch alongside a claimed bearish setup, that combination is internally \
 inconsistent, not "confluence that overrides a conflict" - treat it as a red \
 flag on the bearish read, not a supporting signal.
+- mm7_break: the close crossing through the 7-period moving average, with a \
+direction ("Buy" = reclaim from below, "Sell" = breakdown from above). This \
+is a SHORT-TERM TIMING trigger, not a thesis: it says the last few days \
+changed character, nothing about where the stock is headed over weeks. Weigh \
+it by how it sits against ma50_slope: a break in the SAME direction as the \
+slope is a \
+continuation trigger and counts as real directional evidence; a break AGAINST \
+the slope is an early warning on an intact trend, NOT a reversal - do not \
+promote it to a reversal thesis on its own. mm7_break alone, with no other \
+directional pattern, is never enough for "high" no matter how clean the break.
 - congestion20 and congestion100: the SAME underlying consolidation detector \
 run at two different lookback windows (20 vs 100 candles). If both fire \
 together, count them as ONE point of confluence, not two - they are not \
