@@ -66,6 +66,14 @@ result; feed it a graze and a chop series and confirm `None`.
   `None` on a graze inside the distance threshold, `None` on chop that breaks
   the streak, `None` below the candle minimum (SC-001, SC-002). **Done**: 5
   tests in `TestMm7Break`, using the file's existing `_make_candles` helper.
+- [x] **T014** [P] [US1] Pin the threshold boundaries the spec calls out as
+  assumptions. **Done**: 4 more tests — exactly 0.5% returns `None` (exclusive)
+  with a companion that fires just past it on the same shape, so the distance
+  gate is isolated from the streak; a 2-candle prior run returns `None` (the
+  chop test only ever produced a 1-candle run, so `MM7_BREAK_MIN_STREAK` was
+  never exercised from below); and a strictly one-sided run fires, since both
+  happy-path tests satisfied the streak only through the equality branch.
+  Raised in review of PR #693.
 - [x] **T005** [US1] Wire the detector into `run_detection_for_asset` in
   `saxo_order/commands/alerting.py`, after the `MM50_TOUCH` block and before the
   `store_alerts` call, going through the existing `detect(...)` /`_safe_detect`
@@ -101,12 +109,21 @@ alongside another directional pattern must rank above it.
   on an intact trend, explicitly not a reversal); never sufficient alone for
   "high" (FR-009, FR-010). **Done**: written to the same line-width convention
   as the surrounding prompt text.
-- [x] **T008** [US2] Confirm the deterministic fallback satisfies FR-010
-  without code changes — `_PATTERN_FAMILY` leaves `MM7_BREAK` its own family and
-  `_fallback_conviction` caps a single family at `watch`. **Done**: verified by
-  reading `_fallback_conviction`, not assumed. No change required, which is why
-  no fallback test was added — the existing single-family test already covers
-  the path.
+- [x] **T008** [US2] ~~Confirm the deterministic fallback satisfies FR-010
+  without code changes.~~ **Superseded by T011 — the original conclusion was
+  wrong.** It checked only the lone-MM7 case (1 family → `watch`, FR-010 holds)
+  and missed the co-firing case: an asset with one existing family that also
+  breaks its MM7 reached `family_count >= 2` and was promoted `watch` → `high`.
+  Raised in review of PR #693.
+- [x] **T011** [US2] Exclude timing patterns from the fallback confluence count
+  in `services/alert_triage_service.py` (FR-013): add `_TIMING_PATTERNS =
+  {AlertType.MM7_BREAK}` and `_structural_families()`, and use the structural
+  count in `_fallback_conviction`, `_fallback_rationale`, and the ranking sort.
+  **Done**: the `watch` gate moved from `family_count == 1` to
+  `structural_count >= 1` so an asset that co-fires MM7 keeps the tier it had
+  before this feature rather than dropping to `noise` through the `== 1` test.
+  3 tests added to `tests/services/test_alert_triage_service.py` (no promotion
+  on co-fire, lone MM7 → `noise`, two structural patterns still → `high`).
 
 ---
 
@@ -115,12 +132,27 @@ alongside another directional pattern must rank above it.
 **Goal**: the alert reads clearly wherever the trader already looks.
 
 - [x] **T009** [P] [US3] Add `mm7_break: 'MM7 Break'` to `ALERT_TYPE_LABELS` in
-  `frontend/src/pages/Alerts.tsx` (FR-011). **Done**: `mm50_touch: 'MM50 Touch'`
-  was missing from the same map and was added in the same edit — without it that
-  alert rendered as its raw type string. No API, DynamoDB, or Slack change is
-  needed: the alerts endpoints are generic over `AlertType.value`, `data` is a
-  free-form dict, and `format_slack_digest` renders triaged assets rather than
-  enumerating alert types.
+  `frontend/src/pages/Alerts.tsx` (FR-011). **Done**, but the note that it fixed
+  `mm50_touch` "everywhere" was wrong: that map feeds only the filter dropdown.
+  See T012. No API, DynamoDB, or Slack change is needed: the alerts endpoints
+  are generic over `AlertType.value`, `data` is a free-form dict, and
+  `format_slack_digest` renders triaged assets rather than enumerating alert
+  types.
+- [x] **T012** [US3] Extract the label map into
+  `frontend/src/utils/alertLabels.ts` as a single exported `getAlertTypeLabel`,
+  and use it in both `Alerts.tsx` and `AlertCard.tsx` (FR-011). **Done**: the
+  card had its own `formatAlertType` that title-cased the raw value, so the
+  filter said "MM7 Break" while the badge said "Mm7 Break". The helper falls
+  back to title-casing for unmapped types, so no alert type can regress to raw
+  snake_case. `double_bottom` was missing from the map and was added. Raised in
+  review of PR #693.
+- [x] **T013** [US3] Surface `direction` and `distance_pct` on the alert card in
+  `frontend/src/components/AlertCard.tsx` (SC-005). **Done**: a Direction row
+  beside the MA50 slope, coloured green for `Buy` / red for `Sell`, showing the
+  signed distance beside it. Previously both fields were only visible by
+  expanding the raw JSON dump, so SC-005 was not met by the UI. The row is
+  generic over any alert carrying `direction`, so `combo` gains it too. Raised
+  in review of PR #693.
 
 ---
 

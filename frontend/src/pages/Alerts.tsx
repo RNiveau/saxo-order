@@ -4,23 +4,8 @@ import type { AlertItem } from '../services/api';
 import { alertService } from '../services/api';
 import { AlertGroup } from '../components/AlertGroup';
 import { groupAlertsByAsset, processAlerts } from '../utils/alertFilters';
+import { getAlertTypeLabel } from '../utils/alertLabels';
 import './Alerts.css';
-
-// Alert type display name mapping
-const ALERT_TYPE_LABELS: Record<string, string> = {
-  congestion20: 'Congestion 20',
-  congestion100: 'Congestion 100',
-  combo: 'Combo',
-  double_top: 'Double Top',
-  double_inside_bar: 'Double Inside Bar',
-  containing_candle: 'Containing Candle',
-  mm50_touch: 'MM50 Touch',
-  mm7_break: 'MM7 Break',
-};
-
-const getAlertTypeLabel = (type: string): string => {
-  return ALERT_TYPE_LABELS[type] || type;
-};
 
 export function Alerts() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);

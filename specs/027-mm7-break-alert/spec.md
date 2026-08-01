@@ -89,7 +89,8 @@ The trader wants the new alert delivered through the channels already in use —
 - **FR-008**: System MUST deduplicate emitted alerts of the new type using the existing same-alert-type-same-date rule.
 - **FR-009**: The triage agent's pattern semantics MUST describe the new alert as a short-term timing trigger, read against the **sign** of the MA50 slope: agreeing = continuation trigger and genuine directional evidence; opposing = early warning on an intact trend, explicitly not a reversal thesis.
 - **FR-010**: The triage agent MUST NOT assign "high" conviction to an asset whose only evidence is an MM7 break, however clean the break.
-- **FR-011**: The alerts UI MUST render the new alert type with a human-readable label, without breaking the layout used by the other alert types.
+- **FR-011**: The alerts UI MUST render the new alert type with a human-readable label, without breaking the layout used by the other alert types. The label MUST be the same wherever the alert type is displayed — filter list and alert card alike.
+- **FR-013**: The deterministic triage fallback MUST NOT let an MM7 break contribute to the confluence count that promotes an asset to "high". An asset that fired one structural pattern before MUST NOT change tier merely because it also broke its MM7.
 - **FR-012**: The new alert MUST be eligible on all assets currently processed by the alerting pipeline (French stocks fetched from Saxo, follow-up stocks, and Binance assets).
 
 ### Key Entities
@@ -104,7 +105,7 @@ The trader wants the new alert delivered through the channels already in use —
 - **SC-002**: On a hand-curated test set of assets that only grazed the MM7 or that chopped around it, none produces the alert — no false positives.
 - **SC-003**: The share of scanned assets carrying an MM7 break on a normal trading day stays low enough that the alert reads as evidence rather than background — comparable in order of magnitude to the other detectors, not a large fraction of the universe. This is the criterion to re-check on the first live runs; the distance and streak thresholds are the levers if it is exceeded.
 - **SC-004**: The daily alerting job shows no measurable regression in duration or error rate versus the previous run, since the detector reuses the already-loaded candles.
-- **SC-005**: A reader of the Slack digest or the alerts UI can tell at a glance which direction the break went and how far price cleared the average.
+- **SC-005**: A reader of the Slack digest or the alerts UI can tell at a glance which direction the break went and how far price cleared the average — without expanding the raw data payload.
 
 ## Assumptions
 
@@ -114,4 +115,5 @@ The trader wants the new alert delivered through the channels already in use —
 - This alert applies to daily candles, consistent with every other alert type produced by the alerting job. Other unit times are out of scope.
 - This is a detection + delivery feature. It does not place orders, create workflows, or modify any trading behavior.
 - The feature reuses the existing alerting pipeline, DynamoDB `alerts` table, Slack delivery, alerts API, and alerts UI — no new infrastructure.
-- The deterministic triage fallback needs no change: the new alert forms its own pattern family, and a single family already caps at "watch" there, satisfying FR-010 on the fallback path as well.
+- `distance_pct` is measured against an MM7 that includes the breaking candle, so the breaking close drags the average ~1/7 of the way toward itself and the measured distance is systematically smaller than the distance from the pre-break average. This matches how `mm50_touch` measures proximity, and makes the 0.5% gate slightly stricter than the plain reading of "clear the average by 0.5%". It is a factor when re-tuning under SC-003; the payload carries `previous_mm7` for anyone who wants the other measure.
+- The deterministic triage fallback treats MM7 as a timing trigger excluded from the confluence count (FR-013). A lone MM7 break therefore lands in "noise" on the fallback path — with reasoning unavailable, a bare timing trigger is not actionable — while the alert itself is still stored and shown in the UI.

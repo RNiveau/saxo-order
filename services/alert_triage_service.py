@@ -146,6 +146,15 @@ FALLBACK_MODEL = "deterministic-fallback"
 # when counting confluence in the deterministic fallback.
 _PATTERN_FAMILY = {AlertType.CONGESTION100: AlertType.CONGESTION20}
 
+# Short-term timing triggers. They say the last few candles changed character,
+# not where the asset is headed, so they can sharpen a setup that other
+# patterns already establish but must never be the pattern that promotes an
+# asset to HIGH on their own account. The prompt tells the reasoning path the
+# same thing; without this the fallback would quietly disagree with it and
+# promote every WATCH asset that also happens to cross its MM7 - which, given
+# how ordinary a cross is, would be most of them.
+_TIMING_PATTERNS = {AlertType.MM7_BREAK}
+
 
 class TriageAgent:
     def __init__(
@@ -210,7 +219,7 @@ class TriageAgent:
         ordered = sorted(
             grouped.values(),
             key=lambda entry: (
-                len(self._pattern_families(entry["patterns"])),
+                len(self._structural_families(entry["patterns"])),
                 self._abs_slope(entry["ma50_slope"]),
             ),
             reverse=True,
@@ -247,11 +256,11 @@ class TriageAgent:
         )
 
     def _fallback_conviction(self, entry: Dict[str, Any]) -> Conviction:
-        family_count = len(self._pattern_families(entry["patterns"]))
-        if family_count >= 2:
+        structural_count = len(self._structural_families(entry["patterns"]))
+        if structural_count >= 2:
             return Conviction.HIGH
         if (
-            family_count == 1
+            structural_count >= 1
             and self._abs_slope(entry["ma50_slope"]) >= self.slope_threshold
         ):
             return Conviction.WATCH
@@ -261,11 +270,16 @@ class TriageAgent:
         patterns = ", ".join(p.value for p in entry["patterns"])
         slope = entry["ma50_slope"]
         slope_text = f", slope {slope:.1f}%" if slope is not None else ""
-        family_count = len(self._pattern_families(entry["patterns"]))
-        return f"{family_count} pattern(s): {patterns}{slope_text}"
+        structural_count = len(self._structural_families(entry["patterns"]))
+        return f"{structural_count} pattern(s): {patterns}{slope_text}"
 
     def _pattern_families(self, patterns: List[AlertType]) -> set[AlertType]:
         return {_PATTERN_FAMILY.get(p, p) for p in patterns}
+
+    def _structural_families(
+        self, patterns: List[AlertType]
+    ) -> set[AlertType]:
+        return self._pattern_families(patterns) - _TIMING_PATTERNS
 
     def _abs_slope(self, slope: Optional[float]) -> float:
         return abs(slope) if slope is not None else 0.0

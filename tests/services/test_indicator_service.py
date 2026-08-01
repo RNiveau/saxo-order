@@ -1092,3 +1092,39 @@ class TestMm7Break:
 
     def test_none_when_not_enough_candles(self):
         assert mm7_break(_make_candles([95.0] + [100.0] * 8)) is None
+
+    def test_none_at_exactly_the_distance_threshold(self):
+        # mm7 is exactly 100.0 and the close exactly 0.5% under it, so the
+        # threshold is exclusive: clearing it is required, equalling it is not
+        # enough. The streak is satisfied here - the companion test below
+        # fires on the same shape once the close moves past the threshold -
+        # so this pins the distance gate alone.
+        candles = _make_candles([99.5, 100.5] + [100.0] * 8)
+
+        assert mm7_break(candles) is None
+
+    def test_fires_just_past_the_distance_threshold(self):
+        result = mm7_break(_make_candles([99.4, 100.5] + [100.0] * 8))
+
+        assert result is not None
+        assert result["distance_pct"] < -0.5
+
+    def test_none_when_the_prior_run_is_one_candle_short(self):
+        # candles 1 and 2 close above their own MM7, candle 3 closes below
+        # its own - a 2-candle run, one short of MM7_BREAK_MIN_STREAK
+        candles = _make_candles([90.0, 101.0, 101.0, 99.0] + [100.0] * 9)
+
+        assert mm7_break(candles) is None
+
+    def test_fires_on_a_strictly_one_sided_run(self):
+        # every prior close is strictly above its own MM7 - the happy-path
+        # tests above satisfy the streak through the equality branch only
+        candles = _make_candles(
+            [80.0, 106.0, 105.0, 104.0, 103.0, 102.0, 101.0, 100.0, 99.0, 98.0]
+        )
+
+        result = mm7_break(candles)
+
+        assert result is not None
+        assert result["direction"] == Direction.SELL.value
+        assert result["streak"] >= 3

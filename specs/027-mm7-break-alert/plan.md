@@ -67,8 +67,10 @@ services/
 saxo_order/commands/
 └── alerting.py               # +1 detection block in run_detection_for_asset
 
-frontend/src/pages/
-└── Alerts.tsx                # +ALERT_TYPE_LABELS entries (mm7_break, mm50_touch)
+frontend/src/
+├── utils/alertLabels.ts      # NEW — single getAlertTypeLabel for every surface
+├── pages/Alerts.tsx          # uses the shared helper (map moved out)
+└── components/AlertCard.tsx  # uses the shared helper; +Direction row (SC-005)
 
 api/                          # (no change — generic over AlertType.value)
 client/aws_client.py          # (no change — data is Dict[str, Any])
@@ -90,7 +92,7 @@ tests/
 
 4. **The streak counter stops when history runs out** rather than raising. With the 10-candle minimum an asset can reach but not exceed the required streak, which is why `MM7_BREAK_MIN_CANDLES` is derived (`MM7_PERIOD + MM7_BREAK_MIN_STREAK`) rather than written as a literal.
 
-5. **No change to the deterministic triage fallback.** MM7 forms its own pattern family in `_PATTERN_FAMILY`, and one family alone already caps at `watch` — so FR-010 (never "high" on an MM7 break alone) holds on the fallback path without new code. This was verified against `_fallback_conviction`, not assumed.
+5. **Timing patterns are excluded from the fallback confluence count.** The first cut concluded the fallback needed no change: MM7 forms its own family, and one family alone caps at `watch`, so FR-010 held for a lone break. That checked half the case. An asset already firing one structural pattern reached `family_count >= 2` once MM7 co-fired, and was promoted `watch` → `high` — and since crossing an MM7 is ordinary, that inflates the fallback `high` tier systematically rather than occasionally. `_TIMING_PATTERNS` now excludes MM7 from the count (FR-013), so the fallback agrees with what the prompt tells the reasoning path. The `watch` gate moved from `family_count == 1` to `structural_count >= 1` at the same time, so a co-firing asset keeps its previous tier instead of falling through to `noise`.
 
 ## Risks
 
