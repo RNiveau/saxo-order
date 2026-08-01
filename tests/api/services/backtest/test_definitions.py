@@ -12,6 +12,7 @@ from model import (
     BacktestParameters,
     EuCfdMarket,
     EUMarket,
+    UnitTime,
 )
 
 
@@ -353,3 +354,78 @@ class TestBacktestDefinitionValidation:
         - it is here so a future definition that trips a rule fails in
         this file rather than at application startup."""
         assert list_definitions()
+
+
+class TestComboDefinitionValidation:
+    """A combo definition is driven by the indicator and has no 9h
+    reference range, so every flag describing that range must be
+    rejected at construction rather than shipped as a no-op."""
+
+    def _build(self, **kwargs):
+        return BacktestDefinition(
+            code="BADCOMBO",
+            name="bad",
+            display_name="bad",
+            instrument="GER40.I",
+            **kwargs,
+        )
+
+    def _combo(self, **kwargs):
+        return self._build(
+            combo_entry=True,
+            unit_time=UnitTime.M15,
+            double_take_profit=True,
+            **kwargs,
+        )
+
+    def test_a_valid_combo_definition_is_accepted(self):
+        definition = self._combo()
+        assert definition.combo_entry is True
+        assert definition.unit_time == UnitTime.M15
+        assert definition.first_target_fraction is None
+        assert definition.runner_extension_points is None
+
+    def test_combo_without_a_timeframe_is_rejected(self):
+        with pytest.raises(ValueError, match="unit_time"):
+            self._build(combo_entry=True, double_take_profit=True)
+
+    def test_combo_without_double_take_profit_is_rejected(self):
+        with pytest.raises(ValueError, match="double_take_profit"):
+            self._build(combo_entry=True, unit_time=UnitTime.M15)
+
+    @pytest.mark.parametrize(
+        "flag,value",
+        [
+            ("min_h1_range_points", 40.0),
+            ("structural_stop", True),
+            ("stop_from_reference_level", True),
+            ("last_entry_time", datetime.time(16, 0)),
+            ("max_daily_losses", 2),
+            ("first_target_fraction", 0.5),
+            ("runner_extension_points", 100.0),
+            ("trail_to_first_target_points", 50.0),
+        ],
+    )
+    def test_session_range_flags_are_rejected_on_a_combo(self, flag, value):
+        with pytest.raises(ValueError, match="reference range"):
+            self._combo(**{flag: value})
+
+    def test_a_combo_impulse_stop_is_rejected(self):
+        with pytest.raises(ValueError, match="reference range"):
+            self._combo(
+                impulsive_candle_points=70.0, impulsive_close_fraction=0.25
+            )
+
+    def test_a_combo_time_cut_is_rejected(self):
+        """Caught by the older double-take-profit/time-cut rule before
+        the combo one, hence the different message - what matters is
+        that the combination cannot be registered."""
+        with pytest.raises(ValueError, match="time cut"):
+            self._combo(time_cut_minutes=30, time_cut_min_favorable_points=5.0)
+
+    def test_a_session_range_definition_still_needs_a_target_placement(self):
+        """The combo exemption must not weaken the rule for everyone
+        else: a non-combo double take-profit still has to say where its
+        first lot exits."""
+        with pytest.raises(ValueError, match="first_target_fraction"):
+            self._build(double_take_profit=True)

@@ -60,7 +60,7 @@ class TestRunRange:
             ),
         }
         mocker.patch.object(
-            service,
+            service.strategies.session_range,
             "evaluate_day",
             side_effect=lambda d, date, params: results[date],
         )
@@ -94,7 +94,7 @@ class TestRunRange:
         friday = datetime.date(2026, 6, 5)
         monday = datetime.date(2026, 6, 8)
         evaluate_day = mocker.patch.object(
-            service,
+            service.strategies.session_range,
             "evaluate_day",
             side_effect=lambda d, date, params: DayResult(
                 date=date, status=DayStatus.NO_TRADE, h1_high=8050, h1_low=8000
@@ -113,7 +113,7 @@ class TestRunRange:
         )
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
-            service,
+            service.strategies.session_range,
             "evaluate_day",
             return_value=DayResult(
                 date=day, status=DayStatus.NO_TRADE, h1_high=8050, h1_low=8000
@@ -141,7 +141,7 @@ class TestRunRange:
         )
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
-            service,
+            service.strategies.session_range,
             "evaluate_day",
             return_value=DayResult(
                 date=day,
@@ -170,7 +170,7 @@ class TestRunRange:
         )
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
-            service,
+            service.strategies.session_range,
             "evaluate_day",
             return_value=DayResult(
                 date=day,
@@ -201,7 +201,7 @@ class TestRunRange:
         )
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
-            service,
+            service.strategies.session_range,
             "evaluate_day",
             return_value=DayResult(
                 date=day,

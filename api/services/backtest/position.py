@@ -7,10 +7,15 @@ from api.services.backtest.lots import SINGLE_LOT, LotModel
 from api.services.backtest.side import Side
 from model import Trade
 from model.enum import ExitReason
+from utils.exception import SaxoException
 
 
 class Position:
-    """A position open on one side of the H1 range.
+    """An open position on one side of the market.
+
+    A session-range position is opened off the H1 range and carries it;
+    a combo position is opened from an indicator signal and has no
+    reference range at all, hence the optional h1_high/h1_low.
 
     Direction-dependent arithmetic is delegated to `self.side`, so nothing
     here branches on long vs short.
@@ -23,8 +28,8 @@ class Position:
         side: Side,
         take_profit_level: float,
         stop_loss_points: float,
-        h1_high: float,
-        h1_low: float,
+        h1_high: Optional[float] = None,
+        h1_low: Optional[float] = None,
         lots: LotModel = SINGLE_LOT,
         first_target_level: Optional[float] = None,
         initial_stop_price: Optional[float] = None,
@@ -54,15 +59,40 @@ class Position:
         # lots share it until break-even moves the stop to entry.
         self.initial_stop_price = initial_stop_price
         # The H1 reference levels, which the structural-stop policy
-        # measures a close against.
+        # measures a close against. None on a combo position, which is
+        # opened from an indicator signal and has no reference range.
         self.h1_high = h1_high
         self.h1_low = h1_low
 
     @property
     def structural_level(self) -> float:
         """The H1 level a structural stop watches for a close beyond: the
-        low for a long, the high for a short."""
+        low for a long, the high for a short.
+
+        Raises when the position carries no reference range rather than
+        inventing a level: only the structural and impulsive stops read
+        this, and neither belongs to a strategy that has no such range.
+        """
+        if self.h1_high is None or self.h1_low is None:
+            raise SaxoException(
+                "this position has no H1 reference range, so no "
+                "structural level - a close-measured stop cannot apply"
+            )
         return self.side.reference_level(self.h1_high, self.h1_low)
+
+    def retarget(
+        self, first_target: Optional[float], take_profit: float
+    ) -> None:
+        """Move the position's two take-profit levels.
+
+        The session-range strategies place their targets once, at entry.
+        The combo strategy reads its targets - the mm20 and the opposite
+        bollinger band - from the current candle, so it calls this on
+        every candle before the exit chain runs, and DoubleTarget then
+        works unchanged against levels that move.
+        """
+        self.first_target_level = first_target
+        self.take_profit_level = take_profit
 
     @property
     def stop_level(self) -> float:

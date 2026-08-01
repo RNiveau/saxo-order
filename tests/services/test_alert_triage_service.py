@@ -229,6 +229,46 @@ def test_fallback_treats_congestion20_and_100_as_one_family() -> None:
     assert asset.rank is None
 
 
+def test_fallback_does_not_let_mm7_break_promote_to_high() -> None:
+    # mm7_break is a short-term timing trigger, and crossing the MM7 is
+    # ordinary - if it counted toward confluence it would promote every
+    # single-pattern WATCH asset that happened to cross, inflating the tier
+    # the prompt explicitly tells the reasoning path not to inflate.
+    alerts = [
+        _alert("SAN", AlertType.CONGESTION20, 3.0),
+        _alert("SAN", AlertType.MM7_BREAK, 3.0),
+    ]
+    digest = TriageAgent(
+        FailingAnthropicClient(), slope_threshold=1.0
+    ).synthesize(alerts)
+
+    asset = digest.triaged_assets[0]
+    assert asset.conviction == Conviction.WATCH
+    assert "mm7_break" in asset.rationale
+
+
+def test_fallback_treats_a_lone_mm7_break_as_noise() -> None:
+    alerts = [_alert("SAN", AlertType.MM7_BREAK, 8.0)]
+    digest = TriageAgent(
+        FailingAnthropicClient(), slope_threshold=1.0
+    ).synthesize(alerts)
+
+    asset = digest.triaged_assets[0]
+    assert asset.conviction == Conviction.NOISE
+    assert asset.rank is None
+
+
+def test_fallback_still_promotes_two_structural_patterns() -> None:
+    alerts = [
+        _alert("SAN", AlertType.DOUBLE_TOP, -2.3),
+        _alert("SAN", AlertType.MM50_TOUCH, -2.3),
+        _alert("SAN", AlertType.MM7_BREAK, -2.3),
+    ]
+    digest = TriageAgent(FailingAnthropicClient()).synthesize(alerts)
+
+    assert digest.triaged_assets[0].conviction == Conviction.HIGH
+
+
 def test_fallback_slope_threshold_is_configurable() -> None:
     alerts = [_alert("TTE", AlertType.CONGESTION20, 1.5)]
 

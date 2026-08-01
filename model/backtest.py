@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from model.enum import DayStatus, Direction, ExitReason
 from model.market import EUMarket, Market
-from model.workflow import Candle
+from model.workflow import Candle, UnitTime
 
 
 @dataclass
@@ -101,6 +101,17 @@ class BacktestDefinition:
     # beyond TP1, its stop moves up from break-even to TP1 itself, so the
     # runner is locked in to at least match what the first lot banked.
     trail_to_first_target_points: Optional[float] = None
+    # The candle timeframe the strategy is evaluated on (spec 026,
+    # FR-C01). None on the session-range backtests, whose shape is fixed
+    # at "an H1 reference candle scanned with 5-minute candles" and is
+    # not a parameter.
+    unit_time: Optional[UnitTime] = None
+    # Selects the combo strategy (spec 026): entries come from the combo
+    # indicator on unit_time candles instead of a breakout of the 9h
+    # reference range, and a position is held until an exit rule fires
+    # rather than closed at the session end. Left False on every
+    # session-range backtest.
+    combo_entry: bool = False
 
     def __post_init__(self) -> None:
         """Reject at construction (registration) time any combination of
@@ -114,7 +125,15 @@ class BacktestDefinition:
             self.first_target_fraction is not None,
             self.runner_extension_points is not None,
         ]
-        if self.double_take_profit and not any(placements):
+        # A combo definition is the one two-lot setup whose targets are
+        # not placed from the H1 range at entry: the mm20 and the
+        # opposite bollinger band are re-read on every candle, so it
+        # carries neither placement field.
+        if (
+            self.double_take_profit
+            and not self.combo_entry
+            and not any(placements)
+        ):
             raise ValueError(
                 "double_take_profit requires first_target_fraction or "
                 "runner_extension_points - the first lot would have "
@@ -242,6 +261,47 @@ class BacktestDefinition:
                 "max_daily_losses must be positive - a cap of zero would "
                 f"forbid every entry (definition {self.code!r})"
             )
+        if self.combo_entry and self.unit_time is None:
+            raise ValueError(
+                "combo_entry requires unit_time - the indicator has no "
+                f"timeframe to be evaluated on (definition {self.code!r})"
+            )
+        if self.combo_entry and not self.double_take_profit:
+            raise ValueError(
+                "combo_entry requires double_take_profit - the combo "
+                "strategy takes TP1 at the mm20 and runs the rest to the "
+                f"opposite band (definition {self.code!r})"
+            )
+        # Everything below describes the 9h reference range - where the
+        # entry is searched, where the stop sits, when the day stops
+        # trading. A combo definition has no reference range, so nothing
+        # would read these; rejecting them here keeps a flag from
+        # shipping as a silent no-op, which is what the rest of this
+        # method exists for.
+        # Truthiness rather than `is not None`: these are a mix of
+        # booleans and optional numbers, and 0/0.0 means "not set" for
+        # every one of them - an `or None` normalisation would read the
+        # same today but silently pass a future numeric field set to 0.
+        session_range_only = {
+            "min_h1_range_points": self.min_h1_range_points,
+            "structural_stop": self.structural_stop,
+            "impulsive_candle_points": self.impulsive_candle_points,
+            "last_entry_time": self.last_entry_time,
+            "max_daily_losses": self.max_daily_losses,
+            "time_cut_minutes": self.time_cut_minutes,
+            "stop_from_reference_level": self.stop_from_reference_level,
+            "first_target_fraction": self.first_target_fraction,
+            "runner_extension_points": self.runner_extension_points,
+            "trail_to_first_target_points": self.trail_to_first_target_points,
+        }
+        if self.combo_entry:
+            for name, value in session_range_only.items():
+                if value:
+                    raise ValueError(
+                        f"{name} describes the 9h reference range, which a "
+                        "combo_entry definition does not have "
+                        f"(definition {self.code!r})"
+                    )
         if self.last_entry_time is not None and not (
             datetime.time(self.market.open_hour, self.market.open_minutes)
             < self.last_entry_time
