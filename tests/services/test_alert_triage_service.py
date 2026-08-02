@@ -573,7 +573,7 @@ def test_prompt_documents_the_payload_keys_it_will_receive() -> None:
     assert "dry_run" in TRIAGE_SYSTEM_PROMPT
 
 
-def test_fallback_ignores_triggers_for_now() -> None:
+def test_fallback_carries_triggers_onto_the_triaged_asset() -> None:
     agent = TriageAgent(FailingAnthropicClient())
 
     digest = agent.synthesize(
@@ -584,7 +584,6 @@ def test_fallback_ignores_triggers_for_now() -> None:
     asset = _by_code(digest.triaged_assets)["SAN"]
     assert digest.fallback_used is True
     assert len(asset.workflow_triggers) == 1
-    assert asset.conviction == Conviction.WATCH
 
 
 def test_run_date_is_computed_in_paris_not_utc() -> None:
@@ -704,3 +703,214 @@ def test_slack_digest_unchanged_when_nothing_is_corroborated() -> None:
 
     assert "⚡" not in message
     assert "Top: SAN SA (SAN)" in message
+
+
+def test_fallback_counts_a_trigger_as_one_confluence_point() -> None:
+    # One structural pattern alone is at most WATCH; the trigger supplies the
+    # second independent point that lifts it to HIGH.
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)],
+        {"SAN_xpar": [_trigger()]},
+    )
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.HIGH
+    )
+
+
+def test_fallback_without_a_trigger_stays_watch() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize([_alert("SAN", AlertType.COMBO, 3.0)])
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.WATCH
+    )
+
+
+def test_fallback_counts_several_triggers_as_one_point() -> None:
+    # A-004: corroboration breaks ties, it does not multiply. Two triggers on
+    # an asset with no structural pattern must not reach HIGH.
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.MM7_BREAK, 3.0)],
+        {"SAN_xpar": [_trigger("first"), _trigger("second")]},
+    )
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.WATCH
+    )
+
+
+def test_fallback_ranks_a_corroborated_asset_above_an_equivalent_one() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [
+            _alert("AI", AlertType.COMBO, 3.0),
+            _alert("SAN", AlertType.COMBO, 3.0),
+        ],
+        {"SAN_xpar": [_trigger()]},
+    )
+
+    by_code = _by_code(digest.triaged_assets)
+    assert by_code["SAN"].rank == 1
+    assert by_code["AI"].rank == 2
+
+
+def test_fallback_rationale_names_the_workflow() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)],
+        {"SAN_xpar": [_trigger()]},
+    )
+
+    rationale = _by_code(digest.triaged_assets)["SAN"].rationale
+    assert "workflow SAN breakout H1 (BUY)" in rationale
+    assert digest.fallback_used is True
+
+
+def test_fallback_rationale_marks_a_dry_run_workflow() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)],
+        {"SAN_xpar": [_trigger(dry_run=True)]},
+    )
+
+    rationale = _by_code(digest.triaged_assets)["SAN"].rationale
+    assert "dry run" in rationale
+
+
+def test_fallback_rationale_unchanged_when_nothing_is_corroborated() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize([_alert("SAN", AlertType.COMBO, 3.0)])
+
+    rationale = _by_code(digest.triaged_assets)["SAN"].rationale
+    assert rationale == "1 pattern(s): combo, slope 3.0%"
+    assert "workflow" not in rationale
+
+
+def test_fallback_withholds_the_point_from_a_contradicting_trigger() -> None:
+    # The prompt calls a trigger against the read a red flag, not confluence.
+    # The fallback must not invert that: a bullish combo on a rising trend,
+    # with the trader's own rule firing Sell, is not a stronger case than the
+    # same setup with no trigger at all.
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)],
+        {"SAN_xpar": [_trigger(direction=Direction.SELL)]},
+    )
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.WATCH
+    )
+
+
+def test_fallback_credits_a_sell_trigger_on_a_falling_trend() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, -3.0)],
+        {"SAN_xpar": [_trigger(direction=Direction.SELL)]},
+    )
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.HIGH
+    )
+
+
+def test_fallback_contradicting_trigger_does_not_outrank_a_clean_read() -> (
+    None
+):
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [
+            _alert("SAN", AlertType.COMBO, 3.0),
+            _alert("AI", AlertType.COMBO, 3.0),
+        ],
+        {"SAN_xpar": [_trigger(direction=Direction.SELL)]},
+    )
+
+    by_code = _by_code(digest.triaged_assets)
+    assert by_code["SAN"].conviction == by_code["AI"].conviction
+
+
+def test_fallback_withholds_the_point_from_a_dry_run_trigger() -> None:
+    # "One step lower than a live trigger" in an integer tally means no point:
+    # paper capital must not lift an asset into the top tier.
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)],
+        {"SAN_xpar": [_trigger(dry_run=True)]},
+    )
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.WATCH
+    )
+
+
+def test_fallback_withholds_the_point_from_conflicting_triggers() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)],
+        {
+            "SAN_xpar": [
+                _trigger("first", direction=Direction.BUY),
+                _trigger("second", direction=Direction.SELL),
+            ]
+        },
+    )
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.WATCH
+    )
+
+
+def test_fallback_withholds_the_point_when_the_trend_is_unknown() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+    alert = _alert("SAN", AlertType.COMBO, 0.0)
+    alert.data = {}
+
+    digest = agent.synthesize([alert], {"SAN_xpar": [_trigger()]})
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.NOISE
+    )
+
+
+def test_fallback_rationale_says_timing_only_instead_of_zero_patterns() -> (
+    None
+):
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.MM7_BREAK, 3.0)],
+        {"SAN_xpar": [_trigger()]},
+    )
+
+    rationale = _by_code(digest.triaged_assets)["SAN"].rationale
+    assert rationale.startswith("timing only: mm7_break")
+    assert "0 pattern(s)" not in rationale
+
+
+def test_fallback_rationale_uses_the_stored_direction_casing() -> None:
+    # Slack and the Daily Brief both render the stored BUY/SELL form; the
+    # rationale sits beside them on the same screen.
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)],
+        {"SAN_xpar": [_trigger()]},
+    )
+
+    assert "(BUY)" in _by_code(digest.triaged_assets)["SAN"].rationale

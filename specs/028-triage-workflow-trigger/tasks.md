@@ -114,10 +114,10 @@ uncorroborated one.
 **Independent Test**: Force the reasoning step to fail over an alert set with one corroborated
 asset; confirm the fallback lifts it and still flags the brief as a fallback.
 
-- [ ] T030 [US3] Count an attached trigger as one extra confluence point in `TriageAgent._fallback_conviction` in `services/alert_triage_service.py` — one point regardless of trigger count (FR-013, A-004)
-- [ ] T031 [US3] Thread triggers through `_fallback_digest` ordering in `services/alert_triage_service.py` so the primary sort key reflects the extra point (FR-013)
-- [ ] T032 [US3] Append the workflow name and direction to the templated string in `TriageAgent._fallback_rationale` in `services/alert_triage_service.py` (FR-014)
-- [ ] T033 [P] [US3] Add tests to `tests/services/test_alert_triage_service.py`: one pattern + one trigger lifts the tier, two triggers on one asset add only one point, and the fallback flag is still set
+- [x] T030 [US3] Count an attached trigger as one extra confluence point in `TriageAgent._fallback_conviction` in `services/alert_triage_service.py` — one point regardless of trigger count (FR-013, A-004)
+- [x] T031 [US3] Thread triggers through `_fallback_digest` ordering in `services/alert_triage_service.py` so the primary sort key reflects the extra point (FR-013)
+- [x] T032 [US3] Append the workflow name and direction to the templated string in `TriageAgent._fallback_rationale` in `services/alert_triage_service.py` (FR-014)
+- [x] T033 [P] [US3] Add tests to `tests/services/test_alert_triage_service.py`: one pattern + one trigger lifts the tier, two triggers on one asset add only one point, and the fallback flag is still set
 
 **Checkpoint**: All three stories complete.
 
