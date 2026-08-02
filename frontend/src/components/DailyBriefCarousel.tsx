@@ -18,6 +18,14 @@ const CONVICTION_BADGE: Record<string, string> = {
   watch: '🟡',
 };
 
+function formatTriggerHour(placedAt: number): string {
+  return new Date(placedAt * 1000).toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Paris',
+  });
+}
+
 function assetSymbol(asset: TriagedAsset): string {
   return asset.country_code
     ? `${asset.asset_code}:${asset.country_code}`
@@ -61,6 +69,24 @@ function AssetRow({ asset }: { asset: TriagedAsset }) {
       {asset.rationale && (
         <div className="daily-brief-asset-rationale">{asset.rationale}</div>
       )}
+      {asset.workflow_triggers?.map((trigger, index) => (
+        <div className="daily-brief-asset-trigger" key={index}>
+          <span
+            className={`daily-brief-trigger-direction ${trigger.direction.toLowerCase()}`}
+          >
+            {trigger.direction === 'BUY' ? '▲' : '▼'} {trigger.direction}
+          </span>
+          <span className="daily-brief-trigger-name">
+            {trigger.workflow_name}
+          </span>
+          <span className="daily-brief-trigger-hour">
+            {formatTriggerHour(trigger.placed_at)}
+          </span>
+          {trigger.dry_run && (
+            <span className="daily-brief-trigger-dryrun">dry run</span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
