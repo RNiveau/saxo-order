@@ -2,11 +2,31 @@ import datetime
 import json
 import logging
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 from client.anthropic_client import AnthropicClient
-from model import Alert, AlertDigest, AlertType, Conviction, TriagedAsset
+from model import (
+    Alert,
+    AlertDigest,
+    AlertType,
+    Conviction,
+    TriagedAsset,
+    WorkflowTrigger,
+)
 from utils.exception import AnthropicException
 from utils.logger import Logger
+
+PARIS = ZoneInfo("Europe/Paris")
+
+
+def current_run_date() -> str:
+    """Today's date in Paris, the timezone the whole scan reasons in.
+
+    A naive now() is UTC inside Lambda, which disagrees with the Paris
+    session window for any run between midnight Paris and midnight UTC.
+    """
+    return datetime.datetime.now(PARIS).strftime("%Y-%m-%d")
+
 
 TRIAGE_SYSTEM_PROMPT = """You are a trading-desk analyst triaging the day's \
 technical alerts on French stocks.
@@ -16,6 +36,38 @@ You receive a JSON object with an "assets" array. Each asset has:
 - patterns: the chart patterns that fired today on this asset
 - ma50_slope: percent slope of the 50-period moving average (medium-term \
 trend); positive = uptrend, negative = downtrend, null = unknown
+- workflow_triggers: PRESENT ONLY when one of the trader's own registered \
+workflows fired on this asset today. Absent on most assets. Each entry has \
+the workflow name, its order "direction" ("Buy"/"Sell"), a "dry_run" flag, \
+and the "hour" it fired.
+
+Workflow triggers - the one input that does NOT come from the chart-pattern \
+detectors:
+Every pattern above is computed by the same scanner, on the same candles, at \
+the same moment. A workflow trigger is different in kind: it is a rule the \
+trader WROTE IN ADVANCE, which fired intraday and produced a real directional \
+order. Treat it accordingly:
+- It is genuinely INDEPENDENT evidence. Unlike congestion20 + congestion100 \
+(one detector, two windows), a trigger and a pattern are two different \
+mechanisms agreeing - that is real convergence. Count it as ONE point of \
+convergence.
+- Its "direction" carries directional authority AT LEAST equal to combo. \
+When a trigger and the patterns point the same way, that is the strongest \
+agreement this system can produce; say so.
+- A trigger pointing AGAINST the pattern-and-trend read is a RED FLAG on \
+that read, exactly like mm50_touch on a bearish thesis - not "confluence \
+that overrides a conflict". The trader's own rule disagreeing with your \
+reading is evidence your reading is wrong, not evidence to discount.
+- SEVERAL triggers on one asset still count as ONE point of convergence, not \
+one each. Two triggers disagreeing with each other on direction is an \
+internally inconsistent signal, not doubled conviction.
+- dry_run: true means the rule fired but NO capital was committed. Still \
+independent directional evidence, but weigh it ONE STEP LOWER than a live \
+trigger.
+- A trigger cannot by itself carry an asset that has nothing else going for \
+it: it sharpens convergence, it does not replace the OPPORTUNITY axis. An \
+asset riding a flat or unknown trend is not "high" merely because a workflow \
+fired on it.
 
 Pattern semantics - know what each pattern actually means before reasoning \
 about confluence or trend alignment:
@@ -67,6 +119,9 @@ double_inside_bar, congestion) add breadth but cannot themselves converge \
 on a direction.
    - a pattern that structurally cannot occur against the claimed trend \
 (e.g. mm50_touch during a "bearish" read) is a red flag, NOT convergence.
+   - a workflow trigger agreeing with the patterns = ONE point, and the \
+strongest kind (independent mechanism); several triggers on one asset still \
+= ONE point.
 
 2. OPPORTUNITY - given the evidence agrees, how strong is the move it is \
 riding. This is about the MAGNITUDE of ma50_slope (and its momentum), not \
@@ -106,7 +161,9 @@ assets are close, prefer the one riding the stronger trend (opportunity).
 ranked list of high/watch assets, each with its echoed "id", "conviction", \
 1-based "rank", and a one-line "rationale" that names BOTH axes: which \
 patterns converged (or why the evidence is thin) and the strength/direction \
-of the trend they ride."""
+of the trend they ride. If a workflow trigger influenced where you ranked an \
+asset, NAME THE WORKFLOW in that asset's rationale - the trader must be able \
+to see why it rose without going to look it up."""
 
 # Enforced via output_config.format (structured outputs) so the response is
 # always valid JSON matching this exact shape - no prose preamble, no code
@@ -166,9 +223,14 @@ class TriageAgent:
         self.slope_threshold = slope_threshold
         self.logger = Logger.get_logger("triage_agent", logging.INFO)
 
-    def synthesize(self, alerts: List[Alert]) -> AlertDigest:
-        grouped = self._group_by_asset(alerts)
-        run_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    def synthesize(
+        self,
+        alerts: List[Alert],
+        triggers: Optional[Dict[str, List[WorkflowTrigger]]] = None,
+        run_date: Optional[str] = None,
+    ) -> AlertDigest:
+        grouped = self._group_by_asset(alerts, triggers or {})
+        run_date = run_date or current_run_date()
         created_at = int(
             datetime.datetime.now(datetime.timezone.utc).timestamp()
         )
@@ -285,7 +347,9 @@ class TriageAgent:
         return abs(slope) if slope is not None else 0.0
 
     def _group_by_asset(
-        self, alerts: List[Alert]
+        self,
+        alerts: List[Alert],
+        triggers: Dict[str, List[WorkflowTrigger]],
     ) -> Dict[str, Dict[str, Any]]:
         grouped: Dict[str, Dict[str, Any]] = {}
         for alert in alerts:
@@ -298,6 +362,7 @@ class TriageAgent:
                     "country_code": alert.country_code,
                     "patterns": [],
                     "ma50_slope": None,
+                    "workflow_triggers": triggers.get(alert.id, []),
                 },
             )
             if alert.alert_type not in entry["patterns"]:
@@ -312,15 +377,29 @@ class TriageAgent:
         return grouped
 
     def _build_payload(self, grouped: Dict[str, Dict[str, Any]]) -> str:
-        assets = [
-            {
+        assets = []
+        for asset_id, entry in grouped.items():
+            asset: Dict[str, Any] = {
                 "id": asset_id,
                 "patterns": [p.value for p in entry["patterns"]],
                 "ma50_slope": entry["ma50_slope"],
             }
-            for asset_id, entry in grouped.items()
-        ]
+            if entry["workflow_triggers"]:
+                asset["workflow_triggers"] = [
+                    self._payload_trigger(t)
+                    for t in entry["workflow_triggers"]
+                ]
+            assets.append(asset)
         return json.dumps({"assets": assets})
+
+    def _payload_trigger(self, trigger: WorkflowTrigger) -> Dict[str, Any]:
+        placed_at = datetime.datetime.fromtimestamp(trigger.placed_at, PARIS)
+        return {
+            "workflow": trigger.workflow_name,
+            "direction": trigger.direction.value,
+            "dry_run": trigger.dry_run,
+            "hour": placed_at.strftime("%H:%M"),
+        }
 
     def _parse_triaged(
         self, raw: Dict[str, Any], grouped: Dict[str, Dict[str, Any]]
@@ -370,6 +449,7 @@ class TriageAgent:
             ma50_slope=entry["ma50_slope"],
             rank=rank,
             country_code=entry["country_code"],
+            workflow_triggers=entry["workflow_triggers"],
         )
 
     def _parse_conviction(self, value: Any) -> Conviction:
