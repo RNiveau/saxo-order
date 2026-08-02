@@ -3,7 +3,14 @@ from unittest.mock import AsyncMock
 import pytest
 
 from client.aws_client import DynamoDBClient
-from model import AlertDigest, AlertType, Conviction, TriagedAsset
+from model import (
+    AlertDigest,
+    AlertType,
+    Conviction,
+    Direction,
+    TriagedAsset,
+    WorkflowTrigger,
+)
 
 
 @pytest.fixture
@@ -42,6 +49,75 @@ def _digest(run_date: str, created_at: int) -> AlertDigest:
         model="claude-sonnet-5",
         fallback_used=False,
     )
+
+
+class TestStoreAlertDigestWorkflowTriggers:
+    async def test_omits_the_key_when_the_asset_has_no_triggers(
+        self, mock_dynamodb_resource, client
+    ):
+        _, mock_table = mock_dynamodb_resource
+        mock_table.put_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200}
+        }
+
+        await client.store_alert_digest(_digest("2026-07-16", 1768579200))
+
+        asset = mock_table.put_item.call_args[1]["Item"]["triaged_assets"][0]
+        assert "workflow_triggers" not in asset
+
+    async def test_serialises_triggers_with_direction_as_the_enum_name(
+        self, mock_dynamodb_resource, client
+    ):
+        _, mock_table = mock_dynamodb_resource
+        mock_table.put_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200}
+        }
+
+        digest = _digest("2026-07-16", 1768579200)
+        digest.triaged_assets[0].workflow_triggers = [
+            WorkflowTrigger(
+                workflow_name="SAN breakout H1",
+                direction=Direction.BUY,
+                order_price=158.4,
+                placed_at=1768567800,
+                dry_run=False,
+                trigger_close=157.9,
+            )
+        ]
+        await client.store_alert_digest(digest)
+
+        asset = mock_table.put_item.call_args[1]["Item"]["triaged_assets"][0]
+        trigger = asset["workflow_triggers"][0]
+        assert trigger["workflow_name"] == "SAN breakout H1"
+        assert trigger["direction"] == "BUY"
+        assert str(trigger["order_price"]) == "158.4"
+        assert str(trigger["trigger_close"]) == "157.9"
+        assert trigger["placed_at"] == 1768567800
+        assert trigger["dry_run"] is False
+
+    async def test_serialises_a_dry_run_trigger(
+        self, mock_dynamodb_resource, client
+    ):
+        _, mock_table = mock_dynamodb_resource
+        mock_table.put_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200}
+        }
+
+        digest = _digest("2026-07-16", 1768579200)
+        digest.triaged_assets[0].workflow_triggers = [
+            WorkflowTrigger(
+                workflow_name="paper rule",
+                direction=Direction.SELL,
+                order_price=10.0,
+                placed_at=1768567800,
+                dry_run=True,
+            )
+        ]
+        await client.store_alert_digest(digest)
+
+        asset = mock_table.put_item.call_args[1]["Item"]["triaged_assets"][0]
+        assert asset["workflow_triggers"][0]["dry_run"] is True
+        assert asset["workflow_triggers"][0]["trigger_close"] is None
 
 
 class TestStoreAlertDigest:

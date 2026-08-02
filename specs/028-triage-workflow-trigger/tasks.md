@@ -91,16 +91,16 @@ app and in Slack — without leaving the brief.
 **Independent Test**: Generate a brief with one corroborated asset; confirm the trigger details are
 persisted, served by the API, rendered in the Daily Brief, and reflected in the Slack message.
 
-- [ ] T020 [US2] Serialise `workflow_triggers` inside each triaged-asset item in `store_alert_digest` in `client/aws_client.py`, omitting the key when empty and storing `direction` as the enum name (data-model.md §8, FR-015)
-- [ ] T021 [US2] Add `WorkflowTriggerResponse` to `api/models/alert_digest.py` and an optional `workflow_triggers` field on `TriagedAssetResponse`, per `contracts/alert-digests.openapi.yaml`
-- [ ] T022 [US2] Hydrate `workflow_triggers` in `api/services/alert_digest_service.py`, converting `Decimal` back to `float` and defaulting a **missing** key to empty for pre-feature digests (data-model.md §8, A-005)
-- [ ] T023 [P] [US2] Add the `WorkflowTrigger` interface and the optional field on `TriagedAsset` in `frontend/src/services/api.ts`, mirroring the Pydantic models field-for-field (Constitution — API Contract Standards)
-- [ ] T024 [US2] Render the trigger line on corroborated assets in `frontend/src/components/DailyBriefCarousel.tsx` — workflow name, direction, Paris-local time of day, distinct dry-run marker; render nothing at all when the list is empty (FR-017, edge case "no empty section")
-- [ ] T025 [P] [US2] Style the trigger line and the dry-run marker in `frontend/src/components/DailyBriefCarousel.css`, consistent with the existing conviction badges
-- [ ] T026 [US2] Mark corroborated assets in `format_slack_digest` in `services/alert_triage_service.py` without expanding into a per-trigger listing (FR-018)
-- [ ] T027 [P] [US2] Add tests to `tests/client/test_aws_client_alert_digests.py` for the store/read round trip: triggers present, key absent when empty, and a pre-feature item without the key reading back cleanly
-- [ ] T028 [P] [US2] Add a `format_slack_digest` test to `tests/services/test_alert_triage_service.py` covering a corroborated asset and confirming an uncorroborated digest is unchanged
-- [ ] T029 [US2] Verify in the browser via quickstart step 5 (SC-006), including a dry-run trigger and a no-trigger day
+- [x] T020 [US2] Serialise `workflow_triggers` inside each triaged-asset item in `store_alert_digest` in `client/aws_client.py`, omitting the key when empty and storing `direction` as the enum name (data-model.md §8, FR-015)
+- [x] T021 [US2] Add `WorkflowTriggerResponse` to `api/models/alert_digest.py` and an optional `workflow_triggers` field on `TriagedAssetResponse`, per `contracts/alert-digests.openapi.yaml`
+- [x] T022 [US2] Hydrate `workflow_triggers` in `api/services/alert_digest_service.py`, converting `Decimal` back to `float` and defaulting a **missing** key to empty for pre-feature digests (data-model.md §8, A-005)
+- [x] T023 [P] [US2] Add the `WorkflowTrigger` interface and the optional field on `TriagedAsset` in `frontend/src/services/api.ts`, mirroring the Pydantic models field-for-field (Constitution — API Contract Standards)
+- [x] T024 [US2] Render the trigger line on corroborated assets in `frontend/src/components/DailyBriefCarousel.tsx` — workflow name, direction, Paris-local time of day, distinct dry-run marker; render nothing at all when the list is empty (FR-017, edge case "no empty section")
+- [x] T025 [P] [US2] Style the trigger line and the dry-run marker in `frontend/src/components/DailyBriefCarousel.css`, consistent with the existing conviction badges
+- [x] T026 [US2] Mark corroborated assets in `format_slack_digest` in `services/alert_triage_service.py` without expanding into a per-trigger listing (FR-018)
+- [x] T027 [P] [US2] Add tests to `tests/client/test_aws_client_alert_digests.py` for the store/read round trip: triggers present, key absent when empty, and a pre-feature item without the key reading back cleanly
+- [x] T028 [P] [US2] Add a `format_slack_digest` test to `tests/services/test_alert_triage_service.py` covering a corroborated asset and confirming an uncorroborated digest is unchanged
+- [ ] T029 [US2] ⚠️ BLOCKED — needs AWS credentials to produce a real digest to render. Verify in the browser via quickstart step 5 (SC-006), including a dry-run trigger and a no-trigger day. `npm run build` and `npm run lint` pass, so the component compiles and types match the backend, but it has not been rendered against live data
 
 **Checkpoint**: US1 + US2 shippable. Corroboration is ranked, stored, served, and visible.
 

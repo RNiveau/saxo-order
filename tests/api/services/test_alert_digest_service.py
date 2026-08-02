@@ -107,3 +107,67 @@ class TestGetByRunDate:
         digest = await service.get_by_run_date("2026-01-01")
 
         assert digest is None
+
+
+class TestWorkflowTriggers:
+    async def test_pre_feature_digest_without_the_key_reads_back_clean(
+        self, service, mock_dynamodb_client
+    ):
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
+        mock_dynamodb_client.get_alert_digests.return_value = [
+            _item("2026-07-16", 300)
+        ]
+
+        digests = await service.list_recent()
+
+        assert digests[0].triaged_assets[0].workflow_triggers is None
+
+    async def test_triggers_are_hydrated_with_decimals_widened(
+        self, service, mock_dynamodb_client
+    ):
+        item = _item("2026-07-16", 300)
+        item["triaged_assets"][0]["workflow_triggers"] = [
+            {
+                "workflow_name": "SAN breakout H1",
+                "direction": "BUY",
+                "order_price": Decimal("158.4"),
+                "trigger_close": Decimal("157.9"),
+                "placed_at": Decimal(1768567800),
+                "dry_run": False,
+            }
+        ]
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
+        mock_dynamodb_client.get_alert_digests.return_value = [item]
+
+        digests = await service.list_recent()
+
+        trigger = digests[0].triaged_assets[0].workflow_triggers[0]
+        assert trigger.workflow_name == "SAN breakout H1"
+        assert trigger.direction == "BUY"
+        assert trigger.order_price == 158.4
+        assert trigger.trigger_close == 157.9
+        assert trigger.placed_at == 1768567800
+        assert trigger.dry_run is False
+
+    async def test_missing_trigger_close_stays_none(
+        self, service, mock_dynamodb_client
+    ):
+        item = _item("2026-07-16", 300)
+        item["triaged_assets"][0]["workflow_triggers"] = [
+            {
+                "workflow_name": "paper rule",
+                "direction": "SELL",
+                "order_price": Decimal("10"),
+                "trigger_close": None,
+                "placed_at": Decimal(1768567800),
+                "dry_run": True,
+            }
+        ]
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
+        mock_dynamodb_client.get_alert_digests.return_value = [item]
+
+        digests = await service.list_recent()
+
+        trigger = digests[0].triaged_assets[0].workflow_triggers[0]
+        assert trigger.trigger_close is None
+        assert trigger.dry_run is True

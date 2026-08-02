@@ -613,3 +613,94 @@ def test_synthesize_falls_back_to_the_paris_run_date() -> None:
     digest = agent.synthesize([_alert("SAN", AlertType.COMBO, 3.0)])
 
     assert digest.run_date == current_run_date()
+
+
+def _triaged(
+    code: str,
+    conviction: Conviction,
+    rank: int,
+    triggers: Optional[List[WorkflowTrigger]] = None,
+) -> TriagedAsset:
+    return TriagedAsset(
+        asset_code=code,
+        asset_description=f"{code} SA",
+        exchange="saxo",
+        conviction=conviction,
+        rationale="r",
+        patterns=[AlertType.COMBO],
+        ma50_slope=3.0,
+        rank=rank,
+        country_code="xpar",
+        workflow_triggers=triggers or [],
+    )
+
+
+def _slack_digest(assets: List[TriagedAsset]) -> AlertDigest:
+    counts = {c.value: 0 for c in Conviction}
+    for asset in assets:
+        counts[asset.conviction.value] += 1
+    return AlertDigest(
+        run_date="2026-08-01",
+        created_at=1,
+        summary="s",
+        counts=counts,
+        triaged_assets=assets,
+        model="test-model",
+    )
+
+
+def test_slack_digest_marks_corroborated_high_assets() -> None:
+    digest = _slack_digest(
+        [
+            _triaged("SAN", Conviction.HIGH, 1, [_trigger()]),
+            _triaged("AI", Conviction.HIGH, 2),
+        ]
+    )
+
+    message = format_slack_digest(digest, "http://app")
+
+    assert "SAN SA (SAN) ⚡" in message
+    assert "AI SA (AI)" in message
+    assert message.count("⚡") == 1
+    assert "Also corroborated" not in message
+
+
+def test_slack_digest_names_corroborated_watch_assets() -> None:
+    digest = _slack_digest(
+        [
+            _triaged("SAN", Conviction.HIGH, 1, [_trigger()]),
+            _triaged("AI", Conviction.WATCH, 2, [_trigger("AI rule")]),
+        ]
+    )
+
+    message = format_slack_digest(digest, "http://app")
+
+    # Every bolt in the message points at a named asset: SAN carries one in
+    # the Top line, AI is named on its own line rather than folded into a
+    # count the reader cannot resolve.
+    assert "SAN SA (SAN) ⚡" in message
+    assert "⚡ Also corroborated: AI SA (AI)" in message
+    assert message.count("⚡") == 2
+
+
+def test_slack_digest_ignores_triggers_on_noise_assets() -> None:
+    digest = _slack_digest(
+        [
+            _triaged("SAN", Conviction.HIGH, 1),
+            _triaged("AI", Conviction.NOISE, 0, [_trigger("AI rule")]),
+        ]
+    )
+
+    message = format_slack_digest(digest, "http://app")
+
+    assert "Also corroborated" not in message
+    assert "⚡" not in message
+
+
+def test_slack_digest_unchanged_when_nothing_is_corroborated() -> None:
+    digest = _slack_digest([_triaged("SAN", Conviction.HIGH, 1)])
+
+    message = format_slack_digest(digest, "http://app")
+
+    assert "⚡" not in message
+    assert "Top: SAN SA (SAN)" in message

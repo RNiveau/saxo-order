@@ -507,9 +507,25 @@ def format_slack_digest(digest: AlertDigest, app_url: str) -> str:
     if high_assets:
         names = ", ".join(
             f"{asset.asset_description} ({asset.asset_code})"
+            f"{' ⚡' if asset.workflow_triggers else ''}"
             for asset in high_assets
         )
         lines.append(f"Top: {names}")
+
+    also_corroborated = sorted(
+        (
+            asset
+            for asset in digest.triaged_assets
+            if asset.workflow_triggers and asset.conviction == Conviction.WATCH
+        ),
+        key=lambda asset: asset.rank or 0,
+    )
+    if also_corroborated:
+        names = ", ".join(
+            f"{asset.asset_description} ({asset.asset_code})"
+            for asset in also_corroborated
+        )
+        lines.append(f"⚡ Also corroborated: {names}")
 
     if digest.fallback_used:
         lines.append("(fallback ranking - reasoning was unavailable)")

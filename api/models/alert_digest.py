@@ -1,6 +1,26 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+
+class WorkflowTriggerResponse(BaseModel):
+    workflow_name: str = Field(
+        description="Name of the workflow that fired today"
+    )
+    direction: Literal["BUY", "SELL"] = Field(
+        description="Order direction as the Direction enum name (BUY/SELL)"
+    )
+    order_price: float = Field(
+        description="Price of the order the workflow produced"
+    )
+    trigger_close: Optional[float] = Field(
+        default=None,
+        description="Market close when the workflow fired, if recorded",
+    )
+    placed_at: int = Field(description="Epoch seconds when the workflow fired")
+    dry_run: bool = Field(
+        description="True when the rule fired without committing capital"
+    )
 
 
 class TriagedAssetResponse(BaseModel):
@@ -27,6 +47,13 @@ class TriagedAssetResponse(BaseModel):
     )
     tradingview_url: Optional[str] = Field(
         default=None, description="Custom TradingView URL if configured"
+    )
+    workflow_triggers: Optional[List[WorkflowTriggerResponse]] = Field(
+        default=None,
+        description=(
+            "Same-day workflow firings that corroborated this asset. "
+            "Omitted when the asset has none."
+        ),
     )
 
 
