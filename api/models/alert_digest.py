@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -7,7 +7,7 @@ class WorkflowTriggerResponse(BaseModel):
     workflow_name: str = Field(
         description="Name of the workflow that fired today"
     )
-    direction: str = Field(
+    direction: Literal["BUY", "SELL"] = Field(
         description="Order direction as the Direction enum name (BUY/SELL)"
     )
     order_price: float = Field(

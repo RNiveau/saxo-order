@@ -72,6 +72,33 @@ def _dynamo_operation(func):
     return wrapper
 
 
+def _serialize_triaged_asset(asset: TriagedAsset) -> Dict[str, Any]:
+    item: Dict[str, Any] = {
+        "asset_code": asset.asset_code,
+        "asset_description": asset.asset_description,
+        "exchange": asset.exchange,
+        "conviction": asset.conviction.value,
+        "rationale": asset.rationale,
+        "patterns": [p.value for p in asset.patterns],
+        "ma50_slope": asset.ma50_slope,
+        "rank": asset.rank,
+        "country_code": asset.country_code,
+    }
+    if asset.workflow_triggers:
+        item["workflow_triggers"] = [
+            {
+                "workflow_name": trigger.workflow_name,
+                "direction": trigger.direction.name,
+                "order_price": trigger.order_price,
+                "trigger_close": trigger.trigger_close,
+                "placed_at": trigger.placed_at,
+                "dry_run": trigger.dry_run,
+            }
+            for trigger in asset.workflow_triggers
+        ]
+    return item
+
+
 class AwsClient:
     @staticmethod
     def is_aws_context() -> bool:
@@ -887,32 +914,6 @@ class DynamoDBClient(AwsClient):
             )
             return []
 
-    def _serialize_triaged_asset(self, asset: TriagedAsset) -> Dict[str, Any]:
-        item: Dict[str, Any] = {
-            "asset_code": asset.asset_code,
-            "asset_description": asset.asset_description,
-            "exchange": asset.exchange,
-            "conviction": asset.conviction.value,
-            "rationale": asset.rationale,
-            "patterns": [p.value for p in asset.patterns],
-            "ma50_slope": asset.ma50_slope,
-            "rank": asset.rank,
-            "country_code": asset.country_code,
-        }
-        if asset.workflow_triggers:
-            item["workflow_triggers"] = [
-                {
-                    "workflow_name": trigger.workflow_name,
-                    "direction": trigger.direction.name,
-                    "order_price": trigger.order_price,
-                    "trigger_close": trigger.trigger_close,
-                    "placed_at": trigger.placed_at,
-                    "dry_run": trigger.dry_run,
-                }
-                for trigger in asset.workflow_triggers
-            ]
-        return item
-
     @_dynamo_operation
     async def store_alert_digest(self, digest: AlertDigest) -> Dict[str, Any]:
         item = {
@@ -921,7 +922,7 @@ class DynamoDBClient(AwsClient):
             "summary": digest.summary,
             "counts": digest.counts,
             "triaged_assets": [
-                self._serialize_triaged_asset(asset)
+                _serialize_triaged_asset(asset)
                 for asset in digest.triaged_assets
             ],
             "fallback_used": digest.fallback_used,

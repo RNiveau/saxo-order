@@ -69,8 +69,11 @@ function AssetRow({ asset }: { asset: TriagedAsset }) {
       {asset.rationale && (
         <div className="daily-brief-asset-rationale">{asset.rationale}</div>
       )}
-      {asset.workflow_triggers?.map((trigger, index) => (
-        <div className="daily-brief-asset-trigger" key={index}>
+      {asset.workflow_triggers?.map((trigger) => (
+        <div
+          className="daily-brief-asset-trigger"
+          key={`${trigger.workflow_name}-${trigger.placed_at}`}
+        >
           <span
             className={`daily-brief-trigger-direction ${trigger.direction.toLowerCase()}`}
           >

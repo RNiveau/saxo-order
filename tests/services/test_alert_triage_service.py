@@ -659,13 +659,13 @@ def test_slack_digest_marks_corroborated_high_assets() -> None:
 
     message = format_slack_digest(digest, "http://app")
 
-    assert "Sanofi" not in message
     assert "SAN SA (SAN) ⚡" in message
-    assert "AI SA (AI)," in message or "AI SA (AI)\n" in message
-    assert "⚡ 1 workflow-corroborated asset" in message
+    assert "AI SA (AI)" in message
+    assert message.count("⚡") == 1
+    assert "Also corroborated" not in message
 
 
-def test_slack_digest_pluralises_the_corroborated_count() -> None:
+def test_slack_digest_names_corroborated_watch_assets() -> None:
     digest = _slack_digest(
         [
             _triaged("SAN", Conviction.HIGH, 1, [_trigger()]),
@@ -675,7 +675,12 @@ def test_slack_digest_pluralises_the_corroborated_count() -> None:
 
     message = format_slack_digest(digest, "http://app")
 
-    assert "⚡ 2 workflow-corroborated assets" in message
+    # Every bolt in the message points at a named asset: SAN carries one in
+    # the Top line, AI is named on its own line rather than folded into a
+    # count the reader cannot resolve.
+    assert "SAN SA (SAN) ⚡" in message
+    assert "⚡ Also corroborated: AI SA (AI)" in message
+    assert message.count("⚡") == 2
 
 
 def test_slack_digest_ignores_triggers_on_noise_assets() -> None:
@@ -688,7 +693,8 @@ def test_slack_digest_ignores_triggers_on_noise_assets() -> None:
 
     message = format_slack_digest(digest, "http://app")
 
-    assert "workflow-corroborated" not in message
+    assert "Also corroborated" not in message
+    assert "⚡" not in message
 
 
 def test_slack_digest_unchanged_when_nothing_is_corroborated() -> None:
