@@ -573,7 +573,7 @@ def test_prompt_documents_the_payload_keys_it_will_receive() -> None:
     assert "dry_run" in TRIAGE_SYSTEM_PROMPT
 
 
-def test_fallback_ignores_triggers_for_now() -> None:
+def test_fallback_carries_triggers_onto_the_triaged_asset() -> None:
     agent = TriageAgent(FailingAnthropicClient())
 
     digest = agent.synthesize(
@@ -584,7 +584,6 @@ def test_fallback_ignores_triggers_for_now() -> None:
     asset = _by_code(digest.triaged_assets)["SAN"]
     assert digest.fallback_used is True
     assert len(asset.workflow_triggers) == 1
-    assert asset.conviction == Conviction.WATCH
 
 
 def test_run_date_is_computed_in_paris_not_utc() -> None:
@@ -704,3 +703,94 @@ def test_slack_digest_unchanged_when_nothing_is_corroborated() -> None:
 
     assert "⚡" not in message
     assert "Top: SAN SA (SAN)" in message
+
+
+def test_fallback_counts_a_trigger_as_one_confluence_point() -> None:
+    # One structural pattern alone is at most WATCH; the trigger supplies the
+    # second independent point that lifts it to HIGH.
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)],
+        {"SAN_xpar": [_trigger()]},
+    )
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.HIGH
+    )
+
+
+def test_fallback_without_a_trigger_stays_watch() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize([_alert("SAN", AlertType.COMBO, 3.0)])
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.WATCH
+    )
+
+
+def test_fallback_counts_several_triggers_as_one_point() -> None:
+    # A-004: corroboration breaks ties, it does not multiply. Two triggers on
+    # an asset with no structural pattern must not reach HIGH.
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.MM7_BREAK, 3.0)],
+        {"SAN_xpar": [_trigger("first"), _trigger("second")]},
+    )
+
+    assert _by_code(digest.triaged_assets)["SAN"].conviction == (
+        Conviction.WATCH
+    )
+
+
+def test_fallback_ranks_a_corroborated_asset_above_an_equivalent_one() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [
+            _alert("AI", AlertType.COMBO, 3.0),
+            _alert("SAN", AlertType.COMBO, 3.0),
+        ],
+        {"SAN_xpar": [_trigger()]},
+    )
+
+    by_code = _by_code(digest.triaged_assets)
+    assert by_code["SAN"].rank == 1
+    assert by_code["AI"].rank == 2
+
+
+def test_fallback_rationale_names_the_workflow() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)],
+        {"SAN_xpar": [_trigger()]},
+    )
+
+    rationale = _by_code(digest.triaged_assets)["SAN"].rationale
+    assert "workflow SAN breakout H1 (Buy)" in rationale
+    assert digest.fallback_used is True
+
+
+def test_fallback_rationale_marks_a_dry_run_workflow() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize(
+        [_alert("SAN", AlertType.COMBO, 3.0)],
+        {"SAN_xpar": [_trigger(dry_run=True)]},
+    )
+
+    rationale = _by_code(digest.triaged_assets)["SAN"].rationale
+    assert "dry run" in rationale
+
+
+def test_fallback_rationale_unchanged_when_nothing_is_corroborated() -> None:
+    agent = TriageAgent(FailingAnthropicClient())
+
+    digest = agent.synthesize([_alert("SAN", AlertType.COMBO, 3.0)])
+
+    rationale = _by_code(digest.triaged_assets)["SAN"].rationale
+    assert rationale == "1 pattern(s): combo, slope 3.0%"
+    assert "workflow" not in rationale

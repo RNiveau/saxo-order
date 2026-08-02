@@ -281,7 +281,7 @@ class TriageAgent:
         ordered = sorted(
             grouped.values(),
             key=lambda entry: (
-                len(self._structural_families(entry["patterns"])),
+                self._confluence_points(entry),
                 self._abs_slope(entry["ma50_slope"]),
             ),
             reverse=True,
@@ -317,12 +317,25 @@ class TriageAgent:
             fallback_used=True,
         )
 
+    def _confluence_points(self, entry: Dict[str, Any]) -> int:
+        """Independent points of evidence backing this asset.
+
+        A workflow trigger is a mechanism separate from the detectors, so it
+        adds one point - and only one, however many fired (A-004). It cannot
+        reach HIGH on its own: that still needs two structural patterns, or
+        one plus a trigger.
+        """
+        points = len(self._structural_families(entry["patterns"]))
+        if entry["workflow_triggers"]:
+            points += 1
+        return points
+
     def _fallback_conviction(self, entry: Dict[str, Any]) -> Conviction:
-        structural_count = len(self._structural_families(entry["patterns"]))
-        if structural_count >= 2:
+        points = self._confluence_points(entry)
+        if points >= 2:
             return Conviction.HIGH
         if (
-            structural_count >= 1
+            points >= 1
             and self._abs_slope(entry["ma50_slope"]) >= self.slope_threshold
         ):
             return Conviction.WATCH
@@ -332,8 +345,22 @@ class TriageAgent:
         patterns = ", ".join(p.value for p in entry["patterns"])
         slope = entry["ma50_slope"]
         slope_text = f", slope {slope:.1f}%" if slope is not None else ""
+        # Deliberately the structural pattern count, not _confluence_points:
+        # on a day with no triggers this string must be byte-identical to the
+        # pre-feature fallback (SC-004). The workflow is named in its own
+        # clause instead.
         structural_count = len(self._structural_families(entry["patterns"]))
-        return f"{structural_count} pattern(s): {patterns}{slope_text}"
+        trigger_text = ""
+        if entry["workflow_triggers"]:
+            trigger_text = "; workflow " + ", ".join(
+                f"{trigger.workflow_name} ({trigger.direction.value}"
+                f"{', dry run' if trigger.dry_run else ''})"
+                for trigger in entry["workflow_triggers"]
+            )
+        return (
+            f"{structural_count} pattern(s): "
+            f"{patterns}{slope_text}{trigger_text}"
+        )
 
     def _pattern_families(self, patterns: List[AlertType]) -> set[AlertType]:
         return {_PATTERN_FAMILY.get(p, p) for p in patterns}
