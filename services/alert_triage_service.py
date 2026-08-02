@@ -10,6 +10,7 @@ from model import (
     AlertDigest,
     AlertType,
     Conviction,
+    Direction,
     TriagedAsset,
     WorkflowTrigger,
 )
@@ -317,18 +318,46 @@ class TriageAgent:
             fallback_used=True,
         )
 
+    def _trigger_point(self, entry: Dict[str, Any]) -> int:
+        """Whether the day's workflow triggers earn a confluence point.
+
+        The reasoning path treats a trigger that contradicts the read as a red
+        flag rather than as confluence. This mirrors that: the point is earned
+        only by live triggers that agree with each other and with the
+        direction of the trend they ride. It is never negative - the fallback
+        withholds credit, it does not punish - and never more than one,
+        however many fired (A-004).
+        """
+        live = [t for t in entry["workflow_triggers"] if not t.dry_run]
+        if not live:
+            # dry_run committed no capital: one step below a live trigger,
+            # which in an integer tally means no point at all.
+            return 0
+
+        directions = {trigger.direction for trigger in live}
+        if len(directions) > 1:
+            return 0
+
+        slope = entry["ma50_slope"]
+        if not slope:
+            return 0
+
+        direction = directions.pop()
+        agrees = (direction == Direction.BUY and slope > 0) or (
+            direction == Direction.SELL and slope < 0
+        )
+        return 1 if agrees else 0
+
     def _confluence_points(self, entry: Dict[str, Any]) -> int:
         """Independent points of evidence backing this asset.
 
-        A workflow trigger is a mechanism separate from the detectors, so it
-        adds one point - and only one, however many fired (A-004). It cannot
-        reach HIGH on its own: that still needs two structural patterns, or
-        one plus a trigger.
+        A workflow trigger is a mechanism separate from the detectors, so an
+        agreeing one adds a point. It cannot reach HIGH on its own: that still
+        needs two structural patterns, or one plus a trigger.
         """
-        points = len(self._structural_families(entry["patterns"]))
-        if entry["workflow_triggers"]:
-            points += 1
-        return points
+        return len(
+            self._structural_families(entry["patterns"])
+        ) + self._trigger_point(entry)
 
     def _fallback_conviction(self, entry: Dict[str, Any]) -> Conviction:
         points = self._confluence_points(entry)
@@ -352,11 +381,20 @@ class TriageAgent:
         structural_count = len(self._structural_families(entry["patterns"]))
         trigger_text = ""
         if entry["workflow_triggers"]:
+            # .name, not .value: Slack and the Daily Brief both render the
+            # stored BUY/SELL form, and a fallback rationale sits beside them.
             trigger_text = "; workflow " + ", ".join(
-                f"{trigger.workflow_name} ({trigger.direction.value}"
+                f"{trigger.workflow_name} ({trigger.direction.name}"
                 f"{', dry run' if trigger.dry_run else ''})"
                 for trigger in entry["workflow_triggers"]
             )
+        # "0 pattern(s): mm7_break" would state a count of zero and then list
+        # one. A zero structural count means every pattern was a timing
+        # signal, so say that instead. Only reachable with a trigger attached
+        # (nothing else promotes a timing-only asset), so the no-trigger
+        # string stays byte-identical (SC-004).
+        if structural_count == 0:
+            return f"timing only: {patterns}{slope_text}{trigger_text}"
         return (
             f"{structural_count} pattern(s): "
             f"{patterns}{slope_text}{trigger_text}"
