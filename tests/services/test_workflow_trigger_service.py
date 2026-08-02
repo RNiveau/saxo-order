@@ -11,6 +11,18 @@ from services.workflow_trigger_service import collect_todays_triggers
 RUN_DATE = "2026-08-01"
 PARIS = ZoneInfo("Europe/Paris")
 
+# The scan runs at 18:15 Paris. Pinning "now" keeps the window bounds fixed:
+# with a real clock these tests pass on RUN_DATE and start failing the next
+# day, because the end bound moves while the fixtures do not.
+FROZEN_NOW = datetime.datetime(2026, 8, 1, 18, 15, tzinfo=PARIS)
+
+
+@pytest.fixture(autouse=True)
+def frozen_clock(monkeypatch):
+    monkeypatch.setattr(
+        "services.workflow_trigger_service._now_paris", lambda: FROZEN_NOW
+    )
+
 
 def at_hour(hour: int, minute: int = 0) -> int:
     day = datetime.datetime.strptime(RUN_DATE, "%Y-%m-%d").date()

@@ -13,12 +13,16 @@ PARIS = ZoneInfo("Europe/Paris")
 logger = Logger.get_logger("workflow_trigger_service", logging.INFO)
 
 
+def _now_paris() -> datetime.datetime:
+    return datetime.datetime.now(PARIS)
+
+
 def _session_window(run_date: str) -> Tuple[int, int]:
     day = datetime.datetime.strptime(run_date, "%Y-%m-%d").date()
     start = datetime.datetime.combine(
         day, datetime.time.min, tzinfo=PARIS
     ).timestamp()
-    return int(start), int(datetime.datetime.now(PARIS).timestamp())
+    return int(start), int(_now_paris().timestamp())
 
 
 def _asset_keys(alert: Alert) -> List[str]:
