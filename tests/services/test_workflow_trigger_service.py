@@ -328,3 +328,22 @@ async def test_returns_empty_when_there_are_no_alerts():
     triggers = await collect_todays_triggers(client, RUN_DATE, [])
 
     assert triggers == {}
+
+
+@pytest.mark.asyncio
+async def test_window_start_follows_the_run_date():
+    # A manual or retried run passes its own date, and the window's START
+    # moves with it rather than assuming the scheduled day (spec edge case:
+    # off-schedule run). Note the END stays "now", so an earlier run_date
+    # widens the window rather than sliding it - the bounds are only a single
+    # session when run_date is today, which is the only way it is called.
+    yesterday = at_hour(14, 30) - 24 * 3600
+    client = FakeDynamoDBClient([order(placed_at=yesterday)], [workflow()])
+
+    for_today = await collect_todays_triggers(client, RUN_DATE, [alert()])
+    for_yesterday = await collect_todays_triggers(
+        client, "2026-07-31", [alert()]
+    )
+
+    assert for_today == {}
+    assert list(for_yesterday) == ["AI_xpar"]

@@ -125,13 +125,23 @@ asset; confirm the fallback lifts it and still flags the brief as a fallback.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T034 Add tests to `tests/services/test_workflow_trigger_service.py` for the remaining spec edge cases: several triggers on one asset, triggers disagreeing on direction, and a trigger on an asset outside the alert set
-- [ ] T035 [P] Confirm no `assert` in any new production code and that every new public method omits the leading underscore (Constitution II.5, I)
-- [ ] T036 [P] Run `poetry run black . && poetry run isort . && poetry run mypy . && poetry run flake8`
-- [ ] T037 [P] Run `npm run lint && npm run build` in `frontend/`
-- [ ] T038 Diff a no-trigger-day digest against `/tmp/digest-before.json` from T002 and confirm equivalence (SC-004, FR-019)
-- [ ] T039 Time the triage step with and without the enrichment; confirm the added cost is a few seconds at most and the scan stays inside its budget (SC-007)
-- [ ] T040 Confirm no Pulumi or IAM change is required — existing `workflows` / `workflow_orders` read grants already cover the alerting Lambda (plan.md Technical Context)
+- [x] T034 Add tests to `tests/services/test_workflow_trigger_service.py` for the remaining spec edge cases: several triggers on one asset, triggers disagreeing on direction, and a trigger on an asset outside the alert set
+- [x] T035 [P] Confirm no `assert` in any new production code and that every new public method omits the leading underscore (Constitution II.5, I)
+- [x] T036 [P] Run `poetry run black . && poetry run isort . && poetry run mypy . && poetry run flake8`
+- [x] T037 [P] Run `npm run lint && npm run build` in `frontend/`
+- [ ] T038 ⚠️ BLOCKED — depends on the T002 baseline, which needs AWS. Diff a no-trigger-day digest against `/tmp/digest-before.json` and confirm equivalence (SC-004, FR-019). Covered offline in the meantime by `test_synthesize_without_triggers_matches_pre_feature_behaviour` and `test_fallback_rationale_unchanged_when_nothing_is_corroborated`, which pin the digest fields and the exact fallback string
+- [x] T039 Time the triage step with and without the enrichment (SC-007). **In-process cost is unmeasurable**: 400 assets / 20 corroborated ran at 1.4 ms/synthesize either way. The remaining cost is the two DynamoDB scans in `collect_todays_triggers`, which cannot be timed without AWS — small tables, once per run, after detection completes
+- [x] T040 Confirm no Pulumi or IAM change is required — existing `workflows` / `workflow_orders` read grants already cover the alerting Lambda (plan.md Technical Context)
+
+
+> **Phase 6 result**: T034–T037 and T040 done. T039 measured as far as possible offline. T038 is
+> blocked on the T002 baseline. Suite: **934 passed, 10 skipped**; flake8 clean; mypy 4 pre-existing
+> missing-stub notes (`aioboto3`, `binance.error`), unchanged by this feature; frontend `npm run
+> build` succeeds, `npm run lint` 0 errors / 3 pre-existing warnings in untouched files.
+>
+> **Four verification tasks remain blocked on AWS credentials** — T002, T003, T019, T029, plus T038
+> which depends on T002. Nothing in this feature has run against a real recorded workflow order or
+> been rendered in a browser.
 
 ---
 
