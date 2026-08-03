@@ -27,16 +27,21 @@ from utils.exception import SaxoException
 MA50_PERIOD = 50
 
 # H1 candles the filter's series must hold before the first day of a run
-# can be scored: 50 of them, on a 9:00-17:30 session that produces 9 per
-# trading day, plus a margin for public holidays.
-H1_CANDLES_PER_SESSION = 9
+# can be scored: 50 of them, plus a margin for public holidays.
+#
+# The per-session count is derived from the cash market the same way
+# CandlesService.build_candles derives it, rather than written out as 9:
+# the two must agree, and a hardcoded copy would drift silently and in
+# the worst direction if the session ever moved - an under-sized count
+# yields a short series, which reads as "no MA50" and turns days into
+# NO_TRADE rather than failing.
+_CASH_MARKET = EUMarket()
+H1_CANDLES_PER_SESSION = (
+    _CASH_MARKET.close_hour
+    - _CASH_MARKET.open_hour
+    + (1 if _CASH_MARKET.open_minutes == 0 else 0)
+)
 H1_CANDLES_LEAD_IN = MA50_PERIOD + 2 * H1_CANDLES_PER_SESSION
-
-
-def series_unit_time(
-    definition: BacktestDefinition,
-) -> Optional[UnitTime]:
-    return definition.ma50_direction_filter
 
 
 def allowed_side(
@@ -117,7 +122,7 @@ def _h1_candles_through_reference(
     boundary is the same instant either way, but taking it from the series'
     market keeps the two from drifting apart if a session ever moves.
     """
-    reference_start, _ = paris_reference_window_utc(trading_date, EUMarket())
+    reference_start, _ = paris_reference_window_utc(trading_date, _CASH_MARKET)
     through = [
         candle
         for candle in series

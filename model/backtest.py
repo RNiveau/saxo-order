@@ -312,6 +312,7 @@ class BacktestDefinition:
             "first_target_fraction": self.first_target_fraction,
             "runner_extension_points": self.runner_extension_points,
             "trail_to_first_target_points": self.trail_to_first_target_points,
+            "ma50_direction_filter": self.ma50_direction_filter,
         }
         if self.combo_entry:
             for name, value in session_range_only.items():
