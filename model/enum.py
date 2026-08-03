@@ -10,6 +10,8 @@ class Strategy(EnumWithGetValue):
     B9HWS = "Bougie de 9h (wide-range structural stop)"
     G9HIC = "Bougie de 9h GER40 (bougie impulsive)"
     G9HICD = "Bougie de 9h GER40 (bougie impulsive, 2 lots)"
+    G9HICMH = "Bougie de 9h GER40 (bougie impulsive, MM50 h1)"
+    G9HICMD = "Bougie de 9h GER40 (bougie impulsive, MM50 daily)"
     C5M = "Combo GER40 5m"
     C15M = "Combo GER40 15m"
     C1H = "Combo GER40 h1"

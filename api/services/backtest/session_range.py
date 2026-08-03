@@ -11,6 +11,11 @@ from api.services.backtest.calendar import PARIS_TZ
 from api.services.backtest.candle_source import CandleSource
 from api.services.backtest.candles import candle_date
 from api.services.backtest.definitions import is_below_min_range
+from api.services.backtest.direction_filter import (
+    H1_CANDLES_LEAD_IN,
+    H1_CANDLES_PER_SESSION,
+    allowed_side,
+)
 from api.services.backtest.entry import DirectionSearch
 from api.services.backtest.lots import LotModel, Targets
 from api.services.backtest.policies import resolve_exit
@@ -73,16 +78,46 @@ class SessionRangeStrategy:
         The candles come from the raw-candle cache when available and from
         Saxo otherwise (see CandleSource); the strategy evaluation always
         runs fresh against them, cached or not (FR-039)."""
+        return await self._evaluate_day(definition, trading_date, params, None)
+
+    async def _evaluate_day(
+        self,
+        definition: BacktestDefinition,
+        trading_date: datetime.date,
+        params: Optional[BacktestParameters],
+        filter_series: Optional[List[Candle]],
+    ) -> DayResult:
+        """evaluate_day with the MM50 filter's candle series threaded in.
+
+        `filter_series` is None when nobody has fetched it yet (a
+        single-day request), and the day fetches its own; a range run
+        fetches it once and passes it to every day, so the series is not
+        re-fetched 250 times. An empty list is a real (if unusable)
+        series, not "not provided" - hence None as the sentinel."""
         params = params or definition.default_parameters
         day = await self.candle_source.day_candles(definition, trading_date)
         if day is None or day.h1_candle is None:
             return DayResult(date=trading_date, status=DayStatus.NO_DATA)
+        if filter_series is None:
+            # Not fetched for a day the minimum-range filter already
+            # rejects (FR-G43): that day is a NO_TRADE whatever the MA50
+            # says, and the fetch is the expensive half of the filter.
+            filter_series = (
+                []
+                if is_below_min_range(
+                    definition, day.h1_candle.higher, day.h1_candle.lower
+                )
+                else self._fetch_filter_series(
+                    definition, trading_date, trading_date
+                )
+            )
         return self._evaluate_from_candles(
             definition,
             trading_date,
             params,
             day.h1_candle,
             day.m5_candles,
+            filter_series,
         )
 
     def _evaluate_from_candles(
@@ -92,6 +127,7 @@ class SessionRangeStrategy:
         params: BacktestParameters,
         h1_candle: Candle,
         five_min_candles: List[Candle],
+        filter_series: List[Candle],
     ) -> DayResult:
         """Shared tail of evaluate_day once the day's H1/5-minute candles
         are known, whether from the cache or a fresh Saxo fetch: applies
@@ -100,14 +136,27 @@ class SessionRangeStrategy:
         cache-miss paths."""
         h1_high = h1_candle.higher
         h1_low = h1_candle.lower
+        no_trade = DayResult(
+            date=trading_date,
+            status=DayStatus.NO_TRADE,
+            h1_high=h1_high,
+            h1_low=h1_low,
+            h1_open=h1_candle.open,
+        )
         if is_below_min_range(definition, h1_high, h1_low):
-            return DayResult(
-                date=trading_date,
-                status=DayStatus.NO_TRADE,
-                h1_high=h1_high,
-                h1_low=h1_low,
-                h1_open=h1_candle.open,
+            return no_trade
+
+        # MM50 direction filter (FR-G37). Resolved after the minimum-range
+        # check, which is cheaper and needs no series (FR-G43), and before
+        # a single 5-minute candle is scanned: a day the filter allows no
+        # direction on is a NO_TRADE whatever those candles hold.
+        side_filter: Optional[Side] = None
+        if definition.ma50_direction_filter is not None:
+            side_filter = allowed_side(
+                definition, filter_series, trading_date, h1_candle.close
             )
+            if side_filter is None:
+                return no_trade
 
         chronological = sorted(five_min_candles, key=candle_date)
         trades = self._evaluate_trades(
@@ -117,6 +166,7 @@ class SessionRangeStrategy:
             params,
             definition,
             trading_date,
+            side_filter,
         )
 
         status = DayStatus.TRADED if trades else DayStatus.NO_TRADE
@@ -145,6 +195,9 @@ class SessionRangeStrategy:
         daily_candles = self._fetch_daily_candles(
             definition, start_date, end_date
         )
+        filter_series = self._fetch_filter_series(
+            definition, start_date, end_date, daily_candles
+        )
 
         current = start_date
         while current <= end_date:
@@ -154,7 +207,9 @@ class SessionRangeStrategy:
                 # NO_DATA - avoids two wasted Saxo calls per weekend day.
                 current += datetime.timedelta(days=1)
                 continue
-            day_result = await self.evaluate_day(definition, current, params)
+            day_result = await self._evaluate_day(
+                definition, current, params, filter_series
+            )
             if day_result.status != DayStatus.NO_DATA:
                 day_points = round(
                     sum(trade.points for trade in day_result.trades), 4
@@ -233,6 +288,77 @@ class SessionRangeStrategy:
             )
             return []
 
+    def _fetch_filter_series(
+        self,
+        definition: BacktestDefinition,
+        start_date: datetime.date,
+        end_date: datetime.date,
+        daily_candles: Optional[List[Candle]] = None,
+    ) -> List[Candle]:
+        """The candle series the MM50 direction filter reads (FR-G38), or
+        an empty list for a definition without the filter - which never
+        looks at it.
+
+        The daily variant reuses the series the run already fetched for
+        the regime columns rather than paying for a second identical
+        fetch; only a single-day request (daily_candles None) fetches its
+        own."""
+        ut = definition.ma50_direction_filter
+        if ut is None:
+            return []
+        if ut == UnitTime.D:
+            if daily_candles is not None:
+                return daily_candles
+            return self._fetch_daily_candles(definition, start_date, end_date)
+        return self._fetch_h1_filter_candles(definition, start_date, end_date)
+
+    def _fetch_h1_filter_candles(
+        self,
+        definition: BacktestDefinition,
+        start_date: datetime.date,
+        end_date: datetime.date,
+    ) -> List[Candle]:
+        """H1 candles of the 9:00-17:30 cash session covering the run
+        range plus the 50-candle lead-in the first day needs.
+
+        On EUMarket rather than definition.market for the same reason the
+        daily regime series is (see _fetch_daily_candles): the filter is a
+        measure of the instrument, and the CFD session would put ~13 H1
+        bars in a day instead of 9, so a 50-period MA would span four
+        sessions instead of six and stop being comparable with the daily
+        variant it exists to be compared against.
+
+        A failure degrades to an empty series, which the filter reads as
+        "no MA50" and every day of the run reports NO_TRADE (FR-G40) -
+        visibly nothing rather than a run silently unfiltered."""
+        # Calendar days is a safe upper bound on the range's trading days,
+        # and build_candles caps at the data available, so no need to
+        # exclude weekends and holidays precisely.
+        count = (
+            (end_date - start_date).days + 1
+        ) * H1_CANDLES_PER_SESSION + H1_CANDLES_LEAD_IN
+        # Anchored on the day *after* the range's last day: the filter
+        # reads the 9:00-10:00 candle of end_date itself, and an anchor at
+        # midnight Paris on end_date resolves to the previous session's
+        # close, which would leave that candle out of the series.
+        reference = datetime.datetime(
+            end_date.year, end_date.month, end_date.day, tzinfo=PARIS_TZ
+        ) + datetime.timedelta(days=1)
+        try:
+            return self.candles_service.build_candles(
+                definition.instrument,
+                UnitTime.H1,
+                EUMarket(),
+                count,
+                reference,
+            )
+        except SaxoException as e:
+            self.logger.warning(
+                f"No H1 candles for {definition.instrument} MM50 "
+                f"direction filter: {e}"
+            )
+            return []
+
     def _evaluate_trades(
         self,
         candles: List[Candle],
@@ -241,6 +367,7 @@ class SessionRangeStrategy:
         params: BacktestParameters,
         definition: BacktestDefinition,
         trading_date: datetime.date,
+        side_filter: Optional[Side] = None,
     ) -> List[Trade]:
         """Evaluate both directions concurrently, with at most one
         position open at any time. The H1 high/low reference levels are
@@ -307,6 +434,14 @@ class SessionRangeStrategy:
                 if not gate.allows(candle_time):
                     continue
                 for side in (LONG, SHORT):
+                    # MM50 direction filter (FR-G41): only the act of
+                    # opening on the wrong side is refused. Checked here
+                    # rather than by skipping the side outright, so its
+                    # search is still fed above (FR-G42) and the allowed
+                    # side sees exactly the candle sequence it does
+                    # without the filter.
+                    if side_filter is not None and side != side_filter:
+                        continue
                     entry_price = entries[side]
                     if entry_price is not None:
                         position = self._open_position(

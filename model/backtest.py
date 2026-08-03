@@ -106,6 +106,13 @@ class BacktestDefinition:
     # at "an H1 reference candle scanned with 5-minute candles" and is
     # not a parameter.
     unit_time: Optional[UnitTime] = None
+    # MM50 direction filter (spec 025 addendum 5, FR-G37): when set, the
+    # day trades in at most one direction, decided once at 10:00 by where
+    # the 9h reference candle closed relative to the MA50 read on this
+    # timeframe - above it only longs may open, below it only shorts.
+    # H1 or D; left None on every other definition, which takes entries in
+    # both directions.
+    ma50_direction_filter: Optional[UnitTime] = None
     # Selects the combo strategy (spec 026): entries come from the combo
     # indicator on unit_time candles instead of a breakout of the 9h
     # reference range, and a position is held until an exit rule fires
@@ -260,6 +267,18 @@ class BacktestDefinition:
             raise ValueError(
                 "max_daily_losses must be positive - a cap of zero would "
                 f"forbid every entry (definition {self.code!r})"
+            )
+        # Only two timeframes have a series the filter knows how to build
+        # (FR-G38): the cash-session H1 series and the daily one. Any
+        # other value would have no candles to average and would ship as
+        # a filter that never allows anything.
+        if self.ma50_direction_filter is not None and (
+            self.ma50_direction_filter not in (UnitTime.H1, UnitTime.D)
+        ):
+            raise ValueError(
+                "ma50_direction_filter reads either H1 or daily candles; "
+                f"{self.ma50_direction_filter.value!r} has no series "
+                f"(definition {self.code!r})"
             )
         if self.combo_entry and self.unit_time is None:
             raise ValueError(

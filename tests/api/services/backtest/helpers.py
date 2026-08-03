@@ -117,6 +117,47 @@ IMPULSIVE_DOUBLE_DEFINITION = BacktestDefinition(
     runner_extension_points=100.0,
     trail_to_first_target_points=50.0,
 )
+# The MM50 direction filter (spec 025 addendum 5): G9HIC restricted to
+# one direction per day, the pair differing only in the timeframe the
+# MA50 is read on.
+MM50_H1_DEFINITION = BacktestDefinition(
+    code="G9HICMH",
+    name="Bougie de 9h GER40 (bougie impulsive, MM50 h1)",
+    display_name="GER40 Bougie de 9h (bougie impulsive, MM50 h1)",
+    instrument="GER40.I",
+    market=EuCfdMarket(),
+    default_parameters=BacktestParameters(
+        stop_loss_points=150,
+        take_profit_offset_points=10,
+        break_even_trigger_points=50,
+        max_entry_distance_points=40,
+    ),
+    min_h1_range_points=70.0,
+    impulsive_candle_points=70.0,
+    impulsive_close_fraction=0.25,
+    last_entry_time=datetime.time(16, 0),
+    max_daily_losses=2,
+    ma50_direction_filter=UnitTime.H1,
+)
+MM50_DAILY_DEFINITION = BacktestDefinition(
+    code="G9HICMD",
+    name="Bougie de 9h GER40 (bougie impulsive, MM50 daily)",
+    display_name="GER40 Bougie de 9h (bougie impulsive, MM50 daily)",
+    instrument="GER40.I",
+    market=EuCfdMarket(),
+    default_parameters=BacktestParameters(
+        stop_loss_points=150,
+        take_profit_offset_points=10,
+        break_even_trigger_points=50,
+        max_entry_distance_points=40,
+    ),
+    min_h1_range_points=70.0,
+    impulsive_candle_points=70.0,
+    impulsive_close_fraction=0.25,
+    last_entry_time=datetime.time(16, 0),
+    max_daily_losses=2,
+    ma50_direction_filter=UnitTime.D,
+)
 GER_PARAMS = GER_DEFINITION.default_parameters
 
 # The impulsive variant needs an H1 range wider than 70 points to trade at
@@ -134,12 +175,12 @@ IMPULSIVE_H1_HIGH = 8100.0
 NO_CACHE_CLIENT = DynamoDBClient(dynamodb_resource=None)
 
 
-def h1_candle(higher=H1_HIGH, lower=H1_LOW):
+def h1_candle(higher=H1_HIGH, lower=H1_LOW, close=8030.0):
     return Candle(
         lower=lower,
         higher=higher,
         open=8020.0,
-        close=8030.0,
+        close=close,
         ut=UnitTime.H1,
         date=datetime.datetime(2026, 6, 2, 7, 0),
     )
@@ -177,6 +218,72 @@ def uptrend_daily_series(end_before: datetime.date, count: int) -> list:
         day = end_before - datetime.timedelta(days=offset)
         series.append(daily_candle(day, close=8000 + (count - offset)))
     return list(reversed(series))
+
+
+# The 9:00-10:00 reference candle of TRADING_DATE in naive UTC: 9:00
+# Paris on a June day is 07:00 UTC, matching h1_candle()'s date. The
+# MM50 H1 series is built backward from it.
+REFERENCE_START = datetime.datetime(2026, 6, 2, 7, 0)
+
+
+def h1_filter_series(close: float, count: int = 60) -> list:
+    """`count` H1 candles of constant close ending *with* the 9:00-10:00
+    reference candle, so mobile_average over any 50 of them is `close`.
+
+    Returned newest-first, the codebase convention; hourly steps ignore
+    session boundaries, which the filter never looks at - it selects on
+    "at or before the reference candle" and counts."""
+    return [
+        Candle(
+            lower=close - 5,
+            higher=close + 5,
+            open=close,
+            close=close,
+            ut=UnitTime.H1,
+            date=REFERENCE_START - datetime.timedelta(hours=offset),
+        )
+        for offset in range(count)
+    ]
+
+
+def daily_filter_series(close: float, count: int = 60) -> list:
+    """`count` daily candles of constant close, all strictly before
+    TRADING_DATE, so the daily MA50 is `close`."""
+    return [
+        daily_candle(TRADING_DATE - datetime.timedelta(days=offset), close)
+        for offset in range(1, count + 1)
+    ]
+
+
+async def run_mm50(
+    m5_candles,
+    definition=MM50_H1_DEFINITION,
+    series=None,
+    h1_close=8030.0,
+    higher=IMPULSIVE_H1_HIGH,
+    lower=H1_LOW,
+):
+    """A single day under one of the MM50-filtered definitions. `series`
+    is what the filter's fetch returns - H1 or daily candles depending on
+    the definition."""
+    service = make_service(
+        [h1_candle(higher=higher, lower=lower, close=h1_close)], m5_candles
+    )
+    service.candles_service.build_candles.return_value = (
+        series if series is not None else []
+    )
+    return await service.evaluate_day(definition, TRADING_DATE, GER_PARAMS)
+
+
+def short_entry_candles():
+    """The mirror of ger_entry_candles(): a breach above the 8100 H1
+    high, a candle closing back inside, and a confirmation trading below
+    it - a short entry at 8085."""
+    return [
+        m5_candle(0, 8095, 8115, 8090, 8110),  # breach (close > h1_high)
+        m5_candle(1, 8110, 8112, 8085, 8095),  # candidate, lower=8085
+        m5_candle(2, 8090, 8092, 8080, 8082),  # breakout -> entry @8085
+    ]
 
 
 def closed_trade(points, exit_reason, direction=Direction.BUY) -> Trade:
@@ -266,6 +373,9 @@ __all__ = [
     "IMPULSIVE_DEFINITION",
     "IMPULSIVE_DOUBLE_DEFINITION",
     "IMPULSIVE_H1_HIGH",
+    "MM50_DAILY_DEFINITION",
+    "MM50_H1_DEFINITION",
+    "REFERENCE_START",
     "H1_LOW",
     "NO_CACHE_CLIENT",
     "TIME_CUT_DEFINITION",
@@ -273,6 +383,10 @@ __all__ = [
     "WIDE_RANGE_DEFINITION",
     "closed_trade",
     "daily_candle",
+    "daily_filter_series",
+    "h1_filter_series",
+    "run_mm50",
+    "short_entry_candles",
     "ger_entry_candles",
     "h1_candle",
     "m5_candle",

@@ -61,8 +61,8 @@ class TestRunRange:
         }
         mocker.patch.object(
             service.strategies.session_range,
-            "evaluate_day",
-            side_effect=lambda d, date, params: results[date],
+            "_evaluate_day",
+            side_effect=lambda d, date, params, series: results[date],
         )
 
         result = await service.run_range(DEFINITION, day1, day3)
@@ -95,8 +95,8 @@ class TestRunRange:
         monday = datetime.date(2026, 6, 8)
         evaluate_day = mocker.patch.object(
             service.strategies.session_range,
-            "evaluate_day",
-            side_effect=lambda d, date, params: DayResult(
+            "_evaluate_day",
+            side_effect=lambda d, date, params, series: DayResult(
                 date=date, status=DayStatus.NO_TRADE, h1_high=8050, h1_low=8000
             ),
         )
@@ -114,7 +114,7 @@ class TestRunRange:
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
             service.strategies.session_range,
-            "evaluate_day",
+            "_evaluate_day",
             return_value=DayResult(
                 date=day, status=DayStatus.NO_TRADE, h1_high=8050, h1_low=8000
             ),
@@ -142,7 +142,7 @@ class TestRunRange:
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
             service.strategies.session_range,
-            "evaluate_day",
+            "_evaluate_day",
             return_value=DayResult(
                 date=day,
                 status=DayStatus.TRADED,
@@ -171,7 +171,7 @@ class TestRunRange:
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
             service.strategies.session_range,
-            "evaluate_day",
+            "_evaluate_day",
             return_value=DayResult(
                 date=day,
                 status=DayStatus.TRADED,
@@ -202,7 +202,7 @@ class TestRunRange:
         day = datetime.date(2026, 6, 2)
         mocker.patch.object(
             service.strategies.session_range,
-            "evaluate_day",
+            "_evaluate_day",
             return_value=DayResult(
                 date=day,
                 status=DayStatus.TRADED,
