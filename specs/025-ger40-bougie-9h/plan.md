@@ -297,3 +297,60 @@ The engine then computes targets **per side** instead of once — a real change,
 |---|---|---|
 | Changing `LotModel.first_target_level` into `targets()` rather than adding a second method. | The new model decides *both* levels, and the old signature had neither the side nor the runner. | Touches three implementations and their tests; the engine gets simpler (one call per side instead of a call plus a separate take-profit computation threaded into `_open_position`). |
 | Targets computed per side. | TP1 is now direction-dependent; `G9H`'s midpoint was not. | `G9H`'s behavior is unchanged because `TwoLot.targets` ignores the side it is handed. |
+
+---
+
+# Addendum 5: MM50 direction filter (`G9HICMH`, `G9HICMD`)
+
+**Branch**: `claude/ger40-ma50-strategy-test-4p69yj` | **Date**: 2026-08-03 | **Spec**: [spec.md](./spec.md) §Addendum 5
+
+## Summary
+
+Two definitions reproducing `G9HIC` — the single-take-profit impulsive variant — plus one rule: the day trades in at most one direction, decided at 10:00 by the 9h reference candle's close against an MA50. The pair differs only in the timeframe that MA50 is read on (H1 / daily), so a difference between their results is attributable to the timeframe and nothing else. `G9HIC` is untouched and is the control run.
+
+## Design
+
+### 1. Where the rule belongs
+
+Not in the exit chain (it closes nothing), and not in `EntryGate` (that answers "may *anything* open now?" from the clock and the day's losses, with no notion of a side). It is a third question — "may *this side* open?" — resolved once per day and consulted where the engine picks a side to open on.
+
+So: a per-day `Optional[Side]` computed before the 5-minute scan and threaded into `_evaluate_trades`, where the open loop skips a side that is not it. Deliberately a `continue` inside the existing loop rather than dropping the side from `searches`: both `DirectionSearch` objects must keep being fed (FR-G42), and a refused entry must not trigger `_reset`, or a pending candidate on the *allowed* side would be silently discarded — the case `TestBothSearchesStillFed` pins.
+
+### 2. `direction_filter.py`
+
+A new module rather than a function in `analytics.py`. Both average candles, but the measures in `analytics` are *reported* next to a day and never change what the strategy does, while this one decides whether a position may open; and they differ on the lookahead boundary — a regime column reads strictly prior days, the H1 filter includes the reference candle itself, which has closed by 10:00.
+
+`allowed_side(definition, series, trading_date, reference_close) -> Optional[Side]` returns `None` both for "closed exactly on the MA50" and for "no MA50 available": each is a day nobody could have traded, and the caller reports `NO_TRADE` without distinguishing them.
+
+### 3. The candle series
+
+`_fetch_filter_series` on the engine, on `EUMarket` for both variants — the same comparability argument `_fetch_daily_candles` already makes: the CFD session would put ~13 H1 bars in a day instead of 9, so a 50-period MA would span four sessions instead of six.
+
+- **Daily**: reuses the series `run_range` already fetches for `mm50_slope` / `adx14` / `overnight_gap`. No new fetch.
+- **H1**: one `build_candles(..., UnitTime.H1, EUMarket(), ...)` per range run, anchored on the day *after* the range's last day — an anchor at midnight Paris on `end_date` resolves to the previous session's close, which would leave the last day's own reference candle out of the series.
+
+Fetched once per run, not once per day: `run_range` passes the series down, so `evaluate_day` keeps its signature and only a single-day request pays for its own fetch — and even then not on a day the cheaper minimum-range filter already rejects (FR-G43).
+
+A failed fetch degrades to an empty series, which reads as "no MA50" and makes every day of the run a `NO_TRADE` (FR-G40) — visibly nothing, rather than a run that silently reports unfiltered results under a filtered definition's name.
+
+### 4. Definition field and guard
+
+`ma50_direction_filter: Optional[UnitTime] = None`. `__post_init__` rejects any value other than `H1` / `D`: no other timeframe has a series the filter knows how to build, so it would ship as a filter that never allows anything.
+
+## Constitution Check
+
+| Principle | Check | Result |
+|---|---|---|
+| I. Layered Architecture | New field in `model/`; the filter and its fetch in the Service layer; no router, client or frontend change (the menu is registry-driven). | PASS |
+| II. Clean Code First | One new module with one public function; the open loop gains one guarded `continue`; guards raise rather than `assert`; two new `Strategy` members. | PASS |
+| III. Configuration-Driven | The period (50) and the timeframe are fixed definition properties (FR-G44); the four numeric thresholds stay per-run tunable. | PASS |
+| IV. Safe Deployment | Additive: two definitions, one field. Existing golden rows unmoved (SC-G23, verified). | PASS |
+| V. Domain Model Integrity | `Candle` / `Side` throughout; existing `mobile_average`; no new instrument or market. | PASS |
+
+## Complexity Tracking
+
+| Design point | Why | Note |
+|---|---|---|
+| A private `_evaluate_day` taking the series, behind the public `evaluate_day`. | The series must be fetched once per range, not once per day, without changing the strategy Protocol's signature. | `run_range`'s per-day seam moves to `_evaluate_day`; the range tests patch that instead. |
+| `None` conflates "on the MA50" with "no MA50". | Both are untradeable days and the day export has one `NO_TRADE` status for them. | If the two ever need telling apart in the export, they need distinct statuses first. |
+| The H1 series is built on the cash session while the strategy trades the CFD session. | Comparability with the daily variant and with the existing regime columns. | Means the 17:30–22:00 bars the strategy scans never enter its own MA50 — stated in the spec's edge cases. |

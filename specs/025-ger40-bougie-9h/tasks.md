@@ -323,3 +323,36 @@ Phase 10 in order (fields → gate → builder → wiring → registration); Pha
 - [x] T072 [P] Tests: the policy in `test_rules.py` (chain shape) and the end-to-end cases in `test_engine_impulsive_double.py` per SC-G17 — trail then fall back to TP1, trail then TP2, no trail without TP1 + 50, no trail before TP1 fills, arm-and-fall-back on one candle, the short mirror.
 - [x] T073 Regenerate the golden snapshot; only `G9HICD` rows may move (SC-G18).
 - [x] T074 `black`/`isort`/`flake8`/`mypy` and the full suite.
+
+---
+
+# Addendum 5 tasks: MM50 direction filter (`G9HICMH`, `G9HICMD`)
+
+**Input**: [spec.md](./spec.md) §Addendum 5, [plan.md](./plan.md) §Addendum 5
+
+## Phase 16: The filter
+
+- [x] T075 Add `ma50_direction_filter: Optional[UnitTime]` to `BacktestDefinition` in `model/backtest.py`, with a `__post_init__` guard rejecting any timeframe other than `H1` / `D` (no other has a series the filter can build, so it would ship as a filter that never allows anything).
+- [x] T076 Add `api/services/backtest/direction_filter.py`: `MA50_PERIOD`, the H1 lead-in constants, and `allowed_side(definition, series, trading_date, reference_close) -> Optional[Side]` — strictly above the MA50 is `LONG`, strictly below `SHORT`, exactly on it or no computable MA50 is `None`. Daily selects candles strictly before the day; H1 selects candles up to **and including** the 9:00-10:00 reference candle. Depends on T075.
+- [x] T077 Add `_fetch_filter_series` / `_fetch_h1_filter_candles` to `SessionRangeStrategy`: `EUMarket` for both variants, the daily variant reusing the series already fetched for the regime columns, the H1 fetch anchored on the day after the range's last day, a `SaxoException` degrading to an empty series. Depends on T076.
+- [x] T078 Thread the series through a private `_evaluate_day` behind the public `evaluate_day`, so a range run fetches once and a single-day request fetches its own — and not at all for a day the minimum-H1-range filter already rejects (FR-G43). Depends on T077.
+- [x] T079 Resolve the day's allowed side in `_evaluate_from_candles` after the minimum-range check and before the 5-minute scan, returning `NO_TRADE` (with the day's H1 levels) when no direction is allowed. Depends on T078.
+- [x] T080 In `_evaluate_trades`, skip a side that is not the allowed one **inside** the existing open loop — both searches must still be fed, and a refused entry must not trigger `_reset` (FR-G42). Depends on T079.
+- [x] T081 Add `Strategy.G9HICMH` / `Strategy.G9HICMD` to `model/enum.py` and register both definitions in `api/services/backtest/definitions.py`: `G9HIC`'s settings verbatim (`GER40.I`, `EuCfdMarket`, 150/10/50/40, 70-point min range, 70/0.25 impulse, 16:00 cut-off, 2-loss cap, single lot) plus `ma50_direction_filter` of `H1` / `D`. Depends on T080.
+
+## Phase 17: Tests
+
+- [x] T082 Extend `tests/api/services/backtest/helpers.py`: both definitions, `h1_filter_series` / `daily_filter_series` (constant-close series steering the MA50), `short_entry_candles()` (the mirror of `ger_entry_candles()`), `run_mm50`, and a `close` parameter on `h1_candle`.
+- [x] T083 [P] Add `tests/api/services/backtest/test_direction_filter.py` covering SC-G19-SC-G22: the three direction outcomes and their refusals, an allowed trade matching `G9HIC` exactly, a second same-direction entry, the both-searches-still-fed regression (a refused long must not discard the short's pending candidate), the unavailable-MA50 paths, the lookahead boundary on each timeframe, the fetch's market/anchor/count and its reuse of the daily series, and the definition guard.
+- [x] T084 [P] Add both codes to the shipped-chain expectations in `test_rules.py` (their exit chain is `G9HIC`'s, unchanged — the filter acts on entries).
+- [x] T085 Repoint the range tests in `test_run_range.py` at `_evaluate_day`, the seam `run_range` now uses. Depends on T078.
+- [x] T086 Teach the golden market fixture to serve H1 candles (`h1_session_candles` / `h1_candles`, the 9:00-10:00 bar being the same reference candle the strategy reads), so the golden run exercises the filter against real H1 bars. Depends on T081.
+- [x] T087 Regenerate the golden snapshot; confirm the two new definitions are added and **no existing definition's rows move** (SC-G23). Depends on T086.
+
+## Phase 18: Polish
+
+- [x] T088 `poetry run black . && poetry run isort . && poetry run flake8 && poetry run mypy .`, then the full suite.
+
+## Dependencies
+
+Phase 16 in order (field → filter module → fetch → threading → resolution → open loop → registration). In Phase 17, T083/T084 are independent; T085 needs T078; T087 needs T086. Phase 18 last.
