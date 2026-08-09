@@ -54,6 +54,15 @@ Third analysis in the "bougie de 9h" series, after
 > same six windows it nets **−5444** (t = −0.97) and is statistically
 > **indistinguishable from trading G9HIC at 1.5× size** (residual t =
 > −0.05). It is leverage, not edge.
+>
+> **The entry-side fix has since been built and tested too, with the
+> same outcome** — see `g9hicm-ma50-direction-analysis.md` and §11.
+> `G9HICMH` / `G9HICMD` restrict each day to one direction using an MA50
+> read at 10:00 on H1 / daily candles. MD is indistinguishable from
+> trading G9HIC at 0.48× size (+23 points over the size-matched control,
+> t = +0.91); MH is 1914 points *worse* than the size-matched control.
+> Both are position sizing wearing the costume of selection, the same
+> result as G9HICD at the other end of the lever.
 
 ## 1. What G9HIC is
 
@@ -541,7 +550,8 @@ survived four.
 **If the idea is revisited**, it should be as a *new* strategy with a
 pre-registered hypothesis, not another variant of this entry. The
 target-side direction this section previously recommended **has now been
-built and tested** — see §10.
+built and tested** — see §10. So has the entry-side direction filter —
+see §11.
 
 ## 10. G9HICD — the uncapped-runner variant
 
@@ -625,3 +635,44 @@ own terms, before any question of edge.
 capped take-profit really was the structural flaw §4 identified, and
 removing it really does produce bigger wins — but not bigger *relative*
 to the losses it also unlocks. There is no edge underneath to leverage.
+
+## 11. G9HICMH / G9HICMD — the MA50 direction filter
+
+Full analysis in **`g9hicm-ma50-direction-analysis.md`**. Summary of the
+result, over the same six windows:
+
+| | G9HIC | G9HICMH (H1 MA50) | G9HICMD (daily MA50) |
+|---|---|---|---|
+| Traded days / positions | 693 / 884 | 399 / 435 | 388 / 428 |
+| **Net** | **−3553** | **−3663** | **−1697** |
+| Profit factor | 0.87 | 0.77 | 0.88 |
+| t-stat | −1.28 | −1.88 | −0.90 |
+| **Edge over size-matched G9HIC** | — | **−1914** | **+23** |
+
+Both variants are strict subsets of this document's trade list — the
+filter only removes trades — so the comparison is a partition of the
+same 884 positions. Halving the position count halves the loss; the
+question is whether the *selection* beats trading fewer lots, and it
+does not. G9HICMD keeps 48.4% of the positions and takes 47.8% of the
+loss (52nd percentile of a randomised half). G9HICMH gives back 1914
+points against the same size-matched control, and on the days it allows,
+its own side loses −3663 where two-sided trading made +1033.
+
+Two points connect back to this document:
+
+- **§4's structural flaw is untouched.** Payoff ratio goes 0.73 → 0.64
+  (MH) / 0.62 (MD): both variants strip ~12 points off the average win —
+  multi-trade days fall from 169 to 35/40 — while the average loss is
+  unchanged, because the stop on the allowed side is unchanged.
+- **§7.5's pattern repeats.** MD's edge over the size-matched control
+  runs +496 / +247 / +454 / +246 across 2021–2024, then −858 / −419 in
+  2025 and 2026 H1. Four good windows, then a sign flip — for the fourth
+  time in this study.
+
+A third observation is new and worth carrying forward: the two variants
+differ *only* in the timeframe the MA50 is read on, and they separate by
+~1970 points, driven entirely by the 266 days (19% of trading days) on
+which they pick opposite sides. **The noise floor between neighbouring
+parameter choices is wider than the total quantity under study.** Any
+future variant on this entry has to clear that floor before its number
+means anything.
