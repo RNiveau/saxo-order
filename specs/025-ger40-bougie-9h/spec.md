@@ -451,3 +451,99 @@ It only exists after TP1 has filled. Before that the position has no TP1 to trai
 
 - **SC-G17**: On hand-built days, a runner that reaches TP1 + 50 and falls back closes at TP1 as `trailing_stop` with net `2 × (TP1 − entry)`; one that does not reach it still closes at break-even with the banked TP1 alone.
 - **SC-G18**: Every definition other than `G9HICD` produces byte-for-byte identical golden results.
+
+---
+
+# Addendum 5: MM50 direction filter (`G9HICMH`, `G9HICMD`)
+
+**Added**: 2026-08-03
+**Input**: User description: "Start on top of the impulsive strategy with only one TP. We take position with only one direction: buy if above ma50, sell if below ma50. Test with ma50 h1 and daily."
+
+## Context
+
+Two new definitions, both built on `G9HIC` — the **single-take-profit** impulsive variant (not the two-lot `G9HICD`). Everything `G9HIC` does is kept verbatim: the 9:00–10:00 H1 reference range, the breakout/reversal detection on 5-minute candles, the 70-point minimum H1 range, the impulse stop, the 16:00 entry cut-off, the 2-loss daily cap, the CFD 9:00–22:00 session, and the 150/10/50/40 thresholds.
+
+One rule is added: **a day trades in at most one direction**, chosen once at 10:00 by where the 9:00–10:00 reference candle closed relative to an MA50.
+
+- `G9HICMH` reads the MA50 on **H1** candles.
+- `G9HICMD` reads the MA50 on **daily** candles.
+
+They exist to be compared against each other and against `G9HIC`, which is unchanged and remains the control run. The two variants differ in exactly one input — the timeframe the MA50 is computed on — so any difference between their results is attributable to that and nothing else.
+
+This is a *direction* filter, not an entry filter: it never delays or re-prices an entry the base strategy would take in the allowed direction, and it never creates one. It only suppresses entries on the wrong side. The suppressed side's `DirectionSearch` still runs — its breach/candidate state machine advances on every candle exactly as in `G9HIC` — so the allowed side sees the same candles it always did; only the act of *opening* on the wrong side is refused.
+
+## Clarifications
+
+### Session 2026-08-03
+
+- Q: What price is compared to the MA50? → A: The **close of the 9:00–10:00 H1 reference candle**. The filter is therefore one decision per day, taken at 10:00 before any 5-minute candle is scanned, and it holds for the whole session — a day is long-only or short-only, never both, and never flips intraday.
+- Q: Which MA50 value does that comparison use on the H1 variant? → A: The MA50 over the **50 H1 candles ending with the last closed H1 candle at decision time**, which is the 9:00–10:00 reference candle itself. Since the decision is taken at 10:00, that candle has closed and is included; nothing after 10:00 is read, so the filter stays lookahead-safe.
+- Q: Which H1 candle series feeds the H1 MA50 — the CFD 9:00–22:00 session `G9HIC` trades, or the 9:00–17:30 cash session? → A: The **cash session (9:00–17:30)**. Deliberately not the definition's own market: the MA50 is a *regime measure* of the instrument, like `mm50_slope` and `adx14` in the day export, and those are all built on `EUMarket` so the same day scores the same on every definition. A CFD-session H1 series would put ~13 bars in a day instead of ~9, making a "50-period MA" span four sessions instead of six and silently measuring something else.
+- Q: And on the daily variant? → A: The MA50 over the **50 daily closes strictly before the trading day** — the same lookahead guard every measure in `analytics.py` uses. The current day's own daily candle is never read.
+- Q: What happens on a day where the MA50 cannot be computed (fewer than 50 prior candles, missing data, a failed fetch)? → A: The day is **not traded** — reported as `NO_TRADE`. The filter is the entire point of these variants, so falling back to unfiltered behavior would silently mix filtered and unfiltered days into one result and make the comparison against `G9HIC` meaningless.
+- Q: What if the reference candle closes exactly on the MA50? → A: **No trade** that day. Strictly above allows longs only, strictly below allows shorts only, exactly equal allows neither. A vanishingly rare case on floats, specified only so the outcome is deterministic rather than accidental.
+- Q: Is the 50-period length, or the choice of timeframe, tunable per run? → A: **No.** Both are fixed properties of each definition, like the 70-point impulse threshold and the 16:00 cut-off. The four numeric thresholds remain tunable per run as on every other definition.
+
+## User Scenarios & Testing
+
+### User Story 8 - Trade only with the MM50 (Priority: P1)
+
+A trader runs `G9HICMH` (or `G9HICMD`) over a range and sees the `G9HIC` strategy restricted to trend-aligned days: on days the reference candle closed above the MA50 only long entries were taken, on days it closed below only short ones, and the counter-trend trades `G9HIC` took on those days are simply absent.
+
+**Why this priority**: It is the whole feature. Without it the definitions are duplicates of `G9HIC`.
+
+**Independent Test**: Take a historical day `G9HIC` traded short whose 9:00–10:00 candle closed above the MA50, run `G9HICMH` on it, and verify no trade is reported; take a day it traded long under the same condition and verify the trade is identical to `G9HIC`'s, entry price, exits and points included.
+
+**Acceptance Scenarios**:
+
+1. **Given** a day whose 9:00–10:00 reference candle closes **above** the MA50, **When** the backtest runs, **Then** only **long** entries may open; a confirmed short breakdown off the H1 high is not taken, and the day continues scanning for a long.
+2. **Given** that same day, **When** a long breakout confirms and passes the base entry rules, **Then** the position, its impulse stop, its take-profit and its net points are **identical** to what `G9HIC` reports for that entry — the filter changes nothing about an allowed entry.
+3. **Given** a day whose reference candle closes **below** the MA50, **When** the backtest runs, **Then** the mirror applies: only **short** entries may open.
+4. **Given** a day where the allowed direction never produces a valid entry, **When** the backtest runs, **Then** the day is reported `NO_TRADE` with its H1 levels, exactly as a day with no signal at all.
+5. **Given** a day whose H1 range fails the 70-point minimum (FR-G18), **When** the backtest runs, **Then** the day is `NO_TRADE` on that ground and the MA50 is not consulted — the cheaper existing filter still short-circuits first.
+6. **Given** fewer than 50 MA50-timeframe candles before the decision point, **When** the backtest runs, **Then** the day is `NO_TRADE` and no entry is taken in either direction.
+7. **Given** a day the filter allows long, **When** a long position closes and a second long breakout confirms later the same day, **Then** it is taken as usual — the filter caps direction, not the number of positions; the 2-loss cap (FR-G20) and the 16:00 cut-off (FR-G19) are unaffected and still apply.
+8. **Given** the same historical range run under `G9HICMH` and `G9HICMD`, **When** both complete, **Then** they may allow opposite directions on the same day, and each day's allowed direction is attributable solely to its own MA50 timeframe.
+
+### Edge Cases
+
+- **The suppressed side's search still runs.** Refusing the entry is not the same as not looking: `DirectionSearch` is fed on every candle for both sides, as it already is when the entry gate blocks an entry (FR-G19/FR-G20), so the allowed side's state machine sees exactly the candle sequence it sees under `G9HIC`.
+- **The tiebreak between the two sides becomes moot.** `G9HIC`'s deterministic "long wins when both confirm on the same candle" never fires here — at most one side can ever open.
+- **The decision is taken before the 5-minute scan**, so a day rejected for a missing MA50 costs no 5-minute fetch, exactly as a day below the minimum H1 range does.
+- **The reference candle's close is the comparison price, not the entry price.** An entry can therefore open on the *unfavorable* side of the MA50 — price may have crossed back by the time the breakout confirms. That is intended: the filter is a once-a-day regime read, not a per-entry price test.
+- **The H1 MA50 spans the cash session while the strategy trades the CFD session.** The 17:30–22:00 CFD bars exist in the candles the strategy scans but never enter the MA50. Deliberate, per the clarification above.
+- **`G9HIC` is untouched.** Both variants are new registry entries; no existing definition gains a filter.
+- **A daily MA50 barely distinguishes consecutive days.** Two adjacent trading days will almost always get the same allowed direction under `G9HICMD`, so its results should be read as runs of same-direction days rather than as an independent per-day draw.
+
+## Requirements
+
+- **FR-G36**: `G9HICMH` and `G9HICMD` MUST be new registry definitions reproducing `G9HIC` in full — instrument `GER40.I`, CFD 9:00–22:00 session, 150/10/50/40 defaults, 70-point minimum H1 range, 70-point / 0.25 impulse stop, 16:00 entry cut-off, 2-loss daily cap, **single lot and single take-profit** — plus the MM50 direction filter and nothing else.
+- **FR-G37**: Before any 5-minute candle is scanned, each variant MUST resolve the day's **allowed direction** by comparing the close of the 9:00–10:00 H1 reference candle to the MA50: strictly above → **long only**; strictly below → **short only**; exactly equal → **no direction allowed**.
+- **FR-G38**: On `G9HICMH` the MA50 MUST be computed over the 50 most recent **H1 candles of the 9:00–17:30 cash session** ending with the 9:00–10:00 reference candle. On `G9HICMD` it MUST be computed over the 50 most recent **daily candles strictly before** the trading day.
+- **FR-G39**: Neither variant MUST read any candle after 10:00 on the trading day to resolve the filter.
+- **FR-G40**: A day whose MA50 cannot be computed — fewer than 50 candles available, missing data, or a failed fetch — MUST be reported `NO_TRADE` (not `NO_DATA`, the day's candles exist) with its H1 levels, and MUST NOT be traded in either direction.
+- **FR-G41**: The filter MUST only prevent a position from **opening** on the disallowed side. It MUST NOT alter entry prices, stop placement, targets, exit ordering, or any rule applied to a position once open, and MUST NOT close an open position.
+- **FR-G42**: Both directions' `DirectionSearch` MUST continue to be fed on every candle regardless of the allowed direction, so the allowed side's detection is bit-for-bit what `G9HIC` produces.
+- **FR-G43**: The existing minimum-H1-range filter (FR-G18) MUST still be evaluated first; the MA50 MUST NOT be fetched or computed for a day that filter already rejects.
+- **FR-G44**: The MA50 period (50) and the timeframe (H1 / daily) MUST be fixed properties of each definition, not per-run parameters. The four numeric thresholds remain tunable per run as on every other definition.
+- **FR-G45**: Every existing definition MUST be unchanged, `G9HIC` included; a definition without the filter MUST take entries in both directions as it does today.
+
+## Key Entities
+
+- **`BacktestDefinition`**: gains one optional attribute naming the MA50 timeframe the direction filter reads (`h1` or `daily`); absent on every existing definition, which keeps both directions. Rejected at registration if set to any other timeframe.
+- **Allowed direction**: a per-day value — long, short, or none — derived from the reference candle close and the MA50, resolved once and held for the session.
+
+## Success Criteria
+
+- **SC-G19**: On hand-built days, a reference candle closing above the MA50 yields only long trades and a confirmed short breakdown is absent; below the MA50 mirrors; exactly on it yields `NO_TRADE`.
+- **SC-G20**: On any day the filter allows, the variant's trades are **identical** to `G9HIC`'s trades in that direction — same entry price, same exits, same points.
+- **SC-G21**: Over a shared historical range, each variant's trade count is ≤ `G9HIC`'s, and every trade it reports appears in `G9HIC`'s results in the same direction on the same day.
+- **SC-G22**: A day with insufficient MA50 history is reported `NO_TRADE` and contributes 0 points, in both variants.
+- **SC-G23**: Every definition other than the two new ones produces byte-for-byte identical golden results.
+
+## Assumptions
+
+- The H1 cash-session candle series for the MA50 is fetched over the run range plus enough lead-in for the first day's 50 candles (≈7 trading sessions at ~9 bars/session, with margin for holidays), once per range run rather than per day — mirroring how the daily regime series is fetched today.
+- The daily variant reuses the daily candle series the run already fetches for the `mm50_slope` / `adx14` / `overnight_gap` export columns, so it adds no new fetch. Note this series is built on `EUMarket` for the same comparability reason stated above.
+- The MA50 itself is the existing `mobile_average(candles, 50)` from `services/indicator_service.py`, fed newest-first as everywhere else in the codebase.
+- Both variants appear in the Backtest menu alongside the others; no frontend change beyond the two new entries the registry already drives.

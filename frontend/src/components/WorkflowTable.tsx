@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { WorkflowListItem } from '../services/api';
+import { isWorkflowExpired } from '../utils/workflowExpiry';
 import './WorkflowTable.css';
 
 interface WorkflowTableProps {
@@ -68,23 +69,29 @@ function WorkflowTable({ workflows, sortBy, sortOrder, onSortChange, onRowClick 
             </tr>
           </thead>
           <tbody>
-            {paginatedWorkflows.map((workflow) => (
+            {paginatedWorkflows.map((workflow) => {
+              const expired = isWorkflowExpired(workflow.end_date);
+              return (
               <tr
                 key={workflow.id}
                 onClick={() => onRowClick?.(workflow.id)}
-                className={onRowClick ? 'clickable-row' : ''}
+                className={`${onRowClick ? 'clickable-row' : ''}${expired ? ' expired-row' : ''}`}
               >
                 <td className="workflow-name">{workflow.name}</td>
                 <td>{workflow.index}</td>
                 <td>{workflow.cfd}</td>
                 <td>
-                  {workflow.enable ? (
-                    <span className="status-badge status-enabled">
-                      ✓ Enabled
-                    </span>
-                  ) : (
+                  {!workflow.enable ? (
                     <span className="status-badge status-disabled">
                       ✗ Disabled
+                    </span>
+                  ) : expired ? (
+                    <span className="status-badge status-expired">
+                      ⏱ Expired
+                    </span>
+                  ) : (
+                    <span className="status-badge status-enabled">
+                      ✓ Enabled
                     </span>
                   )}
                 </td>
@@ -107,9 +114,12 @@ function WorkflowTable({ workflows, sortBy, sortOrder, onSortChange, onRowClick 
                     ? workflow.primary_unit_time.toUpperCase()
                     : '-'}
                 </td>
-                <td>{formatDate(workflow.end_date)}</td>
+                <td className={expired ? 'expired-date' : ''}>
+                  {formatDate(workflow.end_date)}
+                </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

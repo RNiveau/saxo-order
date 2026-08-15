@@ -6,6 +6,7 @@ from cachetools import TTLCache
 from api.models.alert_digest import (
     AlertDigestResponse,
     TriagedAssetResponse,
+    WorkflowTriggerResponse,
 )
 from client.aws_client import DynamoDBClient
 from utils.helper import to_float
@@ -91,4 +92,23 @@ class AlertDigestService:
             patterns=asset["patterns"],
             ma50_slope=to_float(asset.get("ma50_slope")),
             tradingview_url=tradingview_links.get(asset_id),
+            workflow_triggers=self._to_workflow_triggers(asset),
         )
+
+    def _to_workflow_triggers(
+        self, asset: Dict[str, Any]
+    ) -> Optional[List[WorkflowTriggerResponse]]:
+        triggers = asset.get("workflow_triggers")
+        if not triggers:
+            return None
+        return [
+            WorkflowTriggerResponse(
+                workflow_name=trigger["workflow_name"],
+                direction=trigger["direction"],
+                order_price=to_float(trigger["order_price"]),
+                trigger_close=to_float(trigger.get("trigger_close")),
+                placed_at=int(trigger["placed_at"]),
+                dry_run=bool(trigger["dry_run"]),
+            )
+            for trigger in triggers
+        ]

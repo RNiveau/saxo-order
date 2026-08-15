@@ -308,6 +308,10 @@ class TestRegisteredDefinitionChains:
                 ArmBreakEven,
                 TrailToFirstTarget,
             ],
+            # The MM50 variants filter *entries*; their exit chain is
+            # G9HIC's, unchanged.
+            "G9HICMH": [Stop, Target, ImpulsiveStop, ArmBreakEven],
+            "G9HICMD": [Stop, Target, ImpulsiveStop, ArmBreakEven],
         }
         actual = {
             definition.code: _shape(definition)

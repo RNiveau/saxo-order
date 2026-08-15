@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import type { AlertDigest, TriagedAsset } from '../services/api';
+import type { AlertDigest, TriagedAsset, WorkflowTrigger } from '../services/api';
 import { getTradingViewUrl } from '../utils/tradingview';
 import './DailyBriefCarousel.css';
 
@@ -17,6 +17,53 @@ const CONVICTION_BADGE: Record<string, string> = {
   high: '🔴',
   watch: '🟡',
 };
+
+function formatTriggerHour(placedAt: number): string {
+  return new Date(placedAt * 1000).toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Paris',
+  });
+}
+
+interface TriggerGroup {
+  key: string;
+  workflowName: string;
+  direction: WorkflowTrigger['direction'];
+  dryRun: boolean;
+  count: number;
+  firstAt: number;
+  lastAt: number;
+}
+
+function groupTriggers(triggers: WorkflowTrigger[]): TriggerGroup[] {
+  const groups: TriggerGroup[] = [];
+  const byKey = new Map<string, TriggerGroup>();
+
+  for (const trigger of triggers) {
+    const key = `${trigger.workflow_name}|${trigger.direction}|${trigger.dry_run}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.count += 1;
+      existing.firstAt = Math.min(existing.firstAt, trigger.placed_at);
+      existing.lastAt = Math.max(existing.lastAt, trigger.placed_at);
+      continue;
+    }
+    const group: TriggerGroup = {
+      key,
+      workflowName: trigger.workflow_name,
+      direction: trigger.direction,
+      dryRun: trigger.dry_run,
+      count: 1,
+      firstAt: trigger.placed_at,
+      lastAt: trigger.placed_at,
+    };
+    byKey.set(key, group);
+    groups.push(group);
+  }
+
+  return groups;
+}
 
 function assetSymbol(asset: TriagedAsset): string {
   return asset.country_code
@@ -61,6 +108,27 @@ function AssetRow({ asset }: { asset: TriagedAsset }) {
       {asset.rationale && (
         <div className="daily-brief-asset-rationale">{asset.rationale}</div>
       )}
+      {groupTriggers(asset.workflow_triggers ?? []).map((group) => (
+        <div className="daily-brief-asset-trigger" key={group.key}>
+          <span
+            className={`daily-brief-trigger-direction ${group.direction.toLowerCase()}`}
+          >
+            {group.direction === 'BUY' ? '▲' : '▼'} {group.direction}
+          </span>
+          <span className="daily-brief-trigger-name">{group.workflowName}</span>
+          {group.count > 1 && (
+            <span className="daily-brief-trigger-count">×{group.count}</span>
+          )}
+          <span className="daily-brief-trigger-hour">
+            {group.count > 1
+              ? `${formatTriggerHour(group.firstAt)} → ${formatTriggerHour(group.lastAt)}`
+              : formatTriggerHour(group.firstAt)}
+          </span>
+          {group.dryRun && (
+            <span className="daily-brief-trigger-dryrun">dry run</span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

@@ -8,6 +8,7 @@ from model import (
     BacktestParameters,
     EuCfdMarket,
     Strategy,
+    UnitTime,
 )
 
 BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
@@ -118,6 +119,51 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         double_take_profit=True,
         runner_extension_points=100.0,
         trail_to_first_target_points=50.0,
+    ),
+    # G9HIC restricted to one direction per day (FR-G36/FR-G37): the 9h
+    # reference candle's close against the MA50 decides at 10:00 whether
+    # the day may go long or short, and the other side is refused for the
+    # whole session. The pair differs in the timeframe that MA50 is read
+    # on and in nothing else, so a difference between their results is
+    # attributable to the timeframe alone. G9HIC stays the unfiltered
+    # control run.
+    BacktestDefinition(
+        code="G9HICMH",
+        name=Strategy.G9HICMH.value,
+        display_name="GER40 Bougie de 9h (bougie impulsive, MM50 h1)",
+        instrument="GER40.I",
+        market=EuCfdMarket(),
+        default_parameters=BacktestParameters(
+            stop_loss_points=150,
+            take_profit_offset_points=10,
+            break_even_trigger_points=50,
+            max_entry_distance_points=40,
+        ),
+        min_h1_range_points=70.0,
+        impulsive_candle_points=70.0,
+        impulsive_close_fraction=0.25,
+        last_entry_time=datetime.time(16, 0),
+        max_daily_losses=2,
+        ma50_direction_filter=UnitTime.H1,
+    ),
+    BacktestDefinition(
+        code="G9HICMD",
+        name=Strategy.G9HICMD.value,
+        display_name="GER40 Bougie de 9h (bougie impulsive, MM50 daily)",
+        instrument="GER40.I",
+        market=EuCfdMarket(),
+        default_parameters=BacktestParameters(
+            stop_loss_points=150,
+            take_profit_offset_points=10,
+            break_even_trigger_points=50,
+            max_entry_distance_points=40,
+        ),
+        min_h1_range_points=70.0,
+        impulsive_candle_points=70.0,
+        impulsive_close_fraction=0.25,
+        last_entry_time=datetime.time(16, 0),
+        max_daily_losses=2,
+        ma50_direction_filter=UnitTime.D,
     ),
 ]
 

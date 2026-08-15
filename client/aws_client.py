@@ -12,7 +12,7 @@ import aioboto3
 import boto3
 from botocore.exceptions import ClientError
 
-from model import Alert, AlertDigest, AlertType
+from model import Alert, AlertDigest, AlertType, TriagedAsset
 from utils.json_util import dumps_indicator, hash_indicator
 from utils.logger import Logger
 
@@ -70,6 +70,33 @@ def _dynamo_operation(func):
             raise DynamoDBOperationError(operation, "Connection error") from e
 
     return wrapper
+
+
+def _serialize_triaged_asset(asset: TriagedAsset) -> Dict[str, Any]:
+    item: Dict[str, Any] = {
+        "asset_code": asset.asset_code,
+        "asset_description": asset.asset_description,
+        "exchange": asset.exchange,
+        "conviction": asset.conviction.value,
+        "rationale": asset.rationale,
+        "patterns": [p.value for p in asset.patterns],
+        "ma50_slope": asset.ma50_slope,
+        "rank": asset.rank,
+        "country_code": asset.country_code,
+    }
+    if asset.workflow_triggers:
+        item["workflow_triggers"] = [
+            {
+                "workflow_name": trigger.workflow_name,
+                "direction": trigger.direction.name,
+                "order_price": trigger.order_price,
+                "trigger_close": trigger.trigger_close,
+                "placed_at": trigger.placed_at,
+                "dry_run": trigger.dry_run,
+            }
+            for trigger in asset.workflow_triggers
+        ]
+    return item
 
 
 class AwsClient:
@@ -895,17 +922,7 @@ class DynamoDBClient(AwsClient):
             "summary": digest.summary,
             "counts": digest.counts,
             "triaged_assets": [
-                {
-                    "asset_code": asset.asset_code,
-                    "asset_description": asset.asset_description,
-                    "exchange": asset.exchange,
-                    "conviction": asset.conviction.value,
-                    "rationale": asset.rationale,
-                    "patterns": [p.value for p in asset.patterns],
-                    "ma50_slope": asset.ma50_slope,
-                    "rank": asset.rank,
-                    "country_code": asset.country_code,
-                }
+                _serialize_triaged_asset(asset)
                 for asset in digest.triaged_assets
             ],
             "fallback_used": digest.fallback_used,

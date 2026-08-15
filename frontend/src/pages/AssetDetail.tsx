@@ -15,6 +15,7 @@ import { IndicatorCard } from '../components/IndicatorCard';
 import { AlertCard } from '../components/AlertCard';
 import { WorkflowCreateModal } from '../components/WorkflowCreateModal';
 import { processAlerts } from '../utils/alertFilters';
+import { isWorkflowExpired } from '../utils/workflowExpiry';
 import './AssetDetail.css';
 
 export function AssetDetail() {
@@ -556,6 +557,9 @@ export function AssetDetail() {
     if (!workflow.enabled) {
       return <span className="status-badge disabled">✗ Disabled</span>;
     }
+    if (isWorkflowExpired(workflow.end_date)) {
+      return <span className="status-badge expired">⏱ Expired</span>;
+    }
     if (workflow.dry_run) {
       return (
         <>
@@ -811,7 +815,11 @@ export function AssetDetail() {
                       {workflow.end_date && (
                         <div className="detail-row">
                           <span className="label">End Date:</span>
-                          <span className="value">{workflow.end_date}</span>
+                          <span
+                            className={`value${isWorkflowExpired(workflow.end_date) ? ' expired-date' : ''}`}
+                          >
+                            {workflow.end_date}
+                          </span>
                         </div>
                       )}
                       {workflow.is_us && (
