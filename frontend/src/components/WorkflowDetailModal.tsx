@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { WorkflowDetail, OrderHistoryItem } from '../services/api';
 import { workflowService } from '../services/api';
 import { WorkflowCreateModal } from './WorkflowCreateModal';
+import { isWorkflowExpired } from '../utils/workflowExpiry';
 import './WorkflowDetailModal.css';
 
 interface WorkflowDetailModalProps {
@@ -199,10 +200,12 @@ export function WorkflowDetailModal({ workflowId, onClose, onDelete }: WorkflowD
                 <div className="detail-item">
                   <span className="detail-label">Status:</span>
                   <span className="detail-value">
-                    {workflow.enable ? (
-                      <span className="status-badge status-enabled">✓ Enabled</span>
-                    ) : (
+                    {!workflow.enable ? (
                       <span className="status-badge status-disabled">✗ Disabled</span>
+                    ) : isWorkflowExpired(workflow.end_date) ? (
+                      <span className="status-badge status-expired">⏱ Expired</span>
+                    ) : (
+                      <span className="status-badge status-enabled">✓ Enabled</span>
                     )}
                   </span>
                 </div>
@@ -222,7 +225,11 @@ export function WorkflowDetailModal({ workflowId, onClose, onDelete }: WorkflowD
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">End Date:</span>
-                  <span className="detail-value">{formatDate(workflow.end_date)}</span>
+                  <span
+                    className={`detail-value${isWorkflowExpired(workflow.end_date) ? ' expired-date' : ''}`}
+                  >
+                    {formatDate(workflow.end_date)}
+                  </span>
                 </div>
               </div>
             </section>

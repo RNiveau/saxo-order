@@ -5,6 +5,7 @@ import { workflowService } from '../services/api';
 import WorkflowTable from '../components/WorkflowTable';
 import { WorkflowDetailModal } from '../components/WorkflowDetailModal';
 import { WorkflowCreateModal } from '../components/WorkflowCreateModal';
+import { compareEndDates } from '../utils/workflowExpiry';
 import './Workflows.css';
 
 function Workflows() {
@@ -105,8 +106,7 @@ function Workflows() {
         aVal = a.index;
         bVal = b.index;
       } else if (sortBy === 'end_date') {
-        aVal = a.end_date || '';
-        bVal = b.end_date || '';
+        return compareEndDates(a.end_date, b.end_date, sortOrder);
       }
 
       if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
