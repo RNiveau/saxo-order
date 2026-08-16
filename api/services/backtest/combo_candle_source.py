@@ -17,6 +17,7 @@ import logging
 from typing import List, Optional
 
 from api.services.backtest.calendar import (
+    is_today_not_yet_closed,
     paris_session_end_utc,
     paris_session_start_utc,
     session_key,
@@ -67,7 +68,7 @@ def horizon_for(ut: UnitTime) -> int:
     if horizon is None:
         raise SaxoException(
             f"no candle horizon for {ut} - the combo backtests run on "
-            f"{', '.join(str(u) for u in HORIZONS)}"
+            f"{', '.join(u.value for u in HORIZONS)}"
         )
     return horizon
 
@@ -180,6 +181,16 @@ class ComboCandleSource:
             return []
 
         candles = sorted(candles, key=candle_date)
+        if is_today_not_yet_closed(trading_date, definition.market):
+            # A day still trading is a partial answer, and this cache has
+            # no TTL. Storing it would freeze a truncated day into the
+            # *warm-up* of every later run on this instrument, not just
+            # into one day's result.
+            self.logger.debug(
+                f"not caching {trading_date} for {definition.instrument}: "
+                "the session has not closed yet"
+            )
+            return candles
         await self.store(key, trading_date, candles)
         return candles
 

@@ -3391,15 +3391,15 @@
       ],
       "summary": {
         "average_loss": 872.0121,
-        "average_win": 105.7716,
+        "average_win": 105.6081,
         "definition_code": "C5M",
         "end_date": "2026-04-30",
-        "final_result": -1132.8192,
+        "final_result": -1351.719,
         "number_of_be": 0,
         "number_of_days": 42,
         "number_of_losing_positions": 7,
-        "number_of_trades": 54,
-        "number_of_winning_positions": 47,
+        "number_of_trades": 52,
+        "number_of_winning_positions": 45,
         "start_date": "2026-03-02"
       }
     }

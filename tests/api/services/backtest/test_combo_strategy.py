@@ -81,12 +81,19 @@ class FixedSearch:
         return type(self).entries.get(self.index)
 
 
-def run(mocker, candles, entries, levels=LEVELS, definition=DEFINITION):
+def run(
+    mocker,
+    candles,
+    entries,
+    levels=LEVELS,
+    definition=DEFINITION,
+    start_date=datetime.date(2026, 6, 2),
+):
     FixedSearch.entries = entries
     mocker.patch(SEARCH, FixedSearch)
     mocker.patch(BANDS, return_value=levels)
     mocker.patch(BANDS_STRICT, return_value=levels)
-    return strategy()._run(definition, PARAMS, candles)
+    return strategy()._run(definition, PARAMS, candles, start_date)
 
 
 def long_entry(signal_candle, price=8000.0):
@@ -213,7 +220,9 @@ class TestTargets:
             return_value=BandLevels(mm20=7980.0, upper=8120.0, bottom=7900.0),
         )
 
-        trades = strategy()._run(DEFINITION, PARAMS, candles)
+        trades = strategy()._run(
+            DEFINITION, PARAMS, candles, datetime.date(2026, 6, 2)
+        )
 
         assert len(trades) == 1
         # TP1 filled at 7980, banking -20; the runner then closed at its
@@ -372,3 +381,62 @@ class TestNoBands:
             )
             == []
         )
+
+
+class TestWarmUpDoesNotTrade:
+    """The lead-in candles exist to give the indicator its history. A
+    trade entered on one is a trade the caller never asked for, and it
+    used to reach the summary while being filtered out of the day rows -
+    so the headline result disagreed with the table under it."""
+
+    def test_no_position_opens_before_the_start_date(self, mocker):
+        warm_up = candle(7950, 8010, 7960, 8000, day=1)
+        candles = [warm_up, candle(8000, 8130, 8010, 8125, day=2)]
+        trades = run(
+            mocker,
+            candles,
+            {0: long_entry(warm_up)},
+            start_date=datetime.date(2026, 6, 2),
+        )
+        assert trades == []
+
+    def test_a_signal_on_the_start_date_still_trades(self, mocker):
+        """The gate is a boundary, not a delay - the first candle of the
+        requested range is tradeable."""
+        signal_candle = candle(7950, 8010, 7960, 8000, day=2)
+        candles = [
+            signal_candle,
+            candle(8000, 8130, 8010, 8125, day=2, minute=15),
+        ]
+        trades = run(
+            mocker,
+            candles,
+            {0: long_entry(signal_candle)},
+            start_date=datetime.date(2026, 6, 2),
+        )
+        assert len(trades) == 1
+
+    def test_the_warm_up_still_feeds_the_search(self, mocker):
+        """Gating the *entry*, not the evaluation: the indicator must
+        still see the lead-in, or the first tradeable candle would have
+        no history."""
+        warm_up = candle(7950, 8010, 7960, 8000, day=1)
+        in_range = candle(7950, 8010, 7960, 8000, day=2)
+        candles = [
+            warm_up,
+            in_range,
+            candle(8000, 8130, 8010, 8125, day=2, minute=15),
+        ]
+        FixedSearch.entries = {0: long_entry(warm_up), 1: long_entry(in_range)}
+        mocker.patch(SEARCH, FixedSearch)
+        mocker.patch(BANDS, return_value=LEVELS)
+        mocker.patch(BANDS_STRICT, return_value=LEVELS)
+
+        trades = strategy()._run(
+            DEFINITION, PARAMS, candles, datetime.date(2026, 6, 2)
+        )
+
+        # Fed on both candles - index 1 was reached, which only happens
+        # if the warm-up candle advanced the search.
+        assert len(trades) == 1
+        assert trades[0].entry_time.day == 2

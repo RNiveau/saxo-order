@@ -96,7 +96,7 @@ class ComboStrategy:
         if not series:
             return DayResult(date=trading_date, status=DayStatus.NO_DATA)
 
-        trades = self._run(definition, params, series)
+        trades = self._run(definition, params, series, trading_date)
         day_candles = [
             candle
             for candle in series
@@ -125,7 +125,7 @@ class ComboStrategy:
         series = await self.candle_source.series(
             definition, start_date, end_date
         )
-        trades = self._run(definition, params, series)
+        trades = self._run(definition, params, series, start_date)
 
         daily_candles = self._fetch_daily_candles(
             definition, start_date, end_date
@@ -143,8 +143,17 @@ class ComboStrategy:
         definition: BacktestDefinition,
         params: BacktestParameters,
         series: List[Candle],
+        start_date: datetime.date,
     ) -> List[Trade]:
         """One pass over the series, oldest candle first.
+
+        The series opens with the warm-up lead-in, which exists to give
+        the indicator its history and nothing else: those candles feed
+        the entry search but may not open a position. Without that gate
+        the run reports P&L from trades entered before the range the
+        caller asked for - and the total would shift whenever
+        WARM_UP_CANDLES was retuned, since where the boundary lands
+        decides how many such trades there are.
 
         The two halves never interleave: a candle either manages the open
         position or feeds the entry search, because a signal arriving
@@ -175,7 +184,7 @@ class ComboStrategy:
                 continue
 
             entry = search.feed(candle, window)
-            if entry is None:
+            if entry is None or candle_time.date() < start_date:
                 continue
             entry_levels = levels(window)
             if entry_levels is None:
