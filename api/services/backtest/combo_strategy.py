@@ -184,6 +184,16 @@ class ComboStrategy:
                 continue
 
             entry = search.feed(candle, window)
+            # candle_time is UTC and start_date is a Paris trading date,
+            # which only compare correctly while a session's UTC instants
+            # fall on the same calendar date as its Paris one. True for
+            # every market defined today, in both DST halves, with an
+            # hour to spare: the earliest is DaxCfdMarket's 02:00 Paris
+            # open, which is 01:00 UTC in winter and 00:00 in summer. A
+            # market opening before 01:00 Paris in winter would start on
+            # the previous UTC date and lose its first day here - the
+            # same constraint paris_session_start_utc carries, since it
+            # builds the UTC instant from the Paris date's y/m/d.
             if entry is None or candle_time.date() < start_date:
                 continue
             entry_levels = levels(window)
