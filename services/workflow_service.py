@@ -18,6 +18,7 @@ from model.workflow_api import (
     WorkflowListResponse,
     WorkflowOrderListItem,
 )
+from utils.helper import to_float
 from utils.logger import Logger
 from utils.tradingview import build_tradingview_url_from_symbol
 
@@ -355,46 +356,26 @@ class WorkflowService:
     def _convert_all_order_to_item(
         self, order_data: Dict[str, Any]
     ) -> AllWorkflowOrderItem:
-        from decimal import Decimal
-
         return AllWorkflowOrderItem(
             id=order_data["id"],
             workflow_id=order_data["workflow_id"],
             workflow_name=order_data["workflow_name"],
             placed_at=int(order_data["placed_at"]),
             order_code=order_data["order_code"],
-            order_price=(
-                float(order_data["order_price"])
-                if isinstance(order_data["order_price"], Decimal)
-                else order_data["order_price"]
-            ),
-            order_quantity=(
-                float(order_data["order_quantity"])
-                if isinstance(order_data["order_quantity"], Decimal)
-                else order_data["order_quantity"]
-            ),
+            order_price=to_float(order_data["order_price"]),
+            order_quantity=to_float(order_data["order_quantity"]),
             order_direction=order_data["order_direction"],
         )
 
     def _convert_order_to_list_item(
         self, order_data: Dict[str, Any]
     ) -> WorkflowOrderListItem:
-        from decimal import Decimal
-
         return WorkflowOrderListItem(
             id=order_data["id"],
             workflow_id=order_data["workflow_id"],
             placed_at=int(order_data["placed_at"]),
             order_code=order_data["order_code"],
-            order_price=(
-                float(order_data["order_price"])
-                if isinstance(order_data["order_price"], Decimal)
-                else order_data["order_price"]
-            ),
-            order_quantity=(
-                float(order_data["order_quantity"])
-                if isinstance(order_data["order_quantity"], Decimal)
-                else order_data["order_quantity"]
-            ),
+            order_price=to_float(order_data["order_price"]),
+            order_quantity=to_float(order_data["order_quantity"]),
             order_direction=order_data["order_direction"],
         )

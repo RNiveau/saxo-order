@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AlertItem } from '../services/api';
 import { getTradingViewUrl } from '../utils/tradingview';
+import { getAlertTypeLabel } from '../utils/alertLabels';
 import { assetDetailsService } from '../services/api';
 import './AlertCard.css';
 
@@ -26,13 +27,6 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
     });
   };
 
-  const formatAlertType = (type: string): string => {
-    return type
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
   const getAgeLabel = (hours: number): string => {
     if (hours < 1) return 'Just now';
     if (hours === 1) return '1 hour ago';
@@ -42,7 +36,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
     return `${days} days ago`;
   };
 
-  const formatMA50Slope = (slope: unknown): string => {
+  const formatSignedPercent = (slope: unknown): string => {
     // Handle null, undefined, or non-numeric values
     if (slope === null || slope === undefined || slope === '') {
       return 'N/A';
@@ -101,6 +95,27 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
   // Extract MA50 slope from alert data
   const ma50Slope = alert.data?.ma50_slope;
 
+  // Directional alerts (mm7_break, combo) carry which way the signal points;
+  // mm7_break also carries how far price closed past the average.
+  const direction = alert.data?.direction;
+  const distancePct = alert.data?.distance_pct;
+
+  const formatDirection = (value: unknown): string => {
+    const label = String(value);
+    const distance =
+      distancePct === null || distancePct === undefined
+        ? ''
+        : ` (${formatSignedPercent(distancePct)})`;
+    return `${label}${distance}`;
+  };
+
+  const getDirectionClass = (value: unknown): string => {
+    const label = String(value).toLowerCase();
+    if (label === 'buy') return 'ma50-slope-positive';
+    if (label === 'sell') return 'ma50-slope-negative';
+    return 'ma50-slope-neutral';
+  };
+
   const handleExcludeClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
@@ -131,7 +146,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
     <div className="alert-card">
       <div className="alert-card-header">
         <div className="alert-card-type">
-          <span className="alert-type-badge">{formatAlertType(alert.alert_type)}</span>
+          <span className="alert-type-badge">{getAlertTypeLabel(alert.alert_type)}</span>
         </div>
         <div className="alert-card-header-right">
           <span className="age-label">{getAgeLabel(alert.age_hours)}</span>
@@ -163,9 +178,17 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
         <div className="alert-card-ma50">
           <span className="ma50-label">MA50 Slope:</span>
           <span className={`ma50-value ${getMA50SlopeClass(ma50Slope)}`}>
-            {formatMA50Slope(ma50Slope)}
+            {formatSignedPercent(ma50Slope)}
           </span>
         </div>
+        {direction !== null && direction !== undefined && (
+          <div className="alert-card-ma50">
+            <span className="ma50-label">Direction:</span>
+            <span className={`ma50-value ${getDirectionClass(direction)}`}>
+              {formatDirection(direction)}
+            </span>
+          </div>
+        )}
         <div className="alert-card-timestamp">
           <span className="timestamp">{formatDate(alert.date)}</span>
         </div>

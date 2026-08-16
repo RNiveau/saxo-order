@@ -308,6 +308,10 @@ class TestRegisteredDefinitionChains:
                 ArmBreakEven,
                 TrailToFirstTarget,
             ],
+            # The MM50 variants filter *entries*; their exit chain is
+            # G9HIC's, unchanged.
+            "G9HICMH": [Stop, Target, ImpulsiveStop, ArmBreakEven],
+            "G9HICMD": [Stop, Target, ImpulsiveStop, ArmBreakEven],
             # No ArmBreakEven: TP1 filling is the combo strategy's only
             # path to break-even (FR-C08), and DoubleTarget arms it.
             "C5M": [Stop, DoubleTarget],

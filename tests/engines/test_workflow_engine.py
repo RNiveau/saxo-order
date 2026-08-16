@@ -23,9 +23,52 @@ from model import (
 from model.enum import AssetType
 
 
+@pytest.fixture
+def slack_client(mocker):
+    return mocker.Mock()
+
+
+@pytest.fixture
+def dynamodb_client():
+    return AsyncMock()
+
+
+@pytest.fixture
+def saxo_client(mocker):
+    client = mocker.Mock()
+    client.get_asset.return_value = {"AssetType": AssetType.STOCK}
+    return client
+
+
+@pytest.fixture
+def candles_service(mocker):
+    """The engine asks for candles three times per run; the first call
+    returns nothing so only the later two carry a candle."""
+    service = mocker.Mock()
+    candle = Candle(close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1)
+    service.build_candles.side_effect = [[], [candle], [candle]]
+    return service
+
+
+@pytest.fixture
+def make_engine(slack_client, candles_service, saxo_client, dynamodb_client):
+    def _make(workflows):
+        return WorkflowEngine(
+            workflows,
+            slack_client,
+            candles_service,
+            saxo_client,
+            dynamodb_client,
+        )
+
+    return _make
+
+
 class TestWorkflowEngine:
 
-    async def test_run_not_running_workflow(self, caplog, mocker):
+    async def test_run_not_running_workflow(
+        self, caplog, slack_client, make_engine
+    ):
         with caplog.at_level(logging.INFO):
             workflows = [
                 Workflow(
@@ -40,16 +83,7 @@ class TestWorkflowEngine:
                     trigger=None,
                 )
             ]
-            slack_client = mocker.Mock()
-            dynamodb_client = AsyncMock()
-            mocker.patch.object(slack_client, "chat_postMessage")
-            workflow_engine = WorkflowEngine(
-                workflows,
-                slack_client,
-                mocker.Mock(),
-                mocker.Mock(),
-                dynamodb_client,
-            )
+            workflow_engine = make_engine(workflows)
             await workflow_engine.run()
             assert slack_client.chat_postMessage.call_count == 0
             assert (
@@ -145,36 +179,15 @@ class TestWorkflowEngine:
         ma: float,
         slack_call: int,
         slack_message: str,
+        slack_client,
+        candles_service,
+        make_engine,
         mocker,
     ):
         workflows = [workflow]
-        slack_client = mocker.Mock()
-        candles_service = mocker.Mock()
-        saxo_client = mocker.Mock()
-        dynamodb_client = AsyncMock()
-        mocker.patch.object(slack_client, "chat_postMessage")
-        candle = Candle(
-            close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
-        )
-        mocker.patch.object(
-            candles_service,
-            "build_candles",
-            side_effect=[[], [candle], [candle]],
-        )
-        mocker.patch.object(
-            saxo_client,
-            "get_asset",
-            return_value={"AssetType": AssetType.STOCK},
-        )
         mocker.patch("engines.workflows.mobile_average", return_value=ma)
 
-        workflow_engine = WorkflowEngine(
-            workflows,
-            slack_client,
-            candles_service,
-            saxo_client,
-            dynamodb_client,
-        )
+        workflow_engine = make_engine(workflows)
         await workflow_engine.run()
         assert candles_service.build_candles.call_count == 3
         assert slack_client.chat_postMessage.call_count == slack_call
@@ -183,7 +196,9 @@ class TestWorkflowEngine:
                 channel="#workflows-stock", text=slack_message
             )
 
-    async def test_run_ma_7_workflow_below(self, mocker):
+    async def test_run_ma_7_workflow_below(
+        self, slack_client, candles_service, make_engine, mocker
+    ):
         workflow = Workflow(
             name="Test",
             index="CAC40.I",
@@ -210,33 +225,9 @@ class TestWorkflowEngine:
                 quantity=9,
             ),
         )
-        slack_client = mocker.Mock()
-        candles_service = mocker.Mock()
-        saxo_client = mocker.Mock()
-        dynamodb_client = AsyncMock()
-        mocker.patch.object(slack_client, "chat_postMessage")
-        candle = Candle(
-            close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
-        )
-        mocker.patch.object(
-            candles_service,
-            "build_candles",
-            side_effect=[[], [candle], [candle]],
-        )
-        mocker.patch.object(
-            saxo_client,
-            "get_asset",
-            return_value={"AssetType": AssetType.STOCK},
-        )
         mocker.patch("engines.workflows.mobile_average", return_value=12)
 
-        workflow_engine = WorkflowEngine(
-            [workflow],
-            slack_client,
-            candles_service,
-            saxo_client,
-            dynamodb_client,
-        )
+        workflow_engine = make_engine([workflow])
         await workflow_engine.run()
         assert candles_service.build_candles.call_count == 3
         assert slack_client.chat_postMessage.call_count == 1
@@ -246,7 +237,9 @@ class TestWorkflowEngine:
             " for 9 FRA40.I at 8: last price 10.6",
         )
 
-    async def test_run_ma_7_workflow_above(self, mocker):
+    async def test_run_ma_7_workflow_above(
+        self, slack_client, candles_service, make_engine, mocker
+    ):
         workflow = Workflow(
             name="Test",
             index="CAC40.I",
@@ -273,33 +266,9 @@ class TestWorkflowEngine:
                 quantity=1,
             ),
         )
-        slack_client = mocker.Mock()
-        candles_service = mocker.Mock()
-        saxo_client = mocker.Mock()
-        dynamodb_client = AsyncMock()
-        mocker.patch.object(slack_client, "chat_postMessage")
-        candle = Candle(
-            close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1
-        )
-        mocker.patch.object(
-            candles_service,
-            "build_candles",
-            side_effect=[[], [candle], [candle]],
-        )
-        mocker.patch.object(
-            saxo_client,
-            "get_asset",
-            return_value={"AssetType": AssetType.STOCK},
-        )
         mocker.patch("engines.workflows.mobile_average", return_value=10.5)
 
-        workflow_engine = WorkflowEngine(
-            [workflow],
-            slack_client,
-            candles_service,
-            saxo_client,
-            dynamodb_client,
-        )
+        workflow_engine = make_engine([workflow])
         await workflow_engine.run()
         assert candles_service.build_candles.call_count == 3
         assert slack_client.chat_postMessage.call_count == 1

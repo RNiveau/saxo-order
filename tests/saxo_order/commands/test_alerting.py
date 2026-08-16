@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from model import AlertType, Candle, UnitTime
+from model import AlertType, Candle, Direction, UnitTime
 from saxo_order.commands.alerting import run_detection_for_asset
 from utils.exception import SaxoException
 
@@ -27,6 +27,18 @@ def _make_candles(closes: List[float]) -> List[Candle]:
 def _mm50_touch_candles() -> List[Candle]:
     # close=100.5 → ~0.5% above ma50_last≈100, slope≈5
     return _make_candles([100.5] + [102.1666666667] * 9 + [99.5] * 50)
+
+
+@pytest.fixture
+def saxo_client():
+    return MagicMock()
+
+
+@pytest.fixture
+def dynamodb_client():
+    client = MagicMock()
+    client.store_alerts = AsyncMock()
+    return client
 
 
 @pytest.fixture
@@ -56,16 +68,13 @@ def patched_alerting(mocker):
 class TestRunDetectionForAssetMM50Touch:
 
     async def test_emits_mm50_touch_when_conditions_met(
-        self, patched_alerting
+        self, saxo_client, dynamodb_client, patched_alerting
     ):
         candles = _mm50_touch_candles()
         patched_alerting.patch(
             "saxo_order.commands.alerting._build_candles",
             return_value=candles,
         )
-        saxo_client = MagicMock()
-        dynamodb_client = MagicMock()
-        dynamodb_client.store_alerts = AsyncMock()
 
         alerts = await run_detection_for_asset(
             asset_code="TST",
@@ -94,7 +103,7 @@ class TestRunDetectionForAssetMM50Touch:
         dynamodb_client.store_alerts.assert_awaited_once()
 
     async def test_no_mm50_touch_when_conditions_not_met(
-        self, patched_alerting
+        self, saxo_client, dynamodb_client, patched_alerting
     ):
         # Flat MA50 (slope ≈ 0) → no MM50_TOUCH
         candles = _make_candles([100.0] * 60)
@@ -102,9 +111,6 @@ class TestRunDetectionForAssetMM50Touch:
             "saxo_order.commands.alerting._build_candles",
             return_value=candles,
         )
-        saxo_client = MagicMock()
-        dynamodb_client = MagicMock()
-        dynamodb_client.store_alerts = AsyncMock()
 
         alerts = await run_detection_for_asset(
             asset_code="FLAT",
@@ -119,16 +125,13 @@ class TestRunDetectionForAssetMM50Touch:
         assert all(a.alert_type != AlertType.MM50_TOUCH for a in alerts)
 
     async def test_emits_mm50_touch_for_binance_asset_without_country_code(
-        self, patched_alerting
+        self, saxo_client, dynamodb_client, patched_alerting
     ):
         candles = _mm50_touch_candles()
         patched_alerting.patch(
             "saxo_order.commands.alerting._build_candles",
             return_value=candles,
         )
-        saxo_client = MagicMock()
-        dynamodb_client = MagicMock()
-        dynamodb_client.store_alerts = AsyncMock()
 
         alerts = await run_detection_for_asset(
             asset_code="BTCUSDT",
@@ -146,6 +149,62 @@ class TestRunDetectionForAssetMM50Touch:
         assert len(mm50_alerts) == 1
         assert mm50_alerts[0].country_code is None
         assert mm50_alerts[0].exchange == "binance"
+
+
+class TestRunDetectionForAssetMM7Break:
+
+    async def test_emits_mm7_break_when_conditions_met(
+        self, patched_alerting, saxo_client, dynamodb_client
+    ):
+        # close 95 under a 7-MA near 99.3, after 3 candles closing above it
+        candles = _make_candles([95.0] + [100.0] * 9)
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        mm7_alerts = [a for a in alerts if a.alert_type == AlertType.MM7_BREAK]
+        assert len(mm7_alerts) == 1
+        data = mm7_alerts[0].data
+        assert data["direction"] == Direction.SELL.value
+        assert data["close"] == 95.0
+        assert data["distance_pct"] < 0
+        assert data["streak"] >= 3
+        assert "mm7" in data
+        assert "ma50_slope" in data
+        assert mm7_alerts[0].asset_code == "TST"
+        dynamodb_client.store_alerts.assert_awaited_once()
+
+    async def test_no_mm7_break_when_price_hugs_the_average(
+        self, saxo_client, dynamodb_client, patched_alerting
+    ):
+        candles = _make_candles([100.0] * 60)
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+
+        alerts = await run_detection_for_asset(
+            asset_code="FLAT",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Flat Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        assert all(a.alert_type != AlertType.MM7_BREAK for a in alerts)
 
 
 class TestStockDeduplication:
@@ -468,7 +527,9 @@ class TestRunDetectionForAssetIsolatesDetectors:
         )
         return alerts, dynamodb_client
 
-    async def test_no_candle_is_skipped_without_raising(self, mocker):
+    async def test_no_candle_is_skipped_without_raising(
+        self, mocker, dynamodb_client
+    ):
         """A delisted or brand new instrument returns no candle at all. That
         used to reach _run_double_top and raise IndexError, which the
         SaxoException handler did not catch, killing the whole run."""
@@ -482,7 +543,7 @@ class TestRunDetectionForAssetIsolatesDetectors:
         assert isinstance(alerts, list)
 
     async def test_a_failing_detector_does_not_discard_the_others(
-        self, mocker
+        self, dynamodb_client, mocker
     ):
         """combo raising must not cost the asset its mm50_touch alert, nor
         the DynamoDB write that persists it."""

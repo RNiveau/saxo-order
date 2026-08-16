@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 from api.services.backtest import paris_reference_window_utc
 from model import Candle, EUMarket, UnitTime
 from services.candles_service import CandlesService
+from utils.helper import last_session_close
 
 # (base price, 5-minute step sigma) per instrument. GER40's sigma is scaled
 # up so its 150-point stop and 40-point entry window are exercised the same
@@ -121,6 +122,53 @@ def m5_session_candles(instrument: str, d: datetime.date) -> List[Candle]:
     ]
 
 
+H1_SESSION_CANDLES = 9  # a 9:00-17:30 cash session
+
+
+def h1_session_candles(instrument: str, d: datetime.date) -> List[Candle]:
+    """One trading day's cash-session H1 candles, oldest first.
+
+    The first is the 9:00-10:00 reference candle itself - the same object
+    the strategy reads - so the MM50 filter's series and the day's
+    reference level cannot drift apart; the rest continue its walk hour by
+    hour."""
+    _, sigma = INSTRUMENT_PROFILE[instrument]
+    reference = h1_reference_candle(instrument, d)
+    bars = _walk(
+        _rng(instrument, d, "h1series"),
+        reference.close,
+        sigma,
+        H1_SESSION_CANDLES - 1,
+    )
+    start, _ = paris_reference_window_utc(d, EUMarket())
+    return [reference] + [
+        Candle(
+            lower=bar[2],
+            higher=bar[1],
+            open=bar[0],
+            close=bar[3],
+            ut=UnitTime.H1,
+            date=start + datetime.timedelta(hours=index + 1),
+        )
+        for index, bar in enumerate(bars)
+    ]
+
+
+def h1_candles(
+    instrument: str, end_date: datetime.date, count: int
+) -> List[Candle]:
+    """`count` cash-session H1 candles ending with end_date's session,
+    newest first, skipping weekends - what CandlesService.build_candles
+    returns for UnitTime.H1."""
+    candles: List[Candle] = []
+    current = end_date
+    while len(candles) < count:
+        if current.weekday() < 5:
+            candles.extend(reversed(h1_session_candles(instrument, current)))
+        current -= datetime.timedelta(days=1)
+    return candles[:count]
+
+
 def daily_candles(
     instrument: str, end_date: datetime.date, count: int
 ) -> List[Candle]:
@@ -222,6 +270,13 @@ def golden_candles_service() -> MagicMock:
         return m5_session_candles(code, trading_date)
 
     def build_candles(code, ut, market, count, reference):
+        if ut == UnitTime.H1:
+            # Anchored like the real builder: the fetch's reference sits
+            # past the last day, and last_session_close walks it back to
+            # the session actually available.
+            return h1_candles(
+                code, last_session_close(reference, market).date(), count
+            )
         return daily_candles(code, reference.date(), count)
 
     service.get_candles_in_window.side_effect = get_candles_in_window

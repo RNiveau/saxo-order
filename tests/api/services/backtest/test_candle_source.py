@@ -6,6 +6,8 @@ to callers) against a mocked DynamoDBClient.
 
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from api.services.backtest import BacktestService
 from client.aws_client import DynamoDBClient, DynamoDBOperationError
 from model import UnitTime
@@ -31,6 +33,49 @@ from utils.exception import SaxoException
 FRA40_KEY = "FRA40.I:0900-1730@Europe/Paris:v2"
 
 
+@pytest.fixture
+def dynamodb_client():
+    """A cache client that misses by default; tests that need a hit set
+    get_cached_backtest_candles.return_value themselves."""
+    client = MagicMock(spec=DynamoDBClient)
+    client.get_cached_backtest_candles = AsyncMock(return_value=None)
+    client.store_backtest_candles = AsyncMock()
+    return client
+
+
+@pytest.fixture
+def candles_service():
+    """A Saxo fetch returning one H1 and one 5-minute candle."""
+    service = MagicMock(spec=CandlesService)
+
+    def side_effect(code, ut, horizon, start, end):
+        if ut == UnitTime.H1:
+            return [h1_candle()]
+        return [m5_candle(0, 8005, 8010, 7995, 8000)]
+
+    service.get_candles_in_window.side_effect = side_effect
+    return service
+
+
+@pytest.fixture
+def make_service(candles_service):
+    """Build a BacktestService over the given cache client, optionally
+    overriding the H1 range the Saxo fetch reports."""
+
+    def _make(dynamodb_client, h1_high=None, h1_low=None):
+        if h1_high is not None or h1_low is not None:
+
+            def side_effect(code, ut, horizon, start, end):
+                if ut == UnitTime.H1:
+                    return [h1_candle(higher=h1_high, lower=h1_low)]
+                return [m5_candle(0, 8005, 8010, 7995, 8000)]
+
+            candles_service.get_candles_in_window.side_effect = side_effect
+        return BacktestService(candles_service, dynamodb_client)
+
+    return _make
+
+
 class TestBacktestCandleCache:
     """FR-036-FR-040: the raw-candle cache is a capability of
     BacktestService itself, keyed by (instrument, session window, schema
@@ -38,21 +83,9 @@ class TestBacktestCandleCache:
     mocked DynamoDBClient, independently of the CandlesService-fetch
     tests above."""
 
-    def _service(self, dynamodb_client):
-        candles_service = MagicMock(spec=CandlesService)
-
-        def side_effect(code, ut, horizon, start, end):
-            if ut == UnitTime.H1:
-                return [h1_candle()]
-            return [m5_candle(0, 8005, 8010, 7995, 8000)]
-
-        candles_service.get_candles_in_window.side_effect = side_effect
-        return BacktestService(candles_service, dynamodb_client), (
-            candles_service
-        )
-
-    async def test_cache_hit_skips_saxo_and_uses_cached_candles(self):
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
+    async def test_cache_hit_skips_saxo_and_uses_cached_candles(
+        self, dynamodb_client, candles_service, make_service
+    ):
         dynamodb_client.get_cached_backtest_candles = AsyncMock(
             return_value={
                 "has_data": True,
@@ -60,7 +93,7 @@ class TestBacktestCandleCache:
                 "m5_candles": [m5_candle(0, 8005, 8010, 7995, 8000).to_dict()],
             }
         )
-        service, candles_service = self._service(dynamodb_client)
+        service = make_service(dynamodb_client)
 
         result = await service.evaluate_day(DEFINITION, TRADING_DATE)
 
@@ -70,25 +103,23 @@ class TestBacktestCandleCache:
         assert result.h1_low == H1_LOW
         assert len(result.candles) == 1
 
-    async def test_cache_hit_no_data_skips_saxo(self):
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
+    async def test_cache_hit_no_data_skips_saxo(
+        self, dynamodb_client, candles_service, make_service
+    ):
         dynamodb_client.get_cached_backtest_candles = AsyncMock(
             return_value={"has_data": False}
         )
-        service, candles_service = self._service(dynamodb_client)
+        service = make_service(dynamodb_client)
 
         result = await service.evaluate_day(DEFINITION, TRADING_DATE)
 
         candles_service.get_candles_in_window.assert_not_called()
         assert result.status == DayStatus.NO_DATA
 
-    async def test_cache_key_covers_instrument_session_and_version(self):
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
-        dynamodb_client.get_cached_backtest_candles = AsyncMock(
-            return_value=None
-        )
-        dynamodb_client.store_backtest_candles = AsyncMock()
-        service, _ = self._service(dynamodb_client)
+    async def test_cache_key_covers_instrument_session_and_version(
+        self, dynamodb_client, make_service
+    ):
+        service = make_service(dynamodb_client)
 
         await service.evaluate_day(DEFINITION, TRADING_DATE)
 
@@ -97,13 +128,10 @@ class TestBacktestCandleCache:
             TRADING_DATE.isoformat(),
         )
 
-    async def test_cache_miss_fetches_and_stores(self):
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
-        dynamodb_client.get_cached_backtest_candles = AsyncMock(
-            return_value=None
-        )
-        dynamodb_client.store_backtest_candles = AsyncMock()
-        service, candles_service = self._service(dynamodb_client)
+    async def test_cache_miss_fetches_and_stores(
+        self, dynamodb_client, candles_service, make_service
+    ):
+        service = make_service(dynamodb_client)
 
         await service.evaluate_day(DEFINITION, TRADING_DATE)
 
@@ -114,12 +142,9 @@ class TestBacktestCandleCache:
         assert args[1] == TRADING_DATE.isoformat()
         assert args[2] is True
 
-    async def test_cache_miss_with_no_h1_data_stores_no_data_marker(self):
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
-        dynamodb_client.get_cached_backtest_candles = AsyncMock(
-            return_value=None
-        )
-        dynamodb_client.store_backtest_candles = AsyncMock()
+    async def test_cache_miss_with_no_h1_data_stores_no_data_marker(
+        self, dynamodb_client
+    ):
         candles_service = MagicMock(spec=CandlesService)
         candles_service.get_candles_in_window.return_value = []
         service = BacktestService(candles_service, dynamodb_client)
@@ -137,15 +162,10 @@ class TestBacktestCandleCache:
             False,
         )
 
-    async def test_h1_fetch_failure_is_not_cached(self):
+    async def test_h1_fetch_failure_is_not_cached(self, dynamodb_client):
         """A transient Saxo failure (expired token, rate limit, network
         blip) must never be persisted as a permanent NO_DATA - only a
         genuine empty result from Saxo is cacheable."""
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
-        dynamodb_client.get_cached_backtest_candles = AsyncMock(
-            return_value=None
-        )
-        dynamodb_client.store_backtest_candles = AsyncMock()
         candles_service = MagicMock(spec=CandlesService)
         candles_service.get_candles_in_window.side_effect = SaxoException(
             "boom"
@@ -157,15 +177,10 @@ class TestBacktestCandleCache:
         assert result.status == DayStatus.NO_DATA
         dynamodb_client.store_backtest_candles.assert_not_called()
 
-    async def test_m5_fetch_failure_is_not_cached(self):
+    async def test_m5_fetch_failure_is_not_cached(self, dynamodb_client):
         """Mirror of the H1 case: a transient failure on the 5-minute
         fetch must not be persisted as a permanent has_data=True/empty
         NO_TRADE - only a genuine empty Saxo result is cacheable."""
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
-        dynamodb_client.get_cached_backtest_candles = AsyncMock(
-            return_value=None
-        )
-        dynamodb_client.store_backtest_candles = AsyncMock()
         candles_service = MagicMock(spec=CandlesService)
 
         def side_effect(code, ut, horizon, start, end):
@@ -182,16 +197,16 @@ class TestBacktestCandleCache:
         assert result.h1_high == H1_HIGH
         dynamodb_client.store_backtest_candles.assert_not_called()
 
-    async def test_malformed_cache_item_falls_back_to_saxo(self):
+    async def test_malformed_cache_item_falls_back_to_saxo(
+        self, dynamodb_client, candles_service, make_service
+    ):
         """An item written under an earlier/different schema (missing
         the expected keys) must be treated as a miss, not raise - a
         cache problem must never break a backtest."""
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
         dynamodb_client.get_cached_backtest_candles = AsyncMock(
             return_value={"has_data": True}
         )
-        dynamodb_client.store_backtest_candles = AsyncMock()
-        service, candles_service = self._service(dynamodb_client)
+        service = make_service(dynamodb_client)
 
         result = await service.evaluate_day(DEFINITION, TRADING_DATE)
 
@@ -199,19 +214,23 @@ class TestBacktestCandleCache:
         dynamodb_client.store_backtest_candles.assert_called_once()
         assert result.h1_high == H1_HIGH
 
-    async def test_no_active_resource_falls_back_to_saxo_every_time(self):
+    async def test_no_active_resource_falls_back_to_saxo_every_time(
+        self, candles_service, make_service
+    ):
         """dynamodb_client is a required parameter (not Optional), but a
         DynamoDBClient with no active resource - local/dev usage
         without AWS, see get_dynamodb_client_best_effort - degrades to
         a cache miss/no-op every time, exactly like a DynamoDB failure."""
-        service, candles_service = self._service(NO_CACHE_CLIENT)
+        service = make_service(NO_CACHE_CLIENT)
 
         result = await service.evaluate_day(DEFINITION, TRADING_DATE)
 
         candles_service.get_candles_in_window.assert_called()
         assert result.h1_high == H1_HIGH
 
-    async def test_cache_lookup_failure_falls_back_to_saxo(self):
+    async def test_cache_lookup_failure_falls_back_to_saxo(
+        self, candles_service, make_service
+    ):
         dynamodb_client = MagicMock(spec=DynamoDBClient)
         dynamodb_client.get_cached_backtest_candles = AsyncMock(
             side_effect=DynamoDBOperationError("get_item", "boom")
@@ -219,23 +238,20 @@ class TestBacktestCandleCache:
         dynamodb_client.store_backtest_candles = AsyncMock(
             side_effect=DynamoDBOperationError("put_item", "boom")
         )
-        service, candles_service = self._service(dynamodb_client)
+        service = make_service(dynamodb_client)
 
         result = await service.evaluate_day(DEFINITION, TRADING_DATE)
 
         candles_service.get_candles_in_window.assert_called()
         assert result.h1_high == H1_HIGH
 
-    async def test_definitions_on_same_instrument_share_one_entry(self):
+    async def test_definitions_on_same_instrument_share_one_entry(
+        self, dynamodb_client, make_service
+    ):
         """The cached bytes are raw Saxo candles, identical for every
         strategy on the same instrument and session - so the second
         definition reads the first one's entry instead of re-fetching."""
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
-        dynamodb_client.get_cached_backtest_candles = AsyncMock(
-            return_value=None
-        )
-        dynamodb_client.store_backtest_candles = AsyncMock()
-        service, _ = self._service(dynamodb_client)
+        service = make_service(dynamodb_client)
 
         await service.evaluate_day(TIME_CUT_DEFINITION, TRADING_DATE)
 
@@ -244,16 +260,13 @@ class TestBacktestCandleCache:
             TRADING_DATE.isoformat(),
         )
 
-    async def test_different_sessions_cache_independently(self):
+    async def test_different_sessions_cache_independently(
+        self, dynamodb_client, make_service
+    ):
         """The one thing that does still split the cache: a definition on
         the 9:00-22:00 CFD session fetches a longer 5-minute range than
         the cash-session ones, so it cannot share their entry."""
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
-        dynamodb_client.get_cached_backtest_candles = AsyncMock(
-            return_value=None
-        )
-        dynamodb_client.store_backtest_candles = AsyncMock()
-        service, _ = self._service(dynamodb_client)
+        service = make_service(dynamodb_client)
 
         await service.evaluate_day(IMPULSIVE_DEFINITION, TRADING_DATE)
 
@@ -269,29 +282,11 @@ class TestPartialCacheEntries:
     entry must be marked partial, so the strategies without the filter
     complete it instead of reading its empty 5-minute list as real data."""
 
-    def _service(self, dynamodb_client, h1_high, h1_low):
-        candles_service = MagicMock(spec=CandlesService)
-
-        def side_effect(code, ut, horizon, start, end):
-            if ut == UnitTime.H1:
-                return [h1_candle(higher=h1_high, lower=h1_low)]
-            return [m5_candle(0, 8005, 8010, 7995, 8000)]
-
-        candles_service.get_candles_in_window.side_effect = side_effect
-        return BacktestService(candles_service, dynamodb_client), (
-            candles_service
-        )
-
-    async def test_below_min_range_day_is_stored_as_partial(self):
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
-        dynamodb_client.get_cached_backtest_candles = AsyncMock(
-            return_value=None
-        )
-        dynamodb_client.store_backtest_candles = AsyncMock()
+    async def test_below_min_range_day_is_stored_as_partial(
+        self, dynamodb_client, candles_service, make_service
+    ):
         # 20-point range, below WIDE_RANGE_DEFINITION's 40-point minimum.
-        service, candles_service = self._service(
-            dynamodb_client, 8020.0, 8000.0
-        )
+        service = make_service(dynamodb_client, h1_high=8020.0, h1_low=8000.0)
 
         result = await service.evaluate_day(
             WIDE_RANGE_DEFINITION, TRADING_DATE
@@ -306,8 +301,9 @@ class TestPartialCacheEntries:
         # full candles, and a partial entry must not downgrade them.
         assert args[6] is True
 
-    async def test_partial_entry_is_completed_for_other_definitions(self):
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
+    async def test_partial_entry_is_completed_for_other_definitions(
+        self, dynamodb_client, candles_service, make_service
+    ):
         dynamodb_client.get_cached_backtest_candles = AsyncMock(
             return_value={
                 "has_data": True,
@@ -317,9 +313,7 @@ class TestPartialCacheEntries:
             }
         )
         dynamodb_client.store_backtest_candles = AsyncMock()
-        service, candles_service = self._service(
-            dynamodb_client, H1_HIGH, H1_LOW
-        )
+        service = make_service(dynamodb_client)
 
         result = await service.evaluate_day(DEFINITION, TRADING_DATE)
 
@@ -333,10 +327,11 @@ class TestPartialCacheEntries:
         args = dynamodb_client.store_backtest_candles.call_args[0]
         assert args[5] is True
 
-    async def test_partial_entry_serves_the_min_range_definition_as_is(self):
+    async def test_partial_entry_serves_the_min_range_definition_as_is(
+        self, dynamodb_client, candles_service, make_service
+    ):
         """The definition that wrote the partial entry doesn't need the
         5-minute candles for that day, so it must not trigger a fetch."""
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
         dynamodb_client.get_cached_backtest_candles = AsyncMock(
             return_value={
                 "has_data": True,
@@ -346,9 +341,7 @@ class TestPartialCacheEntries:
             }
         )
         dynamodb_client.store_backtest_candles = AsyncMock()
-        service, candles_service = self._service(
-            dynamodb_client, 8020.0, 8000.0
-        )
+        service = make_service(dynamodb_client, h1_high=8020.0, h1_low=8000.0)
 
         result = await service.evaluate_day(
             WIDE_RANGE_DEFINITION, TRADING_DATE
@@ -358,8 +351,9 @@ class TestPartialCacheEntries:
         candles_service.get_candles_in_window.assert_not_called()
         dynamodb_client.store_backtest_candles.assert_not_called()
 
-    async def test_completion_fetch_failure_is_not_cached(self):
-        dynamodb_client = MagicMock(spec=DynamoDBClient)
+    async def test_completion_fetch_failure_is_not_cached(
+        self, dynamodb_client
+    ):
         dynamodb_client.get_cached_backtest_candles = AsyncMock(
             return_value={
                 "has_data": True,

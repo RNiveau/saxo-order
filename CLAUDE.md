@@ -145,6 +145,8 @@ Examples:
 - N/A — ephemeral, computed on demand per request, nothing persisted (inherits spec 021's decision). (025-ger40-bougie-9h)
 - Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI + Pydantic v2, existing `services/indicator_service.py` (`combo`, `bollinger_bands`), existing `services/candles_service.py` (`get_candles_in_window`), `aioboto3` (DynamoDB), `zoneinfo`; React Router DOM v7+, Axios, Vite. **No new dependency.** (026-combo-ger40-backtest)
 - existing DynamoDB backtest raw-candle table, under a **new key namespace** for arbitrary-timeframe series (`{instrument}:{session}:{ut}:v1`). No new table, no migration of existing entries. (026-combo-ger40-backtest)
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + existing only — `aioboto3` (DynamoDB), `anthropic` SDK, `slack_sdk`, FastAPI + Pydantic v2, `zoneinfo`; Axios, React Router DOM v7+, Vite. **No new dependency.** (028-triage-workflow-trigger)
+- existing tables only — reads `workflow_orders` and `workflows`, writes enriched asset entries into the existing `alert_digests` items. No new table, no migration. (028-triage-workflow-trigger)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)

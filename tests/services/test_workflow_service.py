@@ -5,9 +5,19 @@ import pytest
 from services.workflow_service import WorkflowService
 
 
-@pytest.mark.asyncio
-async def test_get_all_orders_deduplicates_by_workflow_id_keeping_latest():
-    dynamodb_client = AsyncMock()
+@pytest.fixture
+def dynamodb_client():
+    return AsyncMock()
+
+
+@pytest.fixture
+def service(dynamodb_client):
+    return WorkflowService(dynamodb_client=dynamodb_client)
+
+
+async def test_get_all_orders_deduplicates_by_workflow_id_keeping_latest(
+    service, dynamodb_client
+):
     dynamodb_client.get_all_workflow_orders.return_value = [
         {
             "id": "order-a-old",
@@ -41,8 +51,6 @@ async def test_get_all_orders_deduplicates_by_workflow_id_keeping_latest():
         },
     ]
 
-    service = WorkflowService(dynamodb_client=dynamodb_client)
-
     result = await service.get_all_orders(limit=100)
 
     assert len(result) == 2
@@ -58,9 +66,9 @@ async def test_get_all_orders_deduplicates_by_workflow_id_keeping_latest():
     dynamodb_client.get_all_workflow_orders.assert_awaited_once_with()
 
 
-@pytest.mark.asyncio
-async def test_get_all_orders_applies_limit_after_dedup():
-    dynamodb_client = AsyncMock()
+async def test_get_all_orders_applies_limit_after_dedup(
+    service, dynamodb_client
+):
     dynamodb_client.get_all_workflow_orders.return_value = [
         {
             "id": f"order-{i}",
@@ -74,8 +82,6 @@ async def test_get_all_orders_applies_limit_after_dedup():
         }
         for i in range(5)
     ]
-
-    service = WorkflowService(dynamodb_client=dynamodb_client)
 
     result = await service.get_all_orders(limit=2)
 
@@ -121,9 +127,9 @@ def _make_workflow_data(workflow_id: str, index: str) -> dict:
     }
 
 
-@pytest.mark.asyncio
-async def test_get_workflow_by_id_uses_custom_tradingview_url_from_db():
-    dynamodb_client = AsyncMock()
+async def test_get_workflow_by_id_uses_custom_tradingview_url_from_db(
+    service, dynamodb_client
+):
     dynamodb_client.get_workflow_by_id.return_value = _make_workflow_data(
         "wf-1", "NKE:xnys"
     )
@@ -131,7 +137,6 @@ async def test_get_workflow_by_id_uses_custom_tradingview_url_from_db():
         "https://www.tradingview.com/chart/custom"
     )
 
-    service = WorkflowService(dynamodb_client=dynamodb_client)
     result = await service.get_workflow_by_id("wf-1")
 
     assert result is not None
@@ -139,15 +144,14 @@ async def test_get_workflow_by_id_uses_custom_tradingview_url_from_db():
     dynamodb_client.get_tradingview_link.assert_awaited_once_with("NKE")
 
 
-@pytest.mark.asyncio
-async def test_get_workflow_by_id_builds_default_tradingview_url():
-    dynamodb_client = AsyncMock()
+async def test_get_workflow_by_id_builds_default_tradingview_url(
+    service, dynamodb_client
+):
     dynamodb_client.get_workflow_by_id.return_value = _make_workflow_data(
         "wf-2", "NKE:xnys"
     )
     dynamodb_client.get_tradingview_link.return_value = None
 
-    service = WorkflowService(dynamodb_client=dynamodb_client)
     result = await service.get_workflow_by_id("wf-2")
 
     assert result is not None
@@ -157,15 +161,14 @@ async def test_get_workflow_by_id_builds_default_tradingview_url():
     )
 
 
-@pytest.mark.asyncio
-async def test_get_workflow_by_id_handles_dynamodb_failure():
-    dynamodb_client = AsyncMock()
+async def test_get_workflow_by_id_handles_dynamodb_failure(
+    service, dynamodb_client
+):
     dynamodb_client.get_workflow_by_id.return_value = _make_workflow_data(
         "wf-3", "MC:xpar"
     )
     dynamodb_client.get_tradingview_link.side_effect = RuntimeError("boom")
 
-    service = WorkflowService(dynamodb_client=dynamodb_client)
     result = await service.get_workflow_by_id("wf-3")
 
     assert result is not None

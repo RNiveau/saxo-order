@@ -408,6 +408,7 @@ class TestComboDefinitionValidation:
             ("first_target_fraction", 0.5),
             ("runner_extension_points", 100.0),
             ("trail_to_first_target_points", 50.0),
+            ("ma50_direction_filter", UnitTime.H1),
         ],
     )
     def test_session_range_flags_are_rejected_on_a_combo(self, flag, value):

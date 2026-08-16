@@ -18,7 +18,12 @@ from model import Alert, AlertType, AssetType, Candle, EUMarket, UnitTime
 from saxo_order.async_utils import create_dynamodb_client
 from saxo_order.commands import catch_exception
 from services import congestion_indicator, indicator_service
-from services.alert_triage_service import TriageAgent, format_slack_digest
+from services.alert_triage_service import (
+    TriageAgent,
+    current_run_date,
+    format_slack_digest,
+)
+from services.workflow_trigger_service import collect_todays_triggers
 from utils.configuration import Configuration
 from utils.exception import SaxoException
 from utils.helper import build_daily_candles_from_h1
@@ -371,6 +376,25 @@ async def run_detection_for_asset(
             )
         )
 
+    mm7_break_result = detect(
+        AlertType.MM7_BREAK, partial(indicator_service.mm7_break, candles)
+    )
+    if mm7_break_result is not None:
+        asset_alerts.append(
+            Alert(
+                alert_type=AlertType.MM7_BREAK,
+                date=datetime.datetime.now(),
+                data={
+                    **mm7_break_result,
+                    "ma50_slope": ma50_slope,
+                },
+                asset_code=asset_code,
+                asset_description=asset_description,
+                exchange=exchange,
+                country_code=country_code,
+            )
+        )
+
     # Store what was found even if some detector above could not run
     if len(asset_alerts) > 0:
         try:
@@ -531,7 +555,13 @@ async def run_alerting(
                 AnthropicClient(configuration),
                 configuration.triage_slope_threshold,
             )
-            digest = triage_agent.synthesize(all_alerts)
+            run_date = current_run_date()
+            triggers = await collect_todays_triggers(
+                dynamodb_client, run_date, all_alerts
+            )
+            digest = triage_agent.synthesize(
+                all_alerts, triggers, run_date=run_date
+            )
             try:
                 await dynamodb_client.store_alert_digest(digest)
             except Exception as e:
