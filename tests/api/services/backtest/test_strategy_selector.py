@@ -69,17 +69,6 @@ class TestStrategySelector:
         with pytest.raises(SaxoException, match="not implemented yet"):
             make_selector().for_definition(combo_definition())
 
-    def test_a_combo_definition_never_falls_back_to_session_range(self):
-        selector = make_selector()
-        try:
-            returned = selector.for_definition(combo_definition())
-        except SaxoException:
-            return
-        assert returned is not selector.session_range, (
-            "a combo definition must not be silently routed to the "
-            "session-range engine"
-        )
-
     def test_the_error_names_the_definition(self):
         with pytest.raises(SaxoException, match="CTEST"):
             make_selector().for_definition(combo_definition())

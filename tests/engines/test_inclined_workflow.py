@@ -8,9 +8,26 @@ from model.workflow import IndicatorInclined, Point
 from utils.exception import SaxoException
 
 
-class TestInclinedWorkflow:
+@pytest.fixture
+def saxo_client(mocker):
+    """A Saxo client whose market is open every day."""
+    client = mocker.Mock()
+    client.get_asset.return_value = {
+        "Identifier": "123",
+        "AssetType": "Stock",
+    }
+    client.is_day_open.return_value = True
+    return client
 
-    def _make_indicator(self, x1_date, y1, x2_date, y2):
+
+@pytest.fixture
+def workflow(saxo_client):
+    return InclinedWorkflow(saxo_client, "test")
+
+
+@pytest.fixture
+def make_indicator():
+    def _make(x1_date, y1, x2_date, y2):
         return IndicatorInclined(
             name="inclined",
             ut="h1",
@@ -18,61 +35,62 @@ class TestInclinedWorkflow:
             x2=Point(x=x2_date, y=y2),
         )
 
-    def test_init_workflow_computes_line_value(self, mocker):
-        saxo_client = mocker.Mock()
-        saxo_client.get_asset.return_value = {
-            "Identifier": "123",
-            "AssetType": "Stock",
-        }
-        saxo_client.is_day_open.return_value = True
+    return _make
 
-        workflow = InclinedWorkflow(saxo_client, "aca:xpar")
 
-        x1_date = datetime.datetime(2024, 9, 19)
-        x2_date = datetime.datetime(2024, 9, 25)
-        indicator = self._make_indicator(x1_date, 100.0, x2_date, 106.0)
+@pytest.fixture
+def freeze_now(mocker):
+    """Pin the workflow's notion of "now", which drives how far along the
+    line the indicator value is projected."""
 
-        now = datetime.datetime(2024, 10, 1)
+    def _freeze(now):
         mocker.patch("engines.workflows.get_date_utc0", return_value=now)
 
-        candles = [
-            Candle(lower=100, higher=110, open=105, close=107, ut=UnitTime.H1)
-        ]
+    return _freeze
 
-        workflow.init_workflow(indicator, candles)
+
+@pytest.fixture
+def candle():
+    return Candle(lower=100, higher=110, open=105, close=107, ut=UnitTime.H1)
+
+
+class TestInclinedWorkflow:
+
+    def test_init_workflow_computes_line_value(
+        self, workflow, make_indicator, freeze_now, candle
+    ):
+        indicator = make_indicator(
+            datetime.datetime(2024, 9, 19),
+            100.0,
+            datetime.datetime(2024, 9, 25),
+            106.0,
+        )
+        freeze_now(datetime.datetime(2024, 10, 1))
+
+        workflow.init_workflow(indicator, [candle])
 
         assert workflow.indicator_value is not None
         assert isinstance(workflow.indicator_value, float)
 
-    def test_init_workflow_rejects_non_inclined_indicator(self, mocker):
+    def test_init_workflow_rejects_non_inclined_indicator(
+        self, workflow, candle
+    ):
         from model import Indicator
 
-        saxo_client = mocker.Mock()
-        workflow = InclinedWorkflow(saxo_client, "aca:xpar")
         indicator = Indicator(name="ma50", ut="h1")
-        candles = [
-            Candle(lower=100, higher=110, open=105, close=107, ut=UnitTime.H1)
-        ]
 
         with pytest.raises(SaxoException):
-            workflow.init_workflow(indicator, candles)
+            workflow.init_workflow(indicator, [candle])
 
-    def test_init_workflow_rejects_missing_points(self, mocker):
-        saxo_client = mocker.Mock()
-        workflow = InclinedWorkflow(saxo_client, "aca:xpar")
+    def test_init_workflow_rejects_missing_points(self, workflow, candle):
         indicator = IndicatorInclined(
             name="inclined", ut="h1", x1=None, x2=None
         )
-        candles = [
-            Candle(lower=100, higher=110, open=105, close=107, ut=UnitTime.H1)
-        ]
 
         with pytest.raises(SaxoException):
-            workflow.init_workflow(indicator, candles)
+            workflow.init_workflow(indicator, [candle])
 
-    def test_below_condition_with_element(self, mocker):
-        saxo_client = mocker.Mock()
-        workflow = InclinedWorkflow(saxo_client, "test")
+    def test_below_condition_with_element(self, workflow):
         workflow.indicator_value = 105.0
 
         candle = Candle(
@@ -84,9 +102,7 @@ class TestInclinedWorkflow:
         assert not workflow.below_condition(candle, spread=1.0, element=106.5)
         assert not workflow.below_condition(candle, spread=1.0, element=104.0)
 
-    def test_below_condition_with_candle(self, mocker):
-        saxo_client = mocker.Mock()
-        workflow = InclinedWorkflow(saxo_client, "test")
+    def test_below_condition_with_candle(self, workflow):
         workflow.indicator_value = 105.0
 
         candle = Candle(
@@ -99,9 +115,7 @@ class TestInclinedWorkflow:
         )
         assert not workflow.below_condition(candle_far, spread=1.0)
 
-    def test_above_condition_with_element(self, mocker):
-        saxo_client = mocker.Mock()
-        workflow = InclinedWorkflow(saxo_client, "test")
+    def test_above_condition_with_element(self, workflow):
         workflow.indicator_value = 105.0
 
         candle = Candle(
@@ -113,9 +127,7 @@ class TestInclinedWorkflow:
         assert not workflow.above_condition(candle, spread=1.0, element=103.5)
         assert not workflow.above_condition(candle, spread=1.0, element=106.0)
 
-    def test_above_condition_with_candle(self, mocker):
-        saxo_client = mocker.Mock()
-        workflow = InclinedWorkflow(saxo_client, "test")
+    def test_above_condition_with_candle(self, workflow):
         workflow.indicator_value = 105.0
 
         candle = Candle(
@@ -128,14 +140,11 @@ class TestInclinedWorkflow:
         )
         assert not workflow.above_condition(candle_far, spread=1.0)
 
-    def test_conditions_return_false_when_no_indicator_value(self, mocker):
-        saxo_client = mocker.Mock()
-        workflow = InclinedWorkflow(saxo_client, "test")
+    def test_conditions_return_false_when_no_indicator_value(
+        self, workflow, candle
+    ):
         workflow.indicator_value = None
 
-        candle = Candle(
-            lower=100, higher=110, open=105, close=107, ut=UnitTime.H1
-        )
         assert not workflow.below_condition(candle, spread=1.0)
         assert not workflow.above_condition(candle, spread=1.0)
 
@@ -149,22 +158,16 @@ class TestInclinedWorkflow:
                 x2=Point(x=same_date, y=200),
             )
 
-    def test_real_data_inclined_line(self, mocker):
-        saxo_client = mocker.Mock()
-        saxo_client.get_asset.return_value = {
-            "Identifier": "123",
-            "AssetType": "Stock",
-        }
-        saxo_client.is_day_open.return_value = True
-
-        workflow = InclinedWorkflow(saxo_client, "test")
-
-        x1_date = datetime.datetime(2026, 1, 29)
-        x2_date = datetime.datetime(2026, 2, 12)
-        indicator = self._make_indicator(x1_date, 131.8, x2_date, 129.7)
-
-        now = datetime.datetime(2026, 2, 27)
-        mocker.patch("engines.workflows.get_date_utc0", return_value=now)
+    def test_real_data_inclined_line(
+        self, workflow, make_indicator, freeze_now
+    ):
+        indicator = make_indicator(
+            datetime.datetime(2026, 1, 29),
+            131.8,
+            datetime.datetime(2026, 2, 12),
+            129.7,
+        )
+        freeze_now(datetime.datetime(2026, 2, 27))
 
         candles = [
             Candle(lower=125, higher=130, open=127, close=128, ut=UnitTime.H1)
@@ -174,8 +177,10 @@ class TestInclinedWorkflow:
 
         assert workflow.indicator_value == pytest.approx(127.39, abs=0.01)
 
-    def test_real_data_ascending_line(self, mocker):
-        saxo_client = mocker.Mock()
+    def test_real_data_ascending_line(
+        self, saxo_client, make_indicator, freeze_now
+    ):
+        """Closed market days are skipped when projecting the line."""
         saxo_client.get_asset.return_value = {
             "Identifier": "456",
             "AssetType": "Stock",
@@ -191,12 +196,13 @@ class TestInclinedWorkflow:
 
         workflow = InclinedWorkflow(saxo_client, "test")
 
-        x1_date = datetime.datetime(2026, 3, 9)
-        x2_date = datetime.datetime(2026, 4, 7)
-        indicator = self._make_indicator(x1_date, 39.21, x2_date, 48.55)
-
-        now = datetime.datetime(2026, 5, 21)
-        mocker.patch("engines.workflows.get_date_utc0", return_value=now)
+        indicator = make_indicator(
+            datetime.datetime(2026, 3, 9),
+            39.21,
+            datetime.datetime(2026, 4, 7),
+            48.55,
+        )
+        freeze_now(datetime.datetime(2026, 5, 21))
 
         candles = [
             Candle(lower=60, higher=65, open=62, close=63, ut=UnitTime.H1)
@@ -206,25 +212,17 @@ class TestInclinedWorkflow:
 
         assert workflow.indicator_value == pytest.approx(63.79, abs=0.01)
 
-    def test_descending_line(self, mocker):
-        saxo_client = mocker.Mock()
-        saxo_client.get_asset.return_value = {
-            "Identifier": "123",
-            "AssetType": "Stock",
-        }
-        saxo_client.is_day_open.return_value = True
+    def test_descending_line(
+        self, workflow, make_indicator, freeze_now, candle
+    ):
+        indicator = make_indicator(
+            datetime.datetime(2024, 9, 19),
+            110.0,
+            datetime.datetime(2024, 9, 25),
+            104.0,
+        )
+        freeze_now(datetime.datetime(2024, 9, 25))
 
-        workflow = InclinedWorkflow(saxo_client, "test")
-        x1_date = datetime.datetime(2024, 9, 19)
-        x2_date = datetime.datetime(2024, 9, 25)
-        indicator = self._make_indicator(x1_date, 110.0, x2_date, 104.0)
-
-        now = datetime.datetime(2024, 9, 25)
-        mocker.patch("engines.workflows.get_date_utc0", return_value=now)
-
-        candles = [
-            Candle(lower=100, higher=110, open=105, close=107, ut=UnitTime.H1)
-        ]
-        workflow.init_workflow(indicator, candles)
+        workflow.init_workflow(indicator, [candle])
 
         assert workflow.indicator_value < 110.0
