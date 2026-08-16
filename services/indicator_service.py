@@ -305,7 +305,7 @@ class _ComboContext:
         self.bb25_previous = bollinger_bands(candles[1:], 2.5)
         self.bb20 = bollinger_bands(candles, 2.0)
         self.bb20_previous = bollinger_bands(candles[1:], 2.0)
-        bb_first = bollinger_bands(candles[2:], 2.5)
+        bb_first = bollinger_bands(candles[3:], 2.5)
         self.bbh_slope = slope_percentage(0, bb_first.up, 3, self.bb25.up)
         self.bbb_slope = slope_percentage(
             0, bb_first.bottom, 3, self.bb25.bottom
