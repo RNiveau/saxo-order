@@ -1760,7 +1760,7 @@
     "exit_reasons": {
       "break_even": {
         "count": 11,
-        "points": 324.608
+        "points": 290.168
       },
       "stop_loss": {
         "count": 4,
@@ -2105,7 +2105,7 @@
           "h1_open": null,
           "mm50_slope": 10.59867,
           "overnight_gap": null,
-          "points": 44.4345,
+          "points": 23.2145,
           "status": "traded",
           "trade_count": 2
         },
@@ -2261,7 +2261,7 @@
           "h1_open": null,
           "mm50_slope": 7.12002,
           "overnight_gap": null,
-          "points": -139.43,
+          "points": -152.65,
           "status": "traded",
           "trade_count": 2
         },
@@ -2280,15 +2280,15 @@
       ],
       "summary": {
         "average_loss": 139.4679,
-        "average_win": 80.457,
+        "average_win": 73.4959,
         "definition_code": "C15M",
         "end_date": "2026-04-30",
-        "final_result": 670.4292,
+        "final_result": 478.5946,
         "number_of_be": 0,
         "number_of_days": 42,
         "number_of_losing_positions": 5,
-        "number_of_trades": 22,
-        "number_of_winning_positions": 17,
+        "number_of_trades": 21,
+        "number_of_winning_positions": 16,
         "start_date": "2026-03-02"
       }
     }
@@ -2855,15 +2855,6 @@
         },
         {
           "direction": "Sell",
-          "entry_price": 22850.78,
-          "entry_time": "2026-03-03T16:45:00",
-          "exit_price": 22867.4,
-          "exit_reason": "break_even",
-          "exit_time": "2026-03-03T16:55:00",
-          "points": 15.37
-        },
-        {
-          "direction": "Sell",
           "entry_price": 22870.17,
           "entry_time": "2026-03-03T17:05:00",
           "exit_price": 22759.8906,
@@ -2875,20 +2866,20 @@
     },
     "exit_reasons": {
       "break_even": {
-        "count": 22,
-        "points": 414.738
+        "count": 21,
+        "points": 380.948
       },
       "end_of_run": {
         "count": 1,
         "points": 22.78
       },
       "stop_loss": {
-        "count": 4,
-        "points": -590.78
+        "count": 3,
+        "points": -595.26
       },
       "take_profit": {
-        "count": 28,
-        "points": 4464.7189
+        "count": 27,
+        "points": 4336.013
       }
     },
     "run": {
@@ -2913,9 +2904,9 @@
           "h1_open": null,
           "mm50_slope": 9.86641,
           "overnight_gap": null,
-          "points": 422.2389,
+          "points": 406.8689,
           "status": "traded",
-          "trade_count": 4
+          "trade_count": 3
         },
         {
           "adx14": 14.13522,
@@ -3057,9 +3048,9 @@
           "h1_open": null,
           "mm50_slope": 11.62098,
           "overnight_gap": null,
-          "points": 278.6032,
+          "points": 149.8973,
           "status": "traded",
-          "trade_count": 3
+          "trade_count": 2
         },
         {
           "adx14": 21.0392,
@@ -3153,9 +3144,9 @@
           "h1_open": null,
           "mm50_slope": 11.03512,
           "overnight_gap": null,
-          "points": 139.4191,
+          "points": 285.6991,
           "status": "traded",
-          "trade_count": 3
+          "trade_count": 2
         },
         {
           "adx14": 23.17763,
@@ -3177,7 +3168,7 @@
           "h1_open": null,
           "mm50_slope": 10.59234,
           "overnight_gap": null,
-          "points": 198.1812,
+          "points": 179.7612,
           "status": "traded",
           "trade_count": 2
         },
@@ -3213,7 +3204,7 @@
           "h1_open": null,
           "mm50_slope": 10.57134,
           "overnight_gap": null,
-          "points": -150.081,
+          "points": -300.841,
           "status": "traded",
           "trade_count": 2
         },
@@ -3399,16 +3390,16 @@
         }
       ],
       "summary": {
-        "average_loss": 697.1027,
-        "average_win": 105.3932,
+        "average_loss": 872.0121,
+        "average_win": 105.7716,
         "definition_code": "C5M",
         "end_date": "2026-04-30",
-        "final_result": -1004.2641,
+        "final_result": -1132.8192,
         "number_of_be": 0,
         "number_of_days": 42,
-        "number_of_losing_positions": 9,
-        "number_of_trades": 59,
-        "number_of_winning_positions": 50,
+        "number_of_losing_positions": 7,
+        "number_of_trades": 54,
+        "number_of_winning_positions": 47,
         "start_date": "2026-03-02"
       }
     }
