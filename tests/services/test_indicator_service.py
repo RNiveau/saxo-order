@@ -413,20 +413,12 @@ class TestIndicatorService:
         "file_candles, expected",
         [
             (
+                # Was a buy signal while bb_first was read 2 candles back but
+                # scaled over 3. The corrected slopes (bbh -6.96, bbb -21.23)
+                # both clear COMBO_BB_FLAT_SLOPE_MAX, so neither band is flat
+                # and the combo is discarded before it is scored.
                 "combo_buy_daily_cac.obj",
-                ComboSignal(
-                    7401.35,
-                    True,
-                    Direction.BUY,
-                    SignalStrength.MEDIUM,
-                    {
-                        "macd": True,
-                        "ma50_over_bb": False,
-                        "price_within_bb": True,
-                        "strong_ma50": True,
-                        "both_bb_flat": False,
-                    },
-                ),
+                None,
             ),
             (
                 "combo_buy_h4_dax.obj",
@@ -846,7 +838,7 @@ class TestComboDefersMacd0lag:
         say nothing about the path that does reach it. This fixture produces
         a real signal at full length; truncated below the minimum it must
         decline rather than raise part-way through scoring."""
-        with open("tests/services/files/combo_buy_daily_cac.obj", "r") as f:
+        with open("tests/services/files/combo_buy_h4_dax.obj", "r") as f:
             candles = eval(
                 f.read(),
                 {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
@@ -874,7 +866,7 @@ class TestComboDefersMacd0lag:
         spy.assert_not_called()
 
     def test_macd0lag_is_called_when_a_direction_is_scored(self, mocker):
-        with open("tests/services/files/combo_buy_daily_cac.obj", "r") as f:
+        with open("tests/services/files/combo_buy_h4_dax.obj", "r") as f:
             candles = eval(
                 f.read(),
                 {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
