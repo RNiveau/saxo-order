@@ -132,12 +132,19 @@ Per asset, `workflow_triggers` is added **only when non-empty**:
 {
   "id": "AI_xpar",
   "patterns": ["combo", "mm50_touch"],
+  "pattern_directions": {"combo": "Buy"},
   "ma50_slope": 4.2,
   "workflow_triggers": [
     {"workflow": "AI breakout H1", "direction": "Buy", "dry_run": false, "hour": "14:30"}
   ]
 }
 ```
+
+`pattern_directions` is likewise added **only when non-empty**: it maps a directional detector
+(`combo`, `mm7_break`) to the `Direction` it computed. The book is long-only (023 FR-020/FR-021), so
+a `"Sell"` here is disqualifying rather than merely informative — without it the reasoning path can
+only infer a bullish or bearish read from the sign of `ma50_slope`, which is not good enough to keep
+shorts out of the brief. Non-directional patterns never appear in the map.
 
 `hour` is Paris-local `HH:MM` derived from `placed_at` — the model reasons about "when in the
 session", not about epoch arithmetic. Prices are omitted from the payload: they carry no ranking
