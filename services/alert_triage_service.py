@@ -39,8 +39,13 @@ You receive a JSON object with an "assets" array. Each asset has:
 trend); positive = uptrend, negative = downtrend, null = unknown
 - pattern_directions: PRESENT ONLY when a directional pattern fired. Maps the \
 pattern name to the direction its detector computed ("Buy" = bullish, "Sell" \
-= bearish). Only combo and mm7_break can appear here; every other pattern is \
-absent from this map because it has no computed direction of its own.
+= bearish, "unknown" = the detector fired but published no usable direction). \
+Only combo and mm7_break can appear here; every other pattern is absent from \
+this map because it has no computed direction of its own. Treat "unknown" as \
+DISQUALIFYING UNTIL PROVEN BULLISH: you cannot tell whether it was a buy or a \
+sell, so it earns no convergence point and cannot support "high" on its own. \
+Only other, independent bullish evidence on the same asset can make it \
+surfaceable, and never above "watch".
 - workflow_triggers: PRESENT ONLY when one of the trader's own registered \
 workflows fired on this asset today. Absent on most assets. Each entry has \
 the workflow name, its order "direction" ("Buy"/"Sell"), a "dry_run" flag, \
@@ -183,14 +188,18 @@ Conviction tiers combine the two axes:
 - "high": strong on BOTH - independent BULLISH patterns converging on a stock \
 whose 50-MA is rising strongly. A genuine, actionable LONG worth looking at \
 now. Reserved for longs: a bearish read never reaches this tier.
-- "watch": strong on ONE axis - convergent bullish evidence on a flat/weak \
-trend, or a single clean bullish signal riding a strong uptrend. Also the \
-ceiling for the rare bearish asset worth flagging: a notable breakdown in a \
-name the trader may be long and should consider exiting. Make clear in the \
-rationale which of the two it is.
+- "watch": not yet buyable, but worth keeping an eye on. Four cases qualify, \
+and the rationale must make clear WHICH:
+  (a) convergent bullish evidence on a flat or weak trend;
+  (b) a single clean bullish signal riding a strong uptrend;
+  (c) an EARLY bullish signal on a still-falling 50-MA - a "Buy" mm7_break or \
+a double_bottom that hints the decline may be ending but has not turned the \
+trend yet. Not buyable now; this is the "check back" tier, not an entry.
+  (d) the ceiling for the rare bearish asset worth flagging: a notable \
+breakdown in a name the trader may be long and should consider exiting.
 - "noise": strong on NEITHER - isolated, redundant, non-directional, or \
-internally-inconsistent hits on a flat or unknown trend - and, by default, \
-any bearish asset that is not a breakdown worth warning about.
+internally-inconsistent hits on a flat, falling or unknown trend - and, by \
+default, any bearish asset that is not a breakdown worth warning about.
 
 RETURN ONLY the "high" and "watch" assets - the ones worth surfacing. Any \
 asset you omit is treated as "noise", so never list noise assets. Rank the \
@@ -267,6 +276,13 @@ _TIMING_PATTERNS = {AlertType.MM7_BREAK}
 # desk is long-only, so a "Sell" here is disqualifying rather than merely
 # informative - the reasoning path has to see it, not infer it from the slope.
 _DIRECTIONAL_PATTERNS = {AlertType.COMBO, AlertType.MM7_BREAK}
+
+# What the payload says when a directional detector fired but published no
+# usable direction - a stored alert from an older detector version, say.
+# Omitting the pattern instead would read to the model as "no directional
+# pattern fired", letting a Sell combo through the long-only gate as merely
+# unknown, which is the inference this whole path exists to remove.
+_UNKNOWN_DIRECTION = "unknown"
 
 
 class TriageAgent:
@@ -488,9 +504,10 @@ class TriageAgent:
             )
             if alert.alert_type not in entry["patterns"]:
                 entry["patterns"].append(alert.alert_type)
-            direction = self._alert_direction(alert)
-            if direction is not None:
-                entry["pattern_directions"][alert.alert_type] = direction
+            if alert.alert_type in _DIRECTIONAL_PATTERNS:
+                entry["pattern_directions"][alert.alert_type] = (
+                    self._alert_direction(alert)
+                )
             slope = (
                 alert.data.get("ma50_slope")
                 if isinstance(alert.data, dict)
@@ -501,20 +518,25 @@ class TriageAgent:
         return grouped
 
     def _alert_direction(self, alert: Alert) -> Optional[Direction]:
-        """The direction a directional detector computed, when it has one.
+        """The direction a directional detector computed, if it published one.
 
-        combo and mm7_break are the only detectors that publish one. Without
-        it the reasoning path can only guess a bullish or bearish read from
-        the slope sign, which a long-only brief cannot afford.
+        combo and mm7_break are the only detectors that do. Without it the
+        reasoning path can only guess a bullish or bearish read from the slope
+        sign, which a long-only brief cannot afford - so a miss is logged
+        rather than absorbed, and the payload marks the pattern unknown.
         """
-        if alert.alert_type not in _DIRECTIONAL_PATTERNS:
-            return None
-        if not isinstance(alert.data, dict):
-            return None
-        raw = alert.data.get("direction")
+        raw = (
+            alert.data.get("direction")
+            if isinstance(alert.data, dict)
+            else None
+        )
         for direction in Direction:
             if direction.value == raw:
                 return direction
+        self.logger.warning(
+            f"{alert.alert_type.value} on {alert.asset_code} published no "
+            f"usable direction ({raw!r}); the brief will treat it as unknown"
+        )
         return None
 
     def _build_payload(self, grouped: Dict[str, Dict[str, Any]]) -> str:
@@ -527,7 +549,11 @@ class TriageAgent:
             }
             if entry["pattern_directions"]:
                 asset["pattern_directions"] = {
-                    pattern.value: direction.value
+                    pattern.value: (
+                        direction.value
+                        if direction is not None
+                        else _UNKNOWN_DIRECTION
+                    )
                     for pattern, direction in entry[
                         "pattern_directions"
                     ].items()

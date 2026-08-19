@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
@@ -467,6 +468,40 @@ def test_payload_ignores_a_direction_on_a_non_directional_pattern() -> None:
     assert "pattern_directions" not in _payload_assets(client)["SAN_xpar"]
 
 
+def test_payload_marks_a_directional_pattern_that_published_no_direction() -> (
+    None
+):
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+
+    agent.synthesize([_alert("SAN", AlertType.COMBO, -4.0)])
+
+    directions = _payload_assets(client)["SAN_xpar"]["pattern_directions"]
+    assert directions == {AlertType.COMBO.value: "unknown"}
+
+
+def test_payload_marks_an_unparseable_direction_unknown() -> None:
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+    alert = _alert("SAN", AlertType.MM7_BREAK, -4.0)
+    alert.data["direction"] = "sideways"
+
+    agent.synthesize([alert])
+
+    directions = _payload_assets(client)["SAN_xpar"]["pattern_directions"]
+    assert directions == {AlertType.MM7_BREAK.value: "unknown"}
+
+
+def test_a_missing_direction_is_logged_rather_than_absorbed(caplog) -> None:
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+
+    with caplog.at_level(logging.WARNING):
+        agent.synthesize([_alert("SAN", AlertType.COMBO, -4.0)])
+
+    assert "published no usable direction" in caplog.text
+
+
 def test_payload_omits_workflow_triggers_when_there_are_none() -> None:
     client = FakeAnthropicClient({"summary": "s", "assets": []})
     agent = TriageAgent(client)
@@ -632,6 +667,17 @@ def test_prompt_documents_the_payload_keys_it_will_receive() -> None:
 def test_prompt_states_the_long_only_mandate() -> None:
     assert "LONG-ONLY MANDATE" in TRIAGE_SYSTEM_PROMPT
     assert "It never shorts." in TRIAGE_SYSTEM_PROMPT
+
+
+def test_prompt_documents_the_unknown_direction_marker() -> None:
+    assert "DISQUALIFYING UNTIL PROVEN BULLISH" in TRIAGE_SYSTEM_PROMPT
+
+
+def test_prompt_tiers_an_early_bullish_signal_on_a_falling_trend() -> None:
+    assert "an EARLY bullish signal on a still-falling 50-MA" in (
+        TRIAGE_SYSTEM_PROMPT
+    )
+    assert "on a flat, falling or unknown trend" in TRIAGE_SYSTEM_PROMPT
 
 
 def test_prompt_caps_a_bearish_read_below_high() -> None:
