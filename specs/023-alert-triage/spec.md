@@ -18,7 +18,8 @@ Today, after the daily French-stock scan, the trader receives a raw, per-indicat
 **Acceptance Scenarios**:
 
 1. **Given** the daily scan produced alerts across several stocks, some with multiple patterns firing on the same asset and some with a single pattern, **When** the triage step runs, **Then** assets with multiple co-firing patterns are ranked above assets with a single isolated pattern.
-2. **Given** an asset has a bearish pattern and its medium-term trend is falling, **When** the brief is produced, **Then** that asset is rated higher conviction than an equivalent bearish pattern whose trend is rising.
+2. **Given** an asset has a bullish pattern and its medium-term trend is rising, **When** the brief is produced, **Then** that asset is rated higher conviction than an equivalent bullish pattern whose trend is flat or falling.
+2a. **Given** an asset's net read is bearish (a "Sell" directional pattern, a falling trend, or a double top), **When** the brief is produced, **Then** that asset is never rated "high"; it appears at most as a "watch" warning to avoid or exit the name, and is otherwise treated as noise.
 3. **Given** the scan produced a large number of low-significance hits, **When** the brief is produced, **Then** those hits are represented as a summary count in a "noise" grouping rather than enumerated individually.
 4. **Given** the brief is produced, **When** the trader reads any high- or watch-tier entry, **Then** it includes a one-line rationale referencing the specific patterns and trend context behind the ranking.
 
@@ -92,13 +93,17 @@ Instead of blasting the raw per-indicator lists into the notification channel, t
 - **FR-003**: The brief MUST assign a rank ordering to the high- and watch-tier assets.
 - **FR-004**: The brief MUST include a concise one-line rationale for each high- and watch-tier asset.
 - **FR-005**: Ranking and tiering MUST take into account pattern confluence (multiple distinct patterns firing on the same asset) and alignment between the signal's direction and the asset's medium-term trend slope.
+- **FR-020**: The brief serves a **long-only** book. Only bullish setups are surfaced as opportunities; bearish evidence MUST count against a long thesis and MUST NOT contribute confluence or opportunity.
+- **FR-021**: An asset whose net read is bearish MUST NOT be assigned the "high" tier. Its ceiling is "watch", reserved for a breakdown worth warning the trader about in a name he may already hold; every other bearish asset is "noise". A bearish "watch" rationale MUST read as a warning to avoid or exit, never as an entry.
+- **FR-022**: The reasoning step MUST receive the direction computed by each directional detector (currently `combo` and `mm7_break`), so a bullish and a bearish occurrence of the same pattern are distinguishable rather than inferred from the trend slope.
+- **FR-023**: Rank ordering MUST place every buyable long ahead of every bearish "watch".
 - **FR-006**: The system MUST NOT modify the existing pattern-detection logic; detection remains the deterministic source of truth.
 - **FR-007**: The system MUST continue to store the raw per-asset alerts exactly as it does today, independently of the brief.
 - **FR-008**: The system MUST NOT alter the order-placement / workflow execution path in any way.
 - **FR-009**: The system MUST persist each produced brief durably and WITHOUT automatic expiry, so that historical briefs remain available indefinitely for later review.
 - **FR-010**: Each persisted brief MUST be identifiable and retrievable by its run date, and multiple runs on the same date MUST be retained distinctly by run time.
 - **FR-011**: On any failure of the reasoning step (service unavailable, timeout, or invalid/unparseable output), the system MUST fall back to a deterministic ranking derived from pattern count and trend-slope magnitude, and MUST still produce and persist a brief.
-- **FR-012**: A brief produced via the fallback path MUST be flagged as such so consumers can distinguish reasoning-based from fallback briefs.
+- **FR-012**: A brief produced via the fallback path MUST be flagged as such so consumers can distinguish reasoning-based from fallback briefs. The fallback ranking stays direction-agnostic (pattern count then `|ma50_slope|`) and is therefore NOT bound by FR-020/FR-021: a degraded brief may surface a bearish asset, and the `fallback_used` flag is what tells the trader the tiering is not the long-only judgement.
 - **FR-013**: A failure in the triage or persistence step MUST NOT prevent the scan from completing, MUST NOT lose raw alert data, and MUST NOT affect the order/workflow path.
 - **FR-014**: The system MUST expose the persisted briefs for consumption by the application, supporting (a) listing briefs newest-first and (b) retrieving a single brief by its run date.
 - **FR-015**: The application MUST surface the latest brief on the homepage, displaying the ranked high- and watch-tier assets with their conviction tier indicated visually (noise summarized as a count), and MUST let the user page back through recent run dates via a carousel.

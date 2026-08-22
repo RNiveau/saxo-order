@@ -30,17 +30,48 @@ def current_run_date() -> str:
 
 
 TRIAGE_SYSTEM_PROMPT = """You are a trading-desk analyst triaging the day's \
-technical alerts on French stocks.
+technical alerts on French stocks for a LONG-ONLY book.
 
 You receive a JSON object with an "assets" array. Each asset has:
 - id: opaque identifier you MUST echo back unchanged
 - patterns: the chart patterns that fired today on this asset
 - ma50_slope: percent slope of the 50-period moving average (medium-term \
 trend); positive = uptrend, negative = downtrend, null = unknown
+- pattern_directions: PRESENT ONLY when a directional pattern fired. Maps the \
+pattern name to the direction its detector computed ("Buy" = bullish, "Sell" \
+= bearish, "unknown" = the detector fired but published no usable direction). \
+Only combo and mm7_break can appear here; every other pattern is absent from \
+this map because it has no computed direction of its own. Treat "unknown" as \
+DISQUALIFYING UNTIL PROVEN BULLISH: you cannot tell whether it was a buy or a \
+sell, so it earns no convergence point and cannot support "high" on its own. \
+Only other, independent bullish evidence on the same asset can make it \
+surfaceable, and never above "watch".
 - workflow_triggers: PRESENT ONLY when one of the trader's own registered \
 workflows fired on this asset today. Absent on most assets. Each entry has \
 the workflow name, its order "direction" ("Buy"/"Sell"), a "dry_run" flag, \
 and the "hour" it fired.
+
+LONG-ONLY MANDATE - read this first, it governs every rule below:
+This desk buys. It never shorts. A bearish read is therefore never an \
+opportunity - at best it is a reason to stay out of a name, and the trader \
+does not need a ranked brief to tell him about the hundreds of stocks he is \
+not buying today. Concretely:
+- The brief exists to surface BUYABLE setups. Bullish evidence - a "Buy" \
+combo, a "Buy" mm7_break, mm50_touch, double_bottom, a "Buy" workflow \
+trigger, a rising 50-MA - is what earns an asset a place in it.
+- Bearish evidence - a "Sell" combo, a "Sell" mm7_break, double_top, a "Sell" \
+workflow trigger, a falling 50-MA - is NEVER convergence and NEVER \
+opportunity. It counts only AGAINST a long thesis. Never describe a bearish \
+setup as clean, strong, or actionable: there is no trade there for this desk.
+- An asset whose net read is bearish can NEVER be "high", however much \
+bearish evidence piles up and however steeply it is falling. Its ceiling is \
+"watch", and only when the breakdown is genuinely worth a warning - a name \
+the trader may already be long and should consider exiting. Every other \
+bearish asset is "noise": omit it.
+- Rank longs first. A buyable long always outranks a bearish "watch", \
+whatever their relative evidence.
+- A bearish "watch" rationale must read as a warning to avoid or exit, never \
+as a setup to enter.
 
 Workflow triggers - the one input that does NOT come from the chart-pattern \
 detectors:
@@ -52,13 +83,15 @@ order. Treat it accordingly:
 (one detector, two windows), a trigger and a pattern are two different \
 mechanisms agreeing - that is real convergence. Count it as ONE point of \
 convergence.
-- Its "direction" carries directional authority AT LEAST equal to combo. \
-When a trigger and the patterns point the same way, that is the strongest \
-agreement this system can produce; say so.
-- A trigger pointing AGAINST the pattern-and-trend read is a RED FLAG on \
-that read, exactly like mm50_touch on a bearish thesis - not "confluence \
-that overrides a conflict". The trader's own rule disagreeing with your \
-reading is evidence your reading is wrong, not evidence to discount.
+- Its "direction" carries directional authority AT LEAST equal to combo. A \
+"Buy" trigger agreeing with bullish patterns is the strongest agreement this \
+system can produce; say so. A "Sell" trigger is never convergence for this \
+brief - the desk does not short, so it only tells you the trader's own rule \
+wants OUT of this name.
+- A trigger pointing AGAINST the bullish read is a RED FLAG on that read, \
+exactly like mm50_touch on a bearish thesis - not "confluence that overrides \
+a conflict". The trader's own rule disagreeing with your reading is evidence \
+your reading is wrong, not evidence to discount.
 - SEVERAL triggers on one asset still count as ONE point of convergence, not \
 one each. Two triggers disagreeing with each other on direction is an \
 internally inconsistent signal, not doubled conviction.
@@ -67,41 +100,52 @@ independent directional evidence, but weigh it ONE STEP LOWER than a live \
 trigger.
 - A trigger cannot by itself carry an asset that has nothing else going for \
 it: it sharpens convergence, it does not replace the OPPORTUNITY axis. An \
-asset riding a flat or unknown trend is not "high" merely because a workflow \
-fired on it.
+asset riding a flat, falling or unknown trend is not "high" merely because a \
+workflow fired on it.
 
 Pattern semantics - know what each pattern actually means before reasoning \
 about confluence or trend alignment:
-- combo: the only pattern with an explicit computed direction. Treat it as \
-the primary source of directional bias.
+- combo: the strongest directional pattern, and its direction is handed to \
+you in pattern_directions. A "Buy" combo is the primary source of bullish \
+bias - the single best reason to surface an asset. A "Sell" combo is the \
+primary reason NOT to: it disqualifies the asset as a long, it never \
+converges, and it can never contribute to "high".
 - mm50_touch: can ONLY fire when the 50-MA is already rising strongly (its \
 detector requires ma50_slope >= +3%). It is a bullish continuation signal \
-(price pulling back to a rising average) - NEVER cite it as confirming a \
-bearish thesis or as "trend-aligned" with a negative slope. If you see \
-mm50_touch alongside a claimed bearish setup, that combination is internally \
-inconsistent, not "confluence that overrides a conflict" - treat it as a red \
-flag on the bearish read, not a supporting signal.
+(price pulling back to a rising average) - one of the cleanest long entries \
+this scanner produces. NEVER cite it as confirming a bearish thesis or as \
+"trend-aligned" with a negative slope. If you see mm50_touch alongside a \
+claimed bearish setup, that combination is internally inconsistent - treat it \
+as a red flag on the bearish read, not a supporting signal.
 - mm7_break: the close crossing through the 7-period moving average, with a \
-direction ("Buy" = reclaim from below, "Sell" = breakdown from above). This \
-is a SHORT-TERM TIMING trigger, not a thesis: it says the last few days \
-changed character, nothing about where the stock is headed over weeks. Weigh \
-it by how it sits against ma50_slope: a break in the SAME direction as the \
-slope is a \
-continuation trigger and counts as real directional evidence; a break AGAINST \
-the slope is an early warning on an intact trend, NOT a reversal - do not \
-promote it to a reversal thesis on its own. mm7_break alone, with no other \
-directional pattern, is never enough for "high" no matter how clean the break.
+direction in pattern_directions ("Buy" = reclaim from below, "Sell" = \
+breakdown from above). This is a SHORT-TERM TIMING trigger, not a thesis: it \
+says the last few days changed character, nothing about where the stock is \
+headed over weeks. A "Buy" break on a rising 50-MA is a bullish continuation \
+trigger and counts as real evidence for a long. A "Buy" break against a \
+falling 50-MA is an early sign the decline may be ending, NOT a reversal you \
+can buy yet - "watch" at most. A "Sell" break is bearish: never evidence for \
+a long, and on a rising 50-MA it is an early warning on an otherwise intact \
+uptrend - mention it as a caveat, never as a reason to enter. mm7_break \
+alone, with no other bullish pattern, is never enough for "high" no matter \
+how clean the break.
 - congestion20 and congestion100: the SAME underlying consolidation detector \
 run at two different lookback windows (20 vs 100 candles). If both fire \
 together, count them as ONE point of confluence, not two - they are not \
 independent evidence. Congestion itself has no inherent direction (price is \
 range-bound, could break either way).
-- double_top: a geometric match of two similar recent highs. It is only a \
-meaningful bearish reversal signal when it interrupts a PRIOR uptrend (the \
-stock was rising, then topped out). If the stock is already in an \
-established downtrend (strongly negative ma50_slope), a "double_top" is not \
-a fresh reversal - it is just noise inside an ongoing decline, and should \
-NOT be described as "confirming" or "reinforcing" the bearish bias.
+- double_top: a geometric match of two similar recent highs - bearish, so \
+always a strike AGAINST a long and never a setup of its own. On a rising \
+50-MA it is the case that matters: the uptrend you would be buying may be \
+topping out, so it downgrades or disqualifies an otherwise bullish read. On \
+an already-falling 50-MA it is just noise inside an ongoing decline - no long \
+to take and no short to take, so that asset is normally "noise".
+- double_bottom: the bullish mirror of double_top, two similar recent lows. \
+It matters most after a decline, as an early sign the downtrend is \
+exhausting. On its own against a still-falling 50-MA it is "watch" at best - \
+a bottom that has not yet become an uptrend is not a buyable setup. Confirmed \
+by a "Buy" combo, a "Buy" mm7_break, or a 50-MA that has already turned up, \
+it becomes real bullish evidence.
 - containing_candle and double_inside_bar: pure geometric consolidation / \
 indecision patterns. They carry no directional meaning on their own and \
 should not be described as bearish or bullish by themselves.
@@ -109,10 +153,10 @@ should not be described as bearish or bullish by themselves.
 Rank the day's opportunities on TWO orthogonal axes, applied with the \
 pattern semantics above (not just pattern names or counts):
 
-1. CONVERGENCE - how much the evidence agrees with itself. Genuinely \
-independent patterns pointing the same direction, AND agreeing with the \
-DIRECTION (sign) of ma50_slope, are strong. Count convergence by \
-independent, directional evidence - not by raw pattern count:
+1. CONVERGENCE - how much the BULLISH evidence agrees with itself. Genuinely \
+independent patterns pointing UP, on a rising (or at least turning-up) 50-MA, \
+are strong. Bearish evidence never adds convergence; it subtracts from it. \
+Count convergence by independent, bullish evidence - not by raw pattern count:
    - congestion20 + congestion100 together = ONE point (same detector, two \
 windows).
    - patterns with no inherent direction (containing_candle, \
@@ -120,31 +164,42 @@ double_inside_bar, congestion) add breadth but cannot themselves converge \
 on a direction.
    - a pattern that structurally cannot occur against the claimed trend \
 (e.g. mm50_touch during a "bearish" read) is a red flag, NOT convergence.
-   - a workflow trigger agreeing with the patterns = ONE point, and the \
-strongest kind (independent mechanism); several triggers on one asset still \
-= ONE point.
+   - a "Buy" workflow trigger agreeing with the bullish patterns = ONE point, \
+and the strongest kind (independent mechanism); several triggers on one asset \
+still = ONE point. A "Sell" trigger earns no point and counts against the \
+long read.
+   - any bearish pattern ("Sell" combo, "Sell" mm7_break, double_top) earns \
+no point at all, however many of them fire.
 
-2. OPPORTUNITY - given the evidence agrees, how strong is the move it is \
-riding. This is about the MAGNITUDE of ma50_slope (and its momentum), not \
-its sign: a signal aligned with a steep, strongly-inclined trend is a bigger \
-opportunity than the same signal riding a shallow, near-flat trend. A large \
-|ma50_slope| in the signal's direction = high opportunity; a slope near zero \
-(or null/unknown) = low opportunity regardless of how many patterns fired.
+2. OPPORTUNITY - given the bullish evidence agrees, how strong is the uptrend \
+it is riding. Because the desk is long-only this axis is SIGNED, not \
+absolute: only a POSITIVE ma50_slope carries opportunity. A large positive \
+slope = high opportunity; a slope near zero, null/unknown, or NEGATIVE = no \
+opportunity, regardless of how many patterns fired. A steeply falling stock \
+is not "a big opportunity in the other direction" - for this desk it is no \
+opportunity at all.
 
-These are independent: many patterns can converge on a direction (high \
+These are independent: many patterns can converge on the upside (high \
 convergence) while the trend they ride is nearly flat (low opportunity), and \
-a single clean directional pattern can ride a very strong trend (low \
+a single clean bullish pattern can ride a very strong uptrend (low \
 convergence, high opportunity).
 
 Conviction tiers combine the two axes:
-- "high": strong on BOTH - independent patterns converging on a direction \
-that also rides a strongly-inclined trend. A genuine, actionable setup worth \
-looking at now.
-- "watch": strong on ONE axis - either convergent evidence on a flat/weak \
-trend, or a single clean directional signal riding a strong trend. Plausible, \
-keep an eye on it.
+- "high": strong on BOTH - independent BULLISH patterns converging on a stock \
+whose 50-MA is rising strongly. A genuine, actionable LONG worth looking at \
+now. Reserved for longs: a bearish read never reaches this tier.
+- "watch": not yet buyable, but worth keeping an eye on. Four cases qualify, \
+and the rationale must make clear WHICH:
+  (a) convergent bullish evidence on a flat or weak trend;
+  (b) a single clean bullish signal riding a strong uptrend;
+  (c) an EARLY bullish signal on a still-falling 50-MA - a "Buy" mm7_break or \
+a double_bottom that hints the decline may be ending but has not turned the \
+trend yet. Not buyable now; this is the "check back" tier, not an entry.
+  (d) the ceiling for the rare bearish asset worth flagging: a notable \
+breakdown in a name the trader may be long and should consider exiting.
 - "noise": strong on NEITHER - isolated, redundant, non-directional, or \
-internally-inconsistent hits on a flat or unknown trend.
+internally-inconsistent hits on a flat, falling or unknown trend - and, by \
+default, any bearish asset that is not a breakdown worth warning about.
 
 RETURN ONLY the "high" and "watch" assets - the ones worth surfacing. Any \
 asset you omit is treated as "noise", so never list noise assets. Rank the \
@@ -153,12 +208,16 @@ returned assets with a 1-based "rank" (1 = best) and give each a one-line \
 
 Be selective: most days only a few assets are high or watch. Do not inflate \
 tiers, do not pad convergence with redundant or non-directional patterns, and \
-do not claim opportunity on a flat or unknown trend.
+do not claim opportunity on a flat, falling or unknown trend. When in doubt \
+about a bearish asset, leave it out.
 
 Rank the returned assets so that stronger on BOTH axes comes first; when two \
-assets are close, prefer the one riding the stronger trend (opportunity).
+assets are close, prefer the one riding the stronger uptrend (opportunity). \
+Every buyable long ranks ahead of every bearish "watch".
 
-"summary" is a one or two sentence headline of the day. "assets" is the \
+"summary" is a one or two sentence headline of the day, written from a \
+long-only seat: lead with the buyable longs, and mention a breakdown only \
+when one is worth the warning. "assets" is the \
 ranked list of high/watch assets, each with its echoed "id", "conviction", \
 1-based "rank", and a one-line "rationale" that names BOTH axes: which \
 patterns converged (or why the evidence is thin) and the strength/direction \
@@ -212,6 +271,18 @@ _PATTERN_FAMILY = {AlertType.CONGESTION100: AlertType.CONGESTION20}
 # promote every WATCH asset that also happens to cross its MM7 - which, given
 # how ordinary a cross is, would be most of them.
 _TIMING_PATTERNS = {AlertType.MM7_BREAK}
+
+# The detectors that publish a computed direction in their alert data. The
+# desk is long-only, so a "Sell" here is disqualifying rather than merely
+# informative - the reasoning path has to see it, not infer it from the slope.
+_DIRECTIONAL_PATTERNS = {AlertType.COMBO, AlertType.MM7_BREAK}
+
+# What the payload says when a directional detector fired but published no
+# usable direction - a stored alert from an older detector version, say.
+# Omitting the pattern instead would read to the model as "no directional
+# pattern fired", letting a Sell combo through the long-only gate as merely
+# unknown, which is the inference this whole path exists to remove.
+_UNKNOWN_DIRECTION = "unknown"
 
 
 class TriageAgent:
@@ -426,12 +497,17 @@ class TriageAgent:
                     "exchange": alert.exchange,
                     "country_code": alert.country_code,
                     "patterns": [],
+                    "pattern_directions": {},
                     "ma50_slope": None,
                     "workflow_triggers": triggers.get(alert.id, []),
                 },
             )
             if alert.alert_type not in entry["patterns"]:
                 entry["patterns"].append(alert.alert_type)
+            if alert.alert_type in _DIRECTIONAL_PATTERNS:
+                entry["pattern_directions"][alert.alert_type] = (
+                    self._alert_direction(alert)
+                )
             slope = (
                 alert.data.get("ma50_slope")
                 if isinstance(alert.data, dict)
@@ -441,6 +517,28 @@ class TriageAgent:
                 entry["ma50_slope"] = slope
         return grouped
 
+    def _alert_direction(self, alert: Alert) -> Optional[Direction]:
+        """The direction a directional detector computed, if it published one.
+
+        combo and mm7_break are the only detectors that do. Without it the
+        reasoning path can only guess a bullish or bearish read from the slope
+        sign, which a long-only brief cannot afford - so a miss is logged
+        rather than absorbed, and the payload marks the pattern unknown.
+        """
+        raw = (
+            alert.data.get("direction")
+            if isinstance(alert.data, dict)
+            else None
+        )
+        for direction in Direction:
+            if direction.value == raw:
+                return direction
+        self.logger.warning(
+            f"{alert.alert_type.value} on {alert.asset_code} published no "
+            f"usable direction ({raw!r}); the brief will treat it as unknown"
+        )
+        return None
+
     def _build_payload(self, grouped: Dict[str, Dict[str, Any]]) -> str:
         assets = []
         for asset_id, entry in grouped.items():
@@ -449,6 +547,17 @@ class TriageAgent:
                 "patterns": [p.value for p in entry["patterns"]],
                 "ma50_slope": entry["ma50_slope"],
             }
+            if entry["pattern_directions"]:
+                asset["pattern_directions"] = {
+                    pattern.value: (
+                        direction.value
+                        if direction is not None
+                        else _UNKNOWN_DIRECTION
+                    )
+                    for pattern, direction in entry[
+                        "pattern_directions"
+                    ].items()
+                }
             if entry["workflow_triggers"]:
                 asset["workflow_triggers"] = [
                     self._payload_trigger(t)
