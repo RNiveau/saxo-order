@@ -87,9 +87,21 @@ existing `except (KeyError, ValueError): continue` behaviour for malformed store
 asserts the signature of each existing type is unchanged, and a second asserts a stored alert
 written before this feature still de-dupes exactly as before.
 
+**Normalisation**: `weekly_bar_date` is stored as `.date().isoformat()`. The bar date originates as
+a `datetime` on a daily candle, and Monday's candle can be provider-supplied on Tuesday but
+H1-rebuilt on Monday itself (`alerting.py:672-690`) — the two carry different times. Normalising to
+a date makes the signature stable across those two paths; a raw datetime would not be.
+
 **Storage shape**: alerts live as a list inside one item per asset (`get_alerts`,
 `aws_client.py:618-635`). Adding `weekly_bar_date` and `direction` inside the weekly alert's `data`
 needs no schema change and no migration; `data` is already a free-form map.
+
+**TTL interaction**: `store_alerts` returns before `update_item` when every incoming alert is a
+duplicate (`aws_client.py:556-561`), so the item's `ttl = now + 7 days` is refreshed only on a real
+write. Bar-keyed suppression means an asset whose only alert is a persisting weekly combo stops
+refreshing its item for the rest of that week. This is safe — a weekly bar spans at most 5 scans,
+inside the 7-day window — but the margin is now load-bearing where it previously was not, so any
+future lengthening of the suppression key must revisit it.
 
 ---
 
@@ -121,10 +133,17 @@ triage directional set, and the API's `alert_type` filter (`api/routers/alerting
 timeframe field inside `data` would force each of those to learn a second dimension, and the
 existing de-dup signature would still not separate them.
 
-**Known enumeration sites to update (FR-010)**: `frontend/src/utils/alertLabels.ts:4`,
-`frontend/src/components/AlertCard.tsx:98`, `services/alert_triage_service.py:278`
-(`_DIRECTIONAL_PATTERNS`). Three sites; the acceptance criterion names "everywhere a directional
-alert type is enumerated" so a fourth added later is still covered.
+**Known enumeration sites to update (FR-010)**: four, not three —
+`services/alert_triage_service.py:278` (`_DIRECTIONAL_PATTERNS`),
+`services/alert_triage_service.py:264` (`_PATTERN_FAMILY`, per R7),
+`frontend/src/components/AlertCard.tsx:98` (directional rendering), and
+`frontend/src/pages/AssetDetail.css:549` (`.alert-card[data-alert-type="combo"] .alert-type-badge`
+— per-type badge colour, which `combo_weekly` does not inherit).
+
+`frontend/src/utils/alertLabels.ts:4` is polish rather than a gap: `getAlertTypeLabel` falls back to
+`titleCase` (`:19-20`), so an unmapped type already renders as "Combo Weekly". The CSS rule is the
+real one — without it the badge loses the per-type colour that makes US3's "distinguishable at a
+glance" true.
 
 ---
 
@@ -141,21 +160,58 @@ disqualifying rather than symmetric. A directional pattern arriving without sema
 weighted by the model's own guess. `_alert_direction` needs no change — it reads `data["direction"]`,
 which the weekly alert carries in the same shape as the daily one.
 
-**Deterministic fallback**: the weekly combo counts as its own pattern family, so an asset carrying
-both a daily and a weekly combo shows two families rather than one.
+**Deterministic fallback**: add `COMBO_WEEKLY: COMBO` to `_PATTERN_FAMILY`
+(`alert_triage_service.py:264`), collapsing the two timeframes into **one** confluence point.
+
+This is a correction to an earlier reading of this decision, and it matters. `_confluence_points`
+is `len(_structural_families(patterns)) + _trigger_point`, and `_fallback_conviction` returns
+`HIGH` at `points >= 2` (`:422-441`). Counting weekly as its own family would make a daily + weekly
+combo an **automatic HIGH** with no second mechanism agreeing — and the fallback path consults no
+direction at all (`_DIRECTIONAL_PATTERNS` is read only when building the LLM payload, `:507`), so a
+**Sell** daily plus a **Sell** weekly would land in HIGH, precisely what the long-only work exists
+to prevent and what FR-009 forbids.
+
+Collapsing also matches the one precedent in that map: `_PATTERN_FAMILY` already folds
+`CONGESTION100` into `CONGESTION20` because they are one detector at two lookback windows. Daily and
+weekly combo are one detector at two timeframes — the same relationship — and the spec calls their
+agreement "reinforcing evidence", which under this model is one point, not two.
+
+With the collapse, an asset carrying only combos scores exactly as it does today: one structural
+family, WATCH when the slope clears the threshold. The fallback's direction-blindness is unchanged
+and pre-existing, not something this feature introduces.
+
+**Where rank lives**: weekly outranking daily is expressed in the prompt, which is the only place
+that reasons about rank. The fallback counts families; it does not rank them.
 
 ---
 
 ## R8 — Source of the calibration and validation data
 
-**Decision**: calibration is a one-off script under `scripts/`, reading weekly series from the
-existing `backtest_candle_cache` table through `DynamoDBClient.scan_backtest_candles` /
-`get_cached_backtest_candles` (`client/aws_client.py:996-1094`). It reports the distribution of
-`ma50_slope`, `bbh_slope` and `bbb_slope` over weekly bars; the chosen constants are then committed.
+**Decision**: calibration is a one-off developer script, `scripts/calibrate_weekly_combo.py`, that
+fetches `horizon=10080` directly from the provider for a **sample of the scanned universe** (a few
+dozen French stocks drawn from `stocks.json`, not the whole list), caches the raw response to a
+local file so re-runs cost nothing, and reports the distribution of `ma50_slope`, `bbh_slope` and
+`bbb_slope` over those weekly bars. The chosen constants are then committed. It runs outside the
+scan and is paid once.
 
-**Rationale**: the store already holds raw candles keyed by instrument, session and timeframe, so
-calibration costs no provider requests and is reproducible. Committing the outcome as constants
-(rather than reading the store at runtime) keeps the scan's runtime dependencies unchanged.
+**Rationale**: the existing `backtest_candle_cache` table cannot serve this, on two counts:
+
+- **Wrong shape.** Its only writer, `CandleSource`, persists an `h1_candle` plus `m5_candles` per
+  `trading_date` (`client/aws_client.py:1013-1045`). It holds no weekly bars and no daily ones;
+  producing weekly series from it would mean aggregating H1 → daily → weekly across a
+  session-scoped window.
+- **Wrong universe.** The key is `{instrument}:{session_key}:v2`
+  (`api/services/backtest/candle_source.py:51-60`) and every backtest definition names `FRA40.I` or
+  `GER40.I` (`api/services/backtest/definitions.py`). Two index CFDs — not the few hundred French
+  single stocks the alerting scan covers. Thresholds for "how flat are the bands" and "how steep is
+  the MA50" calibrated on two indices would not transfer to that equity universe.
+
+(The `{instrument}:{session}:{ut}:v1` namespace CLAUDE.md attributes to spec 026 is not what the
+code keys on; `CACHE_SCHEMA_VERSION = 2` dropped the definition code and carries no `ut` segment.)
+
+**Cost**: one request per sampled asset, once, outside the scheduled scan. That is the price of
+calibrating on the universe the thresholds will actually be applied to, and it is paid by a
+developer running a script rather than by the Lambda.
 
 **Not resolved here**: the labelled sample of ≥20 historical setups that SC-001 verifies against is
 produced by the trader. It is a release prerequisite recorded under the spec's Dependencies, not an

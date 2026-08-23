@@ -73,6 +73,10 @@ and in two additional keys inside the existing free-form `data` map.
 **State**: alerts are append-only records inside one item per asset. A weekly alert is never
 updated in place; a direction change on the same bar appends a second record.
 
+**TTL**: the item's 7-day TTL is refreshed only when a write actually happens, so an asset whose
+only alert is a persisting weekly combo stops refreshing for the rest of that week. A weekly bar
+spans at most 5 scans, inside the window — the margin is adequate but now load-bearing (R4).
+
 ---
 
 ## 4. Alert de-duplication signature (new model-layer function)
@@ -83,6 +87,9 @@ updated in place; a direction change on the same bar appends a second record.
 |------------|-----------|
 | `COMBO_WEEKLY` | `(alert_type, data["weekly_bar_date"], data["direction"])` |
 | every other type | `(alert_type, date.date().isoformat())` — byte-identical to today |
+
+`weekly_bar_date` is itself normalised with `.date().isoformat()` when the alert is built, so the
+two sides of the comparison cannot disagree over a time component (see R4).
 
 **Validation / degradation**: a weekly alert whose `data` lacks either key falls back to the default
 signature rather than raising, preserving the existing "malformed stored row is skipped, never

@@ -23,6 +23,8 @@ forming bar as it stands that day.
 
 The triage brief learns the new pattern's rank and its long-only consequence — a Buy weekly combo is
 the strongest reason to surface an asset, a Sell weekly combo disqualifies it as a long. The
+deterministic fallback, which reads no direction, folds the two timeframes into one confluence point
+so that agreement between them cannot promote an asset on one detector's word. The
 frontend and the API separate it from the daily combo by its type, as they already do for every
 other detector.
 
@@ -38,8 +40,8 @@ historical weekly bars, and the labelled sample SC-001 verifies against must exi
 already caching `horizon=10080`), `aioboto3` (DynamoDB), `anthropic` SDK, `slack_sdk`; Axios +
 React Router DOM v7+ on the frontend. **No new dependency.**
 **Storage**: existing `alerts` table, unchanged schema — `data` is already a free-form map and gains
-two keys. Calibration reads the existing `backtest_candle_cache` table. **No new table, no
-migration, no Pulumi change.**
+two keys. Calibration reads nothing persistent: it is a one-off script fetching weekly history for a
+sample of the scanned universe (R8). **No new table, no migration, no Pulumi change.**
 **Testing**: pytest with `unittest.mock`; tests mirror source structure under `tests/`
 **Target Platform**: AWS Lambda (`alerting` command, weekday end-of-day) + FastAPI API + Vite SPA
 **Project Type**: Web (backend + frontend) with a Lambda entry point
@@ -48,7 +50,7 @@ weekly pass is cheaper than the daily one because `macd0lag` — roughly 80% of 
 computed (SC-003)
 **Constraints**: must not delay the end-of-day scan past its window; must reproduce today's alert
 set exactly when the toggle is off (SC-007); the de-dup change must be inert for every other alert
-type (FR-007, FR-013)
+type (FR-007, SC-007)
 **Scale/Scope**: a few hundred French stocks plus followups, scanned sequentially, once per weekday
 
 ## Constitution Check
@@ -58,12 +60,17 @@ type (FR-007, FR-013)
 | Principle | Assessment |
 |-----------|------------|
 | **I. Layered Architecture** | PASS. Indicator logic stays in the Service layer; the de-dup signature is domain logic and lands in the Model layer, called by the client rather than computed inside it. The CLI command orchestrates and holds no scoring logic. No service reaches into client internals — the weekly fetch goes through the existing `get_historical_data` method. Frontend changes stay in `utils/alertLabels.ts` (label) and a component (render). |
-| **II. Clean Code First** | PASS. One parameterised `combo()` rather than a weekly copy (R2). `ComboSettings` exists because two timeframes need it now, not speculatively. No new metric store for a one-off measurement (R12). No `assert` — the settings invariants are asserted in tests, and malformed stored alert rows degrade to the default signature rather than raising. |
+| **II. Clean Code First** | PASS. One parameterised `combo()` rather than a weekly copy (R2). `ComboSettings` exists because two timeframes need it now, not speculatively. The fallback reuses the existing `_PATTERN_FAMILY` mechanism rather than adding a second notion of relatedness (R7). No new metric store for a one-off measurement (R12). No `assert` — the settings invariants are asserted in tests, and malformed stored alert rows degrade to the default signature rather than raising. |
 | **III. Configuration-Driven** | PARTIAL — the off switch is configuration; the calibrated thresholds stay in code. Justified in Complexity Tracking. |
 | **IV. Safe Deployment** | PASS. No infrastructure change; existing tables and IAM grants suffice. Conventional commits throughout. |
 | **V. Domain Model Integrity** | PASS. Weekly candles are `Candle` objects with `ut=UnitTime.W`, newest at index 0. The provider's missing current week is rebuilt from a smaller horizon, which is exactly the documented Saxo constraint. `AlertType` and `UnitTime` are used as enums, never as strings. The alert carries its explicit `exchange`; nothing infers an exchange from `country_code`. |
 | **Planning Requirement** | PASS. Spec and this plan precede implementation; `/speckit.implement` awaits human validation. |
 | **Testing Standards** | PASS. Tests assert behaviour — a combo found on weekly bars, a second scan recording nothing, a flip recording a second row, an untouched daily de-dup — not that mocks were called. |
+
+**Post-review re-check (2026-08-23)**: the calibration source changed (R8) and the fallback now
+collapses the two timeframes into one family (R7, FR-015). Neither introduces a layering, naming or
+configuration violation; the calibration script moves from reading a shared table to fetching its
+own sample, which removes a dependency rather than adding one.
 
 **Post-Phase-1 re-check**: no new violations. The design added no client-internals access, no new
 table, and no cross-layer call. The single deviation is unchanged and recorded below.
@@ -95,7 +102,8 @@ model/
 
 services/
 ├── indicator_service.py             # + ComboSettings, COMBO_SETTINGS; combo() parameterised
-└── alert_triage_service.py          # + COMBO_WEEKLY in _DIRECTIONAL_PATTERNS; prompt semantics
+└── alert_triage_service.py          # + COMBO_WEEKLY in _DIRECTIONAL_PATTERNS and _PATTERN_FAMILY;
+                                     #   prompt semantics (R7)
 
 client/
 └── aws_client.py                    # store_alerts calls the model-layer signature
@@ -107,13 +115,15 @@ utils/
 └── configuration.py                 # + weekly_combo_enabled property
 
 scripts/
-└── calibrate_weekly_combo.py        # one-off threshold calibration (release prerequisite)
+└── calibrate_weekly_combo.py        # one-off threshold calibration against a sample of the
+                                     # scanned universe (release prerequisite, R8)
 
 config.yml                           # + weekly_combo_enabled
 
 frontend/src/
-├── utils/alertLabels.ts             # + combo_weekly label
-└── components/AlertCard.tsx         # + combo_weekly in the directional list
+├── utils/alertLabels.ts             # + combo_weekly label (polish; titleCase already covers it)
+├── components/AlertCard.tsx         # + combo_weekly in the directional list
+└── pages/AssetDetail.css            # + combo_weekly badge colour (the real gap — R6)
 
 tests/
 ├── services/test_indicator_service.py

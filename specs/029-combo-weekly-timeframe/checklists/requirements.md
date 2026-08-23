@@ -42,4 +42,8 @@
   4. **Provider request cost** → US4 states the weekly series cannot be re-cut from the existing fetch and the request count roughly doubles.
   5. **Calibration and validation data** → new Dependencies section names the backtest raw-candle store and the trader-labelled sample as release prerequisites.
 - Requirements renumbered to FR-001..FR-014 after splitting the old FR-004; cross-references updated.
-- Checklist passes in full. Spec is ready for `/speckit.plan`.
+- Second owner review on PR #711 (plan + spec revision) raised three items; all resolved:
+  1. **Calibration data source** → the backtest candle cache holds intraday bars for two index CFDs, not weekly bars for the scanned equities. Dependencies bullet and R8 rewritten around a one-off sampled fetch.
+  2. **Fallback over-promotion** → new FR-015 and SC-008: daily + weekly combo count as one point in the degraded ranking, matching the congestion precedent. FR-009 and SC-006 scoped to the reasoned path.
+  3. **Enumeration sites** → four, not three; the per-type badge CSS is the real gap, the label map is polish.
+- Checklist passes in full. Spec is ready for `/speckit.tasks`.

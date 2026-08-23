@@ -51,8 +51,9 @@ each setting on the same date and the same assets, and diff the stored alerts.
 ### A weekly combo is detected (US1, SC-001)
 
 Run the scan against an asset known to form a weekly combo and confirm one `combo_weekly` alert with
-a direction, a strength, a price, a four-key `details` map, and `weekly_bar_date` set to the Monday
-of the current ISO week.
+a direction, a strength, a price, a four-key `details` map, and `weekly_bar_date` set to the **first
+session** of the current ISO week — Monday normally, Tuesday in a Monday-holiday week, since the
+forming bar is dated from the earliest daily candle it found (`utils/helper.py:175-186`).
 
 ### Daily and weekly coexist (US1 scenario 3)
 
@@ -82,6 +83,13 @@ poetry run pytest tests/client/test_aws_client.py -k signature
 Every alert type other than `combo_weekly` must produce the same signature tuple as before, and an
 alert stored before this feature must still de-dupe unchanged.
 
+### The fallback does not over-promote (SC-008, FR-015)
+
+Submit a payload with the LLM path unavailable for an asset carrying a daily **and** a weekly combo
+and nothing else. It must land in the same conviction band as an asset carrying only the daily
+combo — one confluence point, not two. If it comes back HIGH, `_PATTERN_FAMILY` is missing the
+`COMBO_WEEKLY: COMBO` entry.
+
 ### The brief ranks it correctly (US2)
 
 Submit a triage payload for an asset whose only pattern is a **Buy** `combo_weekly` — it must be
@@ -102,8 +110,13 @@ the daily candles already in hand (see R1).
 poetry run python scripts/calibrate_weekly_combo.py
 ```
 
-Reports the distribution of `ma50_slope`, `bbh_slope` and `bbb_slope` over weekly bars from the
-`backtest_candle_cache` table. The chosen values are committed into `COMBO_SETTINGS[UnitTime.W]`.
+Fetches weekly history (`horizon=10080`) for a sample of the scanned universe, caches the raw
+responses locally so re-runs are free, and reports the distribution of `ma50_slope`, `bbh_slope` and
+`bbb_slope` over those bars. The chosen values are committed into `COMBO_SETTINGS[UnitTime.W]`.
+
+This costs provider requests, once, outside the scheduled scan. It cannot read the backtest candle
+cache: that table holds H1 and 5-minute bars for two index CFDs, not weekly bars for the scanned
+equities (R8).
 
 **Do not ship the daily values on weekly.** A slope measured over 10 bars covers ten weeks rather
 than ten days, so the daily floor admits nearly everything and the daily flatness ceiling admits
