@@ -14,7 +14,15 @@ from client import client_helper
 from client.anthropic_client import AnthropicClient
 from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
-from model import Alert, AlertType, AssetType, Candle, EUMarket, UnitTime
+from model import (
+    Alert,
+    AlertType,
+    AssetType,
+    Candle,
+    EUMarket,
+    SignalStrength,
+    UnitTime,
+)
 from saxo_order.async_utils import create_dynamodb_client
 from saxo_order.commands import catch_exception
 from services import congestion_indicator, indicator_service
@@ -380,7 +388,17 @@ async def run_detection_for_asset(
             ),
         )
         weekly_bar = weekly_candles[0].date
-        if weekly_combo is not None and weekly_bar is not None:
+        # A WEAK combo met none of its four criteria: it cleared the
+        # structural gates and nothing more. Emitting it would put a whole
+        # asset entry in front of the reasoning model - and, per the prompt's
+        # ranking, one labelled the strongest signal on the board - to say
+        # nothing. It is not recorded rather than recorded and filtered,
+        # because the cost is the payload it would occupy.
+        if (
+            weekly_combo is not None
+            and weekly_combo.strength != SignalStrength.WEAK
+            and weekly_bar is not None
+        ):
             asset_alerts.append(
                 Alert(
                     alert_type=AlertType.COMBO_WEEKLY,

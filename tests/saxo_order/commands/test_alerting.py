@@ -781,6 +781,61 @@ class TestRunDetectionForAssetWeeklyCombo:
         assert "ma50_slope" in data
         assert not any(a.alert_type == AlertType.COMBO for a in alerts)
 
+    async def test_a_weak_weekly_combo_is_not_emitted(
+        self, saxo_client, dynamodb_client, patched_alerting
+    ):
+        """It met none of its four criteria. Emitting it would spend a whole
+        asset entry in the reasoning payload to say nothing."""
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=_mm50_touch_candles(),
+        )
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_weekly_candles",
+            return_value=[
+                Candle(
+                    lower=1.0,
+                    higher=2.0,
+                    open=1.5,
+                    close=1.8,
+                    ut=UnitTime.W,
+                    date=datetime.datetime(2026, 8, 17, 0, 0),
+                )
+            ],
+        )
+        weak = ComboSignal(
+            price=42.5,
+            direction=Direction.BUY,
+            has_been_triggered=False,
+            strength=SignalStrength.WEAK,
+            details={
+                "ma50_over_bb": False,
+                "price_within_bb": False,
+                "strong_ma50": False,
+                "both_bb_flat": False,
+            },
+        )
+        patched_alerting.patch(
+            "saxo_order.commands.alerting.indicator_service.combo",
+            side_effect=lambda c, settings=None: (
+                weak if settings == COMBO_SETTINGS[UnitTime.W] else None
+            ),
+        )
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        assert all(a.alert_type != AlertType.COMBO_WEEKLY for a in alerts)
+        # The asset is still scanned and its other detectors still store.
+        assert any(a.alert_type == AlertType.MM50_TOUCH for a in alerts)
+
     async def test_a_weekly_failure_leaves_the_other_detectors_alone(
         self, saxo_client, dynamodb_client, patched_alerting
     ):

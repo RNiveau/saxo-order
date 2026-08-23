@@ -299,3 +299,35 @@ whatever detector reported it. Nothing in the grouping, the threshold or the pro
 **Alternative rejected**: omitting `ma50_slope` from the weekly alert. A weekly-only asset would
 then reach the digest with no slope at all, which costs it the WATCH band in the deterministic
 fallback (`_fallback_conviction` needs a slope over the threshold to promote past NOISE).
+
+---
+
+## R14 — A weekly combo that scored nothing is not emitted
+
+**Decision**: the scan emits a weekly combo only when its strength is above
+`WEAK`. A weak signal is not recorded, not stored, and never reaches the digest.
+
+**Rationale**: `combo()` returns a signal for anything clearing the three
+structural gates, including one that then meets none of the four scoring
+criteria. Emitting that costs an entry in the reasoning payload — and, under the
+prompt's ranking, one labelled the strongest signal on the board — to say
+nothing. The token budget of the daily brief is spent on assets worth reading
+about.
+
+**Where the gate sits**: at emission, not in the payload builder. Filtering
+downstream would still pay to detect, store and group the alert, and would leave
+the alerts table holding rows the digest deliberately ignores — two views of the
+same day that disagree. Gating at the source makes them agree.
+
+**What is kept**: `pattern_strengths` stays in the payload. It costs a short map
+per asset that has a directional pattern, and it is what stops a *daily* weak
+combo — which this feature does not change and which has always been emitted —
+from reading as a full-strength signal.
+
+**Alternative rejected**: recording the weak signal and excluding it from the
+payload only. It preserves a record nobody reads, at the cost of a scan whose
+stored alerts and whose digest describe different days.
+
+**Not changed here**: the daily combo still emits at `WEAK`. Applying the same
+gate there would remove alerts the trader sees today, which is a decision about
+an existing detector rather than about this feature.

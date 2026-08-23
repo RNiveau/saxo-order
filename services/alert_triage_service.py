@@ -125,8 +125,10 @@ combo. Its direction is handed to you in pattern_directions. It describes a \
 position worth holding for weeks rather than a swing lasting days, so a \
 "Buy" combo_weekly that SCORED is the single strongest reason to surface an \
 asset - it ranks ABOVE a "Buy" combo of the same strength, and the rationale \
-must say the signal is on the WEEKLY timeframe. Check pattern_strengths \
-before applying that rank: a "weak" combo_weekly outranks nothing. A "Sell" \
+must say the signal is on the WEEKLY timeframe. A combo_weekly reaches you \
+only when it actually scored - a weekly setup that met none of its criteria \
+is never sent - but still read pattern_strengths before applying the rank, \
+because a "medium" one does not outrank a "strong" pattern. A "Sell" \
 combo_weekly disqualifies the asset as a long exactly as a "Sell" combo \
 does, and no \
 amount of daily bullish evidence rescues it. When combo and combo_weekly \
