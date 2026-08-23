@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
@@ -83,6 +84,18 @@ def _alert(
         exchange="saxo",
         country_code=country_code,
     )
+
+
+def _directional_alert(
+    code: str,
+    alert_type: AlertType,
+    slope: float,
+    direction: Direction,
+    country_code: str = "xpar",
+) -> Alert:
+    alert = _alert(code, alert_type, slope, country_code)
+    alert.data["direction"] = direction.value
+    return alert
 
 
 def _by_code(triaged: List) -> Dict[str, Any]:
@@ -412,6 +425,83 @@ def _payload_assets(client: FakeAnthropicClient) -> Dict[str, Any]:
     }
 
 
+def test_payload_omits_pattern_directions_when_no_directional_pattern_fired() -> (  # noqa: E501
+    None
+):
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+
+    agent.synthesize([_alert("SAN", AlertType.CONGESTION20, 3.0)])
+
+    assert "pattern_directions" not in _payload_assets(client)["SAN_xpar"]
+
+
+def test_payload_carries_the_direction_of_directional_patterns() -> None:
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+
+    agent.synthesize(
+        [
+            _directional_alert("SAN", AlertType.COMBO, -2.0, Direction.SELL),
+            _directional_alert(
+                "SAN", AlertType.MM7_BREAK, -2.0, Direction.BUY
+            ),
+            _alert("SAN", AlertType.CONGESTION20, -2.0),
+        ]
+    )
+
+    directions = _payload_assets(client)["SAN_xpar"]["pattern_directions"]
+    assert directions == {
+        AlertType.COMBO.value: Direction.SELL.value,
+        AlertType.MM7_BREAK.value: Direction.BUY.value,
+    }
+
+
+def test_payload_ignores_a_direction_on_a_non_directional_pattern() -> None:
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+
+    agent.synthesize(
+        [_directional_alert("SAN", AlertType.DOUBLE_TOP, -2.0, Direction.SELL)]
+    )
+
+    assert "pattern_directions" not in _payload_assets(client)["SAN_xpar"]
+
+
+def test_payload_marks_a_directional_pattern_that_published_no_direction() -> (
+    None
+):
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+
+    agent.synthesize([_alert("SAN", AlertType.COMBO, -4.0)])
+
+    directions = _payload_assets(client)["SAN_xpar"]["pattern_directions"]
+    assert directions == {AlertType.COMBO.value: "unknown"}
+
+
+def test_payload_marks_an_unparseable_direction_unknown() -> None:
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+    alert = _alert("SAN", AlertType.MM7_BREAK, -4.0)
+    alert.data["direction"] = "sideways"
+
+    agent.synthesize([alert])
+
+    directions = _payload_assets(client)["SAN_xpar"]["pattern_directions"]
+    assert directions == {AlertType.MM7_BREAK.value: "unknown"}
+
+
+def test_a_missing_direction_is_logged_rather_than_absorbed(caplog) -> None:
+    client = FakeAnthropicClient({"summary": "s", "assets": []})
+    agent = TriageAgent(client)
+
+    with caplog.at_level(logging.WARNING):
+        agent.synthesize([_alert("SAN", AlertType.COMBO, -4.0)])
+
+    assert "published no usable direction" in caplog.text
+
+
 def test_payload_omits_workflow_triggers_when_there_are_none() -> None:
     client = FakeAnthropicClient({"summary": "s", "assets": []})
     agent = TriageAgent(client)
@@ -571,6 +661,33 @@ def test_synthesize_without_triggers_matches_pre_feature_behaviour() -> None:
 def test_prompt_documents_the_payload_keys_it_will_receive() -> None:
     assert "workflow_triggers" in TRIAGE_SYSTEM_PROMPT
     assert "dry_run" in TRIAGE_SYSTEM_PROMPT
+    assert "pattern_directions" in TRIAGE_SYSTEM_PROMPT
+
+
+def test_prompt_states_the_long_only_mandate() -> None:
+    assert "LONG-ONLY MANDATE" in TRIAGE_SYSTEM_PROMPT
+    assert "It never shorts." in TRIAGE_SYSTEM_PROMPT
+
+
+def test_prompt_documents_the_unknown_direction_marker() -> None:
+    assert "DISQUALIFYING UNTIL PROVEN BULLISH" in TRIAGE_SYSTEM_PROMPT
+
+
+def test_prompt_tiers_an_early_bullish_signal_on_a_falling_trend() -> None:
+    assert "an EARLY bullish signal on a still-falling 50-MA" in (
+        TRIAGE_SYSTEM_PROMPT
+    )
+    assert "on a flat, falling or unknown trend" in TRIAGE_SYSTEM_PROMPT
+
+
+def test_prompt_caps_a_bearish_read_below_high() -> None:
+    assert "a bearish read never reaches this tier" in TRIAGE_SYSTEM_PROMPT
+    assert 'Its ceiling is "watch"' in TRIAGE_SYSTEM_PROMPT
+
+
+def test_prompt_documents_every_alert_type_it_can_receive() -> None:
+    for alert_type in AlertType:
+        assert alert_type.value in TRIAGE_SYSTEM_PROMPT
 
 
 def test_fallback_carries_triggers_onto_the_triaged_asset() -> None:
