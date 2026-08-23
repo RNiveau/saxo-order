@@ -35,4 +35,11 @@
   1. **Evaluation cadence** -> every daily scan, on the forming week (FR-003, FR-006).
   2. **History requirement** -> reduced criteria set, ~60 weekly bars (FR-001, FR-004, SC-004).
   3. **Threshold calibration** -> calibrated against historical weekly data before release (FR-010, SC-005).
+- Owner review on PR #711 (2026-08-23) raised five items; all are resolved in the spec:
+  1. **Repeat suppression vs. the shared de-dup key** → FR-007 keys on weekly bar + direction and requires the change to be inert for other alert types.
+  2. **Suppression layer** → FR-014 pins it to the recording layer; SC-005 now counts asset-days.
+  3. **Long-only triage** → US2 scenarios and FR-009 restated; a Sell weekly combo can never reach the top band.
+  4. **Provider request cost** → US4 states the weekly series cannot be re-cut from the existing fetch and the request count roughly doubles.
+  5. **Calibration and validation data** → new Dependencies section names the backtest raw-candle store and the trader-labelled sample as release prerequisites.
+- Requirements renumbered to FR-001..FR-014 after splitting the old FR-004; cross-references updated.
 - Checklist passes in full. Spec is ready for `/speckit.plan`.
