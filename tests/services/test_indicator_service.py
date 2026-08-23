@@ -13,6 +13,8 @@ from model import (
 )
 from services.indicator_service import (
     COMBO_MIN_CANDLES,
+    COMBO_SETTINGS,
+    ComboSettings,
     _ComboContext,
     adx,
     apply_linear_function,
@@ -1163,3 +1165,103 @@ class TestComboSlopes:
     def test_it_refuses_a_set_shorter_than_the_moving_average(self):
         with pytest.raises(SaxoException):
             combo_slopes(self._candles()[:59])
+
+
+class TestWeeklyComboSettings:
+    """
+    The weekly combo is the same detector under different settings: one
+    criterion fewer, thresholds measured on weekly bars rather than daily
+    ones, and a history floor that follows from dropping the criterion which
+    demanded 235 candles.
+    """
+
+    def _candles(self) -> List[Candle]:
+        with open("tests/services/files/combo_sell_daily_aca.obj", "r") as f:
+            return eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+
+    def test_weekly_scoring_drops_the_macd_criterion(self):
+        signal = combo(self._candles(), COMBO_SETTINGS[UnitTime.W])
+
+        assert signal is not None
+        assert "macd" not in signal.details
+        assert set(signal.details) == {
+            "ma50_over_bb",
+            "price_within_bb",
+            "strong_ma50",
+            "both_bb_flat",
+        }
+
+    def test_daily_scoring_keeps_it(self):
+        signal = combo(self._candles())
+
+        assert signal is not None
+        assert "macd" in signal.details
+        assert len(signal.details) == 5
+
+    def test_weekly_runs_on_sixty_candles(self):
+        """The floor the reduced set allows - a quarter of what daily needs,
+        and what makes the weekly timeframe reachable for most assets."""
+        candles = self._candles()
+
+        assert combo(candles[:60], COMBO_SETTINGS[UnitTime.W]) is not None
+        assert combo(candles[:59], COMBO_SETTINGS[UnitTime.W]) is None
+
+    def test_daily_settings_still_demand_the_full_history(self):
+        candles = self._candles()
+
+        assert combo(candles[: COMBO_MIN_CANDLES - 1]) is None
+
+    def test_the_weekly_signal_matches_the_daily_shape(self):
+        signal = combo(self._candles(), COMBO_SETTINGS[UnitTime.W])
+
+        assert signal is not None
+        assert signal.direction == Direction.SELL
+        assert signal.price == 13.91
+        assert signal.has_been_triggered is False
+        assert signal.strength == SignalStrength.WEAK
+
+
+class TestComboSettingsInvariants:
+    """A settings object that cannot reach its own top band, or that asks for
+    less history than its criteria read, is a silent misconfiguration - the
+    detector would simply never say "strong", or raise mid-scoring."""
+
+    def test_every_setting_can_reach_its_top_band(self):
+        for unit_time, settings in COMBO_SETTINGS.items():
+            active_criteria = 5 if settings.use_macd else 4
+            assert (
+                0 < settings.strong_signal_min <= active_criteria
+            ), f"{unit_time.value} cannot reach STRONG"
+
+    def test_macd_settings_carry_the_history_it_reads(self):
+        for unit_time, settings in COMBO_SETTINGS.items():
+            floor = COMBO_MIN_CANDLES if settings.use_macd else 60
+            assert (
+                settings.min_candles >= floor
+            ), f"{unit_time.value} would raise mid-scoring"
+
+    def test_settings_are_frozen(self):
+        """They are read at scoring time; a mutated copy would change what a
+        later asset in the same scan is measured against."""
+        with pytest.raises(Exception):
+            COMBO_SETTINGS[UnitTime.D].ma50_slope_min = 99.0
+
+    def test_the_weekly_thresholds_are_the_calibrated_ones(self):
+        """Guards the calibration recorded in calibration.md: these are
+        measured values, not the daily ones carried over."""
+        weekly = COMBO_SETTINGS[UnitTime.W]
+        daily = COMBO_SETTINGS[UnitTime.D]
+
+        assert weekly == ComboSettings(
+            min_candles=60,
+            ma50_slope_min=15.0,
+            ma50_slope_strong=50.0,
+            bb_flat_slope_max=25.0,
+            strong_signal_min=3,
+            use_macd=False,
+        )
+        assert weekly.ma50_slope_min > daily.ma50_slope_min
+        assert weekly.bb_flat_slope_max > daily.bb_flat_slope_max

@@ -24,8 +24,14 @@ cached pass, and the eligibility ratio it reports gates a release, so
 sampling noise is not worth the saved requests. --sample trades that away
 for a quicker first run.
 
+The config file decides which Saxo environment is called, and the tokens on
+disk or in S3 belong to one of them - point this at the config the tokens were
+minted for, or every fetch comes back unauthorized.
+
 Usage:
     poetry run python scripts/calibrate_weekly_combo.py
+    poetry run python scripts/calibrate_weekly_combo.py \
+        --config prod_config.yml
     poetry run python scripts/calibrate_weekly_combo.py --sample 40
     poetry run python scripts/calibrate_weekly_combo.py --refresh
 """
@@ -33,6 +39,7 @@ Usage:
 import argparse
 import datetime
 import json
+import os
 import random
 import sys
 from pathlib import Path
@@ -51,6 +58,7 @@ WEEKLY_COUNT = 70
 MIN_WEEKLY_CANDLES = 60
 SAMPLE_SEED = 29
 CACHE_FILE = "weekly_calibration_cache.json"
+DEFAULT_CONFIG = os.environ.get("SAXO_CONFIG", "config.yml")
 UNIVERSE_FILES = ("stocks.json", "followup-stocks.json")
 PERCENTILES = (5, 10, 25, 50, 75, 90, 95)
 
@@ -198,6 +206,14 @@ def main() -> None:
         action="store_true",
         help="ignore the cached responses and fetch again",
     )
+    parser.add_argument(
+        "--config",
+        default=DEFAULT_CONFIG,
+        help=(
+            "path to the config file, which selects the Saxo environment "
+            f"(default: {DEFAULT_CONFIG})"
+        ),
+    )
     args = parser.parse_args()
 
     sample = load_sample(args.sample)
@@ -206,7 +222,7 @@ def main() -> None:
         return
 
     cache = load_cache(args.refresh)
-    saxo_client = SaxoClient(Configuration("config.yml"))
+    saxo_client = SaxoClient(Configuration(args.config))
 
     measurements: List[Dict[str, float]] = []
     fetched = 0
