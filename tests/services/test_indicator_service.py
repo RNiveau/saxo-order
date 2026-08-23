@@ -1,4 +1,5 @@
 import datetime
+from dataclasses import FrozenInstanceError
 from typing import List, Optional
 
 import pytest
@@ -1244,10 +1245,33 @@ class TestComboSettingsInvariants:
             ), f"{unit_time.value} would raise mid-scoring"
 
     def test_settings_are_frozen(self):
-        """They are read at scoring time; a mutated copy would change what a
-        later asset in the same scan is measured against."""
-        with pytest.raises(Exception):
+        """They are read at scoring time, and the map holds one shared object
+        per timeframe - a mutated copy would change what every later asset in
+        the same scan is measured against, with nothing raised or logged."""
+        with pytest.raises(FrozenInstanceError):
             COMBO_SETTINGS[UnitTime.D].ma50_slope_min = 99.0
+
+    def test_it_holds_only_the_calibrated_timeframes(self):
+        """An uncalibrated timeframe must raise on lookup rather than be
+        served daily values under its own name."""
+        assert set(COMBO_SETTINGS) == {UnitTime.D, UnitTime.W}
+
+        for unit_time in (UnitTime.H1, UnitTime.H4, UnitTime.M):
+            with pytest.raises(KeyError):
+                COMBO_SETTINGS[unit_time]
+
+    def test_a_caller_passing_no_settings_still_scores_as_daily(self):
+        """What every pre-existing caller does, including a combo workflow
+        running on H1 or H4 candles: the daily entry holds the constants they
+        scored against before the settings object existed."""
+        assert COMBO_SETTINGS[UnitTime.D] == ComboSettings(
+            min_candles=COMBO_MIN_CANDLES,
+            ma50_slope_min=3.0,
+            ma50_slope_strong=10.0,
+            bb_flat_slope_max=5.0,
+            strong_signal_min=4,
+            use_macd=True,
+        )
 
     def test_the_weekly_thresholds_are_the_calibrated_ones(self):
         """Guards the calibration recorded in calibration.md: these are

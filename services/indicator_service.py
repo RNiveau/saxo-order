@@ -158,6 +158,13 @@ class ComboSettings:
     use_macd: bool
 
 
+# Only the timeframes whose thresholds were measured. Every other unit time
+# reaches the detector through combo()'s default, which is the daily entry -
+# the same constants they scored against before the settings existed, so a
+# combo workflow on H1 or H4 is unaffected. Indexing this map with one of them
+# raises rather than quietly serving daily values under another timeframe's
+# name: an uncalibrated timeframe is a decision to take, not a default to
+# inherit.
 COMBO_SETTINGS: Dict[UnitTime, ComboSettings] = {
     UnitTime.D: ComboSettings(
         min_candles=COMBO_MIN_CANDLES,
