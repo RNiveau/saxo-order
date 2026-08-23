@@ -147,6 +147,8 @@ Examples:
 - existing DynamoDB backtest raw-candle table, under a **new key namespace** for arbitrary-timeframe series (`{instrument}:{session}:{ut}:v1`). No new table, no migration of existing entries. (026-combo-ger40-backtest)
 - Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + existing only — `aioboto3` (DynamoDB), `anthropic` SDK, `slack_sdk`, FastAPI + Pydantic v2, `zoneinfo`; Axios, React Router DOM v7+, Vite. **No new dependency.** (028-triage-workflow-trigger)
 - existing tables only — reads `workflow_orders` and `workflows`, writes enriched asset entries into the existing `alert_digests` items. No new table, no migration. (028-triage-workflow-trigger)
+- Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + existing only — `services/indicator_service.py` (`combo`, `mobile_average`, `bollinger_bands`), `utils/helper.py` (`build_current_weekly_candle_from_daily`), `client/saxo_client.py` (`get_historical_data`, horizon 10080), `aioboto3`, `anthropic` SDK, `slack_sdk`; Axios, React Router DOM v7+, Vite. **No new dependency.** (029-combo-weekly-timeframe)
+- existing `alerts` table, unchanged schema — the free-form `data` map gains `weekly_bar_date` and `timeframe`; calibration reads the existing `backtest_candle_cache` table. No new table, no migration. (029-combo-weekly-timeframe)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)

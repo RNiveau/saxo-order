@@ -1,0 +1,137 @@
+openapi: 3.1.0
+info:
+  title: Alerts API — weekly combo (delta)
+  version: 1.1.0
+  description: >
+    Additive change introduced by spec 029. No new path, no new parameter, no
+    changed response code, no changed required field.
+
+    The alerts read and run endpoints gain one further value in the alert_type
+    enumeration — "combo_weekly" — and the alert data map for that value carries
+    two keys the daily combo does not: weekly_bar_date and timeframe.
+
+    Existing clients are unaffected. Clients that switch exhaustively on
+    alert_type must add the new value; the frontend label map and the
+    directional-alert list are the two places in this repository that do
+    (see FR-010).
+
+    Only the changed schemas are reproduced here. The full contract lives in
+    specs/023-alert-triage/ and the alerting router.
+servers:
+  - url: http://localhost:8000
+
+components:
+  schemas:
+    AlertType:
+      type: string
+      description: >
+        Detector that produced the alert. "combo_weekly" is new in this version
+        and denotes the combo setup evaluated on weekly bars; "combo" continues
+        to denote the daily evaluation. The two are independent — an asset may
+        carry both on the same day.
+      enum:
+        - congestion20
+        - congestion100
+        - combo
+        - combo_weekly
+        - double_top
+        - double_bottom
+        - double_inside_bar
+        - containing_candle
+        - mm50_touch
+        - mm7_break
+
+    ComboWeeklyAlertData:
+      type: object
+      description: >
+        The data map carried by an alert whose alert_type is "combo_weekly".
+        Identical in shape to the daily combo's data map, plus weekly_bar_date
+        and timeframe. The details map holds four criteria rather than five —
+        the macd criterion does not participate on weekly (see research.md R2).
+      required:
+        - price
+        - direction
+        - strength
+        - has_been_triggered
+        - details
+        - weekly_bar_date
+        - timeframe
+      properties:
+        price:
+          type: number
+          description: >
+            Trigger price when has_been_triggered is true, otherwise the price
+            at which the order waits.
+          examples: [42.75]
+        direction:
+          type: string
+          enum: [Buy, Sell]
+          description: >
+            Direction the detector computed. Under the desk's long-only mandate
+            a "Sell" disqualifies the asset as a long rather than describing a
+            tradable setup.
+        strength:
+          type: string
+          enum: [strong, medium, weak]
+          description: >
+            Banded for the reduced weekly criteria set — "strong" means at least
+            3 of 4 criteria met, against 4 of 5 on daily.
+        has_been_triggered:
+          type: boolean
+          description: Whether the latest close has cleared the trigger level.
+        details:
+          type: object
+          description: Per-criterion outcome that produced the strength.
+          additionalProperties:
+            type: boolean
+          examples:
+            - ma50_over_bb: true
+              price_within_bb: true
+              strong_ma50: true
+              both_bb_flat: false
+        ma50_slope:
+          type: number
+          description: Slope of the 50-period average over the last 10 weekly bars, in percent.
+          examples: [7.4]
+        weekly_bar_date:
+          type: string
+          format: date
+          description: >
+            ISO date of the first session of the weekly bar the signal was
+            computed on. Repeat suppression keys on this plus direction, so this
+            is the field that distinguishes "the same setup, still holding" from
+            "a new setup this week".
+          examples: ["2026-08-17"]
+        timeframe:
+          type: string
+          enum: [weekly]
+          description: Timeframe the combo was evaluated on.
+
+    Alert:
+      type: object
+      description: >
+        Unchanged except for the widened alert_type enumeration. When alert_type
+        is "combo_weekly", data conforms to ComboWeeklyAlertData.
+      required: [alert_type, date, asset_code, asset_description, exchange, data]
+      properties:
+        alert_type:
+          $ref: '#/components/schemas/AlertType'
+        date:
+          type: string
+          format: date-time
+          description: >
+            Scan timestamp. For combo_weekly this is NOT the de-duplication key
+            — see weekly_bar_date.
+        asset_code:
+          type: string
+        country_code:
+          type: [string, "null"]
+          description: May be absent on a Saxo asset; never used to infer the exchange.
+        asset_description:
+          type: string
+        exchange:
+          type: string
+          examples: ["saxo"]
+        data:
+          type: object
+          description: Detector-specific payload.
