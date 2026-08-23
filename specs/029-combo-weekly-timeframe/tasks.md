@@ -40,20 +40,20 @@ the daily constants demonstrably do not transfer (research.md R8).
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: the alert identity every story keys on, plus the off switch SC-007 is verified with.
+**Purpose**: the alert identity every story keys on.
 
 **⚠️ CRITICAL**: no user story work begins until this phase is complete
 
 - [x] T003 Add `COMBO_WEEKLY = "combo_weekly"` to `AlertType` in `model/enum.py`
-- [x] T004 [P] Add `weekly_combo_enabled: true` to `config.yml` and expose it as a `weekly_combo_enabled` property in `utils/configuration.py`, defaulting to `True` when the key is absent
 
-**Checkpoint**: the new alert type exists and the feature can be switched off — stories can start
+**Checkpoint**: the new alert type exists — stories can start
 
 > **Note (implementation)**: T003 could not land alone. `test_prompt_documents_every_alert_type_it_can_receive`
 > asserts every `AlertType` member appears in the triage prompt, so adding the enum member forced
 > T017–T019 forward from Phase 4, and T016 with them to cover the behaviour change. T015 remains
 > outstanding in Phase 4. T002 is blocked: it needs live provider credentials (`secrets.yml`), which
-> the development container does not hold.
+> the development container does not hold. T004 (a `weekly_combo_enabled` toggle) was removed from
+> the plan as speculative — see research.md R10.
 
 ---
 
@@ -80,9 +80,9 @@ disturbing any existing detector.
 - [ ] T011 [P] [US1] Add the alert de-duplication signature function to `model/__init__.py`: default `(alert_type, date.date().isoformat())`, and `(alert_type, data["weekly_bar_date"], data["direction"])` for `COMBO_WEEKLY`, falling back to the default when either key is missing
 - [ ] T012 [US1] Route both sides of the duplicate comparison in `DynamoDBClient.store_alerts` (`client/aws_client.py`) through the T011 function, preserving the existing skip-on-malformed-row behaviour (depends on T011)
 - [ ] T013 [US1] Add `_build_weekly_candles(saxo_client, asset, daily_candles)` to `saxo_order/commands/alerting.py`: one `horizon=10080`, `count=70` fetch mapped with `ut=UnitTime.W`, with the forming week from `build_current_weekly_candle_from_daily(daily_candles)` prepended when the newest returned bar is not the current ISO week
-- [ ] T014 [US1] Run weekly detection inside `run_detection_for_asset` in `saxo_order/commands/alerting.py` when `weekly_combo_enabled` is set, wrapped in `_safe_detect`, emitting an `AlertType.COMBO_WEEKLY` alert whose `data` carries `price`, `direction`, `strength`, `has_been_triggered`, `details`, `ma50_slope`, `weekly_bar_date` (normalised with `.date().isoformat()`) and `timeframe` (depends on T003, T004, T010, T013)
+- [ ] T014 [US1] Run weekly detection inside `run_detection_for_asset` in `saxo_order/commands/alerting.py`, wrapped in `_safe_detect`, emitting an `AlertType.COMBO_WEEKLY` alert whose `data` carries `price`, `direction`, `strength`, `has_been_triggered`, `details`, `ma50_slope`, `weekly_bar_date` (normalised with `.date().isoformat()`) and `timeframe` (depends on T003, T010, T013)
 
-**Checkpoint**: weekly combos are detected and recorded; toggling the feature off reproduces the
+**Checkpoint**: weekly combos are detected and recorded; reverting the change reproduces the
 pre-feature alert set exactly
 
 ---
@@ -132,12 +132,12 @@ label, a direction badge, and a badge colour that is not the daily combo's.
 
 **Goal**: the added timeframe costs one provider request per asset and never breaks the scan.
 
-**Independent Test**: run a full scan with the toggle on and off, comparing duration and request
-count.
+**Independent Test**: run a full scan, and the same scan with weekly detection reverted, comparing
+duration and request count.
 
 - [ ] T024 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a scan with weekly detection enabled issues exactly one additional `get_historical_data` call per asset — three would mean the forming week is being fetched separately instead of built from the daily candles (research.md R1)
 - [ ] T025 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a provider failure on the weekly fetch for one asset leaves that asset's other detectors storing their alerts and the scan continuing over the remaining assets (FR-006)
-- [ ] T026 [US4] Run a full scan of the production universe with the toggle on and off; record duration, request count and the unused share of the execution window (SC-003) in `specs/029-combo-weekly-timeframe/calibration.md`
+- [ ] T026 [US4] Run a full scan of the production universe, and the same scan with weekly detection reverted; record duration, request count and the unused share of the execution window (SC-003) in `specs/029-combo-weekly-timeframe/calibration.md`
 
 **Checkpoint**: the cost of the second timeframe is measured, bounded and recorded
 
@@ -199,9 +199,9 @@ Task: "_build_weekly_candles in saxo_order/commands/alerting.py"
 ### MVP (User Story 1 only)
 
 1. Phase 1 — calibrate, so the thresholds mean something
-2. Phase 2 — the enum member and the off switch
+2. Phase 2 — the enum member
 3. Phase 3 — detection and recording
-4. **STOP and VALIDATE**: run the scan on a known asset, then five consecutive days' worth; confirm one stored record and an unchanged daily alert set with the toggle off
+4. **STOP and VALIDATE**: run the scan on a known asset, then five consecutive days' worth; confirm one stored record, and an unchanged daily alert set when the change is reverted
 
 At that point the signal exists and is safe to leave running, even though nothing consumes it yet.
 

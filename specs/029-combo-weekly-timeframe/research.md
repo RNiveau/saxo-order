@@ -81,7 +81,7 @@ compares them to signatures of incoming `Alert` objects (`client/aws_client.py:5
 both sides through one function keeps them symmetric by construction. Deriving the signature is
 domain logic, so it belongs in `model/`, not the client (Constitution I); the client calls it.
 
-**Provable inertness (FR-013, SC-007)**: every alert type other than `COMBO_WEEKLY` takes the
+**Provable inertness (FR-012, SC-007)**: every alert type other than `COMBO_WEEKLY` takes the
 default branch, which returns the identical tuple the current code builds inline — including the
 existing `except (KeyError, ValueError): continue` behaviour for malformed stored rows. A test
 asserts the signature of each existing type is unchanged, and a second asserts a stored alert
@@ -222,7 +222,7 @@ output of this plan.
 ## R9 — Where the weekly thresholds live
 
 **Decision**: as module constants beside the daily ones in `services/indicator_service.py`, carried
-by the `ComboSettings` map from R2. The feature **toggle** goes in `config.yml`.
+by the `ComboSettings` map from R2.
 
 **Rationale**: Constitution III says thresholds live in configuration, and `triage_slope_threshold`
 sets that precedent (`config.yml`, `utils/configuration.py:165`). These particular values are
@@ -233,15 +233,26 @@ either home alone. Recorded in Complexity Tracking as a deliberate deviation.
 
 ---
 
-## R10 — The off switch
+## R10 — No feature toggle
 
-**Decision**: `weekly_combo_enabled` in `config.yml`, exposed as a `Configuration` property,
-consulted once in the scan.
+**Decision**: none. Weekly detection ships on, with no configuration switch guarding it.
 
-**Rationale**: FR-012 asks for a revert path without a deploy of different code, which is exactly
-what Constitution III's configuration rule is for. With it false, the scan issues no weekly request,
-emits no weekly alert, and hands the digest the same alert set as today — the direct proof SC-007
-asks for.
+**Rationale**: an earlier draft carried a `weekly_combo_enabled` key so the scan could be reverted
+without a deploy if the new signal proved noisy. That is a speculative feature in the sense
+Constitution II rejects — it exists for a hypothetical, and the repository already has a revert
+path in `deploy.sh` that every other change uses. Nothing else in this codebase is guarded by a
+boolean flag; `triage_slope_threshold`, the nearest precedent, is a tuning value with a meaningful
+range rather than an on/off switch. Carrying one would leave a permanent branch in the scan and an
+on/off dimension in every test of the weekly path, to protect against a failure mode the
+calibration dry run (R8, R12) is meant to catch before release.
+
+**What SC-007 is verified with instead**: reverting the change locally and re-running the scan on
+the same assets and date. A one-time release check rather than a permanent capability, which is
+what the criterion actually needs.
+
+**Alternative considered**: keeping the switch until the first production week, then removing it.
+Rejected — a switch meant to be deleted rarely is, and the code path it adds is the part that
+lingers.
 
 ---
 

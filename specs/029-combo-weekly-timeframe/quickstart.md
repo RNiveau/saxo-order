@@ -2,7 +2,7 @@
 
 **Feature**: 029-combo-weekly-timeframe | **Date**: 2026-08-23
 
-How to run, verify and switch off the feature. Read [plan.md](./plan.md) for the design and
+How to run and verify the feature. Read [plan.md](./plan.md) for the design and
 [research.md](./research.md) for why each decision was taken.
 
 ---
@@ -33,17 +33,6 @@ Scope a run to one asset by putting a single entry in `followup-stocks.json`, or
 - `not enough candles for a combo N, needed 60` — the asset is ineligible (routine, not an error)
 - `Storing N unique alerts` / `No unique alerts to store` — whether the weekly alert was recorded
 
-## Switch it off
-
-```yaml
-# config.yml
-weekly_combo_enabled: false
-```
-
-With this false the scan issues no weekly request, emits no weekly alert, and produces the same
-alert set as before the feature. This is the direct check for **SC-007** — run the scan once with
-each setting on the same date and the same assets, and diff the stored alerts.
-
 ---
 
 ## Verify the acceptance criteria
@@ -60,7 +49,7 @@ forming bar is dated from the earliest daily candle it found (`utils/helper.py:1
 Find an asset forming both on the same day. Both alerts must be stored; neither suppresses the
 other. This is what the separate `AlertType` buys.
 
-### The setup is recorded once but surfaced all week (SC-002, SC-005, FR-014)
+### The setup is recorded once but surfaced all week (SC-002, SC-005, FR-013)
 
 Run the scan on five consecutive days against an asset whose weekly combo holds:
 
@@ -74,16 +63,17 @@ Both are correct. The first is the de-dup signature; the second is detection re-
 Force the forming bar's direction to flip between two runs. A second `combo_weekly` row must appear
 for the same `weekly_bar_date`.
 
-### The de-dup change is inert for other alert types (FR-013, SC-007)
+### The de-dup change is inert for other alert types (FR-012, SC-007)
 
 ```bash
 poetry run pytest tests/client/test_aws_client.py -k signature
 ```
 
 Every alert type other than `combo_weekly` must produce the same signature tuple as before, and an
-alert stored before this feature must still de-dupe unchanged.
+alert stored before this feature must still de-dupe unchanged. Once before release, also revert the
+change locally and re-run the scan on the same assets and date: the stored alert set must match.
 
-### The fallback does not over-promote (SC-008, FR-015)
+### The fallback does not over-promote (SC-008, FR-014)
 
 Submit a payload with the LLM path unavailable for an asset carrying a daily **and** a weekly combo
 and nothing else. It must land in the same conviction band as an asset carrying only the daily
@@ -98,8 +88,8 @@ eligible for the top conviction band and the rationale must name the weekly time
 
 ### The scan stays inside its budget (US4, SC-003)
 
-Compare a full scan with the toggle on and off. Provider requests should grow by exactly one per
-asset — if they grow by three, the forming week is being fetched separately instead of built from
+Compare a full scan against the same scan with the weekly detection reverted. Provider requests
+should grow by exactly one per asset — if they grow by three, the forming week is being fetched separately instead of built from
 the daily candles already in hand (see R1).
 
 ---

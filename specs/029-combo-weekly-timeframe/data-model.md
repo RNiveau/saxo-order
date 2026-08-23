@@ -104,10 +104,5 @@ fatal" behaviour of `store_alerts`.
 
 ## 5. Configuration
 
-`config.yml` + `utils/configuration.py`
-
-| Key | Type | Default | Meaning |
-|-----|------|---------|---------|
-| `weekly_combo_enabled` | `bool` | `true` | When false the scan issues no weekly request and emits no weekly alert (R10, FR-012, SC-007) |
-
-Thresholds are **not** configuration — see R9 and Complexity Tracking.
+None. The feature introduces no configuration key — see research.md R10 for why the earlier
+`weekly_combo_enabled` toggle was dropped, and R9 for why the calibrated thresholds stay in code.

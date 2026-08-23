@@ -4,7 +4,6 @@ spreadsheet_id: 1nQiFW9Hs8tpXWIPlAg1Rj51ONPA2eJCmfUtFTzTPoBY
 trade_republic_sheet_name: "ETF / DCA"
 anthropic_model: claude-sonnet-5
 triage_slope_threshold: 1.0
-weekly_combo_enabled: true
 ouinex_graphql_url: https://live-api.ouinex.com/graphql
 app_url: http://localhost:5173
 currencies_rate:
