@@ -302,36 +302,37 @@ fallback (`_fallback_conviction` needs a slope over the threshold to promote pas
 
 ---
 
-## R14 — A combo that scored nothing is not emitted, on either timeframe
+## R14 — No criteria met is no combo, not a weak one
 
-**Decision**: the scan emits a combo only when its strength is above `WEAK`, for
-daily and weekly alike. A weak signal is not recorded, not stored, and never
-reaches the digest. Both call sites go through one predicate, so the two
-timeframes cannot drift apart on this.
+**Decision**: `_combo_for_direction` returns `None` when none of its scoring
+criteria are met, on either timeframe. A signal meeting one criterion is
+returned and labelled `WEAK`; the bands become 1 → weak, 2..strong-1 → medium,
+strong_signal_min and above → strong.
 
-**Rationale**: `combo()` returns a signal for anything clearing the three
-structural gates, including one that then meets none of the four scoring
-criteria. Emitting that costs an entry in the reasoning payload — and, under the
-prompt's ranking, one labelled the strongest signal on the board — to say
-nothing. The token budget of the daily brief is spent on assets worth reading
-about.
+**Rationale**: the detector previously reported a candle that cleared its three
+structural gates and then scored zero as a `WEAK` signal. That made "nothing
+found" and "found, barely" the same value, and every consumer downstream — the
+alerts table, the digest payload, the fallback ranking — had to treat them
+alike. The distinction belongs in the detector, which is the only place that
+knows the difference.
 
-**Where the gate sits**: at emission, not in the payload builder. Filtering
-downstream would still pay to detect, store and group the alert, and would leave
-the alerts table holding rows the digest deliberately ignores — two views of the
-same day that disagree. Gating at the source makes them agree.
+**Consequences**, all deliberate:
 
-**What is kept**: `pattern_strengths` stays in the payload, now carrying only
-`strong` or `medium`. It costs a short map per asset with a directional pattern
-and still earns it: the rank the prompt gives a pattern is what that pattern is
-worth at full strength, so the model needs to know when one is not.
+- Zero-criteria combos are no longer emitted anywhere. That is the token cost
+  the daily brief was paying for entries that said nothing.
+- `WEAK` now means one criterion rather than none, so a signal that used to
+  score `MEDIUM` at one criterion is now `WEAK`. One recorded fixture moves
+  accordingly.
+- A weak combo is still raised. It met something, and suppressing it would
+  discard a real observation — which is the opposite failure to the one this
+  fixes.
 
-**Alternative rejected**: recording the weak signal and excluding it from the
-payload only. It preserves a record nobody reads, at the cost of a scan whose
-stored alerts and whose digest describe different days.
+**Where the rule sits**: in the detector, not at the emission site. An earlier
+attempt gated emission in `alerting.py` on `strength != WEAK`, which suppressed
+genuine weak combos along with empty ones and left the detector still unable to
+express the difference. Fixing the semantics removed the need for the gate.
 
-**Scope**: this deliberately changes the daily combo too. It was raised as a
-weekly-only fix, but the daily detector has always emitted unscored signals and
-the argument against them does not depend on the timeframe. Nothing in the
-codebase depended on a weak combo being emitted; the alerts it suppresses are
-the ones that said nothing.
+**What is kept**: `pattern_strengths` stays in the triage payload. The rank the
+prompt gives a pattern is what it is worth at full strength, so the model needs
+to know when one is not.
+

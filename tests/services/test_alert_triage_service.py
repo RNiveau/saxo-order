@@ -294,10 +294,8 @@ def test_prompt_explains_what_a_strength_means() -> None:
 
     assert "pattern_strengths" in prompt
     assert "AT FULL STRENGTH" in prompt
-    assert (
-        "met NONE of its scoring criteria is never sent to you at all"
-        in prompt
-    )
+    assert "met NONE of its scoring criteria" in prompt
+    assert "reports that as no combo at all" in prompt
 
 
 def test_fallback_treats_daily_and_weekly_combo_as_one_family() -> None:

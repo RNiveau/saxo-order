@@ -48,12 +48,14 @@ support "high" on its own. \
 Only other, independent bullish evidence on the same asset can make it \
 surfaceable, and never above "watch".
 - pattern_strengths: PRESENT ONLY when a directional pattern published how \
-well it scored - "strong" or "medium". READ IT BEFORE RANKING: the rank a \
-pattern carries below is what a pattern of that type is worth AT FULL \
+well it scored - "strong", "medium" or "weak". READ IT BEFORE RANKING: the \
+rank a pattern carries below is what a pattern of that type is worth AT FULL \
 STRENGTH, so a "medium" one does not outrank a "strong" pattern of another \
-type. A combo or combo_weekly that met NONE of its scoring criteria is never \
-sent to you at all - if you see one, it scored. A missing entry means the \
-detector published no strength; treat that as "medium".
+type, and a "weak" one met a single criterion and little else. What you never \
+receive is a combo that met NONE of its scoring criteria - the detector \
+reports that as no combo at all - so every pattern you see scored something. \
+A missing entry means the detector published no strength; treat it as \
+"medium".
 - workflow_triggers: PRESENT ONLY when one of the trader's own registered \
 workflows fired on this asset today. Absent on most assets. Each entry has \
 the workflow name, its order "direction" ("Buy"/"Sell"), a "dry_run" flag, \

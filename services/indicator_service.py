@@ -471,6 +471,17 @@ def _combo_for_direction(
         }
     )
     signal = sum(criteria.values())
+    if signal == 0:
+        # Not a weak combo - no combo. The candle cleared the three
+        # structural gates and then met none of the scoring criteria, which
+        # says the setup is absent rather than faint. Returning a WEAK signal
+        # here made "nothing found" indistinguishable from "found, barely",
+        # and every consumer downstream had to guess which it was holding.
+        logger.debug(
+            f"no {direction.value} combo: none of the {len(criteria)}"
+            " criteria are met"
+        )
+        return None
     combo_signal = ComboSignal(
         price=0,
         direction=direction,
@@ -484,7 +495,7 @@ def _combo_for_direction(
         combo_signal.price = close
     else:
         combo_signal.price = pending_price
-    if signal == 0:
+    if signal == 1:
         combo_signal.strength = SignalStrength.WEAK
     elif signal >= settings.strong_signal_min:
         combo_signal.strength = SignalStrength.STRONG

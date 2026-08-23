@@ -4,15 +4,7 @@ import json
 import os
 import time
 from functools import partial
-from typing import (
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    TypeGuard,
-    TypeVar,
-)
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar
 
 import click
 from click.core import Context
@@ -27,9 +19,7 @@ from model import (
     AlertType,
     AssetType,
     Candle,
-    ComboSignal,
     EUMarket,
-    SignalStrength,
     UnitTime,
 )
 from saxo_order.async_utils import create_dynamodb_client
@@ -93,20 +83,6 @@ def _safe_detect(
             exc_info=True,
         )
         return None
-
-
-def _scored(signal: Optional[ComboSignal]) -> TypeGuard[ComboSignal]:
-    """
-    Whether a combo said anything worth putting in front of the reader.
-
-    combo() returns a signal for anything clearing its three structural
-    gates, including one that then meets none of its scoring criteria - a
-    WEAK signal. Emitting that spends an entry in the daily brief's payload,
-    on either timeframe, to say nothing. It is dropped at emission rather
-    than filtered later, so the stored alerts and the digest describe the
-    same day.
-    """
-    return signal is not None and signal.strength != SignalStrength.WEAK
 
 
 def _parse_asset_code(code: str) -> Tuple[str, Optional[str]]:
@@ -373,11 +349,11 @@ async def run_detection_for_asset(
         if (candle := detect(alert_type, candle_detector)) is not None:
             asset_alerts.append(candle_alert(alert_type, candle))
 
-    if _scored(
+    if (
         combo := detect(
             AlertType.COMBO, partial(indicator_service.combo, candles)
         )
-    ):
+    ) is not None:
         asset_alerts.append(
             Alert(
                 alert_type=AlertType.COMBO,
@@ -411,7 +387,7 @@ async def run_detection_for_asset(
             ),
         )
         weekly_bar = weekly_candles[0].date
-        if _scored(weekly_combo) and weekly_bar is not None:
+        if weekly_combo is not None and weekly_bar is not None:
             asset_alerts.append(
                 Alert(
                     alert_type=AlertType.COMBO_WEEKLY,

@@ -781,11 +781,12 @@ class TestRunDetectionForAssetWeeklyCombo:
         assert "ma50_slope" in data
         assert not any(a.alert_type == AlertType.COMBO for a in alerts)
 
-    async def test_a_weak_weekly_combo_is_not_emitted(
+    async def test_a_weak_weekly_combo_is_still_emitted(
         self, saxo_client, dynamodb_client, patched_alerting
     ):
-        """It met none of its four criteria. Emitting it would spend a whole
-        asset entry in the reasoning payload to say nothing."""
+        """A weak combo is a combo: it met a criterion, and the trader is
+        told. What never arrives here is a signal that met nothing, because
+        the detector returns None for that rather than a WEAK signal."""
         patched_alerting.patch(
             "saxo_order.commands.alerting._build_candles",
             return_value=_mm50_touch_candles(),
@@ -809,7 +810,7 @@ class TestRunDetectionForAssetWeeklyCombo:
             has_been_triggered=False,
             strength=SignalStrength.WEAK,
             details={
-                "ma50_over_bb": False,
+                "ma50_over_bb": True,
                 "price_within_bb": False,
                 "strong_ma50": False,
                 "both_bb_flat": False,
@@ -832,83 +833,43 @@ class TestRunDetectionForAssetWeeklyCombo:
             dynamodb_client=dynamodb_client,
         )
 
+        weekly = [a for a in alerts if a.alert_type == AlertType.COMBO_WEEKLY]
+        assert len(weekly) == 1
+        assert weekly[0].data["strength"] == "weak"
+
+    async def test_no_weekly_alert_when_the_detector_found_nothing(
+        self, saxo_client, dynamodb_client, patched_alerting
+    ):
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=_mm50_touch_candles(),
+        )
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_weekly_candles",
+            return_value=[
+                Candle(
+                    lower=1.0,
+                    higher=2.0,
+                    open=1.5,
+                    close=1.8,
+                    ut=UnitTime.W,
+                    date=datetime.datetime(2026, 8, 17, 0, 0),
+                )
+            ],
+        )
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
         assert all(a.alert_type != AlertType.COMBO_WEEKLY for a in alerts)
-        # The asset is still scanned and its other detectors still store.
         assert any(a.alert_type == AlertType.MM50_TOUCH for a in alerts)
-
-    async def test_a_weak_daily_combo_is_not_emitted_either(
-        self, saxo_client, dynamodb_client, patched_alerting
-    ):
-        """The same rule on both timeframes: a combo that scored nothing
-        costs a payload entry to say nothing, whichever bar it came from."""
-        patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
-            return_value=_mm50_touch_candles(),
-        )
-        patched_alerting.patch(
-            "saxo_order.commands.alerting._build_weekly_candles",
-            return_value=[],
-        )
-        weak = ComboSignal(
-            price=42.5,
-            direction=Direction.BUY,
-            has_been_triggered=False,
-            strength=SignalStrength.WEAK,
-            details={"macd": False},
-        )
-        patched_alerting.patch(
-            "saxo_order.commands.alerting.indicator_service.combo",
-            return_value=weak,
-        )
-
-        alerts = await run_detection_for_asset(
-            asset_code="TST",
-            country_code="xpar",
-            exchange="saxo",
-            asset_description="Test Asset",
-            saxo_uic=12345,
-            saxo_client=saxo_client,
-            dynamodb_client=dynamodb_client,
-        )
-
-        assert all(a.alert_type != AlertType.COMBO for a in alerts)
-        assert any(a.alert_type == AlertType.MM50_TOUCH for a in alerts)
-
-    async def test_a_scored_daily_combo_is_still_emitted(
-        self, saxo_client, dynamodb_client, patched_alerting
-    ):
-        """Guards the gate against over-reaching: MEDIUM still ships."""
-        patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
-            return_value=_mm50_touch_candles(),
-        )
-        patched_alerting.patch(
-            "saxo_order.commands.alerting._build_weekly_candles",
-            return_value=[],
-        )
-        scored = ComboSignal(
-            price=42.5,
-            direction=Direction.BUY,
-            has_been_triggered=False,
-            strength=SignalStrength.MEDIUM,
-            details={"macd": True},
-        )
-        patched_alerting.patch(
-            "saxo_order.commands.alerting.indicator_service.combo",
-            return_value=scored,
-        )
-
-        alerts = await run_detection_for_asset(
-            asset_code="TST",
-            country_code="xpar",
-            exchange="saxo",
-            asset_description="Test Asset",
-            saxo_uic=12345,
-            saxo_client=saxo_client,
-            dynamodb_client=dynamodb_client,
-        )
-
-        assert any(a.alert_type == AlertType.COMBO for a in alerts)
 
     async def test_a_weekly_failure_leaves_the_other_detectors_alone(
         self, saxo_client, dynamodb_client, patched_alerting
