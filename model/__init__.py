@@ -72,6 +72,46 @@ class Alert:
         else:
             return self.asset_code
 
+    @property
+    def dedup_signature(self) -> tuple:
+        """What makes this alert a repeat of one already stored."""
+        return alert_dedup_signature(
+            self.alert_type.value, self.date.isoformat(), self.data
+        )
+
+
+def alert_dedup_signature(
+    alert_type: str, date: str, data: Optional[Dict[str, Any]]
+) -> tuple:
+    """
+    What makes two alerts the same alert.
+
+    Every type but one is a repeat when it fires again on the same scan date,
+    which is the rule the alerts table has always applied. A weekly combo is
+    different: the scan runs daily against a bar that lives for a week, so the
+    same setup would be recorded five times under that rule. It is a repeat
+    when it describes the same weekly bar in the same direction - and a
+    direction that flips mid-bar is new information, not a repeat.
+
+    Callers pass stored rows and freshly detected alerts through the same
+    function, so the two sides cannot drift apart. A weekly alert missing
+    either key falls back to the shared rule rather than raising: a row
+    written by an older version is still comparable, just less precisely.
+    """
+    same_day = (
+        alert_type,
+        datetime.datetime.fromisoformat(date).date().isoformat(),
+    )
+    if alert_type != AlertType.COMBO_WEEKLY.value or not isinstance(
+        data, dict
+    ):
+        return same_day
+    bar_date = data.get("weekly_bar_date")
+    direction = data.get("direction")
+    if bar_date is None or direction is None:
+        return same_day
+    return (alert_type, str(bar_date), str(direction))
+
 
 @dataclass
 class WorkflowTrigger:
