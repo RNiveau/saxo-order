@@ -77,6 +77,30 @@ strictly the top quartile of trends rather than the time-scaled equivalent of th
 daily level. 50.0 was chosen for consistency with the daily semantics; the two
 differ by roughly one decile of the population.
 
+## Still to measure: the emission rate (SC-005)
+
+The distributions above say what the thresholds admit — roughly 40% of assets
+clear the band gate and ~72% clear the direction floor. They do not say how many
+alerts a day that becomes, because the three price-position gates in
+`_combo_for_direction` (wrong side of the MA50, a breached 2.5 band, too far from
+both the inner band and the MA50) cut again afterwards. Those gates are
+ATR-scaled, so they self-adjust to the timeframe — a reason to expect the rate to
+be sane, not evidence that it is.
+
+The script now reports it directly, off the cached responses at no request cost:
+
+```
+Would emit a weekly combo: N (X% of eligible) [SC-005]
+    strong    n
+    medium    n
+    weak      n
+```
+
+Re-run the calibration to fill this in. SC-005 caps weekly combos at 15% of the
+asset-days surfaced in the digest, and a rate far above that is a signal to
+raise `ma50_slope_min` or lower `bb_flat_slope_max` before a trial rather than
+after one.
+
 ## Reproducing
 
 ```bash

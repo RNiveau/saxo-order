@@ -751,6 +751,18 @@ def _build_weekly_candles(
     candles this scan already fetched are exactly the elapsed days of it - so
     the forming bar is assembled from those rather than bought a second time.
     That keeps the weekly timeframe at one extra request per asset.
+
+    This is deliberately not CandlesService.build_weekly_candles, which does
+    the same thing from a code and a Market: that path re-resolves the asset
+    and fetches its own daily candles for the forming week, three requests
+    per asset where this is one. Reuniting them would mean giving the service
+    a uic-keyed entry point and a way to be handed candles it already has.
+
+    It also drops that path's `today.weekday() < 5` guard, which is safe here
+    in both weekend cases: Saturday and Sunday share their ISO week with the
+    week that just closed, so either the provider has published that bar and
+    the prepend is skipped, or it has not and the bar assembled from the
+    week's dailies is the complete week rather than a partial one.
     """
     data = saxo_client.get_historical_data(
         asset_type=AssetType.STOCK,

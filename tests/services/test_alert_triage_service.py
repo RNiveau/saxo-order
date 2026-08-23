@@ -11,6 +11,7 @@ from model import (
     AlertType,
     Conviction,
     Direction,
+    SignalStrength,
     TriagedAsset,
     WorkflowTrigger,
 )
@@ -255,6 +256,41 @@ def test_fallback_treats_congestion20_and_100_as_one_family() -> None:
     asset = digest.triaged_assets[0]
     assert asset.conviction == Conviction.NOISE
     assert asset.rank is None
+
+
+def test_payload_carries_the_strength_of_a_directional_pattern() -> None:
+    # The prompt ranks combo_weekly above combo. Without the strength beside
+    # it, a weekly combo that met none of its criteria would present to the
+    # model as the strongest signal on the board.
+    alert = _directional_alert(
+        "SAN", AlertType.COMBO_WEEKLY, 20.0, Direction.BUY
+    )
+    alert.data["strength"] = SignalStrength.WEAK.value
+
+    agent = TriageAgent(FailingAnthropicClient())
+    payload = json.loads(
+        agent._build_payload(agent._group_by_asset([alert], {}))
+    )
+
+    asset = payload["assets"][0]
+    assert asset["pattern_strengths"] == {"combo_weekly": "weak"}
+
+
+def test_payload_omits_strength_when_no_detector_published_one() -> None:
+    alert = _alert("SAN", AlertType.DOUBLE_TOP, 2.0)
+
+    agent = TriageAgent(FailingAnthropicClient())
+    payload = json.loads(
+        agent._build_payload(agent._group_by_asset([alert], {}))
+    )
+
+    assert "pattern_strengths" not in payload["assets"][0]
+
+
+def test_prompt_tells_the_model_a_weak_signal_outranks_nothing() -> None:
+    assert "pattern_strengths" in TRIAGE_SYSTEM_PROMPT
+    assert 'a "weak" combo_weekly outranks nothing' in TRIAGE_SYSTEM_PROMPT
+    assert "met NONE of its scoring criteria" in TRIAGE_SYSTEM_PROMPT
 
 
 def test_fallback_treats_daily_and_weekly_combo_as_one_family() -> None:

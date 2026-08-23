@@ -135,8 +135,8 @@ label, a direction badge, and a badge colour that is not the daily combo's.
 **Independent Test**: run a full scan, and the same scan with weekly detection reverted, comparing
 duration and request count.
 
-- [ ] T024 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a scan with weekly detection enabled issues exactly one additional `get_historical_data` call per asset — three would mean the forming week is being fetched separately instead of built from the daily candles (research.md R1)
-- [ ] T025 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a provider failure on the weekly fetch for one asset leaves that asset's other detectors storing their alerts and the scan continuing over the remaining assets (FR-006)
+- [x] T024 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a scan with weekly detection enabled issues exactly one additional `get_historical_data` call per asset — three would mean the forming week is being fetched separately instead of built from the daily candles (research.md R1)
+- [x] T025 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a provider failure on the weekly fetch for one asset leaves that asset's other detectors storing their alerts and the scan continuing over the remaining assets (FR-006)
 - [ ] T026 [US4] Run a full scan of the production universe, and the same scan with weekly detection reverted; record duration, request count and the unused share of the execution window (SC-003) in `specs/029-combo-weekly-timeframe/calibration.md`
 
 **Checkpoint**: the cost of the second timeframe is measured, bounded and recorded
