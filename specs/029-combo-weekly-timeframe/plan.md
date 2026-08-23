@@ -49,8 +49,8 @@ sample of the scanned universe (R8). **No new table, no migration, no Pulumi cha
 weekly pass is cheaper than the daily one because `macd0lag` — roughly 80% of a combo call — is not
 computed (SC-003)
 **Constraints**: must not delay the end-of-day scan past its window; must reproduce today's alert
-set exactly when the toggle is off (SC-007); the de-dup change must be inert for every other alert
-type (FR-007, SC-007)
+the de-dup change must be inert for every other alert
+type (FR-007, SC-007), demonstrated by reverting the change and re-running the scan
 **Scale/Scope**: a few hundred French stocks plus followups, scanned sequentially, once per weekday
 
 ## Constitution Check
@@ -61,14 +61,14 @@ type (FR-007, SC-007)
 |-----------|------------|
 | **I. Layered Architecture** | PASS. Indicator logic stays in the Service layer; the de-dup signature is domain logic and lands in the Model layer, called by the client rather than computed inside it. The CLI command orchestrates and holds no scoring logic. No service reaches into client internals — the weekly fetch goes through the existing `get_historical_data` method. Frontend changes stay in `utils/alertLabels.ts` (label) and a component (render). |
 | **II. Clean Code First** | PASS. One parameterised `combo()` rather than a weekly copy (R2). `ComboSettings` exists because two timeframes need it now, not speculatively. The fallback reuses the existing `_PATTERN_FAMILY` mechanism rather than adding a second notion of relatedness (R7). No new metric store for a one-off measurement (R12). No `assert` — the settings invariants are asserted in tests, and malformed stored alert rows degrade to the default signature rather than raising. |
-| **III. Configuration-Driven** | PARTIAL — the off switch is configuration; the calibrated thresholds stay in code. Justified in Complexity Tracking. |
+| **III. Configuration-Driven** | PARTIAL — the calibrated thresholds stay in code rather than moving to `config.yml`. Justified in Complexity Tracking. The feature adds no configuration key of its own (R10). |
 | **IV. Safe Deployment** | PASS. No infrastructure change; existing tables and IAM grants suffice. Conventional commits throughout. |
 | **V. Domain Model Integrity** | PASS. Weekly candles are `Candle` objects with `ut=UnitTime.W`, newest at index 0. The provider's missing current week is rebuilt from a smaller horizon, which is exactly the documented Saxo constraint. `AlertType` and `UnitTime` are used as enums, never as strings. The alert carries its explicit `exchange`; nothing infers an exchange from `country_code`. |
 | **Planning Requirement** | PASS. Spec and this plan precede implementation; `/speckit.implement` awaits human validation. |
 | **Testing Standards** | PASS. Tests assert behaviour — a combo found on weekly bars, a second scan recording nothing, a flip recording a second row, an untouched daily de-dup — not that mocks were called. |
 
 **Post-review re-check (2026-08-23)**: the calibration source changed (R8) and the fallback now
-collapses the two timeframes into one family (R7, FR-015). Neither introduces a layering, naming or
+collapses the two timeframes into one family (R7, FR-014). Neither introduces a layering, naming or
 configuration violation; the calibration script moves from reading a shared table to fetching its
 own sample, which removes a dependency rather than adding one.
 
@@ -109,16 +109,12 @@ client/
 └── aws_client.py                    # store_alerts calls the model-layer signature
 
 saxo_order/commands/
-└── alerting.py                      # + _build_weekly_candles, weekly detection behind the toggle
-
-utils/
-└── configuration.py                 # + weekly_combo_enabled property
+└── alerting.py                      # + _build_weekly_candles, weekly detection
 
 scripts/
 └── calibrate_weekly_combo.py        # one-off threshold calibration against a sample of the
                                      # scanned universe (release prerequisite, R8)
 
-config.yml                           # + weekly_combo_enabled
 
 frontend/src/
 ├── utils/alertLabels.ts             # + combo_weekly label (polish; titleCase already covers it)
@@ -142,4 +138,4 @@ than part of the scan.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|--------------------------------------|
-| Constitution III — the calibrated weekly thresholds live in `services/indicator_service.py` as module constants rather than in `config.yml` | These values define what the weekly indicator *is*. They are derived by the calibration pass (R8), reviewed as code alongside the criteria they gate, and identical in every environment — unlike `triage_slope_threshold`, which a user may reasonably want to tune per deployment. FR-011's requirement is that weekly be tunable *independently of daily*, which the `COMBO_SETTINGS` map satisfies. | Moving only the weekly set to `config.yml` would split a matched pair of constants across two homes and make the timeframes harder to compare than either home alone. Moving both sets would change the daily combo's configuration surface — out of scope, and a behaviour-change risk on a detector this feature is not meant to touch. The genuinely environment-dependent knob, the off switch, *is* in `config.yml` (R10). |
+| Constitution III — the calibrated weekly thresholds live in `services/indicator_service.py` as module constants rather than in `config.yml` | These values define what the weekly indicator *is*. They are derived by the calibration pass (R8), reviewed as code alongside the criteria they gate, and identical in every environment — unlike `triage_slope_threshold`, which a user may reasonably want to tune per deployment. FR-011's requirement is that weekly be tunable *independently of daily*, which the `COMBO_SETTINGS` map satisfies. | Moving only the weekly set to `config.yml` would split a matched pair of constants across two homes and make the timeframes harder to compare than either home alone. Moving both sets would change the daily combo's configuration surface — out of scope, and a behaviour-change risk on a detector this feature is not meant to touch. The feature has no genuinely environment-dependent knob: the off switch an earlier draft carried was dropped as speculative (R10). |

@@ -257,6 +257,27 @@ def test_fallback_treats_congestion20_and_100_as_one_family() -> None:
     assert asset.rank is None
 
 
+def test_fallback_treats_daily_and_weekly_combo_as_one_family() -> None:
+    # combo and combo_weekly are one detector at two timeframes. Counted
+    # separately they reach HIGH on one detector's word, and the fallback
+    # reads no direction at all - so a Sell on both timeframes would rank as
+    # the strongest kind of asset, which the long-only brief forbids.
+    both = [
+        _directional_alert("SAN", AlertType.COMBO, 4.0, Direction.SELL),
+        _directional_alert("SAN", AlertType.COMBO_WEEKLY, 4.0, Direction.SELL),
+    ]
+    daily_only = [
+        _directional_alert("TTE", AlertType.COMBO, 4.0, Direction.SELL),
+    ]
+
+    agent = TriageAgent(FailingAnthropicClient(), slope_threshold=1.0)
+    both_asset = agent.synthesize(both).triaged_assets[0]
+    daily_asset = agent.synthesize(daily_only).triaged_assets[0]
+
+    assert both_asset.conviction == daily_asset.conviction
+    assert both_asset.conviction != Conviction.HIGH
+
+
 def test_fallback_does_not_let_mm7_break_promote_to_high() -> None:
     # mm7_break is a short-term timing trigger, and crossing the MM7 is
     # ordinary - if it counted toward confluence it would promote every

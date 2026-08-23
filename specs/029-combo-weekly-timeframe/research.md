@@ -81,7 +81,7 @@ compares them to signatures of incoming `Alert` objects (`client/aws_client.py:5
 both sides through one function keeps them symmetric by construction. Deriving the signature is
 domain logic, so it belongs in `model/`, not the client (Constitution I); the client calls it.
 
-**Provable inertness (FR-013, SC-007)**: every alert type other than `COMBO_WEEKLY` takes the
+**Provable inertness (FR-012, SC-007)**: every alert type other than `COMBO_WEEKLY` takes the
 default branch, which returns the identical tuple the current code builds inline — including the
 existing `except (KeyError, ValueError): continue` behaviour for malformed stored rows. A test
 asserts the signature of each existing type is unchanged, and a second asserts a stored alert
@@ -188,9 +188,9 @@ that reasons about rank. The fallback counts families; it does not rank them.
 ## R8 — Source of the calibration and validation data
 
 **Decision**: calibration is a one-off developer script, `scripts/calibrate_weekly_combo.py`, that
-fetches `horizon=10080` directly from the provider for a **sample of the scanned universe** (a few
-dozen French stocks drawn from `stocks.json`, not the whole list), caches the raw response to a
-local file so re-runs cost nothing, and reports the distribution of `ma50_slope`, `bbh_slope` and
+fetches `horizon=10080` directly from the provider for the **whole scanned universe** — both
+`stocks.json` and `followup-stocks.json`, the followup names being the likeliest to be short of
+history — caches the raw response to a local file so re-runs cost nothing, and reports the distribution of `ma50_slope`, `bbh_slope` and
 `bbb_slope` over those weekly bars. The chosen constants are then committed. It runs outside the
 scan and is paid once.
 
@@ -209,7 +209,8 @@ scan and is paid once.
 (The `{instrument}:{session}:{ut}:v1` namespace CLAUDE.md attributes to spec 026 is not what the
 code keys on; `CACHE_SCHEMA_VERSION = 2` dropped the definition code and carries no `ut` segment.)
 
-**Cost**: one request per sampled asset, once, outside the scheduled scan. That is the price of
+**Cost**: one request per asset, once, outside the scheduled scan (a few hundred at most, and
+cached thereafter). That is the price of
 calibrating on the universe the thresholds will actually be applied to, and it is paid by a
 developer running a script rather than by the Lambda.
 
@@ -222,7 +223,7 @@ output of this plan.
 ## R9 — Where the weekly thresholds live
 
 **Decision**: as module constants beside the daily ones in `services/indicator_service.py`, carried
-by the `ComboSettings` map from R2. The feature **toggle** goes in `config.yml`.
+by the `ComboSettings` map from R2.
 
 **Rationale**: Constitution III says thresholds live in configuration, and `triage_slope_threshold`
 sets that precedent (`config.yml`, `utils/configuration.py:165`). These particular values are
@@ -233,15 +234,26 @@ either home alone. Recorded in Complexity Tracking as a deliberate deviation.
 
 ---
 
-## R10 — The off switch
+## R10 — No feature toggle
 
-**Decision**: `weekly_combo_enabled` in `config.yml`, exposed as a `Configuration` property,
-consulted once in the scan.
+**Decision**: none. Weekly detection ships on, with no configuration switch guarding it.
 
-**Rationale**: FR-012 asks for a revert path without a deploy of different code, which is exactly
-what Constitution III's configuration rule is for. With it false, the scan issues no weekly request,
-emits no weekly alert, and hands the digest the same alert set as today — the direct proof SC-007
-asks for.
+**Rationale**: an earlier draft carried a `weekly_combo_enabled` key so the scan could be reverted
+without a deploy if the new signal proved noisy. That is a speculative feature in the sense
+Constitution II rejects — it exists for a hypothetical, and the repository already has a revert
+path in `deploy.sh` that every other change uses. Nothing else in this codebase is guarded by a
+boolean flag; `triage_slope_threshold`, the nearest precedent, is a tuning value with a meaningful
+range rather than an on/off switch. Carrying one would leave a permanent branch in the scan and an
+on/off dimension in every test of the weekly path, to protect against a failure mode the
+calibration dry run (R8, R12) is meant to catch before release.
+
+**What SC-007 is verified with instead**: reverting the change locally and re-running the scan on
+the same assets and date. A one-time release check rather than a permanent capability, which is
+what the criterion actually needs.
+
+**Alternative considered**: keeping the switch until the first production week, then removing it.
+Rejected — a switch meant to be deleted rarely is, and the code path it adds is the part that
+lingers.
 
 ---
 
@@ -264,3 +276,26 @@ bars, log the ratio, report it once. No persistent metric, no new table.
 **Rationale**: SC-004 is a release gate answered once, not a runtime property worth instrumenting.
 Adding a metric store for a single question would be the speculative abstraction Constitution II
 rejects.
+
+---
+
+## R13 — Which MA50 slope the weekly alert publishes
+
+**Decision**: the weekly combo alert carries the asset's **daily** `ma50_slope`, the same value
+every other alert for that asset carries. Its own weekly slope, if published at all, goes under a
+distinct key and never under `ma50_slope`.
+
+**Rationale**: `run_detection_for_asset` computes `ma50_slope` once per asset from the daily candle
+set (`alerting.py:234-247`) and attaches it to every alert it emits. Downstream, `_group_by_asset`
+keeps the first non-`None` slope it encounters across an asset's alerts
+(`alert_triage_service.py:537-545`), and `triage_slope_threshold` was tuned against daily values. A
+weekly alert publishing a weekly slope under the same key would make the asset's reported trend
+depend on which alert happened to be grouped first, and would feed a weekly-scaled number to a
+daily-scaled threshold.
+
+Publishing the daily slope keeps one meaning for one key: `ma50_slope` is the asset's daily trend,
+whatever detector reported it. Nothing in the grouping, the threshold or the prompt needs to change.
+
+**Alternative rejected**: omitting `ma50_slope` from the weekly alert. A weekly-only asset would
+then reach the digest with no slope at all, which costs it the WATCH band in the deterministic
+fallback (`_fallback_conviction` needs a slope over the threshold to promote past NOISE).

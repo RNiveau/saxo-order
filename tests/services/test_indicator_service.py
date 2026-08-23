@@ -13,11 +13,13 @@ from model import (
 )
 from services.indicator_service import (
     COMBO_MIN_CANDLES,
+    _ComboContext,
     adx,
     apply_linear_function,
     average_true_range,
     bollinger_bands,
     combo,
+    combo_slopes,
     containing_candle,
     double_bottom,
     double_top,
@@ -1120,3 +1122,44 @@ class TestMm7Break:
         assert result is not None
         assert result["direction"] == Direction.SELL.value
         assert result["streak"] >= 3
+
+
+class TestComboSlopes:
+    """
+    combo_slopes exists so the weekly calibration measures what the detector
+    measures. Pinning it to the context the detector builds is the only
+    assertion that catches the drift it was written to prevent: comparing it
+    against a second copy of the slope formulas would pass even if both
+    copies moved away from the detector.
+    """
+
+    def _candles(self) -> List[Candle]:
+        with open("tests/services/files/combo_buy_h4_dax.obj", "r") as f:
+            return eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+
+    def test_it_reports_the_slopes_the_detector_scores_against(self):
+        candles = self._candles()
+        context = _ComboContext(candles)
+
+        assert combo_slopes(candles) == {
+            "ma50_slope": context.ma50_slope,
+            "bbh_slope": context.bbh_slope,
+            "bbb_slope": context.bbb_slope,
+        }
+
+    def test_it_runs_on_the_weekly_history_floor(self):
+        """The weekly criteria set needs 60 candles, far below the 235 a full
+        combo needs, so the calibration must work on a set that short."""
+        candles = self._candles()[:60]
+
+        slopes = combo_slopes(candles)
+
+        assert set(slopes) == {"ma50_slope", "bbh_slope", "bbb_slope"}
+        assert all(isinstance(value, float) for value in slopes.values())
+
+    def test_it_refuses_a_set_shorter_than_the_moving_average(self):
+        with pytest.raises(SaxoException):
+            combo_slopes(self._candles()[:59])
