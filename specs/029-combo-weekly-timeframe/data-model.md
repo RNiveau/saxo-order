@@ -66,7 +66,7 @@ and in two additional keys inside the existing free-form `data` map.
 | `data.strength` | `SignalStrength.value` | Banded per the reduced set (R3) |
 | `data.has_been_triggered` | `ComboSignal` | — |
 | `data.details` | `ComboSignal.details` | Four criteria for weekly, five for daily |
-| `data.ma50_slope` | scan | Same key the digest already reads |
+| `data.ma50_slope` | scan | The asset's **daily** slope, as every other alert carries — never the weekly one (R13) |
 | **`data.weekly_bar_date`** | **new** | ISO date of the weekly bar's first session — the de-dup dimension |
 | **`data.timeframe`** | **new** | `UnitTime.W.value` — makes the timeframe explicit to consumers reading `data` |
 
@@ -104,10 +104,5 @@ fatal" behaviour of `store_alerts`.
 
 ## 5. Configuration
 
-`config.yml` + `utils/configuration.py`
-
-| Key | Type | Default | Meaning |
-|-----|------|---------|---------|
-| `weekly_combo_enabled` | `bool` | `true` | When false the scan issues no weekly request and emits no weekly alert (R10, FR-012, SC-007) |
-
-Thresholds are **not** configuration — see R9 and Complexity Tracking.
+None. The feature introduces no configuration key — see research.md R10 for why the earlier
+`weekly_combo_enabled` toggle was dropped, and R9 for why the calibrated thresholds stay in code.

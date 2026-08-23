@@ -37,13 +37,14 @@
   3. **Threshold calibration** -> calibrated against historical weekly data before release (FR-010, SC-005).
 - Owner review on PR #711 (2026-08-23) raised five items; all are resolved in the spec:
   1. **Repeat suppression vs. the shared de-dup key** → FR-007 keys on weekly bar + direction and requires the change to be inert for other alert types.
-  2. **Suppression layer** → FR-014 pins it to the recording layer; SC-005 now counts asset-days.
+  2. **Suppression layer** → FR-013 pins it to the recording layer; SC-005 now counts asset-days.
   3. **Long-only triage** → US2 scenarios and FR-009 restated; a Sell weekly combo can never reach the top band.
   4. **Provider request cost** → US4 states the weekly series cannot be re-cut from the existing fetch and the request count roughly doubles.
   5. **Calibration and validation data** → new Dependencies section names the backtest raw-candle store and the trader-labelled sample as release prerequisites.
-- Requirements renumbered to FR-001..FR-014 after splitting the old FR-004; cross-references updated.
+- Requirements renumbered after splitting the old FR-004 and, later, after dropping the feature toggle; cross-references updated.
 - Second owner review on PR #711 (plan + spec revision) raised three items; all resolved:
   1. **Calibration data source** → the backtest candle cache holds intraday bars for two index CFDs, not weekly bars for the scanned equities. Dependencies bullet and R8 rewritten around a one-off sampled fetch.
-  2. **Fallback over-promotion** → new FR-015 and SC-008: daily + weekly combo count as one point in the degraded ranking, matching the congestion precedent. FR-009 and SC-006 scoped to the reasoned path.
+  2. **Fallback over-promotion** → new FR-014 and SC-008: daily + weekly combo count as one point in the degraded ranking, matching the congestion precedent. FR-009 and SC-006 scoped to the reasoned path.
   3. **Enumeration sites** → four, not three; the per-type badge CSS is the real gap, the label map is polish.
-- Checklist passes in full. Spec is ready for `/speckit.tasks`.
+- The `weekly_combo_enabled` toggle was removed after implementation review (2026-08-23): it was a speculative feature guarding a hypothetical, with `deploy.sh` already providing the revert path. FR-012 dropped, SC-007 restated as a one-time revert check, requirements renumbered to FR-001..FR-014.
+- Checklist passes in full.
