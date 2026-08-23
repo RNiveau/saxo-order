@@ -5,7 +5,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 from client.aws_client import DynamoDBClient, DynamoDBOperationError
-from model import Alert, AlertType
+from model import Alert, AlertType, alert_dedup_signature
 
 
 @pytest.fixture
@@ -279,3 +279,188 @@ class TestDynamoDBErrorHandling:
 
         result = await client.get_workflow_orders("some-id")
         assert result == []
+
+
+class TestAlertDeduplicationSignature:
+    """
+    Every alert type but one is a repeat when it fires again on the same scan
+    date. A weekly combo is a repeat when it describes the same weekly bar in
+    the same direction, because the scan runs daily against a bar that lives
+    for a week.
+    """
+
+    def _weekly(self, bar_date: str, direction: str) -> Alert:
+        return Alert(
+            alert_type=AlertType.COMBO_WEEKLY,
+            date=datetime.datetime(2026, 8, 20, 18, 15, 0),
+            data={
+                "direction": direction,
+                "weekly_bar_date": bar_date,
+                "price": 42.0,
+            },
+            asset_code="SAN",
+            asset_description="Sanofi",
+            exchange="saxo",
+            country_code="xpar",
+        )
+
+    def test_other_types_keep_the_scan_date_rule(self):
+        for alert_type in AlertType:
+            if alert_type == AlertType.COMBO_WEEKLY:
+                continue
+            alert = Alert(
+                alert_type=alert_type,
+                date=datetime.datetime(2026, 8, 20, 18, 15, 0),
+                data={"price": 1.0},
+                asset_code="SAN",
+                asset_description="Sanofi",
+            )
+            assert alert.dedup_signature == (
+                alert_type.value,
+                "2026-08-20",
+            )
+
+    def test_a_stored_row_and_a_fresh_alert_agree(self):
+        alert = self._weekly("2026-08-17", "Buy")
+
+        stored = alert_dedup_signature(
+            "combo_weekly",
+            "2026-08-20T18:15:00",
+            {"direction": "Buy", "weekly_bar_date": "2026-08-17"},
+        )
+
+        assert alert.dedup_signature == stored
+
+    def test_the_same_bar_on_a_later_scan_is_a_repeat(self):
+        monday = self._weekly("2026-08-17", "Buy")
+        thursday = self._weekly("2026-08-17", "Buy")
+        thursday.date = datetime.datetime(2026, 8, 20, 18, 15, 0)
+
+        assert monday.dedup_signature == thursday.dedup_signature
+
+    def test_a_direction_flip_on_the_same_bar_is_not(self):
+        assert (
+            self._weekly("2026-08-17", "Buy").dedup_signature
+            != self._weekly("2026-08-17", "Sell").dedup_signature
+        )
+
+    def test_a_new_bar_is_not(self):
+        assert (
+            self._weekly("2026-08-17", "Buy").dedup_signature
+            != self._weekly("2026-08-24", "Buy").dedup_signature
+        )
+
+    def test_a_weekly_row_missing_its_keys_falls_back(self):
+        """A row written before this feature is still comparable, just under
+        the shared rule - it must not raise."""
+        assert alert_dedup_signature(
+            "combo_weekly", "2026-08-20T18:15:00", {"price": 1.0}
+        ) == ("combo_weekly", "2026-08-20")
+        assert alert_dedup_signature(
+            "combo_weekly", "2026-08-20T18:15:00", None
+        ) == ("combo_weekly", "2026-08-20")
+
+
+class TestStoreAlertsWeeklyDeduplication:
+
+    async def test_the_same_weekly_bar_is_stored_once(
+        self, mock_table, client
+    ):
+        mock_table.get_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Item": {
+                "alerts": [
+                    {
+                        "alert_type": "combo_weekly",
+                        "date": "2026-08-17T18:15:00",
+                        "data": {
+                            "direction": "Buy",
+                            "weekly_bar_date": "2026-08-17",
+                        },
+                    }
+                ]
+            },
+        }
+
+        alerts = [
+            Alert(
+                alert_type=AlertType.COMBO_WEEKLY,
+                date=datetime.datetime(2026, 8, 20, 18, 15, 0),
+                data={"direction": "Buy", "weekly_bar_date": "2026-08-17"},
+                asset_code="SAN",
+                asset_description="Sanofi",
+                country_code="xpar",
+            )
+        ]
+
+        await client.store_alerts("SAN", "xpar", alerts)
+
+        mock_table.update_item.assert_not_called()
+
+    async def test_a_flip_on_that_bar_is_stored(self, mock_table, client):
+        mock_table.get_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Item": {
+                "alerts": [
+                    {
+                        "alert_type": "combo_weekly",
+                        "date": "2026-08-17T18:15:00",
+                        "data": {
+                            "direction": "Buy",
+                            "weekly_bar_date": "2026-08-17",
+                        },
+                    }
+                ]
+            },
+        }
+        mock_table.update_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Attributes": {},
+        }
+
+        alerts = [
+            Alert(
+                alert_type=AlertType.COMBO_WEEKLY,
+                date=datetime.datetime(2026, 8, 20, 18, 15, 0),
+                data={"direction": "Sell", "weekly_bar_date": "2026-08-17"},
+                asset_code="SAN",
+                asset_description="Sanofi",
+                country_code="xpar",
+            )
+        ]
+
+        await client.store_alerts("SAN", "xpar", alerts)
+
+        mock_table.update_item.assert_called_once()
+
+    async def test_a_daily_combo_on_the_same_day_still_de_dupes(
+        self, mock_table, client
+    ):
+        """The change must be inert for every pre-existing type (SC-007)."""
+        mock_table.get_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Item": {
+                "alerts": [
+                    {
+                        "alert_type": "combo",
+                        "date": "2026-08-20T09:00:00",
+                        "data": {"price": 1.0},
+                    }
+                ]
+            },
+        }
+
+        alerts = [
+            Alert(
+                alert_type=AlertType.COMBO,
+                date=datetime.datetime(2026, 8, 20, 18, 15, 0),
+                data={"price": 2.0},
+                asset_code="SAN",
+                asset_description="Sanofi",
+                country_code="xpar",
+            )
+        ]
+
+        await client.store_alerts("SAN", "xpar", alerts)
+
+        mock_table.update_item.assert_not_called()

@@ -32,7 +32,7 @@ Backend packages live at the repository root (`model/`, `services/`, `client/`, 
 the daily constants demonstrably do not transfer (research.md R8).
 
 - [x] T001 Create `scripts/calibrate_weekly_combo.py`: read a sample of assets from `stocks.json`, fetch `horizon=10080` per asset through `SaxoClient.get_historical_data`, cache raw responses to a local JSON file so re-runs cost nothing, and report the distributions of `ma50_slope`, `bbh_slope` and `bbb_slope` over the weekly bars plus the share of sampled assets returning at least 60 bars
-- [ ] T002 Run `poetry run python scripts/calibrate_weekly_combo.py` over the whole universe (the default — one cached pass, no sampling noise in a figure that gates release) and record the chosen weekly threshold values and the eligibility ratio (SC-004) in `specs/029-combo-weekly-timeframe/calibration.md`
+- [x] T002 Run `poetry run python scripts/calibrate_weekly_combo.py` over the whole universe (the default — one cached pass, no sampling noise in a figure that gates release) and record the chosen weekly threshold values and the eligibility ratio (SC-004) in `specs/029-combo-weekly-timeframe/calibration.md`
 
 **Checkpoint**: weekly thresholds are known values with a recorded derivation, and SC-004 is answered
 
@@ -68,19 +68,19 @@ disturbing any existing detector.
 
 ### Tests for User Story 1
 
-- [ ] T005 [P] [US1] Test `combo()` on weekly candles with the reduced criteria set in `tests/services/test_indicator_service.py`: a bullish and a bearish weekly fixture produce the expected direction, a four-key `details` map, and `STRONG` at 3 of 4 criteria
-- [ ] T006 [P] [US1] Test the `ComboSettings` invariants in `tests/services/test_indicator_service.py`: `strong_signal_min` never exceeds the number of active criteria, and `min_candles` is at least 235 whenever `use_macd` is true
-- [ ] T007 [P] [US1] Test weekly series assembly in `tests/saxo_order/commands/test_alerting.py`: the forming week is built from the daily candles already fetched and prepended; on a weekend or before Monday's open the series ends at the last completed week; an asset with fewer than 60 bars yields no weekly alert while its other detectors still store theirs
-- [ ] T008 [P] [US1] Test the de-duplication signature in `tests/client/test_aws_client.py`: same bar and direction across five scans stores one record (SC-002); a direction flip on the same bar stores a second; every other alert type produces the signature it produces today (SC-007); a weekly alert whose `data` lacks `weekly_bar_date` falls back to the default signature instead of raising
+- [x] T005 [P] [US1] Test `combo()` on weekly candles with the reduced criteria set in `tests/services/test_indicator_service.py`: a bullish and a bearish weekly fixture produce the expected direction, a four-key `details` map, and `STRONG` at 3 of 4 criteria
+- [x] T006 [P] [US1] Test the `ComboSettings` invariants in `tests/services/test_indicator_service.py`: `strong_signal_min` never exceeds the number of active criteria, and `min_candles` is at least 235 whenever `use_macd` is true
+- [x] T007 [P] [US1] Test weekly series assembly in `tests/saxo_order/commands/test_alerting.py`: the forming week is built from the daily candles already fetched and prepended; on a weekend or before Monday's open the series ends at the last completed week; an asset with fewer than 60 bars yields no weekly alert while its other detectors still store theirs
+- [x] T008 [P] [US1] Test the de-duplication signature in `tests/client/test_aws_client.py`: same bar and direction across five scans stores one record (SC-002); a direction flip on the same bar stores a second; every other alert type produces the signature it produces today (SC-007); a weekly alert whose `data` lacks `weekly_bar_date` falls back to the default signature instead of raising
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Add a frozen `ComboSettings` dataclass and a `COMBO_SETTINGS: Dict[UnitTime, ComboSettings]` map to `services/indicator_service.py`, with the daily entry carrying today's constants and the weekly entry carrying the T002 values, `min_candles=60`, `strong_signal_min=3` and `use_macd=False`
-- [ ] T010 [US1] Thread the settings through `combo()`, `_ComboContext` and `_combo_for_direction` in `services/indicator_service.py`, defaulting to the daily entry so existing call sites are unchanged, and skip the `macd` criterion when `use_macd` is false (depends on T009)
-- [ ] T011 [P] [US1] Add the alert de-duplication signature function to `model/__init__.py`: default `(alert_type, date.date().isoformat())`, and `(alert_type, data["weekly_bar_date"], data["direction"])` for `COMBO_WEEKLY`, falling back to the default when either key is missing
-- [ ] T012 [US1] Route both sides of the duplicate comparison in `DynamoDBClient.store_alerts` (`client/aws_client.py`) through the T011 function, preserving the existing skip-on-malformed-row behaviour (depends on T011)
-- [ ] T013 [US1] Add `_build_weekly_candles(saxo_client, asset, daily_candles)` to `saxo_order/commands/alerting.py`: one `horizon=10080`, `count=70` fetch mapped with `ut=UnitTime.W`, with the forming week from `build_current_weekly_candle_from_daily(daily_candles)` prepended when the newest returned bar is not the current ISO week
-- [ ] T014 [US1] Run weekly detection inside `run_detection_for_asset` in `saxo_order/commands/alerting.py`, wrapped in `_safe_detect`, emitting an `AlertType.COMBO_WEEKLY` alert whose `data` carries `price`, `direction`, `strength`, `has_been_triggered`, `details`, `ma50_slope` (the asset's **daily** slope, the same value every other alert carries — see research.md R13), `weekly_bar_date` (normalised with `.date().isoformat()`) and `timeframe` (depends on T003, T010, T013)
+- [x] T009 [US1] Add a frozen `ComboSettings` dataclass and a `COMBO_SETTINGS: Dict[UnitTime, ComboSettings]` map to `services/indicator_service.py`, with the daily entry carrying today's constants and the weekly entry carrying the T002 values, `min_candles=60`, `strong_signal_min=3` and `use_macd=False`
+- [x] T010 [US1] Thread the settings through `combo()`, `_ComboContext` and `_combo_for_direction` in `services/indicator_service.py`, defaulting to the daily entry so existing call sites are unchanged, and skip the `macd` criterion when `use_macd` is false (depends on T009)
+- [x] T011 [P] [US1] Add the alert de-duplication signature function to `model/__init__.py`: default `(alert_type, date.date().isoformat())`, and `(alert_type, data["weekly_bar_date"], data["direction"])` for `COMBO_WEEKLY`, falling back to the default when either key is missing
+- [x] T012 [US1] Route both sides of the duplicate comparison in `DynamoDBClient.store_alerts` (`client/aws_client.py`) through the T011 function, preserving the existing skip-on-malformed-row behaviour (depends on T011)
+- [x] T013 [US1] Add `_build_weekly_candles(saxo_client, asset, daily_candles)` to `saxo_order/commands/alerting.py`: one `horizon=10080`, `count=70` fetch mapped with `ut=UnitTime.W`, with the forming week from `build_current_weekly_candle_from_daily(daily_candles)` prepended when the newest returned bar is not the current ISO week
+- [x] T014 [US1] Run weekly detection inside `run_detection_for_asset` in `saxo_order/commands/alerting.py`, wrapped in `_safe_detect`, emitting an `AlertType.COMBO_WEEKLY` alert whose `data` carries `price`, `direction`, `strength`, `has_been_triggered`, `details`, `ma50_slope` (the asset's **daily** slope, the same value every other alert carries — see research.md R13), `weekly_bar_date` (normalised with `.date().isoformat()`) and `timeframe` (depends on T003, T010, T013)
 
 **Checkpoint**: weekly combos are detected and recorded; reverting the change reproduces the
 pre-feature alert set exactly
@@ -135,8 +135,8 @@ label, a direction badge, and a badge colour that is not the daily combo's.
 **Independent Test**: run a full scan, and the same scan with weekly detection reverted, comparing
 duration and request count.
 
-- [ ] T024 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a scan with weekly detection enabled issues exactly one additional `get_historical_data` call per asset — three would mean the forming week is being fetched separately instead of built from the daily candles (research.md R1)
-- [ ] T025 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a provider failure on the weekly fetch for one asset leaves that asset's other detectors storing their alerts and the scan continuing over the remaining assets (FR-006)
+- [x] T024 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a scan with weekly detection enabled issues exactly one additional `get_historical_data` call per asset — three would mean the forming week is being fetched separately instead of built from the daily candles (research.md R1)
+- [x] T025 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a provider failure on the weekly fetch for one asset leaves that asset's other detectors storing their alerts and the scan continuing over the remaining assets (FR-006)
 - [ ] T026 [US4] Run a full scan of the production universe, and the same scan with weekly detection reverted; record duration, request count and the unused share of the execution window (SC-003) in `specs/029-combo-weekly-timeframe/calibration.md`
 
 **Checkpoint**: the cost of the second timeframe is measured, bounded and recorded

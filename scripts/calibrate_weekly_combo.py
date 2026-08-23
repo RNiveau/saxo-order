@@ -24,8 +24,14 @@ cached pass, and the eligibility ratio it reports gates a release, so
 sampling noise is not worth the saved requests. --sample trades that away
 for a quicker first run.
 
+The config file decides which Saxo environment is called, and the tokens on
+disk or in S3 belong to one of them - point this at the config the tokens were
+minted for, or every fetch comes back unauthorized.
+
 Usage:
     poetry run python scripts/calibrate_weekly_combo.py
+    poetry run python scripts/calibrate_weekly_combo.py \
+        --config prod_config.yml
     poetry run python scripts/calibrate_weekly_combo.py --sample 40
     poetry run python scripts/calibrate_weekly_combo.py --refresh
 """
@@ -33,6 +39,7 @@ Usage:
 import argparse
 import datetime
 import json
+import os
 import random
 import sys
 from pathlib import Path
@@ -43,7 +50,11 @@ sys.path.append(str(Path(__file__).parent.parent))
 from client import client_helper  # noqa: E402
 from client.saxo_client import SaxoClient  # noqa: E402
 from model import AssetType, Candle, UnitTime  # noqa: E402
-from services.indicator_service import combo_slopes  # noqa: E402
+from services.indicator_service import (  # noqa: E402
+    COMBO_SETTINGS,
+    combo,
+    combo_slopes,
+)
 from utils.configuration import Configuration  # noqa: E402
 
 WEEKLY_HORIZON = 10080
@@ -51,6 +62,7 @@ WEEKLY_COUNT = 70
 MIN_WEEKLY_CANDLES = 60
 SAMPLE_SEED = 29
 CACHE_FILE = "weekly_calibration_cache.json"
+DEFAULT_CONFIG = os.environ.get("SAXO_CONFIG", "config.yml")
 UNIVERSE_FILES = ("stocks.json", "followup-stocks.json")
 PERCENTILES = (5, 10, 25, 50, 75, 90, 95)
 
@@ -130,6 +142,19 @@ def measure(candles: List[Candle]) -> Optional[Dict[str, float]]:
     return combo_slopes(candles)
 
 
+def emitted_strength(candles: List[Candle]) -> Optional[str]:
+    """What this asset would emit on a scan, if anything.
+
+    The slope distributions say what the thresholds admit; they do not say
+    how many alerts a day that becomes, because the price-position gates cut
+    again after them. SC-005 caps weekly combos at 15% of the assets
+    surfaced, so the emission rate is worth knowing before a trial rather
+    than after one.
+    """
+    signal = combo(candles, COMBO_SETTINGS[UnitTime.W])
+    return None if signal is None else signal.strength.value
+
+
 def percentiles(values: List[float]) -> List[Tuple[int, float]]:
     ordered = sorted(values)
     last = len(ordered) - 1
@@ -141,6 +166,7 @@ def percentiles(values: List[float]) -> List[Tuple[int, float]]:
 
 def report(
     measurements: List[Dict[str, float]],
+    emissions: Dict[str, int],
     fetched: int,
     failed: int,
     sampled: int,
@@ -161,6 +187,16 @@ def report(
     if not measurements:
         print("No eligible asset in the sample - nothing to calibrate.")
         return
+
+    emitted = sum(emissions.values())
+    print()
+    print(
+        f"Would emit a weekly combo: {emitted} "
+        f"({emitted / len(measurements):.0%} of eligible) [SC-005]"
+    )
+    for strength in ("strong", "medium", "weak"):
+        if emissions.get(strength):
+            print(f"    {strength:<7} {emissions[strength]:>4}")
 
     for metric in ("ma50_slope", "bbh_slope", "bbb_slope"):
         raw = [m[metric] for m in measurements]
@@ -198,6 +234,14 @@ def main() -> None:
         action="store_true",
         help="ignore the cached responses and fetch again",
     )
+    parser.add_argument(
+        "--config",
+        default=DEFAULT_CONFIG,
+        help=(
+            "path to the config file, which selects the Saxo environment "
+            f"(default: {DEFAULT_CONFIG})"
+        ),
+    )
     args = parser.parse_args()
 
     sample = load_sample(args.sample)
@@ -206,9 +250,10 @@ def main() -> None:
         return
 
     cache = load_cache(args.refresh)
-    saxo_client = SaxoClient(Configuration("config.yml"))
+    saxo_client = SaxoClient(Configuration(args.config))
 
     measurements: List[Dict[str, float]] = []
+    emissions: Dict[str, int] = {}
     fetched = 0
     failed = 0
     for asset in sample:
@@ -232,9 +277,12 @@ def main() -> None:
             print(f"{asset['name']}: {len(candles)} weekly bars, ineligible")
             continue
         measurements.append(measurement)
+        strength = emitted_strength(candles)
+        if strength is not None:
+            emissions[strength] = emissions.get(strength, 0) + 1
 
     save_cache(cache)
-    report(measurements, fetched, failed, len(sample))
+    report(measurements, emissions, fetched, failed, len(sample))
 
 
 if __name__ == "__main__":
