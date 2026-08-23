@@ -115,9 +115,9 @@ long, it never converges, and it can never contribute to "high".
 - combo_weekly: the same setup measured on weekly bars, and it OUTRANKS \
 combo. Its direction is handed to you in pattern_directions. It describes a \
 position worth holding for weeks rather than a swing lasting days, so a \
-"Buy" combo_weekly is the single strongest reason to surface an asset - \
-treat it as at least the equal of a "Buy" combo and say in the rationale \
-that the signal is on the WEEKLY timeframe. A "Sell" combo_weekly \
+"Buy" combo_weekly is the single strongest reason to surface an asset - it \
+ranks ABOVE a "Buy" combo, not merely level with it, and the rationale must \
+say the signal is on the WEEKLY timeframe. A "Sell" combo_weekly \
 disqualifies the asset as a long exactly as a "Sell" combo does, and no \
 amount of daily bullish evidence rescues it. When combo and combo_weekly \
 disagree, NAME the disagreement rather than picking one silently: the \

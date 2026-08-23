@@ -66,7 +66,7 @@ and in two additional keys inside the existing free-form `data` map.
 | `data.strength` | `SignalStrength.value` | Banded per the reduced set (R3) |
 | `data.has_been_triggered` | `ComboSignal` | — |
 | `data.details` | `ComboSignal.details` | Four criteria for weekly, five for daily |
-| `data.ma50_slope` | scan | Same key the digest already reads |
+| `data.ma50_slope` | scan | The asset's **daily** slope, as every other alert carries — never the weekly one (R13) |
 | **`data.weekly_bar_date`** | **new** | ISO date of the weekly bar's first session — the de-dup dimension |
 | **`data.timeframe`** | **new** | `UnitTime.W.value` — makes the timeframe explicit to consumers reading `data` |
 

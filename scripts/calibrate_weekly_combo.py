@@ -9,8 +9,13 @@ reports what those slopes actually look like on the universe the scanner
 covers, so COMBO_SETTINGS[UnitTime.W] can be set from measurement rather
 than from the daily values.
 
-It also reports the share of sampled assets holding enough weekly history
+It also reports the share of reachable assets holding enough weekly history
 to be eligible at all, which answers SC-004.
+
+The measurement runs on completed weekly bars only. The scan additionally
+prepends the week currently forming, whose bar is by definition partial, so
+a live scan sees slightly different values on the newest bar than the
+distributions below describe.
 
 Raw provider responses are cached to disk, so re-running costs nothing.
 
@@ -21,6 +26,7 @@ Usage:
 """
 
 import argparse
+import datetime
 import json
 import random
 import sys
@@ -32,11 +38,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from client import client_helper  # noqa: E402
 from client.saxo_client import SaxoClient  # noqa: E402
 from model import AssetType, Candle, UnitTime  # noqa: E402
-from services.indicator_service import (  # noqa: E402
-    bollinger_bands,
-    mobile_average,
-    slope_percentage,
-)
+from services.indicator_service import combo_slopes  # noqa: E402
 from utils.configuration import Configuration  # noqa: E402
 
 WEEKLY_HORIZON = 10080
@@ -45,15 +47,33 @@ MIN_WEEKLY_CANDLES = 60
 DEFAULT_SAMPLE_SIZE = 40
 SAMPLE_SEED = 29
 CACHE_FILE = "weekly_calibration_cache.json"
+UNIVERSE_FILES = ("stocks.json", "followup-stocks.json")
 PERCENTILES = (5, 10, 25, 50, 75, 90, 95)
 
 
+def load_universe() -> List[Dict[str, Any]]:
+    """The assets the scan covers, which is both files rather than only the
+    French list - the followup names are the likeliest to be short of
+    history, so leaving them out would flatter the eligibility ratio."""
+    universe: List[Dict[str, Any]] = []
+    for name in UNIVERSE_FILES:
+        if not Path(name).is_file():
+            print(f"{name} not found, continuing without it")
+            continue
+        with open(name, "r") as f:
+            universe += json.load(f)
+    return universe
+
+
 def load_sample(sample_size: int) -> List[Dict[str, Any]]:
-    with open("stocks.json", "r") as f:
-        stocks = json.load(f)
-    if sample_size >= len(stocks):
-        return stocks
-    return random.Random(SAMPLE_SEED).sample(stocks, sample_size)
+    universe = load_universe()
+    if sample_size >= len(universe):
+        return universe
+    return random.Random(SAMPLE_SEED).sample(universe, sample_size)
+
+
+def cache_key(asset: Dict[str, Any], count: int) -> str:
+    return f"{asset['saxo_uic']}:{WEEKLY_HORIZON}:{count}"
 
 
 def load_cache(refresh: bool) -> Dict[str, Any]:
@@ -65,7 +85,21 @@ def load_cache(refresh: bool) -> Dict[str, Any]:
 
 def save_cache(cache: Dict[str, Any]) -> None:
     with open(CACHE_FILE, "w") as f:
-        json.dump(cache, f, default=str)
+        json.dump(cache, f)
+
+
+def _serialise(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [{**bar, "Time": bar["Time"].isoformat()} for bar in data]
+
+
+def _deserialise(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The client parses Time into a datetime, so a cached run has to parse
+    it back - otherwise a cached series carries str dates where a fresh one
+    carries datetimes."""
+    return [
+        {**bar, "Time": datetime.datetime.fromisoformat(bar["Time"])}
+        for bar in data
+    ]
 
 
 def fetch_weekly_data(
@@ -73,31 +107,23 @@ def fetch_weekly_data(
     asset: Dict[str, Any],
     cache: Dict[str, Any],
 ) -> List[Dict[str, Any]]:
-    key = str(asset["saxo_uic"])
+    key = cache_key(asset, WEEKLY_COUNT)
     if key in cache:
-        return cache[key]
+        return _deserialise(cache[key])
     data = saxo_client.get_historical_data(
         asset_type=AssetType.STOCK,
         saxo_uic=asset["saxo_uic"],
         horizon=WEEKLY_HORIZON,
         count=WEEKLY_COUNT,
     )
-    cache[key] = data
+    cache[key] = _serialise(data)
     return data
 
 
 def measure(candles: List[Candle]) -> Optional[Dict[str, float]]:
     if len(candles) < MIN_WEEKLY_CANDLES:
         return None
-    ma50 = mobile_average(candles, 50)
-    ma50_first = mobile_average(candles[10:], 50)
-    bb25 = bollinger_bands(candles, 2.5)
-    bb_first = bollinger_bands(candles[3:], 2.5)
-    return {
-        "ma50_slope": slope_percentage(0, ma50_first, 10, ma50),
-        "bbh_slope": slope_percentage(0, bb_first.up, 3, bb25.up),
-        "bbb_slope": slope_percentage(0, bb_first.bottom, 3, bb25.bottom),
-    }
+    return combo_slopes(candles)
 
 
 def percentiles(values: List[float]) -> List[Tuple[int, float]]:
@@ -110,13 +136,22 @@ def percentiles(values: List[float]) -> List[Tuple[int, float]]:
 
 
 def report(
-    measurements: List[Dict[str, float]], eligible: int, total: int
+    measurements: List[Dict[str, float]],
+    fetched: int,
+    failed: int,
+    sampled: int,
 ) -> None:
     print()
-    print(f"Sampled assets:  {total}")
+    print(f"Sampled assets:   {sampled}")
+    print(f"Unreachable:      {failed} (fetch error or empty response)")
+    print(f"Fetched assets:   {fetched}")
+    if fetched == 0:
+        print("Nothing was fetched - no eligibility ratio, no calibration.")
+        return
+    eligible = len(measurements)
     print(
-        f"Eligible assets: {eligible} "
-        f"({eligible / total:.0%} with at least "
+        f"Eligible assets:  {eligible} "
+        f"({eligible / fetched:.0%} of fetched, with at least "
         f"{MIN_WEEKLY_CANDLES} weekly bars) [SC-004]"
     )
     if not measurements:
@@ -162,27 +197,40 @@ def main() -> None:
     args = parser.parse_args()
 
     sample = load_sample(args.sample)
+    if not sample:
+        print("No asset to sample - check stocks.json and --sample.")
+        return
+
     cache = load_cache(args.refresh)
     saxo_client = SaxoClient(Configuration("config.yml"))
 
     measurements: List[Dict[str, float]] = []
-    eligible = 0
+    fetched = 0
+    failed = 0
     for asset in sample:
         try:
             data = fetch_weekly_data(saxo_client, asset, cache)
         except Exception as e:
-            print(f"skipped {asset['name']}: {e}")
+            print(f"unreachable {asset['name']}: {e}")
+            failed += 1
             continue
+        if not data:
+            # The client answers 403 and 404 with an empty list rather than
+            # raising, so an unreadable asset would otherwise be counted as
+            # one holding no history.
+            print(f"unreachable {asset['name']}: empty response")
+            failed += 1
+            continue
+        fetched += 1
         candles = client_helper.map_data_to_candles(data, ut=UnitTime.W)
         measurement = measure(candles)
         if measurement is None:
             print(f"{asset['name']}: {len(candles)} weekly bars, ineligible")
             continue
-        eligible += 1
         measurements.append(measurement)
 
     save_cache(cache)
-    report(measurements, eligible, len(sample))
+    report(measurements, fetched, failed, len(sample))
 
 
 if __name__ == "__main__":

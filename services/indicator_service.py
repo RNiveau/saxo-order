@@ -424,6 +424,23 @@ def _combo_for_direction(
     return combo_signal
 
 
+def combo_slopes(candles: List[Candle]) -> Dict[str, float]:
+    """
+    The three slopes a combo is gated on, for the same candles it would score.
+
+    Calibrating a timeframe means looking at what these actually measure on
+    that timeframe. Reading them off the context the detector itself builds
+    keeps the calibration and the detector from drifting apart when a span
+    or a multiplier moves.
+    """
+    context = _ComboContext(candles)
+    return {
+        "ma50_slope": context.ma50_slope,
+        "bbh_slope": context.bbh_slope,
+        "bbb_slope": context.bbb_slope,
+    }
+
+
 def combo(candles: List[Candle]) -> Optional[ComboSignal]:
     logger = Logger.get_logger("combo")
     if len(candles) < COMBO_MIN_CANDLES:

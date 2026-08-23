@@ -163,3 +163,4 @@ secrets.yml
 access_token
 gsheet-creds.json
 .vscode
+weekly_calibration_cache.json

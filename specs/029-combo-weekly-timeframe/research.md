@@ -275,3 +275,26 @@ bars, log the ratio, report it once. No persistent metric, no new table.
 **Rationale**: SC-004 is a release gate answered once, not a runtime property worth instrumenting.
 Adding a metric store for a single question would be the speculative abstraction Constitution II
 rejects.
+
+---
+
+## R13 — Which MA50 slope the weekly alert publishes
+
+**Decision**: the weekly combo alert carries the asset's **daily** `ma50_slope`, the same value
+every other alert for that asset carries. Its own weekly slope, if published at all, goes under a
+distinct key and never under `ma50_slope`.
+
+**Rationale**: `run_detection_for_asset` computes `ma50_slope` once per asset from the daily candle
+set (`alerting.py:234-247`) and attaches it to every alert it emits. Downstream, `_group_by_asset`
+keeps the first non-`None` slope it encounters across an asset's alerts
+(`alert_triage_service.py:537-545`), and `triage_slope_threshold` was tuned against daily values. A
+weekly alert publishing a weekly slope under the same key would make the asset's reported trend
+depend on which alert happened to be grouped first, and would feed a weekly-scaled number to a
+daily-scaled threshold.
+
+Publishing the daily slope keeps one meaning for one key: `ma50_slope` is the asset's daily trend,
+whatever detector reported it. Nothing in the grouping, the threshold or the prompt needs to change.
+
+**Alternative rejected**: omitting `ma50_slope` from the weekly alert. A weekly-only asset would
+then reach the digest with no slope at all, which costs it the WATCH band in the deterministic
+fallback (`_fallback_conviction` needs a slope over the threshold to promote past NOISE).
