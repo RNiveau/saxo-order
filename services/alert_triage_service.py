@@ -48,13 +48,12 @@ support "high" on its own. \
 Only other, independent bullish evidence on the same asset can make it \
 surfaceable, and never above "watch".
 - pattern_strengths: PRESENT ONLY when a directional pattern published how \
-well it scored - "strong", "medium" or "weak". READ IT BEFORE RANKING: the \
-rank a pattern carries below is what a pattern of that type is worth WHEN IT \
-SCORED. A "weak" combo or combo_weekly met NONE of its scoring criteria - it \
-cleared the structural gates and nothing more - so it never outranks a \
-"strong" pattern of any type, and it cannot carry an asset to "high" alone, \
-whatever its timeframe. A missing entry means the detector published no \
-strength; treat that as "medium".
+well it scored - "strong" or "medium". READ IT BEFORE RANKING: the rank a \
+pattern carries below is what a pattern of that type is worth AT FULL \
+STRENGTH, so a "medium" one does not outrank a "strong" pattern of another \
+type. A combo or combo_weekly that met NONE of its scoring criteria is never \
+sent to you at all - if you see one, it scored. A missing entry means the \
+detector published no strength; treat that as "medium".
 - workflow_triggers: PRESENT ONLY when one of the trader's own registered \
 workflows fired on this asset today. Absent on most assets. Each entry has \
 the workflow name, its order "direction" ("Buy"/"Sell"), a "dry_run" flag, \
@@ -125,10 +124,9 @@ combo. Its direction is handed to you in pattern_directions. It describes a \
 position worth holding for weeks rather than a swing lasting days, so a \
 "Buy" combo_weekly that SCORED is the single strongest reason to surface an \
 asset - it ranks ABOVE a "Buy" combo of the same strength, and the rationale \
-must say the signal is on the WEEKLY timeframe. A combo_weekly reaches you \
-only when it actually scored - a weekly setup that met none of its criteria \
-is never sent - but still read pattern_strengths before applying the rank, \
-because a "medium" one does not outrank a "strong" pattern. A "Sell" \
+must say the signal is on the WEEKLY timeframe. Read pattern_strengths \
+before applying that rank: a "medium" combo_weekly does not outrank a \
+"strong" pattern of another type. A "Sell" \
 combo_weekly disqualifies the asset as a long exactly as a "Sell" combo \
 does, and no \
 amount of daily bullish evidence rescues it. When combo and combo_weekly \

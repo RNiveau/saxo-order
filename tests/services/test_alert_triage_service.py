@@ -287,10 +287,17 @@ def test_payload_omits_strength_when_no_detector_published_one() -> None:
     assert "pattern_strengths" not in payload["assets"][0]
 
 
-def test_prompt_tells_the_model_a_weak_signal_outranks_nothing() -> None:
-    assert "pattern_strengths" in TRIAGE_SYSTEM_PROMPT
-    assert "met NONE of its scoring criteria" in TRIAGE_SYSTEM_PROMPT
-    assert "is never sent" in TRIAGE_SYSTEM_PROMPT
+def test_prompt_explains_what_a_strength_means() -> None:
+    # The prompt is wrapped, so compare against collapsed whitespace rather
+    # than guessing where a line breaks.
+    prompt = " ".join(TRIAGE_SYSTEM_PROMPT.split())
+
+    assert "pattern_strengths" in prompt
+    assert "AT FULL STRENGTH" in prompt
+    assert (
+        "met NONE of its scoring criteria is never sent to you at all"
+        in prompt
+    )
 
 
 def test_fallback_treats_daily_and_weekly_combo_as_one_family() -> None:

@@ -302,10 +302,12 @@ fallback (`_fallback_conviction` needs a slope over the threshold to promote pas
 
 ---
 
-## R14 — A weekly combo that scored nothing is not emitted
+## R14 — A combo that scored nothing is not emitted, on either timeframe
 
-**Decision**: the scan emits a weekly combo only when its strength is above
-`WEAK`. A weak signal is not recorded, not stored, and never reaches the digest.
+**Decision**: the scan emits a combo only when its strength is above `WEAK`, for
+daily and weekly alike. A weak signal is not recorded, not stored, and never
+reaches the digest. Both call sites go through one predicate, so the two
+timeframes cannot drift apart on this.
 
 **Rationale**: `combo()` returns a signal for anything clearing the three
 structural gates, including one that then meets none of the four scoring
@@ -319,15 +321,17 @@ downstream would still pay to detect, store and group the alert, and would leave
 the alerts table holding rows the digest deliberately ignores — two views of the
 same day that disagree. Gating at the source makes them agree.
 
-**What is kept**: `pattern_strengths` stays in the payload. It costs a short map
-per asset that has a directional pattern, and it is what stops a *daily* weak
-combo — which this feature does not change and which has always been emitted —
-from reading as a full-strength signal.
+**What is kept**: `pattern_strengths` stays in the payload, now carrying only
+`strong` or `medium`. It costs a short map per asset with a directional pattern
+and still earns it: the rank the prompt gives a pattern is what that pattern is
+worth at full strength, so the model needs to know when one is not.
 
 **Alternative rejected**: recording the weak signal and excluding it from the
 payload only. It preserves a record nobody reads, at the cost of a scan whose
 stored alerts and whose digest describe different days.
 
-**Not changed here**: the daily combo still emits at `WEAK`. Applying the same
-gate there would remove alerts the trader sees today, which is a decision about
-an existing detector rather than about this feature.
+**Scope**: this deliberately changes the daily combo too. It was raised as a
+weekly-only fix, but the daily detector has always emitted unscored signals and
+the argument against them does not depend on the timeframe. Nothing in the
+codebase depended on a weak combo being emitted; the alerts it suppresses are
+the ones that said nothing.
