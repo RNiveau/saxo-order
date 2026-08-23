@@ -552,6 +552,14 @@
   border: 1px solid #58a6ff;
 }
 
+/* Weekly combo: the combo family, one timeframe up - close enough to the
+   daily blue to read as related, far enough to tell apart at a glance. */
+.alert-card[data-alert-type="combo_weekly"] .alert-type-badge {
+  background: rgba(57, 197, 207, 0.2);
+  color: #39c5cf;
+  border: 1px solid #39c5cf;
+}
+
 .alert-card[data-alert-type="congestion20"] .alert-type-badge,
 .alert-card[data-alert-type="congestion100"] .alert-type-badge {
   background: rgba(242, 169, 0, 0.2);
