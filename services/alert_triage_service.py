@@ -47,6 +47,15 @@ whether it was a buy or a sell, so it earns no convergence point and cannot \
 support "high" on its own. \
 Only other, independent bullish evidence on the same asset can make it \
 surfaceable, and never above "watch".
+- pattern_strengths: PRESENT ONLY when a directional pattern published how \
+well it scored - "strong", "medium" or "weak". READ IT BEFORE RANKING: the \
+rank a pattern carries below is what a pattern of that type is worth AT FULL \
+STRENGTH, so a "medium" one does not outrank a "strong" pattern of another \
+type, and a "weak" one met a single criterion and little else. What you never \
+receive is a combo that met NONE of its scoring criteria - the detector \
+reports that as no combo at all - so every pattern you see scored something. \
+A missing entry means the detector published no strength; treat it as \
+"medium".
 - workflow_triggers: PRESENT ONLY when one of the trader's own registered \
 workflows fired on this asset today. Absent on most assets. Each entry has \
 the workflow name, its order "direction" ("Buy"/"Sell"), a "dry_run" flag, \
@@ -115,10 +124,13 @@ long, it never converges, and it can never contribute to "high".
 - combo_weekly: the same setup measured on weekly bars, and it OUTRANKS \
 combo. Its direction is handed to you in pattern_directions. It describes a \
 position worth holding for weeks rather than a swing lasting days, so a \
-"Buy" combo_weekly is the single strongest reason to surface an asset - it \
-ranks ABOVE a "Buy" combo, not merely level with it, and the rationale must \
-say the signal is on the WEEKLY timeframe. A "Sell" combo_weekly \
-disqualifies the asset as a long exactly as a "Sell" combo does, and no \
+"Buy" combo_weekly that SCORED is the single strongest reason to surface an \
+asset - it ranks ABOVE a "Buy" combo of the same strength, and the rationale \
+must say the signal is on the WEEKLY timeframe. Read pattern_strengths \
+before applying that rank: a "medium" combo_weekly does not outrank a \
+"strong" pattern of another type. A "Sell" \
+combo_weekly disqualifies the asset as a long exactly as a "Sell" combo \
+does, and no \
 amount of daily bullish evidence rescues it. When combo and combo_weekly \
 disagree, NAME the disagreement rather than picking one silently: the \
 bearish leg counts against the long thesis whichever timeframe it sits on. \
@@ -524,6 +536,7 @@ class TriageAgent:
                     "country_code": alert.country_code,
                     "patterns": [],
                     "pattern_directions": {},
+                    "pattern_strengths": {},
                     "ma50_slope": None,
                     "workflow_triggers": triggers.get(alert.id, []),
                 },
@@ -534,6 +547,13 @@ class TriageAgent:
                 entry["pattern_directions"][alert.alert_type] = (
                     self._alert_direction(alert)
                 )
+                strength = (
+                    alert.data.get("strength")
+                    if isinstance(alert.data, dict)
+                    else None
+                )
+                if strength is not None:
+                    entry["pattern_strengths"][alert.alert_type] = strength
             slope = (
                 alert.data.get("ma50_slope")
                 if isinstance(alert.data, dict)
@@ -584,6 +604,11 @@ class TriageAgent:
                     for pattern, direction in entry[
                         "pattern_directions"
                     ].items()
+                }
+            if entry["pattern_strengths"]:
+                asset["pattern_strengths"] = {
+                    pattern.value: strength
+                    for pattern, strength in entry["pattern_strengths"].items()
                 }
             if entry["workflow_triggers"]:
                 asset["workflow_triggers"] = [

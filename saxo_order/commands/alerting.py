@@ -14,7 +14,14 @@ from client import client_helper
 from client.anthropic_client import AnthropicClient
 from client.aws_client import DynamoDBClient
 from client.saxo_client import SaxoClient
-from model import Alert, AlertType, AssetType, Candle, EUMarket, UnitTime
+from model import (
+    Alert,
+    AlertType,
+    AssetType,
+    Candle,
+    EUMarket,
+    UnitTime,
+)
 from saxo_order.async_utils import create_dynamodb_client
 from saxo_order.commands import catch_exception
 from services import congestion_indicator, indicator_service
@@ -23,13 +30,22 @@ from services.alert_triage_service import (
     current_run_date,
     format_slack_digest,
 )
+from services.indicator_service import COMBO_SETTINGS
 from services.workflow_trigger_service import collect_todays_triggers
 from utils.configuration import Configuration
 from utils.exception import SaxoException
-from utils.helper import build_daily_candles_from_h1
+from utils.helper import (
+    build_current_weekly_candle_from_daily,
+    build_daily_candles_from_h1,
+)
 from utils.logger import Logger
 
 logger = Logger.get_logger("alerting")
+
+WEEKLY_HORIZON = 10080
+# 60 is what the weekly criteria set reads; the margin absorbs the forming
+# week and any gap the provider returns.
+WEEKLY_CANDLES_COUNT = 70
 
 T = TypeVar("T")
 
@@ -356,6 +372,47 @@ async def run_detection_for_asset(
                 country_code=country_code,
             )
         )
+
+    weekly_candles = detect(
+        AlertType.COMBO_WEEKLY,
+        partial(_build_weekly_candles, saxo_client, asset_dict, candles),
+    )
+    if weekly_candles:
+        weekly_combo = detect(
+            AlertType.COMBO_WEEKLY,
+            partial(
+                indicator_service.combo,
+                weekly_candles,
+                COMBO_SETTINGS[UnitTime.W],
+            ),
+        )
+        weekly_bar = weekly_candles[0].date
+        if weekly_combo is not None and weekly_bar is not None:
+            asset_alerts.append(
+                Alert(
+                    alert_type=AlertType.COMBO_WEEKLY,
+                    date=datetime.datetime.now(),
+                    data={
+                        "price": weekly_combo.price,
+                        "direction": weekly_combo.direction.value,
+                        "strength": weekly_combo.strength.value,
+                        "has_been_triggered": (
+                            weekly_combo.has_been_triggered
+                        ),
+                        "details": weekly_combo.details,
+                        # The asset's daily slope, as every other alert
+                        # carries: the digest keeps the first one it finds
+                        # and its threshold is tuned on daily values.
+                        "ma50_slope": ma50_slope,
+                        "weekly_bar_date": weekly_bar.date().isoformat(),
+                        "timeframe": UnitTime.W.value,
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
+            )
 
     mm50_touch_result = detect(
         AlertType.MM50_TOUCH, partial(indicator_service.mm50_touch, candles)
@@ -688,6 +745,48 @@ def _build_candles(saxo_client: SaxoClient, asset: Dict) -> List[Candle]:
         daily_candles = build_daily_candles_from_h1(hour_candles, EUMarket())
         if daily_candles:
             candles.insert(0, daily_candles[0])
+    return candles
+
+
+def _build_weekly_candles(
+    saxo_client: SaxoClient, asset: Dict, daily_candles: List[Candle]
+) -> List[Candle]:
+    """
+    The asset's weekly bars, newest first, including the week now forming.
+
+    The provider does not return the week currently trading, and the daily
+    candles this scan already fetched are exactly the elapsed days of it - so
+    the forming bar is assembled from those rather than bought a second time.
+    That keeps the weekly timeframe at one extra request per asset.
+
+    This is deliberately not CandlesService.build_weekly_candles, which does
+    the same thing from a code and a Market: that path re-resolves the asset
+    and fetches its own daily candles for the forming week, three requests
+    per asset where this is one. Reuniting them would mean giving the service
+    a uic-keyed entry point and a way to be handed candles it already has.
+
+    It also drops that path's `today.weekday() < 5` guard, which is safe here
+    in both weekend cases: Saturday and Sunday share their ISO week with the
+    week that just closed, so either the provider has published that bar and
+    the prepend is skipped, or it has not and the bar assembled from the
+    week's dailies is the complete week rather than a partial one.
+    """
+    data = saxo_client.get_historical_data(
+        asset_type=AssetType.STOCK,
+        saxo_uic=asset["saxo_uic"],
+        horizon=WEEKLY_HORIZON,
+        count=WEEKLY_CANDLES_COUNT,
+    )
+    candles = client_helper.map_data_to_candles(data, ut=UnitTime.W)
+    today = datetime.datetime.now(datetime.UTC)
+    if (
+        len(candles) > 0
+        and candles[0].date is not None
+        and candles[0].date.isocalendar()[:2] != today.isocalendar()[:2]
+    ):
+        forming = build_current_weekly_candle_from_daily(daily_candles)
+        if forming is not None:
+            candles.insert(0, forming)
     return candles
 
 

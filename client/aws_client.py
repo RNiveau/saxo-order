@@ -12,7 +12,13 @@ import aioboto3
 import boto3
 from botocore.exceptions import ClientError
 
-from model import Alert, AlertDigest, AlertType, TriagedAsset
+from model import (
+    Alert,
+    AlertDigest,
+    AlertType,
+    TriagedAsset,
+    alert_dedup_signature,
+)
 from utils.json_util import dumps_indicator, hash_indicator
 from utils.logger import Logger
 
@@ -534,21 +540,19 @@ class DynamoDBClient(AwsClient):
         existing_signatures = set()
         for existing in existing_alerts:
             try:
-                alert_date = datetime.datetime.fromisoformat(existing["date"])
-                signature = (
-                    existing["alert_type"],
-                    alert_date.date().isoformat(),
+                existing_signatures.add(
+                    alert_dedup_signature(
+                        existing["alert_type"],
+                        existing["date"],
+                        existing.get("data"),
+                    )
                 )
-                existing_signatures.add(signature)
             except (KeyError, ValueError):
                 continue
 
         unique_alerts = []
         for alert in alerts:
-            signature = (
-                alert.alert_type.value,
-                alert.date.date().isoformat(),
-            )
+            signature = alert.dedup_signature
             if signature not in existing_signatures:
                 unique_alerts.append(alert)
                 existing_signatures.add(signature)

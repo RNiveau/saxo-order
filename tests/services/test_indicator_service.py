@@ -1,4 +1,5 @@
 import datetime
+from dataclasses import FrozenInstanceError, replace
 from typing import List, Optional
 
 import pytest
@@ -13,6 +14,8 @@ from model import (
 )
 from services.indicator_service import (
     COMBO_MIN_CANDLES,
+    COMBO_SETTINGS,
+    ComboSettings,
     _ComboContext,
     adx,
     apply_linear_function,
@@ -469,12 +472,15 @@ class TestIndicatorService:
                 ),
             ),
             (
+                # One criterion met: a real combo, and a faint one. Before
+                # the zero case became None, "weak" was reserved for signals
+                # that met nothing, so this scored MEDIUM.
                 "combo_sell_h1_cac.obj",
                 ComboSignal(
                     7861.23,
                     False,
                     Direction.SELL,
-                    SignalStrength.MEDIUM,
+                    SignalStrength.WEAK,
                     {
                         "macd": False,
                         "ma50_over_bb": False,
@@ -1163,3 +1169,180 @@ class TestComboSlopes:
     def test_it_refuses_a_set_shorter_than_the_moving_average(self):
         with pytest.raises(SaxoException):
             combo_slopes(self._candles()[:59])
+
+
+class TestWeeklyComboSettings:
+    """
+    The weekly combo is the same detector under different settings: one
+    criterion fewer, thresholds measured on weekly bars rather than daily
+    ones, and a history floor that follows from dropping the criterion which
+    demanded 235 candles.
+    """
+
+    def _candles(self) -> List[Candle]:
+        with open("tests/services/files/combo_sell_daily_aca.obj", "r") as f:
+            return eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+
+    def _scoring_settings(self) -> ComboSettings:
+        """The weekly criteria set, with the band ceiling relaxed so this
+        recorded series actually scores. The subject here is which criteria
+        are scored, not what the thresholds are - those are pinned against
+        the calibration in TestComboSettingsInvariants."""
+        return replace(COMBO_SETTINGS[UnitTime.W], bb_flat_slope_max=100.0)
+
+    def test_weekly_scoring_drops_the_macd_criterion(self):
+        signal = combo(self._candles(), self._scoring_settings())
+
+        assert signal is not None
+        assert "macd" not in signal.details
+        assert set(signal.details) == {
+            "ma50_over_bb",
+            "price_within_bb",
+            "strong_ma50",
+            "both_bb_flat",
+        }
+
+    def test_daily_scoring_keeps_it(self):
+        signal = combo(self._candles())
+
+        assert signal is not None
+        assert "macd" in signal.details
+        assert len(signal.details) == 5
+
+    def test_weekly_runs_on_sixty_candles(self):
+        """The floor the reduced set allows - a quarter of what daily needs,
+        and what makes the weekly timeframe reachable for most assets."""
+        candles = self._candles()
+        settings = self._scoring_settings()
+
+        assert combo(candles[:60], settings) is not None
+        assert combo(candles[:59], settings) is None
+
+    def test_daily_settings_still_demand_the_full_history(self):
+        candles = self._candles()
+
+        assert combo(candles[: COMBO_MIN_CANDLES - 1]) is None
+
+    def test_the_weekly_signal_matches_the_daily_shape(self):
+        signal = combo(self._candles(), self._scoring_settings())
+
+        assert signal is not None
+        assert signal.direction == Direction.SELL
+        assert signal.price == 13.91
+        assert signal.has_been_triggered is False
+        assert signal.strength == SignalStrength.WEAK
+
+
+class TestNoCriteriaIsNoCombo:
+    """
+    Clearing the structural gates and then meeting none of the scoring
+    criteria means the setup is absent, not faint. Reporting it as a WEAK
+    signal made "nothing found" indistinguishable from "found, barely" for
+    every consumer downstream.
+    """
+
+    def _candles(self, name: str) -> List[Candle]:
+        with open(f"tests/services/files/{name}", "r") as f:
+            return eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+
+    def test_a_series_meeting_no_criterion_returns_nothing(self):
+        """A recorded series that clears the gates and scores zero."""
+        candles = self._candles("combo_buy_daily_aca.obj")
+
+        assert combo(candles) is None
+
+    def test_a_series_meeting_one_criterion_is_still_reported(self):
+        """A weak combo is a combo. It is raised, labelled weak."""
+        signal = combo(self._candles("combo_sell_h1_cac.obj"))
+
+        assert signal is not None
+        assert signal.strength == SignalStrength.WEAK
+        assert sum(signal.details.values()) == 1
+
+    def test_weak_is_never_returned_for_an_empty_score(self):
+        """Whatever the settings, a returned signal met something."""
+        for name in (
+            "combo_buy_daily_aca.obj",
+            "combo_buy_daily_cac.obj",
+            "combo_buy_h4_dax.obj",
+            "combo_sell_daily_aca.obj",
+            "combo_sell_h1_cac.obj",
+            "combo_sell_h1_dax.obj",
+            "combo_sell_h1_sp500.obj",
+        ):
+            for settings in (None, COMBO_SETTINGS[UnitTime.W]):
+                signal = combo(self._candles(name), settings)
+                if signal is not None:
+                    assert sum(signal.details.values()) >= 1
+
+
+class TestComboSettingsInvariants:
+    """A settings object that cannot reach its own top band, or that asks for
+    less history than its criteria read, is a silent misconfiguration - the
+    detector would simply never say "strong", or raise mid-scoring."""
+
+    def test_every_setting_can_reach_its_top_band(self):
+        for unit_time, settings in COMBO_SETTINGS.items():
+            active_criteria = 5 if settings.use_macd else 4
+            assert (
+                0 < settings.strong_signal_min <= active_criteria
+            ), f"{unit_time.value} cannot reach STRONG"
+
+    def test_macd_settings_carry_the_history_it_reads(self):
+        for unit_time, settings in COMBO_SETTINGS.items():
+            floor = COMBO_MIN_CANDLES if settings.use_macd else 60
+            assert (
+                settings.min_candles >= floor
+            ), f"{unit_time.value} would raise mid-scoring"
+
+    def test_settings_are_frozen(self):
+        """They are read at scoring time, and the map holds one shared object
+        per timeframe - a mutated copy would change what every later asset in
+        the same scan is measured against, with nothing raised or logged."""
+        with pytest.raises(FrozenInstanceError):
+            COMBO_SETTINGS[UnitTime.D].ma50_slope_min = 99.0
+
+    def test_it_holds_only_the_calibrated_timeframes(self):
+        """An uncalibrated timeframe must raise on lookup rather than be
+        served daily values under its own name."""
+        assert set(COMBO_SETTINGS) == {UnitTime.D, UnitTime.W}
+
+        for unit_time in (UnitTime.H1, UnitTime.H4, UnitTime.M):
+            with pytest.raises(KeyError):
+                COMBO_SETTINGS[unit_time]
+
+    def test_a_caller_passing_no_settings_still_scores_as_daily(self):
+        """What every pre-existing caller does, including a combo workflow
+        running on H1 or H4 candles: the daily entry holds the constants they
+        scored against before the settings object existed."""
+        assert COMBO_SETTINGS[UnitTime.D] == ComboSettings(
+            min_candles=COMBO_MIN_CANDLES,
+            ma50_slope_min=3.0,
+            ma50_slope_strong=10.0,
+            bb_flat_slope_max=5.0,
+            strong_signal_min=4,
+            use_macd=True,
+        )
+
+    def test_the_weekly_thresholds_are_the_calibrated_ones(self):
+        """Guards the calibration recorded in calibration.md: these are
+        measured values, not the daily ones carried over."""
+        weekly = COMBO_SETTINGS[UnitTime.W]
+        daily = COMBO_SETTINGS[UnitTime.D]
+
+        assert weekly == ComboSettings(
+            min_candles=60,
+            ma50_slope_min=15.0,
+            ma50_slope_strong=50.0,
+            bb_flat_slope_max=25.0,
+            strong_signal_min=3,
+            use_macd=False,
+        )
+        assert weekly.ma50_slope_min > daily.ma50_slope_min
+        assert weekly.bb_flat_slope_max > daily.bb_flat_slope_max

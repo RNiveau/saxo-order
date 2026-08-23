@@ -1,4 +1,5 @@
 import datetime
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy
@@ -10,6 +11,7 @@ from model import (
     ComboSignal,
     Direction,
     SignalStrength,
+    UnitTime,
 )
 from utils.exception import SaxoException
 from utils.logger import Logger
@@ -126,6 +128,61 @@ COMBO_STRONG_SIGNAL_MIN = 4
 # never reach it, but a set that does reach it still needs the full history,
 # so combo declines up front rather than raising mid-scoring.
 COMBO_MIN_CANDLES = 235
+COMBO_WEEKLY_MIN_CANDLES = 60
+# Weekly values from the calibration pass over the scanned universe, recorded
+# in specs/029-combo-weekly-timeframe/calibration.md. They are not the daily
+# ones rescaled by taste: every slope here spans a fixed number of candles, so
+# on weekly bars it covers five times the calendar period, and the measured
+# distribution says the daily floor would admit 95% of assets.
+COMBO_WEEKLY_MA50_SLOPE_MIN = 15.0
+COMBO_WEEKLY_MA50_SLOPE_STRONG = 50.0
+COMBO_WEEKLY_BB_FLAT_SLOPE_MAX = 25.0
+# One criterion fewer than daily, so the top band cannot ask for all of them.
+COMBO_WEEKLY_STRONG_SIGNAL_MIN = 3
+
+
+@dataclass(frozen=True)
+class ComboSettings:
+    """What separates one timeframe's combo from another's.
+
+    The criteria themselves are identical; only these values and the presence
+    of the macd criterion differ. macd is what forces the 235-candle history,
+    so dropping it on weekly is also what brings the requirement down to 60.
+    """
+
+    min_candles: int
+    ma50_slope_min: float
+    ma50_slope_strong: float
+    bb_flat_slope_max: float
+    strong_signal_min: int
+    use_macd: bool
+
+
+# Only the timeframes whose thresholds were measured. Every other unit time
+# reaches the detector through combo()'s default, which is the daily entry -
+# the same constants they scored against before the settings existed, so a
+# combo workflow on H1 or H4 is unaffected. Indexing this map with one of them
+# raises rather than quietly serving daily values under another timeframe's
+# name: an uncalibrated timeframe is a decision to take, not a default to
+# inherit.
+COMBO_SETTINGS: Dict[UnitTime, ComboSettings] = {
+    UnitTime.D: ComboSettings(
+        min_candles=COMBO_MIN_CANDLES,
+        ma50_slope_min=COMBO_MA50_SLOPE_MIN,
+        ma50_slope_strong=COMBO_MA50_SLOPE_STRONG,
+        bb_flat_slope_max=COMBO_BB_FLAT_SLOPE_MAX,
+        strong_signal_min=COMBO_STRONG_SIGNAL_MIN,
+        use_macd=True,
+    ),
+    UnitTime.W: ComboSettings(
+        min_candles=COMBO_WEEKLY_MIN_CANDLES,
+        ma50_slope_min=COMBO_WEEKLY_MA50_SLOPE_MIN,
+        ma50_slope_strong=COMBO_WEEKLY_MA50_SLOPE_STRONG,
+        bb_flat_slope_max=COMBO_WEEKLY_BB_FLAT_SLOPE_MAX,
+        strong_signal_min=COMBO_WEEKLY_STRONG_SIGNAL_MIN,
+        use_macd=False,
+    ),
+}
 
 
 def mm50_touch(candles: List[Candle]) -> Optional[Dict[str, float]]:
@@ -296,8 +353,13 @@ class _ComboContext:
     here is satisfied by 60.
     """
 
-    def __init__(self, candles: List[Candle]) -> None:
+    def __init__(
+        self,
+        candles: List[Candle],
+        settings: Optional[ComboSettings] = None,
+    ) -> None:
         self.candles = candles
+        self.settings = settings or COMBO_SETTINGS[UnitTime.D]
         self.ma50 = mobile_average(candles, 50)
         ma50_first = mobile_average(candles[10:], 50)
         self.ma50_slope = slope_percentage(0, ma50_first, 10, self.ma50)
@@ -317,17 +379,13 @@ class _ComboContext:
 
     @property
     def both_bb_flat(self) -> bool:
-        return (
-            abs(self.bbh_slope) < COMBO_BB_FLAT_SLOPE_MAX
-            and abs(self.bbb_slope) < COMBO_BB_FLAT_SLOPE_MAX
-        )
+        maximum = self.settings.bb_flat_slope_max
+        return abs(self.bbh_slope) < maximum and abs(self.bbb_slope) < maximum
 
     @property
     def neither_bb_flat(self) -> bool:
-        return (
-            abs(self.bbh_slope) > COMBO_BB_FLAT_SLOPE_MAX
-            and abs(self.bbb_slope) > COMBO_BB_FLAT_SLOPE_MAX
-        )
+        maximum = self.settings.bb_flat_slope_max
+        return abs(self.bbh_slope) > maximum and abs(self.bbb_slope) > maximum
 
     @property
     def macd0lag(self) -> Tuple[float, float]:
@@ -387,23 +445,43 @@ def _combo_for_direction(
         )
         return None
 
-    criteria = {
-        "macd": sign * context.macd0lag[0] > sign * context.macd0lag[1],
-        "ma50_over_bb": sign * context.ma50 < sign * band,
-        # candle -1 or candle is between bb 2.0 / 2.5
-        "price_within_bb": is_price_within_bands(
-            candles[1].close,
-            outer=band_previous,
-            inner=inner_previous,
-            direction=direction,
+    settings = context.settings
+    criteria = {}
+    if settings.use_macd:
+        criteria["macd"] = (
+            sign * context.macd0lag[0] > sign * context.macd0lag[1]
         )
-        or is_price_within_bands(
-            close, outer=band, inner=inner, direction=direction
-        ),
-        "strong_ma50": sign * context.ma50_slope > COMBO_MA50_SLOPE_STRONG,
-        "both_bb_flat": context.both_bb_flat,
-    }
+    criteria.update(
+        {
+            "ma50_over_bb": sign * context.ma50 < sign * band,
+            # candle -1 or candle is between bb 2.0 / 2.5
+            "price_within_bb": is_price_within_bands(
+                candles[1].close,
+                outer=band_previous,
+                inner=inner_previous,
+                direction=direction,
+            )
+            or is_price_within_bands(
+                close, outer=band, inner=inner, direction=direction
+            ),
+            "strong_ma50": (
+                sign * context.ma50_slope > settings.ma50_slope_strong
+            ),
+            "both_bb_flat": context.both_bb_flat,
+        }
+    )
     signal = sum(criteria.values())
+    if signal == 0:
+        # Not a weak combo - no combo. The candle cleared the three
+        # structural gates and then met none of the scoring criteria, which
+        # says the setup is absent rather than faint. Returning a WEAK signal
+        # here made "nothing found" indistinguishable from "found, barely",
+        # and every consumer downstream had to guess which it was holding.
+        logger.debug(
+            f"no {direction.value} combo: none of the {len(criteria)}"
+            " criteria are met"
+        )
+        return None
     combo_signal = ComboSignal(
         price=0,
         direction=direction,
@@ -417,9 +495,9 @@ def _combo_for_direction(
         combo_signal.price = close
     else:
         combo_signal.price = pending_price
-    if signal == 0:
+    if signal == 1:
         combo_signal.strength = SignalStrength.WEAK
-    elif signal >= COMBO_STRONG_SIGNAL_MIN:
+    elif signal >= settings.strong_signal_min:
         combo_signal.strength = SignalStrength.STRONG
     return combo_signal
 
@@ -441,28 +519,31 @@ def combo_slopes(candles: List[Candle]) -> Dict[str, float]:
     }
 
 
-def combo(candles: List[Candle]) -> Optional[ComboSignal]:
+def combo(
+    candles: List[Candle], settings: Optional[ComboSettings] = None
+) -> Optional[ComboSignal]:
     logger = Logger.get_logger("combo")
-    if len(candles) < COMBO_MIN_CANDLES:
+    settings = settings or COMBO_SETTINGS[UnitTime.D]
+    if len(candles) < settings.min_candles:
         logger.debug(
             f"not enough candles for a combo {len(candles)},"
-            f" needed {COMBO_MIN_CANDLES}"
+            f" needed {settings.min_candles}"
         )
         return None
     logger.debug(
         f"do we have a combo {candles[0].ut} at the date {candles[0].date} ?"
     )
-    context = _ComboContext(candles)
+    context = _ComboContext(candles, settings)
     if context.neither_bb_flat:
         logger.debug(
             f"BB bands are not flat bbh={context.bbh_slope},"
             f" bbb={context.bbb_slope}"
         )
         return None
-    if context.ma50_slope > COMBO_MA50_SLOPE_MIN:
+    if context.ma50_slope > settings.ma50_slope_min:
         logger.debug(f"testing a buying combo ma50_slope={context.ma50_slope}")
         return _combo_for_direction(context, Direction.BUY)
-    if context.ma50_slope < -COMBO_MA50_SLOPE_MIN:
+    if context.ma50_slope < -settings.ma50_slope_min:
         logger.debug(
             f"testing a selling combo ma50_slope={context.ma50_slope}"
         )

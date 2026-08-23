@@ -299,3 +299,40 @@ whatever detector reported it. Nothing in the grouping, the threshold or the pro
 **Alternative rejected**: omitting `ma50_slope` from the weekly alert. A weekly-only asset would
 then reach the digest with no slope at all, which costs it the WATCH band in the deterministic
 fallback (`_fallback_conviction` needs a slope over the threshold to promote past NOISE).
+
+---
+
+## R14 — No criteria met is no combo, not a weak one
+
+**Decision**: `_combo_for_direction` returns `None` when none of its scoring
+criteria are met, on either timeframe. A signal meeting one criterion is
+returned and labelled `WEAK`; the bands become 1 → weak, 2..strong-1 → medium,
+strong_signal_min and above → strong.
+
+**Rationale**: the detector previously reported a candle that cleared its three
+structural gates and then scored zero as a `WEAK` signal. That made "nothing
+found" and "found, barely" the same value, and every consumer downstream — the
+alerts table, the digest payload, the fallback ranking — had to treat them
+alike. The distinction belongs in the detector, which is the only place that
+knows the difference.
+
+**Consequences**, all deliberate:
+
+- Zero-criteria combos are no longer emitted anywhere. That is the token cost
+  the daily brief was paying for entries that said nothing.
+- `WEAK` now means one criterion rather than none, so a signal that used to
+  score `MEDIUM` at one criterion is now `WEAK`. One recorded fixture moves
+  accordingly.
+- A weak combo is still raised. It met something, and suppressing it would
+  discard a real observation — which is the opposite failure to the one this
+  fixes.
+
+**Where the rule sits**: in the detector, not at the emission site. An earlier
+attempt gated emission in `alerting.py` on `strength != WEAK`, which suppressed
+genuine weak combos along with empty ones and left the detector still unable to
+express the difference. Fixing the semantics removed the need for the gate.
+
+**What is kept**: `pattern_strengths` stays in the triage payload. The rank the
+prompt gives a pattern is what it is worth at full strength, so the model needs
+to know when one is not.
+

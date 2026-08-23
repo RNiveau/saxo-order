@@ -4,8 +4,19 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from model import AlertType, Candle, Direction, UnitTime
-from saxo_order.commands.alerting import run_detection_for_asset
+from model import (
+    AlertType,
+    Candle,
+    ComboSignal,
+    Direction,
+    SignalStrength,
+    UnitTime,
+)
+from saxo_order.commands.alerting import (
+    _build_weekly_candles,
+    run_detection_for_asset,
+)
+from services.indicator_service import COMBO_SETTINGS
 from utils.exception import SaxoException
 
 
@@ -601,3 +612,324 @@ class TestRunDetectionForAssetIsolatesDetectors:
             dynamodb_client=dynamodb_client,
         )
         assert len(alerts) > 0
+
+
+def _weekly_candles(count: int, base: datetime.datetime) -> List[Candle]:
+    return [
+        Candle(
+            lower=100.0,
+            higher=100.0,
+            open=100.0,
+            close=100.0,
+            ut=UnitTime.W,
+            date=base - datetime.timedelta(weeks=i),
+        )
+        for i in range(count)
+    ]
+
+
+class TestBuildWeeklyCandles:
+    """
+    The provider never returns the week currently trading. The daily candles
+    the scan already fetched are that week's elapsed days, so the forming bar
+    comes from those rather than from a second purchase.
+    """
+
+    def _saxo_client_returning(self, mocker, candles: List[Candle]):
+        client = MagicMock()
+        client.get_historical_data.return_value = [{"raw": True}]
+        mocker.patch(
+            "saxo_order.commands.alerting.client_helper.map_data_to_candles",
+            return_value=candles,
+        )
+        return client
+
+    def test_it_prepends_the_forming_week(self, mocker):
+        today = datetime.datetime.now(datetime.UTC)
+        last_week = today - datetime.timedelta(weeks=1)
+        client = self._saxo_client_returning(
+            mocker, _weekly_candles(60, last_week)
+        )
+        forming = Candle(
+            lower=1.0,
+            higher=2.0,
+            open=1.5,
+            close=1.8,
+            ut=UnitTime.W,
+            date=today,
+        )
+        mocker.patch(
+            "saxo_order.commands.alerting."
+            "build_current_weekly_candle_from_daily",
+            return_value=forming,
+        )
+
+        candles = _build_weekly_candles(client, {"saxo_uic": 1}, [])
+
+        assert candles[0] is forming
+        assert len(candles) == 61
+
+    def test_it_does_not_prepend_when_the_provider_already_returned_it(
+        self, mocker
+    ):
+        today = datetime.datetime.now(datetime.UTC)
+        client = self._saxo_client_returning(
+            mocker, _weekly_candles(60, today)
+        )
+        build = mocker.patch(
+            "saxo_order.commands.alerting."
+            "build_current_weekly_candle_from_daily",
+        )
+
+        candles = _build_weekly_candles(client, {"saxo_uic": 1}, [])
+
+        assert len(candles) == 60
+        build.assert_not_called()
+
+    def test_it_ends_at_the_last_completed_week_before_monday_opens(
+        self, mocker
+    ):
+        """No daily candle falls in the current ISO week, so there is nothing
+        to assemble a forming bar from."""
+        last_week = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+            weeks=1
+        )
+        client = self._saxo_client_returning(
+            mocker, _weekly_candles(60, last_week)
+        )
+        mocker.patch(
+            "saxo_order.commands.alerting."
+            "build_current_weekly_candle_from_daily",
+            return_value=None,
+        )
+
+        candles = _build_weekly_candles(client, {"saxo_uic": 1}, [])
+
+        assert len(candles) == 60
+
+    def test_it_asks_the_provider_for_weekly_bars_once(self, mocker):
+        client = self._saxo_client_returning(
+            mocker, _weekly_candles(60, datetime.datetime.now(datetime.UTC))
+        )
+
+        _build_weekly_candles(client, {"saxo_uic": 42}, [])
+
+        client.get_historical_data.assert_called_once()
+        kwargs = client.get_historical_data.call_args[1]
+        assert kwargs["horizon"] == 10080
+        assert kwargs["count"] == 70
+
+
+class TestRunDetectionForAssetWeeklyCombo:
+
+    def _weekly_signal(self) -> ComboSignal:
+        return ComboSignal(
+            price=42.5,
+            direction=Direction.BUY,
+            has_been_triggered=False,
+            strength=SignalStrength.MEDIUM,
+            details={"ma50_over_bb": True},
+        )
+
+    async def test_it_emits_a_weekly_combo_alert(
+        self, saxo_client, dynamodb_client, patched_alerting, mocker
+    ):
+        candles = _mm50_touch_candles()
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        bar_date = datetime.datetime(2026, 8, 17, 0, 0)
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_weekly_candles",
+            return_value=[
+                Candle(
+                    lower=1.0,
+                    higher=2.0,
+                    open=1.5,
+                    close=1.8,
+                    ut=UnitTime.W,
+                    date=bar_date,
+                )
+            ],
+        )
+        signal = self._weekly_signal()
+        patched_alerting.patch(
+            "saxo_order.commands.alerting.indicator_service.combo",
+            side_effect=lambda c, settings=None: (
+                signal if settings == COMBO_SETTINGS[UnitTime.W] else None
+            ),
+        )
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        weekly = [a for a in alerts if a.alert_type == AlertType.COMBO_WEEKLY]
+        assert len(weekly) == 1
+        data = weekly[0].data
+        assert data["direction"] == "Buy"
+        assert data["price"] == 42.5
+        assert data["weekly_bar_date"] == "2026-08-17"
+        assert data["timeframe"] == UnitTime.W.value
+        assert "ma50_slope" in data
+        assert not any(a.alert_type == AlertType.COMBO for a in alerts)
+
+    async def test_a_weak_weekly_combo_is_still_emitted(
+        self, saxo_client, dynamodb_client, patched_alerting
+    ):
+        """A weak combo is a combo: it met a criterion, and the trader is
+        told. What never arrives here is a signal that met nothing, because
+        the detector returns None for that rather than a WEAK signal."""
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=_mm50_touch_candles(),
+        )
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_weekly_candles",
+            return_value=[
+                Candle(
+                    lower=1.0,
+                    higher=2.0,
+                    open=1.5,
+                    close=1.8,
+                    ut=UnitTime.W,
+                    date=datetime.datetime(2026, 8, 17, 0, 0),
+                )
+            ],
+        )
+        weak = ComboSignal(
+            price=42.5,
+            direction=Direction.BUY,
+            has_been_triggered=False,
+            strength=SignalStrength.WEAK,
+            details={
+                "ma50_over_bb": True,
+                "price_within_bb": False,
+                "strong_ma50": False,
+                "both_bb_flat": False,
+            },
+        )
+        patched_alerting.patch(
+            "saxo_order.commands.alerting.indicator_service.combo",
+            side_effect=lambda c, settings=None: (
+                weak if settings == COMBO_SETTINGS[UnitTime.W] else None
+            ),
+        )
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        weekly = [a for a in alerts if a.alert_type == AlertType.COMBO_WEEKLY]
+        assert len(weekly) == 1
+        assert weekly[0].data["strength"] == "weak"
+
+    async def test_no_weekly_alert_when_the_detector_found_nothing(
+        self, saxo_client, dynamodb_client, patched_alerting
+    ):
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=_mm50_touch_candles(),
+        )
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_weekly_candles",
+            return_value=[
+                Candle(
+                    lower=1.0,
+                    higher=2.0,
+                    open=1.5,
+                    close=1.8,
+                    ut=UnitTime.W,
+                    date=datetime.datetime(2026, 8, 17, 0, 0),
+                )
+            ],
+        )
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        assert all(a.alert_type != AlertType.COMBO_WEEKLY for a in alerts)
+        assert any(a.alert_type == AlertType.MM50_TOUCH for a in alerts)
+
+    async def test_a_weekly_failure_leaves_the_other_detectors_alone(
+        self, saxo_client, dynamodb_client, patched_alerting
+    ):
+        """One asset's weekly fetch failing is not a reason to lose the
+        alerts already found for it, or to stop the scan."""
+        candles = _mm50_touch_candles()
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_weekly_candles",
+            side_effect=SaxoException("provider said no"),
+        )
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        assert any(a.alert_type == AlertType.MM50_TOUCH for a in alerts)
+        assert all(a.alert_type != AlertType.COMBO_WEEKLY for a in alerts)
+        dynamodb_client.store_alerts.assert_awaited_once()
+
+    async def test_the_weekly_timeframe_costs_one_extra_request(
+        self, saxo_client, dynamodb_client, patched_alerting, mocker
+    ):
+        """Three would mean the forming week is being fetched separately
+        instead of built from the daily candles already in hand."""
+        candles = _mm50_touch_candles()
+        patched_alerting.patch(
+            "saxo_order.commands.alerting._build_candles",
+            return_value=candles,
+        )
+        # Dated last week, so the forming-week branch runs - that branch is
+        # where a second fetch would hide.
+        mocker.patch(
+            "saxo_order.commands.alerting.client_helper.map_data_to_candles",
+            return_value=_weekly_candles(
+                60,
+                datetime.datetime.now(datetime.UTC)
+                - datetime.timedelta(weeks=1),
+            ),
+        )
+        saxo_client.get_historical_data.return_value = [{"raw": True}]
+
+        await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        assert saxo_client.get_historical_data.call_count == 1
