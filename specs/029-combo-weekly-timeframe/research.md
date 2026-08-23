@@ -188,9 +188,9 @@ that reasons about rank. The fallback counts families; it does not rank them.
 ## R8 — Source of the calibration and validation data
 
 **Decision**: calibration is a one-off developer script, `scripts/calibrate_weekly_combo.py`, that
-fetches `horizon=10080` directly from the provider for a **sample of the scanned universe** (a few
-dozen French stocks drawn from `stocks.json`, not the whole list), caches the raw response to a
-local file so re-runs cost nothing, and reports the distribution of `ma50_slope`, `bbh_slope` and
+fetches `horizon=10080` directly from the provider for the **whole scanned universe** — both
+`stocks.json` and `followup-stocks.json`, the followup names being the likeliest to be short of
+history — caches the raw response to a local file so re-runs cost nothing, and reports the distribution of `ma50_slope`, `bbh_slope` and
 `bbb_slope` over those weekly bars. The chosen constants are then committed. It runs outside the
 scan and is paid once.
 
@@ -209,7 +209,8 @@ scan and is paid once.
 (The `{instrument}:{session}:{ut}:v1` namespace CLAUDE.md attributes to spec 026 is not what the
 code keys on; `CACHE_SCHEMA_VERSION = 2` dropped the definition code and carries no `ut` segment.)
 
-**Cost**: one request per sampled asset, once, outside the scheduled scan. That is the price of
+**Cost**: one request per asset, once, outside the scheduled scan (a few hundred at most, and
+cached thereafter). That is the price of
 calibrating on the universe the thresholds will actually be applied to, and it is paid by a
 developer running a script rather than by the Lambda.
 

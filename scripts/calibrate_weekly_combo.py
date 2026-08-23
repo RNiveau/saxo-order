@@ -19,9 +19,14 @@ distributions below describe.
 
 Raw provider responses are cached to disk, so re-running costs nothing.
 
+By default it measures the whole universe rather than a sample: it is one
+cached pass, and the eligibility ratio it reports gates a release, so
+sampling noise is not worth the saved requests. --sample trades that away
+for a quicker first run.
+
 Usage:
     poetry run python scripts/calibrate_weekly_combo.py
-    poetry run python scripts/calibrate_weekly_combo.py --sample 80
+    poetry run python scripts/calibrate_weekly_combo.py --sample 40
     poetry run python scripts/calibrate_weekly_combo.py --refresh
 """
 
@@ -44,7 +49,6 @@ from utils.configuration import Configuration  # noqa: E402
 WEEKLY_HORIZON = 10080
 WEEKLY_COUNT = 70
 MIN_WEEKLY_CANDLES = 60
-DEFAULT_SAMPLE_SIZE = 40
 SAMPLE_SEED = 29
 CACHE_FILE = "weekly_calibration_cache.json"
 UNIVERSE_FILES = ("stocks.json", "followup-stocks.json")
@@ -65,9 +69,9 @@ def load_universe() -> List[Dict[str, Any]]:
     return universe
 
 
-def load_sample(sample_size: int) -> List[Dict[str, Any]]:
+def load_sample(sample_size: Optional[int]) -> List[Dict[str, Any]]:
     universe = load_universe()
-    if sample_size >= len(universe):
+    if sample_size is None or sample_size >= len(universe):
         return universe
     return random.Random(SAMPLE_SEED).sample(universe, sample_size)
 
@@ -142,7 +146,7 @@ def report(
     sampled: int,
 ) -> None:
     print()
-    print(f"Sampled assets:   {sampled}")
+    print(f"Measured assets:  {sampled}")
     print(f"Unreachable:      {failed} (fetch error or empty response)")
     print(f"Fetched assets:   {fetched}")
     if fetched == 0:
@@ -186,8 +190,8 @@ def main() -> None:
     parser.add_argument(
         "--sample",
         type=int,
-        default=DEFAULT_SAMPLE_SIZE,
-        help=f"assets to sample (default {DEFAULT_SAMPLE_SIZE})",
+        default=None,
+        help="assets to sample (default: the whole universe)",
     )
     parser.add_argument(
         "--refresh",
@@ -198,7 +202,7 @@ def main() -> None:
 
     sample = load_sample(args.sample)
     if not sample:
-        print("No asset to sample - check stocks.json and --sample.")
+        print("No asset to measure - check stocks.json and --sample.")
         return
 
     cache = load_cache(args.refresh)

@@ -32,7 +32,7 @@ Backend packages live at the repository root (`model/`, `services/`, `client/`, 
 the daily constants demonstrably do not transfer (research.md R8).
 
 - [x] T001 Create `scripts/calibrate_weekly_combo.py`: read a sample of assets from `stocks.json`, fetch `horizon=10080` per asset through `SaxoClient.get_historical_data`, cache raw responses to a local JSON file so re-runs cost nothing, and report the distributions of `ma50_slope`, `bbh_slope` and `bbb_slope` over the weekly bars plus the share of sampled assets returning at least 60 bars
-- [ ] T002 Run `poetry run python scripts/calibrate_weekly_combo.py` and record the chosen weekly threshold values and the eligibility ratio (SC-004) in `specs/029-combo-weekly-timeframe/calibration.md`
+- [ ] T002 Run `poetry run python scripts/calibrate_weekly_combo.py` over the whole universe (the default — one cached pass, no sampling noise in a figure that gates release) and record the chosen weekly threshold values and the eligibility ratio (SC-004) in `specs/029-combo-weekly-timeframe/calibration.md`
 
 **Checkpoint**: weekly thresholds are known values with a recorded derivation, and SC-004 is answered
 

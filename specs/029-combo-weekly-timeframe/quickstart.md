@@ -100,8 +100,8 @@ the daily candles already in hand (see R1).
 poetry run python scripts/calibrate_weekly_combo.py
 ```
 
-Fetches weekly history (`horizon=10080`) for a sample of the scanned universe, caches the raw
-responses locally so re-runs are free, and reports the distribution of `ma50_slope`, `bbh_slope` and
+Fetches weekly history (`horizon=10080`) for the whole scanned universe by default (`--sample N`
+narrows it), caches the raw responses locally so re-runs are free, and reports the distribution of `ma50_slope`, `bbh_slope` and
 `bbb_slope` over those bars. The chosen values are committed into `COMBO_SETTINGS[UnitTime.W]`.
 
 This costs provider requests, once, outside the scheduled scan. It cannot read the backtest candle
