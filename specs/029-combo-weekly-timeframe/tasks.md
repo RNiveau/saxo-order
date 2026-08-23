@@ -31,7 +31,7 @@ Backend packages live at the repository root (`model/`, `services/`, `client/`, 
 **Purpose**: produce the threshold values US1 needs. FR-011 makes calibration a release gate, and
 the daily constants demonstrably do not transfer (research.md R8).
 
-- [ ] T001 Create `scripts/calibrate_weekly_combo.py`: read a sample of assets from `stocks.json`, fetch `horizon=10080` per asset through `SaxoClient.get_historical_data`, cache raw responses to a local JSON file so re-runs cost nothing, and report the distributions of `ma50_slope`, `bbh_slope` and `bbb_slope` over the weekly bars plus the share of sampled assets returning at least 60 bars
+- [x] T001 Create `scripts/calibrate_weekly_combo.py`: read a sample of assets from `stocks.json`, fetch `horizon=10080` per asset through `SaxoClient.get_historical_data`, cache raw responses to a local JSON file so re-runs cost nothing, and report the distributions of `ma50_slope`, `bbh_slope` and `bbb_slope` over the weekly bars plus the share of sampled assets returning at least 60 bars
 - [ ] T002 Run `poetry run python scripts/calibrate_weekly_combo.py` and record the chosen weekly threshold values and the eligibility ratio (SC-004) in `specs/029-combo-weekly-timeframe/calibration.md`
 
 **Checkpoint**: weekly thresholds are known values with a recorded derivation, and SC-004 is answered
@@ -44,10 +44,16 @@ the daily constants demonstrably do not transfer (research.md R8).
 
 **⚠️ CRITICAL**: no user story work begins until this phase is complete
 
-- [ ] T003 Add `COMBO_WEEKLY = "combo_weekly"` to `AlertType` in `model/enum.py`
-- [ ] T004 [P] Add `weekly_combo_enabled: true` to `config.yml` and expose it as a `weekly_combo_enabled` property in `utils/configuration.py`, defaulting to `True` when the key is absent
+- [x] T003 Add `COMBO_WEEKLY = "combo_weekly"` to `AlertType` in `model/enum.py`
+- [x] T004 [P] Add `weekly_combo_enabled: true` to `config.yml` and expose it as a `weekly_combo_enabled` property in `utils/configuration.py`, defaulting to `True` when the key is absent
 
 **Checkpoint**: the new alert type exists and the feature can be switched off — stories can start
+
+> **Note (implementation)**: T003 could not land alone. `test_prompt_documents_every_alert_type_it_can_receive`
+> asserts every `AlertType` member appears in the triage prompt, so adding the enum member forced
+> T017–T019 forward from Phase 4, and T016 with them to cover the behaviour change. T015 remains
+> outstanding in Phase 4. T002 is blocked: it needs live provider credentials (`secrets.yml`), which
+> the development container does not hold.
 
 ---
 
@@ -93,13 +99,13 @@ detection needed — and check the conviction band and rationale for each case.
 ### Tests for User Story 2
 
 - [ ] T015 [P] [US2] Test the reasoned path in `tests/services/test_alert_triage_service.py`: a Buy-weekly-only asset is eligible for the top band and its rationale names the weekly timeframe; a Sell-weekly-only asset never reaches the top band; a Buy weekly ranks at or above an equivalent Buy daily; a Buy weekly with a Sell daily produces a rationale naming the disagreement (SC-006)
-- [ ] T016 [P] [US2] Test the deterministic fallback in `tests/services/test_alert_triage_service.py`: an asset carrying a daily and a weekly combo and nothing else reaches the same conviction band as an asset carrying the daily combo alone (SC-008, FR-015)
+- [x] T016 [P] [US2] Test the deterministic fallback in `tests/services/test_alert_triage_service.py`: an asset carrying a daily and a weekly combo and nothing else reaches the same conviction band as an asset carrying the daily combo alone (SC-008, FR-015)
 
 ### Implementation for User Story 2
 
-- [ ] T017 [P] [US2] Add `AlertType.COMBO_WEEKLY` to `_DIRECTIONAL_PATTERNS` in `services/alert_triage_service.py`
-- [ ] T018 [P] [US2] Add `AlertType.COMBO_WEEKLY: AlertType.COMBO` to `_PATTERN_FAMILY` in `services/alert_triage_service.py`, with a comment stating that the two are one detector at two timeframes exactly as the congestion pair is one detector at two windows
-- [ ] T019 [US2] Extend the prompt's pattern-semantics block in `services/alert_triage_service.py` with a `combo_weekly` entry ranked above `combo`, and state the long-only consequence: a Buy weekly combo is the strongest reason to surface an asset, a Sell weekly combo disqualifies it as a long exactly as a Sell combo does (depends on T017)
+- [x] T017 [P] [US2] Add `AlertType.COMBO_WEEKLY` to `_DIRECTIONAL_PATTERNS` in `services/alert_triage_service.py`
+- [x] T018 [P] [US2] Add `AlertType.COMBO_WEEKLY: AlertType.COMBO` to `_PATTERN_FAMILY` in `services/alert_triage_service.py`, with a comment stating that the two are one detector at two timeframes exactly as the congestion pair is one detector at two windows
+- [x] T019 [US2] Extend the prompt's pattern-semantics block in `services/alert_triage_service.py` with a `combo_weekly` entry ranked above `combo`, and state the long-only consequence: a Buy weekly combo is the strongest reason to surface an asset, a Sell weekly combo disqualifies it as a long exactly as a Sell combo does (depends on T017)
 
 **Checkpoint**: the brief ranks weekly evidence correctly and the fallback grants it no unearned
 promotion

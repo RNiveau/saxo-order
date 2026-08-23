@@ -166,6 +166,10 @@ class Configuration:
         return float(self.config.get("triage_slope_threshold", 1.0))
 
     @property
+    def weekly_combo_enabled(self) -> bool:
+        return bool(self.config.get("weekly_combo_enabled", True))
+
+    @property
     def app_url(self) -> str:
         return self.config.get("app_url", "http://localhost:5173")
 

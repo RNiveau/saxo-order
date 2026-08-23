@@ -121,6 +121,7 @@ class AlertType(EnumWithGetValue):
     CONGESTION20 = "congestion20"
     CONGESTION100 = "congestion100"
     COMBO = "combo"
+    COMBO_WEEKLY = "combo_weekly"
     DOUBLE_TOP = "double_top"
     DOUBLE_BOTTOM = "double_bottom"
     DOUBLE_INSIDE_BAR = "double_inside_bar"

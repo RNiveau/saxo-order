@@ -40,10 +40,11 @@ trend); positive = uptrend, negative = downtrend, null = unknown
 - pattern_directions: PRESENT ONLY when a directional pattern fired. Maps the \
 pattern name to the direction its detector computed ("Buy" = bullish, "Sell" \
 = bearish, "unknown" = the detector fired but published no usable direction). \
-Only combo and mm7_break can appear here; every other pattern is absent from \
-this map because it has no computed direction of its own. Treat "unknown" as \
-DISQUALIFYING UNTIL PROVEN BULLISH: you cannot tell whether it was a buy or a \
-sell, so it earns no convergence point and cannot support "high" on its own. \
+Only combo, combo_weekly and mm7_break can appear here; every other pattern \
+is absent from this map because it has no computed direction of its own. \
+Treat "unknown" as DISQUALIFYING UNTIL PROVEN BULLISH: you cannot tell \
+whether it was a buy or a sell, so it earns no convergence point and cannot \
+support "high" on its own. \
 Only other, independent bullish evidence on the same asset can make it \
 surfaceable, and never above "watch".
 - workflow_triggers: PRESENT ONLY when one of the trader's own registered \
@@ -59,10 +60,11 @@ not buying today. Concretely:
 - The brief exists to surface BUYABLE setups. Bullish evidence - a "Buy" \
 combo, a "Buy" mm7_break, mm50_touch, double_bottom, a "Buy" workflow \
 trigger, a rising 50-MA - is what earns an asset a place in it.
-- Bearish evidence - a "Sell" combo, a "Sell" mm7_break, double_top, a "Sell" \
-workflow trigger, a falling 50-MA - is NEVER convergence and NEVER \
-opportunity. It counts only AGAINST a long thesis. Never describe a bearish \
-setup as clean, strong, or actionable: there is no trade there for this desk.
+- Bearish evidence - a "Sell" combo, a "Sell" combo_weekly, a "Sell" \
+mm7_break, double_top, a "Sell" workflow trigger, a falling 50-MA - is NEVER \
+convergence and NEVER opportunity. It counts only AGAINST a long thesis. \
+Never describe a bearish setup as clean, strong, or actionable: there is no \
+trade there for this desk.
 - An asset whose net read is bearish can NEVER be "high", however much \
 bearish evidence piles up and however steeply it is falling. Its ceiling is \
 "watch", and only when the breakdown is genuinely worth a warning - a name \
@@ -105,11 +107,23 @@ workflow fired on it.
 
 Pattern semantics - know what each pattern actually means before reasoning \
 about confluence or trend alignment:
-- combo: the strongest directional pattern, and its direction is handed to \
-you in pattern_directions. A "Buy" combo is the primary source of bullish \
-bias - the single best reason to surface an asset. A "Sell" combo is the \
-primary reason NOT to: it disqualifies the asset as a long, it never \
-converges, and it can never contribute to "high".
+- combo: the strongest directional pattern on the daily timeframe, and its \
+direction is handed to you in pattern_directions. A "Buy" combo is a primary \
+source of bullish bias - one of the best reasons to surface an asset. A \
+"Sell" combo is the primary reason NOT to: it disqualifies the asset as a \
+long, it never converges, and it can never contribute to "high".
+- combo_weekly: the same setup measured on weekly bars, and it OUTRANKS \
+combo. Its direction is handed to you in pattern_directions. It describes a \
+position worth holding for weeks rather than a swing lasting days, so a \
+"Buy" combo_weekly is the single strongest reason to surface an asset - \
+treat it as at least the equal of a "Buy" combo and say in the rationale \
+that the signal is on the WEEKLY timeframe. A "Sell" combo_weekly \
+disqualifies the asset as a long exactly as a "Sell" combo does, and no \
+amount of daily bullish evidence rescues it. When combo and combo_weekly \
+disagree, NAME the disagreement rather than picking one silently: the \
+bearish leg counts against the long thesis whichever timeframe it sits on. \
+When they agree, that agreement is reinforcement of one detector reading two \
+horizons, not two independent mechanisms.
 - mm50_touch: can ONLY fire when the 50-MA is already rising strongly (its \
 detector requires ma50_slope >= +3%). It is a bullish continuation signal \
 (price pulling back to a rising average) - one of the cleanest long entries \
@@ -261,7 +275,15 @@ FALLBACK_MODEL = "deterministic-fallback"
 # congestion20 and congestion100 are the same underlying detector run at two
 # lookback windows, not independent signals - collapse them to one family
 # when counting confluence in the deterministic fallback.
-_PATTERN_FAMILY = {AlertType.CONGESTION100: AlertType.CONGESTION20}
+_PATTERN_FAMILY = {
+    AlertType.CONGESTION100: AlertType.CONGESTION20,
+    # combo and combo_weekly are one detector at two timeframes, exactly as
+    # the congestion pair is one detector at two windows. Counted separately
+    # they would reach HIGH on one detector's word, in a path that reads no
+    # direction at all - so a Sell on both timeframes would rank as the
+    # strongest kind of asset.
+    AlertType.COMBO_WEEKLY: AlertType.COMBO,
+}
 
 # Short-term timing triggers. They say the last few candles changed character,
 # not where the asset is headed, so they can sharpen a setup that other
@@ -275,7 +297,11 @@ _TIMING_PATTERNS = {AlertType.MM7_BREAK}
 # The detectors that publish a computed direction in their alert data. The
 # desk is long-only, so a "Sell" here is disqualifying rather than merely
 # informative - the reasoning path has to see it, not infer it from the slope.
-_DIRECTIONAL_PATTERNS = {AlertType.COMBO, AlertType.MM7_BREAK}
+_DIRECTIONAL_PATTERNS = {
+    AlertType.COMBO,
+    AlertType.COMBO_WEEKLY,
+    AlertType.MM7_BREAK,
+}
 
 # What the payload says when a directional detector fired but published no
 # usable direction - a stored alert from an older detector version, say.
@@ -520,10 +546,11 @@ class TriageAgent:
     def _alert_direction(self, alert: Alert) -> Optional[Direction]:
         """The direction a directional detector computed, if it published one.
 
-        combo and mm7_break are the only detectors that do. Without it the
-        reasoning path can only guess a bullish or bearish read from the slope
-        sign, which a long-only brief cannot afford - so a miss is logged
-        rather than absorbed, and the payload marks the pattern unknown.
+        combo, combo_weekly and mm7_break are the only detectors that do.
+        Without it the reasoning path can only guess a bullish or bearish
+        read from the slope sign, which a long-only brief cannot afford -
+        so a miss is logged rather than absorbed, and the payload marks the
+        pattern unknown.
         """
         raw = (
             alert.data.get("direction")
