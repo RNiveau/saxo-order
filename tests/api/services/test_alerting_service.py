@@ -237,3 +237,62 @@ class TestAlertsCaching:
         mock_dynamodb_client.get_all_alerts.assert_called_once()
         mock_dynamodb_client.get_excluded_assets.assert_called_once()
         mock_dynamodb_client.get_all_tradingview_links.assert_called_once()
+
+
+class TestWeeklyComboFiltering:
+    """
+    The alert_type filter is a plain string parameter, so combo_weekly needs
+    no new API surface - but "combo" is a prefix of "combo_weekly", and a
+    filter written with a substring match instead of equality would quietly
+    fold the two timeframes together.
+    """
+
+    async def test_filtering_by_combo_weekly_returns_only_weekly(
+        self, alerting_service, mock_dynamodb_client
+    ):
+        mock_dynamodb_client.get_excluded_assets.return_value = []
+        mock_dynamodb_client.get_all_alerts.return_value = [
+            make_alert("SAN", alert_type=AlertType.COMBO_WEEKLY),
+            make_alert("ITP", alert_type=AlertType.COMBO, hour=9),
+        ]
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
+
+        response = await alerting_service.get_all_alerts(
+            alert_type="combo_weekly"
+        )
+
+        assert response.total_count == 1
+        assert response.alerts[0].alert_type == "combo_weekly"
+        assert response.alerts[0].asset_code == "SAN"
+
+    async def test_filtering_by_combo_does_not_return_the_weekly_one(
+        self, alerting_service, mock_dynamodb_client
+    ):
+        mock_dynamodb_client.get_excluded_assets.return_value = []
+        mock_dynamodb_client.get_all_alerts.return_value = [
+            make_alert("SAN", alert_type=AlertType.COMBO_WEEKLY),
+            make_alert("ITP", alert_type=AlertType.COMBO, hour=9),
+        ]
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
+
+        response = await alerting_service.get_all_alerts(alert_type="combo")
+
+        assert response.total_count == 1
+        assert response.alerts[0].alert_type == "combo"
+
+    async def test_both_timeframes_are_offered_as_filters(
+        self, alerting_service, mock_dynamodb_client
+    ):
+        mock_dynamodb_client.get_excluded_assets.return_value = []
+        mock_dynamodb_client.get_all_alerts.return_value = [
+            make_alert("SAN", alert_type=AlertType.COMBO_WEEKLY),
+            make_alert("ITP", alert_type=AlertType.COMBO, hour=9),
+        ]
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {}
+
+        response = await alerting_service.get_all_alerts()
+
+        assert response.available_filters["alert_types"] == [
+            "combo",
+            "combo_weekly",
+        ]

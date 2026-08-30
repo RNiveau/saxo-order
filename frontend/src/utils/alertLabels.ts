@@ -2,6 +2,7 @@ const ALERT_TYPE_LABELS: Record<string, string> = {
   congestion20: 'Congestion 20',
   congestion100: 'Congestion 100',
   combo: 'Combo',
+  combo_weekly: 'Combo Weekly',
   double_top: 'Double Top',
   double_bottom: 'Double Bottom',
   double_inside_bar: 'Double Inside Bar',

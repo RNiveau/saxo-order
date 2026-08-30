@@ -545,38 +545,6 @@
   letter-spacing: 0.5px;
 }
 
-/* Color coding by alert type */
-.alert-card[data-alert-type="combo"] .alert-type-badge {
-  background: rgba(56, 139, 253, 0.2);
-  color: #58a6ff;
-  border: 1px solid #58a6ff;
-}
-
-.alert-card[data-alert-type="congestion20"] .alert-type-badge,
-.alert-card[data-alert-type="congestion100"] .alert-type-badge {
-  background: rgba(242, 169, 0, 0.2);
-  color: #f2a900;
-  border: 1px solid #f2a900;
-}
-
-.alert-card[data-alert-type="double_top"] .alert-type-badge {
-  background: rgba(248, 81, 73, 0.2);
-  color: #f85149;
-  border: 1px solid #f85149;
-}
-
-.alert-card[data-alert-type="double_inside_bar"] .alert-type-badge {
-  background: rgba(163, 113, 247, 0.2);
-  color: #a371f7;
-  border: 1px solid #a371f7;
-}
-
-.alert-card[data-alert-type="containing_candle"] .alert-type-badge {
-  background: rgba(56, 211, 159, 0.2);
-  color: #3dd68c;
-  border: 1px solid #3dd68c;
-}
-
 /* Empty and Error States */
 .alerts-section .loading,
 .alerts-section .error,

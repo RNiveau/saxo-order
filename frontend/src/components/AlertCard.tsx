@@ -95,8 +95,10 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
   // Extract MA50 slope from alert data
   const ma50Slope = alert.data?.ma50_slope;
 
-  // Directional alerts (mm7_break, combo) carry which way the signal points;
-  // mm7_break also carries how far price closed past the average.
+  // Directional alerts (mm7_break, combo, combo_weekly) carry which way the
+  // signal points; mm7_break also carries how far price closed past the
+  // average. Read from the data rather than switched on the alert type, so a
+  // new directional detector renders without a change here.
   const direction = alert.data?.direction;
   const distancePct = alert.data?.distance_pct;
 
@@ -143,7 +145,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
   };
 
   return (
-    <div className="alert-card">
+    <div className="alert-card" data-alert-type={alert.alert_type}>
       <div className="alert-card-header">
         <div className="alert-card-type">
           <span className="alert-type-badge">{getAlertTypeLabel(alert.alert_type)}</span>
