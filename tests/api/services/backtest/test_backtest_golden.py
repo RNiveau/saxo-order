@@ -10,13 +10,23 @@ net that proves behavior is unchanged.
 Regenerate the snapshot only when a behavior change is intended:
 
     poetry run python -m tests.api.services.backtest.test_backtest_golden
+
+That writes new definitions freely but REFUSES to change one already in
+the file, printing what moved instead. Changing a shipped definition
+needs its code named:
+
+    ... test_backtest_golden --accept G9H,B9HTC
+
+Regenerating makes this file pass by construction, so the gate is the
+only thing standing between "I regenerated it" and a silent behavior
+change nobody reviewed.
 """
 
 import dataclasses
 import datetime
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 import pytest
 import pytest_asyncio
@@ -42,8 +52,9 @@ GOLDEN_FILE = (
 NO_CACHE_CLIENT = DynamoDBClient(dynamodb_resource=None)
 
 # Day the detail snapshot is taken on. Picked because every definition
-# resolves it to a traded day, so the per-trade detail is non-trivial.
-DETAIL_DATE = datetime.date(2026, 3, 3)
+# resolves it to a traded day, so the per-trade detail is non-trivial,
+# and because its G9H day mixes partial take-profits with break-evens.
+DETAIL_DATE = datetime.date(2026, 4, 6)
 
 
 def _service() -> BacktestService:
@@ -171,22 +182,139 @@ async def test_golden_market_actually_produces_trades(snapshot):
     ), "no two-lot aggregate trade in the double take-profit detail day"
 
 
-def _regenerate() -> None:
+def _summary_line(code: str, entry: Dict[str, Any]) -> str:
+    summary = entry["run"]["summary"]
+    return (
+        f"{code}: {summary['number_of_days']} days, "
+        f"{summary['number_of_trades']} trades, "
+        f"result {summary['final_result']}, "
+        f"exits {sorted(entry['exit_reasons'])}"
+    )
+
+
+def _describe_change(
+    code: str, before: Dict[str, Any], after: Dict[str, Any]
+) -> str:
+    """What moved for one definition, in the terms a reviewer judges a
+    strategy change in: trade count, result and the exit mix."""
+    old_summary = before["run"]["summary"]
+    new_summary = after["run"]["summary"]
+    fields = (
+        "number_of_trades",
+        "number_of_winning_positions",
+        "number_of_losing_positions",
+        "number_of_be",
+        "final_result",
+    )
+    moved = [
+        f"      {field}: {old_summary[field]} -> {new_summary[field]}"
+        for field in fields
+        if old_summary[field] != new_summary[field]
+    ]
+    if set(before["exit_reasons"]) != set(after["exit_reasons"]):
+        moved.append(
+            f"      exits: {sorted(before['exit_reasons'])} -> "
+            f"{sorted(after['exit_reasons'])}"
+        )
+    if not moved:
+        moved.append(
+            "      summary identical - the per-day rows or per-trade "
+            "detail moved"
+        )
+    return f"    {code}\n" + "\n".join(moved)
+
+
+def _regenerate(accepted: Set[str]) -> int:
+    """Rewrite the snapshot, refusing to change an existing definition
+    that was not named on the command line.
+
+    The whole value of this file is that it fails when behavior moves -
+    and regenerating makes it pass by construction. So a regeneration
+    that would silently rewrite a shipped definition's numbers is the one
+    thing that must not be one keystroke away. Adding a definition is
+    free; changing one has to be said out loud.
+    """
     import asyncio
+    import logging
+
+    # NO_CACHE_CLIENT logs a warning per cache call, which is two per
+    # definition per day - tens of thousands of lines burying the one
+    # thing this command exists to show.
+    logging.disable(logging.WARNING)
+
+    snapshot = asyncio.run(_build_snapshot())
+    golden = (
+        json.loads(GOLDEN_FILE.read_text()) if GOLDEN_FILE.exists() else {}
+    )
+
+    added = sorted(set(snapshot) - set(golden))
+    removed = sorted(set(golden) - set(snapshot))
+    changed = sorted(
+        code
+        for code in set(golden) & set(snapshot)
+        if golden[code] != snapshot[code]
+    )
+    unauthorized = [
+        code
+        for code in changed
+        if code not in accepted and "all" not in accepted
+    ]
+
+    if unauthorized:
+        print(
+            "REFUSED: these definitions already exist in the snapshot and "
+            "their results changed:\n"
+        )
+        for code in unauthorized:
+            print(_describe_change(code, golden[code], snapshot[code]))
+        print(
+            "\nIf the change is intended, name them:\n"
+            f"    python -m {__spec__.name} --accept "
+            f"{','.join(unauthorized)}\n"
+            "If it is not, this is the regression the snapshot exists to "
+            "catch - fix the code, not the file."
+        )
+        return 1
 
     GOLDEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-    snapshot = asyncio.run(_build_snapshot())
     GOLDEN_FILE.write_text(json.dumps(snapshot, indent=2, sort_keys=True))
     print(f"Wrote {GOLDEN_FILE}")
+    if added:
+        print(f"  added: {', '.join(added)}")
+    if removed:
+        print(f"  removed: {', '.join(removed)}")
+    if changed:
+        print(f"  changed (accepted): {', '.join(changed)}")
+        for code in changed:
+            print(_describe_change(code, golden[code], snapshot[code]))
+    if not (added or removed or changed):
+        print("  no change")
     for code, entry in snapshot.items():
-        summary = entry["run"]["summary"]
-        print(
-            f"  {code}: {summary['number_of_days']} days, "
-            f"{summary['number_of_trades']} trades, "
-            f"result {summary['final_result']}, "
-            f"exits {sorted(entry['exit_reasons'])}"
-        )
+        print(f"  {_summary_line(code, entry)}")
+    return 0
 
 
 if __name__ == "__main__":
-    _regenerate()
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(
+        description=(
+            "Regenerate the backtest golden snapshot. New definitions are "
+            "written freely; changing an existing one requires naming it."
+        )
+    )
+    parser.add_argument(
+        "--accept",
+        default="",
+        help=(
+            "Comma-separated definition codes whose results may change, "
+            "or 'all'."
+        ),
+    )
+    args = parser.parse_args()
+    sys.exit(
+        _regenerate(
+            {code.strip() for code in args.accept.split(",") if code.strip()}
+        )
+    )
