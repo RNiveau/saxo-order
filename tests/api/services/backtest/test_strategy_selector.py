@@ -7,15 +7,13 @@ return a plausible result computed from rules it never applied.
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from api.services.backtest import get_definition, list_definitions
+from api.services.backtest.combo_strategy import ComboStrategy
 from api.services.backtest.session_range import SessionRangeStrategy
 from api.services.backtest.strategy import StrategySelector
 from client.aws_client import DynamoDBClient
 from model import BacktestDefinition, UnitTime
 from services.candles_service import CandlesService
-from utils.exception import SaxoException
 
 
 def make_selector() -> StrategySelector:
@@ -53,22 +51,43 @@ class TestStrategySelector:
     def test_the_session_range_engine_is_the_moved_day_loop(self):
         assert isinstance(make_selector().session_range, SessionRangeStrategy)
 
+    def test_the_combo_engine_is_the_indicator_driven_one(self):
+        assert isinstance(make_selector().combo, ComboStrategy)
+
     def test_it_is_built_once_and_reused_across_calls(self):
-        """The engine holds a candle source; handing out a fresh one per
+        """An engine holds a candle source; handing out a fresh one per
         request would throw away everything it had already fetched."""
         selector = make_selector()
-        first = selector.for_definition(get_definition("B9H"))
-        second = selector.for_definition(get_definition("G9H"))
-        assert first is second
+        assert selector.for_definition(
+            get_definition("B9H")
+        ) is selector.for_definition(get_definition("G9H"))
+        assert selector.for_definition(
+            get_definition("C5M")
+        ) is selector.for_definition(get_definition("C1H"))
 
-    def test_a_combo_definition_raises_instead_of_running(self):
-        """Until the combo engine lands, selecting one must fail loudly.
-        Returning the session-range engine would report a result for
-        rules that were never applied - the failure this seam exists to
-        prevent."""
-        with pytest.raises(SaxoException, match="not implemented yet"):
-            make_selector().for_definition(combo_definition())
+    def test_a_combo_definition_runs_on_the_combo_engine(self):
+        selector = make_selector()
+        assert selector.for_definition(combo_definition()) is selector.combo
 
-    def test_the_error_names_the_definition(self):
-        with pytest.raises(SaxoException, match="CTEST"):
-            make_selector().for_definition(combo_definition())
+    def test_a_combo_definition_never_falls_back_to_session_range(self):
+        """The failure this seam exists to prevent: the session-range
+        engine would return a plausible result computed from rules the
+        definition does not have."""
+        selector = make_selector()
+        assert (
+            selector.for_definition(combo_definition())
+            is not selector.session_range
+        )
+
+    def test_every_shipped_combo_definition_routes_to_the_combo_engine(self):
+        selector = make_selector()
+        combo_codes = [d.code for d in list_definitions() if d.combo_entry]
+        assert combo_codes == ["C5M", "C15M", "C1H"]
+        for code in combo_codes:
+            assert (
+                selector.for_definition(get_definition(code)) is selector.combo
+            )
+
+    def test_the_two_engines_are_distinct(self):
+        selector = make_selector()
+        assert selector.combo is not selector.session_range

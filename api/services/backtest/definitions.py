@@ -6,6 +6,7 @@ from typing import List, Optional
 from model import (
     BacktestDefinition,
     BacktestParameters,
+    DaxCfdMarket,
     EuCfdMarket,
     Strategy,
     UnitTime,
@@ -165,6 +166,47 @@ BACKTEST_DEFINITIONS: List[BacktestDefinition] = [
         max_daily_losses=2,
         ma50_direction_filter=UnitTime.D,
     ),
+    # The combo family (spec 026): entries come from the combo indicator
+    # rather than a 9h reference range, targets are the mm20 and the
+    # opposite bollinger band re-read on every candle, and a position is
+    # held until an exit fires - across nights and weekends. One
+    # definition per timeframe so the three can be compared side by side.
+    # They trade the full 02:00-22:00 DAX CFD session (DaxCfdMarket),
+    # which the "bougie de 9h" GER40 variants cannot share: those derive
+    # their reference candle from the session open.
+    BacktestDefinition(
+        code="C5M",
+        name=Strategy.C5M.value,
+        display_name="GER40 Combo 5m",
+        instrument="GER40.I",
+        market=DaxCfdMarket(),
+        unit_time=UnitTime.M5,
+        combo_entry=True,
+        double_take_profit=True,
+        default_parameters=BacktestParameters(stop_loss_points=50),
+    ),
+    BacktestDefinition(
+        code="C15M",
+        name=Strategy.C15M.value,
+        display_name="GER40 Combo 15m",
+        instrument="GER40.I",
+        market=DaxCfdMarket(),
+        unit_time=UnitTime.M15,
+        combo_entry=True,
+        double_take_profit=True,
+        default_parameters=BacktestParameters(stop_loss_points=50),
+    ),
+    BacktestDefinition(
+        code="C1H",
+        name=Strategy.C1H.value,
+        display_name="GER40 Combo H1",
+        instrument="GER40.I",
+        market=DaxCfdMarket(),
+        unit_time=UnitTime.H1,
+        combo_entry=True,
+        double_take_profit=True,
+        default_parameters=BacktestParameters(stop_loss_points=50),
+    ),
 ]
 
 
@@ -191,6 +233,20 @@ def resolve_parameters(
     so each definition keeps its own defaults - CAC40 50/10/20/20, GER40
     150/10/50/40."""
     defaults = definition.default_parameters
+    if definition.combo_entry:
+        # Only the stop distance means anything to the combo strategy
+        # (FR-C16): its targets are the mm20 and the opposite band, and
+        # its only break-even trigger is TP1 filling. Accepting an
+        # override for the other three and quietly not applying it would
+        # let a trader tune a number, see nothing move, and conclude the
+        # strategy is insensitive to it.
+        return BacktestParameters(
+            stop_loss_points=(
+                stop_loss_points
+                if stop_loss_points is not None
+                else defaults.stop_loss_points
+            )
+        )
     return BacktestParameters(
         stop_loss_points=(
             stop_loss_points

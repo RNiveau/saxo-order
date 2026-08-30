@@ -10,6 +10,7 @@ from api.services.backtest import (
 from model import (
     BacktestDefinition,
     BacktestParameters,
+    DaxCfdMarket,
     EuCfdMarket,
     EUMarket,
     UnitTime,
@@ -122,17 +123,20 @@ class TestRegistry:
             60,
         )
 
-    def test_only_the_impulsive_variants_left_the_cash_session(self):
+    def test_each_definition_trades_the_session_its_rules_need(self):
         """Derived from the registry rather than a second copy of it, and
-        keyed on the rule rather than on codes: the impulse stop is what
-        makes holding into the evening meaningful, so exactly the
-        definitions carrying one trade the CFD session."""
+        keyed on the rules rather than on codes. Three sessions now: the
+        combo backtests read the instrument continuously and take the
+        full 02:00-22:00 DAX CFD day; the impulse stop makes holding into
+        the evening meaningful, so those variants take 09:00-22:00;
+        everything else is flat at the 17:30 cash close."""
         for definition in list_definitions():
-            expected = (
-                EuCfdMarket
-                if definition.impulsive_candle_points is not None
-                else EUMarket
-            )
+            if definition.combo_entry:
+                expected: type = DaxCfdMarket
+            elif definition.impulsive_candle_points is not None:
+                expected = EuCfdMarket
+            else:
+                expected = EUMarket
             assert isinstance(definition.market, expected)
 
     def test_g9hicd_is_the_two_lot_impulsive_variant(self):
@@ -430,3 +434,87 @@ class TestComboDefinitionValidation:
         first lot exits."""
         with pytest.raises(ValueError, match="first_target_fraction"):
             self._build(double_take_profit=True)
+
+
+class TestComboRegistry:
+    @pytest.mark.parametrize(
+        "code,ut,label",
+        [
+            ("C5M", UnitTime.M5, "5m"),
+            ("C15M", UnitTime.M15, "15m"),
+            ("C1H", UnitTime.H1, "H1"),
+        ],
+    )
+    def test_the_three_timeframes_are_registered(self, code, ut, label):
+        definition = get_definition(code)
+        assert definition is not None
+        assert definition.display_name == f"GER40 Combo {label}"
+        assert definition.instrument == "GER40.I"
+        assert definition.unit_time == ut
+        assert definition.combo_entry is True
+        assert definition.double_take_profit is True
+
+    def test_they_trade_the_full_dax_cfd_session(self):
+        """02:00-22:00, not the 09:00-22:00 the impulsive variants use:
+        the combo strategy reads the instrument continuously and should
+        see the pre-open hours too."""
+        for code in ("C5M", "C15M", "C1H"):
+            definition = get_definition(code)
+            assert isinstance(definition.market, DaxCfdMarket)
+            assert definition.market.open_hour == 2
+
+    def test_they_default_to_a_50_point_stop(self):
+        for code in ("C5M", "C15M", "C1H"):
+            assert (
+                get_definition(code).default_parameters.stop_loss_points == 50
+            )
+
+    def test_they_differ_only_in_timeframe(self):
+        """The comparison the feature exists for is only meaningful if
+        nothing else varies between the three."""
+        definitions = [get_definition(c) for c in ("C5M", "C15M", "C1H")]
+        shared = (
+            "instrument",
+            "default_parameters",
+            "combo_entry",
+            "double_take_profit",
+        )
+        first = definitions[0]
+        for field_name in shared:
+            for other in definitions[1:]:
+                assert getattr(other, field_name) == getattr(first, field_name)
+        assert len({d.unit_time for d in definitions}) == 3
+
+    def test_no_session_range_definition_gained_a_timeframe(self):
+        for definition in list_definitions():
+            if not definition.combo_entry:
+                assert definition.unit_time is None
+
+
+class TestComboParameters:
+    def test_only_the_stop_is_tunable(self):
+        """FR-C16: the other three describe a reference range this
+        strategy does not have, so an override for them must not be
+        silently carried into the run."""
+        definition = get_definition("C15M")
+        resolved = resolve_parameters(
+            definition,
+            stop_loss_points=80,
+            take_profit_offset_points=999,
+            break_even_trigger_points=999,
+            max_entry_distance_points=999,
+        )
+        assert resolved.stop_loss_points == 80
+        assert resolved == BacktestParameters(stop_loss_points=80)
+
+    def test_an_omitted_stop_falls_back_to_the_definition_default(self):
+        assert resolve_parameters(get_definition("C5M")).stop_loss_points == 50
+
+    def test_a_session_range_definition_still_takes_all_four(self):
+        resolved = resolve_parameters(
+            get_definition("G9H"),
+            take_profit_offset_points=7,
+            max_entry_distance_points=11,
+        )
+        assert resolved.take_profit_offset_points == 7
+        assert resolved.max_entry_distance_points == 11

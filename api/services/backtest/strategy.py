@@ -16,6 +16,7 @@ models, the CSV exports, the summary) is shared.
 import datetime
 from typing import Optional, Protocol
 
+from api.services.backtest.combo_strategy import ComboStrategy
 from api.services.backtest.session_range import SessionRangeStrategy
 from client.aws_client import DynamoDBClient
 from model import (
@@ -25,7 +26,6 @@ from model import (
     DayResult,
 )
 from services.candles_service import CandlesService
-from utils.exception import SaxoException
 
 
 class BacktestStrategy(Protocol):
@@ -56,10 +56,8 @@ class StrategySelector:
     holds a candle source, and rebuilding it per request would drop
     whatever that source had already fetched.
 
-    `dynamodb_client` is taken but not yet used: the combo engine reads
-    its own candle cache through it, and it is threaded now so adding
-    that engine does not also change this constructor's signature and
-    every call site with it.
+    Both engines read their own candle cache through `dynamodb_client`,
+    under separate key namespaces.
     """
 
     def __init__(
@@ -70,15 +68,11 @@ class StrategySelector:
         self.session_range = SessionRangeStrategy(
             candles_service, dynamodb_client
         )
+        self.combo = ComboStrategy(candles_service, dynamodb_client)
 
     def for_definition(
         self, definition: BacktestDefinition
     ) -> BacktestStrategy:
         if definition.combo_entry:
-            raise SaxoException(
-                "the combo strategy is not implemented yet; definition "
-                f"{definition.code!r} cannot be run. Falling back to the "
-                "session-range engine would report results for rules it "
-                "never applied"
-            )
+            return self.combo
         return self.session_range
