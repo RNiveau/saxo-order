@@ -1093,3 +1093,76 @@ def test_fallback_rationale_uses_the_stored_direction_casing() -> None:
     )
 
     assert "(BUY)" in _by_code(digest.triaged_assets)["SAN"].rationale
+
+
+class TestWeeklyComboReachesTheReasoningPath:
+    """
+    What the model concludes is not deterministic, so these pin the two
+    halves that are: the payload carries everything the ranking rules need,
+    and the prompt states those rules. Between them they are what SC-006
+    rests on.
+    """
+
+    def _agent_and_payload(self, alerts):
+        client = FakeAnthropicClient({"summary": "s", "assets": []})
+        TriageAgent(client).synthesize(alerts)
+        return _payload_assets(client)
+
+    def test_a_buy_weekly_arrives_with_its_direction_and_strength(self):
+        alert = _directional_alert(
+            "SAN", AlertType.COMBO_WEEKLY, 20.0, Direction.BUY
+        )
+        alert.data["strength"] = SignalStrength.STRONG.value
+
+        assets = self._agent_and_payload([alert])
+
+        asset = assets["SAN_xpar"]
+        assert "combo_weekly" in asset["patterns"]
+        assert asset["pattern_directions"]["combo_weekly"] == "Buy"
+        assert asset["pattern_strengths"]["combo_weekly"] == "strong"
+
+    def test_a_sell_weekly_arrives_as_a_sell(self):
+        """The long-only gate is applied by the model, so the payload has to
+        show it a Sell rather than leave it inferring one from the slope."""
+        alert = _directional_alert(
+            "SAN", AlertType.COMBO_WEEKLY, -20.0, Direction.SELL
+        )
+
+        assets = self._agent_and_payload([alert])
+
+        assert assets["SAN_xpar"]["pattern_directions"]["combo_weekly"] == (
+            "Sell"
+        )
+
+    def test_a_timeframe_disagreement_arrives_as_two_directions(self):
+        """FR-009 asks the rationale to name the conflict; it can only do
+        that if both directions reach the model separately."""
+        alerts = [
+            _directional_alert(
+                "SAN", AlertType.COMBO_WEEKLY, 20.0, Direction.BUY
+            ),
+            _directional_alert("SAN", AlertType.COMBO, 20.0, Direction.SELL),
+        ]
+
+        assets = self._agent_and_payload(alerts)
+
+        directions = assets["SAN_xpar"]["pattern_directions"]
+        assert directions["combo_weekly"] == "Buy"
+        assert directions["combo"] == "Sell"
+
+    def test_the_prompt_states_the_rules_the_payload_serves(self):
+        prompt = " ".join(TRIAGE_SYSTEM_PROMPT.split())
+
+        # Ranked above daily, and the timeframe named in the rationale.
+        assert 'it ranks ABOVE a "Buy" combo' in prompt
+        assert "say the signal is on the WEEKLY timeframe" in prompt
+        # Long-only: a Sell disqualifies whichever timeframe it sits on.
+        assert (
+            '"Sell" combo_weekly disqualifies the asset as a long exactly as'
+            in prompt
+        )
+        # The disagreement is named rather than silently resolved.
+        assert (
+            "When combo and combo_weekly disagree, NAME the disagreement"
+            in prompt
+        )
