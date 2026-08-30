@@ -98,7 +98,7 @@ detection needed — and check the conviction band and rationale for each case.
 
 ### Tests for User Story 2
 
-- [ ] T015 [P] [US2] Test the reasoned path in `tests/services/test_alert_triage_service.py`: a Buy-weekly-only asset is eligible for the top band and its rationale names the weekly timeframe; a Sell-weekly-only asset never reaches the top band; a Buy weekly ranks at or above an equivalent Buy daily; a Buy weekly with a Sell daily produces a rationale naming the disagreement (SC-006)
+- [x] T015 [P] [US2] Test the reasoned path in `tests/services/test_alert_triage_service.py`: a Buy-weekly-only asset is eligible for the top band and its rationale names the weekly timeframe; a Sell-weekly-only asset never reaches the top band; a Buy weekly ranks at or above an equivalent Buy daily; a Buy weekly with a Sell daily produces a rationale naming the disagreement (SC-006)
 - [x] T016 [P] [US2] Test the deterministic fallback in `tests/services/test_alert_triage_service.py`: an asset carrying a daily and a weekly combo and nothing else reaches the same conviction band as an asset carrying the daily combo alone (SC-008, FR-015)
 
 ### Implementation for User Story 2
@@ -119,10 +119,10 @@ promotion
 **Independent Test**: store one `combo_weekly` alert, open the alerts view, and confirm a distinct
 label, a direction badge, and a badge colour that is not the daily combo's.
 
-- [ ] T020 [P] [US3] Add `combo_weekly: 'Combo Weekly'` to `ALERT_TYPE_LABELS` in `frontend/src/utils/alertLabels.ts`
-- [ ] T021 [P] [US3] Add `combo_weekly` to the directional-alert handling in `frontend/src/components/AlertCard.tsx` so its Buy/Sell direction renders as other directional alerts do
-- [ ] T022 [P] [US3] Add a `.alert-card[data-alert-type="combo_weekly"] .alert-type-badge` rule in `frontend/src/pages/AssetDetail.css` with a colour distinct from the daily combo's
-- [ ] T023 [US3] Verify the alerts API returns `combo_weekly` and accepts it in the `alert_type` filter, matching `specs/029-combo-weekly-timeframe/contracts/alerts.openapi.yaml`; add a test in `tests/api/routers/` if the filter path is not already covered
+- [x] T020 [P] [US3] Add `combo_weekly: 'Combo Weekly'` to `ALERT_TYPE_LABELS` in `frontend/src/utils/alertLabels.ts`
+- [x] T021 [P] [US3] Add `combo_weekly` to the directional-alert handling in `frontend/src/components/AlertCard.tsx` so its Buy/Sell direction renders as other directional alerts do — *already satisfied: the rendering reads `data.direction` rather than switching on the alert type, so only the stale comment needed correcting*
+- [x] T022 [P] [US3] Add a `.alert-card[data-alert-type="combo_weekly"] .alert-type-badge` rule in `frontend/src/pages/AssetDetail.css` with a colour distinct from the daily combo's — *the rule alone was inert: `AlertCard` never set `data-alert-type`, so every per-type colour in that stylesheet was dead. Setting the attribute lights them all up.*
+- [x] T023 [US3] Verify the alerts API returns `combo_weekly` and accepts it in the `alert_type` filter, matching `specs/029-combo-weekly-timeframe/contracts/alerts.openapi.yaml`; add a test in `tests/api/routers/` if the filter path is not already covered
 
 **Checkpoint**: the alert is distinguishable at a glance and reachable through the API
 
@@ -137,7 +137,7 @@ duration and request count.
 
 - [x] T024 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a scan with weekly detection enabled issues exactly one additional `get_historical_data` call per asset — three would mean the forming week is being fetched separately instead of built from the daily candles (research.md R1)
 - [x] T025 [US4] Test in `tests/saxo_order/commands/test_alerting.py` that a provider failure on the weekly fetch for one asset leaves that asset's other detectors storing their alerts and the scan continuing over the remaining assets (FR-006)
-- [ ] T026 [US4] Run a full scan of the production universe, and the same scan with weekly detection reverted; record duration, request count and the unused share of the execution window (SC-003) in `specs/029-combo-weekly-timeframe/calibration.md`
+- [ ] T026 [US4] **BLOCKED — needs live provider credentials, which the development container does not hold.** Run a full scan of the production universe, and the same scan with weekly detection reverted; record duration, request count and the unused share of the execution window (SC-003) in `specs/029-combo-weekly-timeframe/calibration.md`
 
 **Checkpoint**: the cost of the second timeframe is measured, bounded and recorded
 
@@ -145,10 +145,10 @@ duration and request count.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T027 Walk `specs/029-combo-weekly-timeframe/quickstart.md` end to end and correct any step that does not match the built behaviour
-- [ ] T028 [P] Run the backend gates: `poetry run black . && poetry run isort .`, `poetry run mypy .`, `poetry run flake8`, `poetry run pytest`
-- [ ] T029 [P] Run the frontend gates: `npm run lint` and `npm run build` in `frontend/`
-- [ ] T030 Confirm no `assert` was introduced in production code and that no hardcoded string was used where `AlertType` or `UnitTime` exists (Constitution II, V)
+- [x] T027 Walk `specs/029-combo-weekly-timeframe/quickstart.md` end to end and correct any step that does not match the built behaviour
+- [x] T028 [P] Run the backend gates: `poetry run black . && poetry run isort .`, `poetry run mypy .`, `poetry run flake8`, `poetry run pytest`
+- [x] T029 [P] Run the frontend gates: `npm run lint` and `npm run build` in `frontend/`
+- [x] T030 Confirm no `assert` was introduced in production code and that no hardcoded string was used where `AlertType` or `UnitTime` exists (Constitution II, V)
 
 ---
 

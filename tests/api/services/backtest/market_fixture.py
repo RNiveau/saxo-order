@@ -1,19 +1,31 @@
 """Deterministic synthetic market for the backtest golden tests.
 
-Builds reproducible H1 / 5-minute / daily candle series from a seeded RNG so
-a full BacktestService run can be snapshotted and compared across a
-refactor. Every series is a pure function of (instrument, date), so the
-snapshot is stable regardless of the order or range a test asks for.
+Draws one seeded 5-minute price path per (instrument, day) across the
+widest session any backtest trades, and serves whatever timeframe and
+window a caller asks for by aggregating it. Every series is a pure
+function of (instrument, date), so the snapshot is stable regardless of
+the order or range a test asks for.
+
+Deliberately knows nothing about strategies. It used to answer in the
+shapes the strategies of the day happened to ask for - one H1 reference
+candle, a post-10:00 5-minute scan, a separately drawn H1 session series
+- which meant a backtest reading a new shape could not be added without
+editing the market, and meant two timeframes of the "same" day were
+really two unrelated random walks.
 """
 
 import datetime
 import math
 import random
-from typing import List, Tuple
+from functools import lru_cache
+from typing import Dict, List, Tuple
 from unittest.mock import MagicMock
 
-from api.services.backtest import paris_reference_window_utc
-from model import Candle, EUMarket, UnitTime
+from api.services.backtest import (
+    paris_reference_window_utc,
+    paris_session_end_utc,
+)
+from model import Candle, EuCfdMarket, Market, UnitTime
 from services.candles_service import CandlesService
 from utils.helper import last_session_close
 
@@ -32,8 +44,17 @@ NO_DATA_DATES = {datetime.date(2026, 3, 11), datetime.date(2026, 4, 8)}
 GOLDEN_START = datetime.date(2026, 3, 2)
 GOLDEN_END = datetime.date(2026, 4, 30)
 
-H1_STEPS = 12
-SESSION_STEPS = 90
+# The widest session any definition trades (09:00-22:00 Paris). The day's
+# path is drawn across it once; a definition on a shorter session reads a
+# prefix of the same prices rather than a walk of its own.
+WIDEST_SESSION: Market = EuCfdMarket()
+
+# Resolution the day's path is drawn at - the finest any backtest asks
+# for. Everything coarser is aggregated from it.
+BASE_HORIZON = 5
+
+# Minutes per candle for each timeframe a backtest can request.
+HORIZONS = {UnitTime.M5: 5, UnitTime.M15: 15, UnitTime.H1: 60}
 
 
 def _rng(instrument: str, d: datetime.date, tag: str) -> random.Random:
@@ -73,91 +94,113 @@ def _session_open_price(instrument: str, d: datetime.date) -> float:
     return base + drift + noise
 
 
-def h1_reference_candle(instrument: str, d: datetime.date) -> Candle:
-    """The 9h-10h reference candle, aggregated from the first hour's walk."""
+def session_bounds(
+    d: datetime.date, market: Market
+) -> Tuple[datetime.datetime, datetime.datetime]:
+    """The market's session on `d` as naive UTC bounds. The open comes from
+    the reference window because both start at the session open."""
+    return (
+        paris_reference_window_utc(d, market)[0],
+        paris_session_end_utc(d, market),
+    )
+
+
+@lru_cache(maxsize=None)
+def base_bars(instrument: str, d: datetime.date) -> Tuple[Candle, ...]:
+    """The day's price path as 5-minute candles across the widest session
+    any backtest trades.
+
+    One path per (instrument, day), sampled - never re-drawn - by
+    `candles_in_window`. This is what keeps the fixture a *market* rather
+    than a set of answers shaped like the questions the current
+    strategies happen to ask: a strategy on a new timeframe reads the
+    same prices as every existing one, and adding it touches nothing
+    here.
+    """
     _, sigma = INSTRUMENT_PROFILE[instrument]
+    start, end = session_bounds(d, WIDEST_SESSION)
+    steps = int((end - start).total_seconds() // 60) // BASE_HORIZON
     bars = _walk(
-        _rng(instrument, d, "h1"),
+        _rng(instrument, d, "base"),
         _session_open_price(instrument, d),
         sigma,
-        H1_STEPS,
+        steps,
     )
-    start, _ = paris_reference_window_utc(d, EUMarket())
-    return Candle(
-        lower=round(min(bar[2] for bar in bars), 2),
-        higher=round(max(bar[1] for bar in bars), 2),
-        open=bars[0][0],
-        close=bars[-1][3],
-        ut=UnitTime.H1,
-        date=start,
-    )
-
-
-def m5_session_candles(instrument: str, d: datetime.date) -> List[Candle]:
-    """The post-10h session as 5-minute candles, continuing from the
-    reference candle's close."""
-    _, sigma = INSTRUMENT_PROFILE[instrument]
-    reference = h1_reference_candle(instrument, d)
-    bars = _walk(
-        _rng(instrument, d, "m5"), reference.close, sigma, SESSION_STEPS
-    )
-    _, session_start = paris_reference_window_utc(d, EUMarket())
-    return [
+    return tuple(
         Candle(
             lower=bar[2],
             higher=bar[1],
             open=bar[0],
             close=bar[3],
             ut=UnitTime.M5,
-            date=session_start + datetime.timedelta(minutes=5 * index),
+            date=start + datetime.timedelta(minutes=BASE_HORIZON * index),
         )
         for index, bar in enumerate(bars)
-    ]
-
-
-H1_SESSION_CANDLES = 9  # a 9:00-17:30 cash session
-
-
-def h1_session_candles(instrument: str, d: datetime.date) -> List[Candle]:
-    """One trading day's cash-session H1 candles, oldest first.
-
-    The first is the 9:00-10:00 reference candle itself - the same object
-    the strategy reads - so the MM50 filter's series and the day's
-    reference level cannot drift apart; the rest continue its walk hour by
-    hour."""
-    _, sigma = INSTRUMENT_PROFILE[instrument]
-    reference = h1_reference_candle(instrument, d)
-    bars = _walk(
-        _rng(instrument, d, "h1series"),
-        reference.close,
-        sigma,
-        H1_SESSION_CANDLES - 1,
     )
-    start, _ = paris_reference_window_utc(d, EUMarket())
-    return [reference] + [
-        Candle(
-            lower=bar[2],
-            higher=bar[1],
-            open=bar[0],
-            close=bar[3],
-            ut=UnitTime.H1,
-            date=start + datetime.timedelta(hours=index + 1),
+
+
+def candles_in_window(
+    instrument: str,
+    d: datetime.date,
+    ut: UnitTime,
+    start: datetime.datetime,
+    end: datetime.datetime,
+) -> List[Candle]:
+    """The day's base path aggregated to `ut` and cut to [start, end).
+
+    Buckets are anchored to midnight rather than to the window, so the
+    same clock minute always falls in the same candle whatever window it
+    is asked for - a 09:00-10:00 request and a 09:00-22:00 request agree
+    on the 09:00 hourly candle.
+    """
+    horizon = HORIZONS.get(ut, BASE_HORIZON)
+    buckets: Dict[int, List[Candle]] = {}
+    for bar in base_bars(instrument, d):
+        if bar.date is None or not (start <= bar.date < end):
+            continue
+        minute_of_day = bar.date.hour * 60 + bar.date.minute
+        buckets.setdefault(minute_of_day // horizon, []).append(bar)
+
+    candles: List[Candle] = []
+    for key in sorted(buckets):
+        group = buckets[key]
+        candles.append(
+            Candle(
+                lower=round(min(bar.lower for bar in group), 2),
+                higher=round(max(bar.higher for bar in group), 2),
+                open=group[0].open,
+                close=group[-1].close,
+                ut=ut,
+                date=datetime.datetime.combine(d, datetime.time())
+                + datetime.timedelta(minutes=key * horizon),
+            )
         )
-        for index, bar in enumerate(bars)
-    ]
+    return candles
+
+
+def session_candles(
+    instrument: str, d: datetime.date, ut: UnitTime, market: Market
+) -> List[Candle]:
+    """One trading day's session at `ut`, oldest first."""
+    start, end = session_bounds(d, market)
+    return candles_in_window(instrument, d, ut, start, end)
 
 
 def h1_candles(
-    instrument: str, end_date: datetime.date, count: int
+    instrument: str, end_date: datetime.date, count: int, market: Market
 ) -> List[Candle]:
-    """`count` cash-session H1 candles ending with end_date's session,
-    newest first, skipping weekends - what CandlesService.build_candles
-    returns for UnitTime.H1."""
+    """`count` session H1 candles ending with end_date's session, newest
+    first, skipping weekends - what CandlesService.build_candles returns
+    for UnitTime.H1."""
     candles: List[Candle] = []
     current = end_date
     while len(candles) < count:
         if current.weekday() < 5:
-            candles.extend(reversed(h1_session_candles(instrument, current)))
+            candles.extend(
+                reversed(
+                    session_candles(instrument, current, UnitTime.H1, market)
+                )
+            )
         current -= datetime.timedelta(days=1)
     return candles[:count]
 
@@ -202,12 +245,14 @@ def golden_candles_service() -> MagicMock:
     service = MagicMock(spec=CandlesService)
 
     def get_candles_in_window(code, ut, horizon, start, end):
+        """Whatever the caller asks for, sampled from the day's one price
+        path. Nothing here branches on which strategy is asking - that
+        coupling is what made this fixture need editing every time a
+        backtest reading a new shape was added."""
         trading_date = start.date()
         if trading_date in NO_DATA_DATES:
             return []
-        if ut == UnitTime.H1:
-            return [h1_reference_candle(code, trading_date)]
-        return m5_session_candles(code, trading_date)
+        return candles_in_window(code, trading_date, ut, start, end)
 
     def build_candles(code, ut, market, count, reference):
         if ut == UnitTime.H1:
@@ -215,7 +260,10 @@ def golden_candles_service() -> MagicMock:
             # past the last day, and last_session_close walks it back to
             # the session actually available.
             return h1_candles(
-                code, last_session_close(reference, market).date(), count
+                code,
+                last_session_close(reference, market).date(),
+                count,
+                market,
             )
         return daily_candles(code, reference.date(), count)
 

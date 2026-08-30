@@ -16,6 +16,12 @@ poetry install
 `secrets.yml` with Saxo credentials, and AWS credentials for the `alerts` table, exactly as the
 existing scan requires. Nothing further — no new table, no migration.
 
+**Authenticate against the environment you mean to call.** `config.yml` points at the simulation
+endpoints and `prod_config.yml` at production; the tokens on disk (or in S3, when `AWS_PROFILE` is
+set) belong to one of them. Running `k-order auth` for one and then a command configured for the
+other returns 401 on every asset, through a confusing gateway-401-then-refresh-401 pair rather than
+a clear message.
+
 ---
 
 ## Run the scan against a single asset
@@ -58,6 +64,17 @@ Run the scan on five consecutive days against an asset whose weekly combo holds:
 
 Both are correct. The first is the de-dup signature; the second is detection re-running each scan.
 
+### A signal that scored nothing is not reported at all (FR-015, SC-009)
+
+```bash
+poetry run pytest tests/services/test_indicator_service.py -k NoCriteriaIsNoCombo
+```
+
+Clearing the three structural gates and then meeting none of the scoring criteria means the setup
+is absent, not faint — `combo()` returns `None`. A signal meeting one criterion **is** reported,
+labelled weak. Both halves matter: the first keeps entries that say nothing out of the reasoning
+payload, the second keeps a real observation from being discarded.
+
 ### A mid-week direction flip is recorded (FR-007)
 
 Force the forming bar's direction to flip between two runs. A second `combo_weekly` row must appear
@@ -86,6 +103,28 @@ Submit a triage payload for an asset whose only pattern is a **Buy** `combo_week
 eligible for the top conviction band and the rationale must name the weekly timeframe. Repeat with
 **Sell**: it must be disqualified as a long, exactly as a Sell daily combo is.
 
+### It is distinguishable at a glance (US3)
+
+Store one `combo_weekly` alert and open the alerts view. It must show:
+
+- the label **Combo Weekly** (from `alertLabels.ts`, not the `titleCase` fallback);
+- its Buy/Sell direction, rendered as other directional alerts are;
+- a badge colour of its own — cyan, against the daily combo's blue.
+
+The badge colour needs `data-alert-type` on the card element. It was missing before this feature,
+which left *every* per-type colour rule in `AssetDetail.css` inert; adding it lights up the other
+alert types' colours too, as that stylesheet always intended.
+
+### It is reachable through the API (US3)
+
+```bash
+poetry run pytest tests/api/services/test_alerting_service.py -k WeeklyComboFiltering
+```
+
+`GET /api/alerts?alert_type=combo_weekly` returns only weekly combos, and `alert_type=combo` does
+**not** return them — "combo" is a prefix of "combo_weekly", so a filter written with a substring
+match instead of equality would fold the two timeframes together.
+
 ### The scan stays inside its budget (US4, SC-003)
 
 Compare a full scan against the same scan with the weekly detection reverted. Provider requests
@@ -112,8 +151,9 @@ equities (R8).
 than ten days, so the daily floor admits nearly everything and the daily flatness ceiling admits
 almost nothing.
 
-Also measure eligibility while you are here — the share of scanned assets returning ≥60 weekly bars
-answers **SC-004** and gates release.
+The run also answers **SC-004** (the share of assets holding ≥60 weekly bars) and reports how many
+would actually emit a weekly combo, by strength — the **SC-005** rate, which the slope distributions
+alone do not give you.
 
 ---
 
