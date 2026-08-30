@@ -77,29 +77,39 @@ strictly the top quartile of trends rather than the time-scaled equivalent of th
 daily level. 50.0 was chosen for consistency with the daily semantics; the two
 differ by roughly one decile of the population.
 
-## Still to measure: the emission rate (SC-005)
+## Emission rate — SC-005
 
-The distributions above say what the thresholds admit — roughly 40% of assets
-clear the band gate and ~72% clear the direction floor. They do not say how many
-alerts a day that becomes, because the three price-position gates in
-`_combo_for_direction` (wrong side of the MA50, a breached 2.5 band, too far from
-both the inner band and the MA50) cut again afterwards. Those gates are
-ATR-scaled, so they self-adjust to the timeframe — a reason to expect the rate to
-be sane, not evidence that it is.
-
-The script now reports it directly, off the cached responses at no request cost:
+Measured 2026-08-30 from the cached responses, so on the same weekly bars as the
+distributions above (the percentiles reproduce exactly, which is how the cache
+hit is visible).
 
 ```
-Would emit a weekly combo: N (X% of eligible) [SC-005]
-    strong    n
-    medium    n
-    weak      n
+Would emit a weekly combo: 2 (2% of eligible) [SC-005]
+    strong     1
+    weak       1
 ```
 
-Re-run the calibration to fill this in. SC-005 caps weekly combos at 15% of the
-asset-days surfaced in the digest, and a rate far above that is a signal to
-raise `ma50_slope_min` or lower `bb_flat_slope_max` before a trial rather than
-after one.
+**Two assets out of 121.** SC-005 caps weekly combos at 15% of the asset-days a
+digest surfaces; at 2% of eligible assets on a bar there is no plausible way to
+reach that ceiling, so the thresholds need no tightening before the trial. The
+criterion is still formally open — it asks for a share of digest asset-days over
+a two-week window, which only production can answer — but the direction of the
+risk is settled: the signal is scarce, not floody.
+
+The gap between what the thresholds admit and what actually emits is the point
+worth recording. Roughly 40% of assets clear the band gate and ~72% clear the
+direction floor, yet 2% emit. The three price-position gates in
+`_combo_for_direction` — wrong side of the MA50, a breached 2.5 band, too far
+from both the inner band and the MA50 — do nearly all of the filtering, and they
+are ATR-scaled, so they self-adjusted to the weekly timeframe without being
+recalibrated. The zero-criteria rule cuts again after that.
+
+**The residual risk is now the opposite one.** At this rate a weekly combo is a
+rare event — on the order of one or two names a week, and only on the weeks the
+setup appears at all. If a trial period passes with no weekly alert whatsoever,
+that is not a bug to hunt: it is this number, and the lever is `ma50_slope_min`
+(15.0 sits at p25) or `bb_flat_slope_max` (25.0 admits one flat band for ~40% of
+assets), loosened deliberately rather than by accident.
 
 ## Reproducing
 
