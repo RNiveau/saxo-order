@@ -12,10 +12,8 @@ from model import (
     SignalStrength,
     UnitTime,
 )
-from saxo_order.commands.alerting import (
-    _build_weekly_candles,
-    run_detection_for_asset,
-)
+from saxo_order.commands.alerting import run_detection_for_asset
+from services.candle_source import build_weekly_series
 from services.indicator_service import COMBO_SETTINGS
 from utils.exception import SaxoException
 
@@ -55,7 +53,7 @@ def dynamodb_client():
 @pytest.fixture
 def patched_alerting(mocker):
     mocker.patch(
-        "saxo_order.commands.alerting._run_double_top", return_value=None
+        "services.detection_service.run_double_top", return_value=None
     )
     mocker.patch(
         "saxo_order.commands.alerting._run_containing_candle",
@@ -66,7 +64,7 @@ def patched_alerting(mocker):
         return_value=None,
     )
     mocker.patch(
-        "saxo_order.commands.alerting._run_congestion_indicator",
+        "services.detection_service.run_congestion_indicator",
         return_value=None,
     )
     mocker.patch(
@@ -83,7 +81,7 @@ class TestRunDetectionForAssetMM50Touch:
     ):
         candles = _mm50_touch_candles()
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=candles,
         )
 
@@ -119,7 +117,7 @@ class TestRunDetectionForAssetMM50Touch:
         # Flat MA50 (slope ≈ 0) → no MM50_TOUCH
         candles = _make_candles([100.0] * 60)
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=candles,
         )
 
@@ -140,7 +138,7 @@ class TestRunDetectionForAssetMM50Touch:
     ):
         candles = _mm50_touch_candles()
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=candles,
         )
 
@@ -170,7 +168,7 @@ class TestRunDetectionForAssetMM7Break:
         # close 95 under a 7-MA near 99.3, after 3 candles closing above it
         candles = _make_candles([95.0] + [100.0] * 9)
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=candles,
         )
 
@@ -201,7 +199,7 @@ class TestRunDetectionForAssetMM7Break:
     ):
         candles = _make_candles([100.0] * 60)
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=candles,
         )
 
@@ -521,7 +519,7 @@ class TestRunDetectionForAssetIsolatesDetectors:
 
     async def _run(self, mocker, candles: List[Candle]) -> tuple:
         mocker.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=candles,
         )
         saxo_client = self._saxo_client()
@@ -563,10 +561,10 @@ class TestRunDetectionForAssetIsolatesDetectors:
             side_effect=SaxoException("Missing candles"),
         )
         mocker.patch(
-            "saxo_order.commands.alerting._run_double_top", return_value=None
+            "services.detection_service.run_double_top", return_value=None
         )
         mocker.patch(
-            "saxo_order.commands.alerting._run_double_bottom",
+            "services.detection_service.run_double_bottom",
             return_value=None,
         )
         mocker.patch(
@@ -578,7 +576,7 @@ class TestRunDetectionForAssetIsolatesDetectors:
             return_value=None,
         )
         mocker.patch(
-            "saxo_order.commands.alerting._run_congestion_indicator",
+            "services.detection_service.run_congestion_indicator",
             return_value=None,
         )
         alerts, dynamodb_client = await self._run(
@@ -591,11 +589,11 @@ class TestRunDetectionForAssetIsolatesDetectors:
 
     async def test_a_failing_store_does_not_raise(self, mocker):
         mocker.patch(
-            "saxo_order.commands.alerting._run_congestion_indicator",
+            "services.detection_service.run_congestion_indicator",
             return_value=None,
         )
         mocker.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=_mm50_touch_candles(),
         )
         dynamodb_client = MagicMock()
@@ -639,7 +637,7 @@ class TestBuildWeeklyCandles:
         client = MagicMock()
         client.get_historical_data.return_value = [{"raw": True}]
         mocker.patch(
-            "saxo_order.commands.alerting.client_helper.map_data_to_candles",
+            "services.candle_source.client_helper.map_data_to_candles",
             return_value=candles,
         )
         return client
@@ -659,12 +657,11 @@ class TestBuildWeeklyCandles:
             date=today,
         )
         mocker.patch(
-            "saxo_order.commands.alerting."
-            "build_current_weekly_candle_from_daily",
+            "services.candle_source." "build_current_weekly_candle_from_daily",
             return_value=forming,
         )
 
-        candles = _build_weekly_candles(client, {"saxo_uic": 1}, [])
+        candles = build_weekly_series(client, 1, [])
 
         assert candles[0] is forming
         assert len(candles) == 61
@@ -677,11 +674,10 @@ class TestBuildWeeklyCandles:
             mocker, _weekly_candles(60, today)
         )
         build = mocker.patch(
-            "saxo_order.commands.alerting."
-            "build_current_weekly_candle_from_daily",
+            "services.candle_source." "build_current_weekly_candle_from_daily",
         )
 
-        candles = _build_weekly_candles(client, {"saxo_uic": 1}, [])
+        candles = build_weekly_series(client, 1, [])
 
         assert len(candles) == 60
         build.assert_not_called()
@@ -698,12 +694,11 @@ class TestBuildWeeklyCandles:
             mocker, _weekly_candles(60, last_week)
         )
         mocker.patch(
-            "saxo_order.commands.alerting."
-            "build_current_weekly_candle_from_daily",
+            "services.candle_source." "build_current_weekly_candle_from_daily",
             return_value=None,
         )
 
-        candles = _build_weekly_candles(client, {"saxo_uic": 1}, [])
+        candles = build_weekly_series(client, 1, [])
 
         assert len(candles) == 60
 
@@ -712,7 +707,7 @@ class TestBuildWeeklyCandles:
             mocker, _weekly_candles(60, datetime.datetime.now(datetime.UTC))
         )
 
-        _build_weekly_candles(client, {"saxo_uic": 42}, [])
+        build_weekly_series(client, 42, [])
 
         client.get_historical_data.assert_called_once()
         kwargs = client.get_historical_data.call_args[1]
@@ -736,12 +731,12 @@ class TestRunDetectionForAssetWeeklyCombo:
     ):
         candles = _mm50_touch_candles()
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=candles,
         )
         bar_date = datetime.datetime(2026, 8, 17, 0, 0)
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_weekly_candles",
+            "services.candle_source.build_weekly_series",
             return_value=[
                 Candle(
                     lower=1.0,
@@ -788,11 +783,11 @@ class TestRunDetectionForAssetWeeklyCombo:
         told. What never arrives here is a signal that met nothing, because
         the detector returns None for that rather than a WEAK signal."""
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=_mm50_touch_candles(),
         )
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_weekly_candles",
+            "services.candle_source.build_weekly_series",
             return_value=[
                 Candle(
                     lower=1.0,
@@ -841,11 +836,11 @@ class TestRunDetectionForAssetWeeklyCombo:
         self, saxo_client, dynamodb_client, patched_alerting
     ):
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=_mm50_touch_candles(),
         )
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_weekly_candles",
+            "services.candle_source.build_weekly_series",
             return_value=[
                 Candle(
                     lower=1.0,
@@ -878,11 +873,11 @@ class TestRunDetectionForAssetWeeklyCombo:
         alerts already found for it, or to stop the scan."""
         candles = _mm50_touch_candles()
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=candles,
         )
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_weekly_candles",
+            "services.candle_source.build_weekly_series",
             side_effect=SaxoException("provider said no"),
         )
 
@@ -907,13 +902,13 @@ class TestRunDetectionForAssetWeeklyCombo:
         instead of built from the daily candles already in hand."""
         candles = _mm50_touch_candles()
         patched_alerting.patch(
-            "saxo_order.commands.alerting._build_candles",
+            "services.candle_source.build_daily_series",
             return_value=candles,
         )
         # Dated last week, so the forming-week branch runs - that branch is
         # where a second fetch would hide.
         mocker.patch(
-            "saxo_order.commands.alerting.client_helper.map_data_to_candles",
+            "services.candle_source.client_helper.map_data_to_candles",
             return_value=_weekly_candles(
                 60,
                 datetime.datetime.now(datetime.UTC)
