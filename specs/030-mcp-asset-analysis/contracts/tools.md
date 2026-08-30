@@ -121,9 +121,15 @@ Runs the project's own detectors on demand (FR-013), reporting hits in the exist
 
 | Alert type | Source |
 |---|---|
-| `COMBO`, `MM50_TOUCH`, `MM7_BREAK`, `DOUBLE_TOP`, `DOUBLE_BOTTOM`, `CONTAINING_CANDLE`, `DOUBLE_INSIDE_BAR` | Direct `indicator_service` calls |
+| `COMBO`, `MM50_TOUCH`, `MM7_BREAK`, `CONTAINING_CANDLE` | Direct `indicator_service` calls |
+| `DOUBLE_INSIDE_BAR` | `indicator_service.double_inside_bar` returns **`bool`** (`indicator_service.py:774`); the wrapper's `candles[0]` adaptation is what turns it into a hit |
+| `DOUBLE_TOP`, `DOUBLE_BOTTOM` | **Not** direct calls. `indicator_service.double_top(candles, tick)` needs a tick from `get_asset_detail` + `client_helper.get_tick_size`, and the wrappers (`alerting.py:675`/`:698`) carry a **2-day recency filter** that exists nowhere else. Costs one extra `get_asset_detail` request per detection |
 | `CONGESTION20`, `CONGESTION100` | `congestion_indicator.calculate_congestion_indicator` driven by the `(alert_type, length, minimal_touch_points)` table extracted from `alerting.py:659` |
 | `COMBO_WEEKLY` | A weekly series (`candle_source.build_weekly_series`) plus `combo` with `COMBO_SETTINGS[UnitTime.W]`, **not** the daily settings (`alerting.py:386`). Costs one extra provider series fetch |
+
+**Why the recency filter matters more than it looks**: call `indicator_service.double_top` directly and a double top from three weeks ago reports as a current hit — one the scheduled scan would never have alerted on. That is an SC-006 divergence arriving through the same door as the candle-path issue, so the wrappers are extracted (parameterised by `asset_type`, dropping the `AssetType.STOCK` hardcode at `alerting.py:680`/`:703`) rather than re-called.
+
+**Request accounting for a full detection**: base daily series + weekly series (`COMBO_WEEKLY`) + one `get_asset_detail` (tick for double top/bottom). Not two series.
 
 `inside_bar` is deliberately absent: it is a helper for `double_inside_bar` (`indicator_service.py:762`/`:774`) and maps to no `AlertType`.
 
