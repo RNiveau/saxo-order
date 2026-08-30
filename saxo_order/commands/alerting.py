@@ -16,6 +16,7 @@ from client.saxo_client import SaxoClient
 from model import (
     Alert,
     AlertType,
+    AssetType,
     Candle,
     EUMarket,
     UnitTime,
@@ -228,7 +229,7 @@ async def run_detection_for_asset(
     }
     try:
         candles = candle_source.build_daily_series(
-            saxo_client, asset_dict["saxo_uic"], market=EUMarket()
+            saxo_client, asset_dict["saxo_uic"], EUMarket()
         )
     except Exception as e:
         logger.error(f"{asset_description} can't be scanned: {e}")
@@ -283,10 +284,10 @@ async def run_detection_for_asset(
             alert_type,
             partial(
                 detection_service.run_congestion_indicator,
-                asset_dict,
                 candles,
                 length,
                 minimal_touch_points,
+                asset_description,
             ),
         )
         if congestion_result is not None and len(congestion_result[0]) > 0:
@@ -326,8 +327,10 @@ async def run_detection_for_asset(
             partial(
                 detection_service.run_double_top,
                 saxo_client,
-                asset_dict,
+                asset_dict["saxo_uic"],
                 candles,
+                AssetType.STOCK,
+                asset_description,
             ),
         ),
         (
@@ -335,8 +338,10 @@ async def run_detection_for_asset(
             partial(
                 detection_service.run_double_bottom,
                 saxo_client,
-                asset_dict,
+                asset_dict["saxo_uic"],
                 candles,
+                AssetType.STOCK,
+                asset_description,
             ),
         ),
         (

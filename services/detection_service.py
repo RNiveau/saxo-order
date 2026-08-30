@@ -8,10 +8,15 @@ indicator directly would quietly widen what counts as a hit. See
 ``specs/030-mcp-asset-analysis/research.md`` section 10 and the PR #716 review.
 
 Nothing here persists anything: the caller decides what to do with a hit.
+
+These take a ``saxo_uic`` rather than the scan's asset dict: the MCP server
+resolves an instrument to a uic and has no such dict, and a shared module
+should not require one caller to fake the other's data shape. ``name`` is
+only ever a log label.
 """
 
 import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from client import client_helper
 from client.saxo_client import SaxoClient
@@ -35,7 +40,7 @@ CONGESTION_SETTINGS: Tuple[Tuple[AlertType, int, int], ...] = (
 
 def _tick_size(
     saxo_client: SaxoClient,
-    saxo_uic: int,
+    saxo_uic: str | int,
     asset_type: str,
     price: float,
 ) -> float:
@@ -56,9 +61,10 @@ def _is_recent(candle: Optional[Candle]) -> bool:
 
 def run_double_top(
     saxo_client: SaxoClient,
-    asset: Dict,
+    saxo_uic: str | int,
     candles: List[Candle],
     asset_type: str = AssetType.STOCK,
+    name: str = "",
 ) -> Optional[Candle]:
     """A double top formed within the last few days, or None.
 
@@ -66,44 +72,41 @@ def run_double_top(
     ``indicator_service.double_top`` call: the indicator will happily report a
     pattern from weeks ago, which is not something to alert on today.
     """
-    tick = _tick_size(
-        saxo_client, asset["saxo_uic"], asset_type, candles[0].close
-    )
+    tick = _tick_size(saxo_client, saxo_uic, asset_type, candles[0].close)
     double_top_candle = indicator_service.double_top(candles, tick)
     if _is_recent(double_top_candle):
-        logger.debug(f"{asset['name']}, {double_top_candle}")
+        logger.debug(f"{name or saxo_uic}, {double_top_candle}")
         return double_top_candle
     return None
 
 
 def run_double_bottom(
     saxo_client: SaxoClient,
-    asset: Dict,
+    saxo_uic: str | int,
     candles: List[Candle],
     asset_type: str = AssetType.STOCK,
+    name: str = "",
 ) -> Optional[Candle]:
     """A double bottom formed within the last few days, or None."""
-    tick = _tick_size(
-        saxo_client, asset["saxo_uic"], asset_type, candles[0].close
-    )
+    tick = _tick_size(saxo_client, saxo_uic, asset_type, candles[0].close)
     double_bottom_candle = indicator_service.double_bottom(candles, tick)
     if _is_recent(double_bottom_candle):
-        logger.debug(f"{asset['name']}, {double_bottom_candle}")
+        logger.debug(f"{name or saxo_uic}, {double_bottom_candle}")
         return double_bottom_candle
     return None
 
 
 def run_congestion_indicator(
-    asset: Dict,
     candles: List[Candle],
     candle_length: int = 20,
     minimal_touch_points: int = 3,
+    name: str = "",
 ) -> Optional[Tuple[List[Candle], List[Candle]]]:
     indicator = congestion_indicator.calculate_congestion_indicator(
         candles=candles[:candle_length],
         minimal_touch_points=minimal_touch_points,
     )
     if len(indicator[0]) > 0:
-        logger.debug(f"{asset['name']}, {indicator}")
+        logger.debug(f"{name}, {indicator}")
         return indicator
     return None

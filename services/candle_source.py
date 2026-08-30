@@ -39,16 +39,25 @@ WEEKLY_CANDLES_COUNT = 70
 def build_daily_series(
     saxo_client: SaxoClient,
     saxo_uic: str | int,
+    market: Optional[Market],
     asset_type: str = AssetType.STOCK,
-    market: Optional[Market] = None,
     count: int = DAILY_CANDLES_COUNT,
 ) -> List[Candle]:
     """The asset's daily bars, newest first, including the day now trading.
 
     The provider does not return the current day, so it is rebuilt from the
-    hourly series. ``market`` decides the session hours that rebuild uses;
-    when it is None the top-up is skipped rather than assembled against
-    guessed hours, and the caller sees only completed days.
+    hourly series. ``market`` decides the session hours that rebuild uses.
+
+    ``market`` has no default on purpose. Passing None is allowed and means
+    "I could not determine this instrument's session hours" - the forming day
+    is then left out rather than assembled against the wrong hours, and the
+    series ends at the last completed day. That is a real difference in what
+    comes back, so it has to be a choice the caller makes rather than one it
+    can fall into by leaving an argument off. The skip is logged at warning
+    for the same reason.
+
+    A series built with market=None must not be passed to
+    ``build_weekly_series``: see its docstring.
     """
     data = saxo_client.get_historical_data(
         asset_type=asset_type,
@@ -65,8 +74,9 @@ def build_daily_series(
         and today.weekday() < 5
     ):
         if market is None:
-            logger.debug(
-                f"No market for {saxo_uic}, the forming day is left out"
+            logger.warning(
+                f"No market for {saxo_uic}: the forming day is left out and "
+                "the series ends at the last completed day"
             )
             return candles
         hour_data = saxo_client.get_historical_data(
@@ -91,6 +101,12 @@ def build_weekly_series(
     asset_type: str = AssetType.STOCK,
 ) -> List[Candle]:
     """The asset's weekly bars, newest first, including the week now forming.
+
+    ``daily_candles`` must include the day now trading, i.e. it must come from
+    ``build_daily_series`` called with a market. The forming weekly bar is
+    assembled from those days, so a daily series built with market=None yields
+    a weekly bar short by a day - understated close, high and low - and
+    nothing downstream can tell. The two functions are only correct together.
 
     The provider does not return the week currently trading, and the daily
     candles the caller already fetched are exactly the elapsed days of it - so

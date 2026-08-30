@@ -365,7 +365,7 @@ class SaxoClient:
         self._check_response(response)
         return response.json()
 
-    def get_asset_detail(self, saxo_uic: int, asset_type: str) -> Dict:
+    def get_asset_detail(self, saxo_uic: str | int, asset_type: str) -> Dict:
         asset_http = self.session.get(
             f"{self.configuration.saxo_url}ref/v1/instruments/details?"
             f"Uics={saxo_uic}&AssetTypes={asset_type}"
