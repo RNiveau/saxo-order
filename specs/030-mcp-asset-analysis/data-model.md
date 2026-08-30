@@ -42,9 +42,11 @@ Required on **every** market-derived response (FR-004). A response missing it is
 | `instrument_id` | `int \| None` | Venue identifier (Saxo UIC today). `None` means **not analysable** — surfaced as an explicit reason, not a silent skip. Named venue-generically because Story 5 adds a second venue |
 | `asset_type` | `AssetType` | Existing enum. **Required downstream** — `get_historical_data` has no default for it, so every market-data tool takes it back (contracts/tools.md) |
 | `exchange` | `Exchange` | Explicit |
-| `country_code` | `str \| None` | Passed through. **Legitimately absent**; carries no meaning about the venue |
+| ~~`country_code`~~ | — | **Removed.** `Asset` (`model/asset.py`) carries only `symbol`, `description`, `asset_type`, `exchange`, `identifier` — `SaxoClient.search` never sets a country code, so the field would always be `None`. It is available on stored-context reads (watchlist, alerts), where it is populated; it is not part of resolution |
 
 **Validation**: a candidate with `instrument_id is None` is returned with an `unavailable_reason`, never dropped — the analyst should see that the instrument exists but cannot be analysed.
+
+**Known limit of the layer below**: `SaxoClient.search` skips any result whose `AssetType` is not in the enum (`saxo_client.py:130-134` — `continue` after a warning), so such candidates never reach this model. The "never dropped" rule is therefore scoped to *this* layer; it cannot promise completeness the client does not provide. Pre-existing behaviour, accepted as-is rather than changed for a read-only feature.
 
 ---
 
@@ -120,7 +122,7 @@ Each maps in the registry to `(minimum_bars, callable)` — see research.md §6.
 | `meta` | `ResponseMeta` | |
 | `instrument` | `InstrumentRef` | |
 | `hits` | `list[PatternHit]` | Empty list = "nothing fired", explicitly distinct from a failure (Story 3 scenario 3) |
-| `evaluated` | `list[AlertType]` | What was actually checked — so an empty `hits` is interpretable |
+| `evaluated` | `list[AlertType]` | What was actually checked — so an empty `hits` is interpretable. MUST cover all ten types the scheduled scan emits when the full set is requested (SC-006) |
 | `failed` | `list[DetectorFailure]` | Detectors that raised, each with a reason |
 
 **`DetectorFailure`**: `alert_type: AlertType`, `reason: str`.

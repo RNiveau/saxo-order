@@ -33,7 +33,7 @@ Resolve a free-text name or symbol to candidate instruments (FR-006).
 | Case | Behaviour |
 |---|---|
 | No match | Empty list — a normal result, not an error. **Implementation note**: `SaxoClient.search` raises `SaxoException(f"Nothing found for {keyword}")` on zero results (`saxo_client.py:125`) — it never returns `[]`. This case must be caught explicitly *before* `@tool_boundary` turns it into a `ToolError`, or "no match" and "venue unreachable" become indistinguishable without matching on the message text |
-| Candidate without `instrument_id` | Returned with `unavailable_reason`, not dropped |
+| Candidate without `instrument_id` | Returned with `unavailable_reason`, not dropped **by this layer**. Note `SaxoClient.search` already skips results with an unrecognised `AssetType` (`saxo_client.py:130-134`), so completeness cannot be promised beyond what the client yields |
 | `exchange` not covered by this version | `ToolError`: "exchange not supported", distinct from "not found" (FR-008a) |
 | Venue unreachable | `ToolError` naming the failure, distinct from "no match" |
 
@@ -111,10 +111,21 @@ Runs the project's own detectors on demand (FR-013), reporting hits in the exist
 | Case | Behaviour |
 |---|---|
 | Nothing fires | `hits = []` with `evaluated` populated — explicitly distinct from failure |
+| Full set requested | `evaluated` covers **all ten** `AlertType`s the scheduled scan emits (SC-006) — see coverage note below |
 | Called repeatedly | **The alert store is byte-identical afterwards** (FR-003, SC-004) |
 | One detector raises | It appears in `failed` with a reason; the others still return. **Not** silently dropped from `evaluated` |
 
 **Prohibition**: this tool's implementation must not import `run_detection_for_asset` — it persists alerts (research.md §8).
+
+**Coverage — all ten alert types.** Because `hits = []` is specified as a confident "nothing is firing", a setup this tool cannot see is a *false negative*, not a gap: the analyst is told nothing is firing while the morning digest flags the asset. That is a worse failure than an error and contradicts SC-006, so partial coverage is not an option. Three of the ten need more than a function call:
+
+| Alert type | Source |
+|---|---|
+| `COMBO`, `MM50_TOUCH`, `MM7_BREAK`, `DOUBLE_TOP`, `DOUBLE_BOTTOM`, `CONTAINING_CANDLE`, `DOUBLE_INSIDE_BAR` | Direct `indicator_service` calls |
+| `CONGESTION20`, `CONGESTION100` | `congestion_indicator.calculate_congestion_indicator` driven by the `(alert_type, length, minimal_touch_points)` table extracted from `alerting.py:659` |
+| `COMBO_WEEKLY` | A weekly series (`candle_source.build_weekly_series`) plus `combo` with `COMBO_SETTINGS[UnitTime.W]`, **not** the daily settings (`alerting.py:386`). Costs one extra provider series fetch |
+
+`inside_bar` is deliberately absent: it is a helper for `double_inside_bar` (`indicator_service.py:762`/`:774`) and maps to no `AlertType`.
 
 ---
 
