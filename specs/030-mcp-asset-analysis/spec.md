@@ -10,6 +10,7 @@
 ### Session 2026-08-30
 
 - **Q**: Which exchanges must the first version cover? → **A**: The broker exchange (Saxo) only for Stories 1-4; the crypto venue (Ouinex) is added by its own user story (Story 5, P4). The other crypto venue (Binance) is out of scope for this feature.
+- **Q**: When only simulated data is available, should analysis refuse to answer or answer with a label? → **A**: Refuse by default. Simulated data is served only when the caller opts in explicitly per request; the refusal names the cause (absent or invalid credential) and how to fix it.
 
 ## Context
 
@@ -32,7 +33,8 @@ The analyst asks their assistant about an asset by its human name ("Air Liquide"
 1. **Given** an asset name that matches several instruments, **When** the analyst asks about it, **Then** the candidate instruments are returned with enough detail (description, symbol, identifier, type, exchange) to choose between them.
 2. **Given** a resolved instrument with full history, **When** its current state is requested for a period, **Then** all supported indicators are returned in one response, together with the period and the timestamp of the most recent bar used.
 3. **Given** an instrument with only 80 bars of history, **When** its current state is requested, **Then** the indicators that can be computed are returned and each one that cannot is reported as unavailable **with the reason** (bars required vs. bars available) — the response is not an error.
-4. **Given** the underlying market connection is unavailable and simulated data would be substituted, **When** any state is requested, **Then** the response declares that its data is simulated.
+4. **Given** the underlying market connection is unavailable and only simulated data could be served, **When** any state is requested, **Then** the request is refused with the cause and remedy named — no indicator values are returned.
+5. **Given** the same conditions and an explicit opt-in to simulated data on that request, **When** state is requested, **Then** values are returned and the response declares them simulated; a subsequent request without the opt-in is refused again.
 
 ---
 
@@ -102,7 +104,7 @@ The analyst asks their assistant about a crypto instrument held on the crypto ve
 
 ### Edge Cases
 
-- **Simulated data substituted silently**: the market connection falls back to simulated data when no valid credential is present. Every response MUST declare which source produced it, so simulated bars are never read as live ones.
+- **Simulated data substituted silently**: the market connection falls back to simulated data when no valid credential is present. The system MUST refuse rather than answer from it (FR-004a), so simulated bars can never be read as live ones. An explicit per-request opt-in is the only way to receive them, and the response still declares them simulated.
 - **Insufficient history**: indicators have very different history requirements (a 7-period average needs 7 bars; the lag-reduced MACD needs several hundred). One unsatisfiable indicator MUST NOT void the whole response.
 - **Instrument cannot be resolved**: a name matching nothing, or matching an instrument with no market identifier, returns a clear "not resolvable" result naming what was missing.
 - **No country code**: an instrument legitimately has no country/market code. This MUST NOT be treated as an error, nor as an implicit signal about which exchange the instrument belongs to.
@@ -110,7 +112,7 @@ The analyst asks their assistant about a crypto instrument held on the crypto ve
 - **Credentials absent for stored data**: when the alert/watchlist store cannot be reached, the market-data capabilities MUST still work; the affected results report their own unavailability.
 - **Instrument on an unsupported venue**: asked about an instrument the current version does not cover, the system says so explicitly rather than returning "not found", which would read as "this asset does not exist".
 - **Requested period unsupported for an instrument**: reported explicitly, listing the periods that are supported.
-- **Long-running session**: the server runs for the lifetime of an assistant session; an access token expiring mid-session MUST be refreshed or reported, not silently degraded to simulated data.
+- **Long-running session**: the server runs for the lifetime of an assistant session; an access token expiring mid-session MUST be refreshed, or the affected request refused per FR-004a. It MUST NOT silently degrade to simulated data, and a mid-session expiry MUST NOT change the behaviour of any request that already succeeded.
 
 ## Requirements *(mandatory)*
 
@@ -122,6 +124,8 @@ The analyst asks their assistant about a crypto instrument held on the crypto ve
 - **FR-002**: The system MUST be strictly read-only with respect to the analyst's money and records: it MUST NOT expose order creation, modification or cancellation, and MUST NOT write to any persistent store.
 - **FR-003**: The system MUST NOT reuse any existing routine that persists alerts as a side effect of detection; on-demand detection MUST be side-effect free (see FR-002).
 - **FR-004**: Every response returning market-derived data MUST declare its data source, distinguishing live market data from simulated data.
+- **FR-004a**: When live market data is unavailable and only simulated data could be served, the system MUST refuse the request by default rather than answer from simulated data. The refusal MUST name the cause (credential absent, expired, or rejected) and the remedy, and MUST be distinguishable from "no data" and from "instrument not found".
+- **FR-004b**: Simulated data MUST be served only when the caller opts in explicitly on that request. An opt-in MUST NOT persist across requests, and every response produced under it MUST carry its simulated provenance (FR-004).
 - **FR-005**: The system MUST reuse the project's existing indicator, detection and candle-building logic rather than reimplementing any calculation, so that on-demand results and scheduled-scan results cannot diverge.
 
 #### Resolution and market data
@@ -178,6 +182,7 @@ The analyst asks their assistant about a crypto instrument held on the crypto ve
 - **SC-003**: For an asset with fewer bars than the deepest indicator requires, the response still returns **every** indicator that the available history supports, and names the reason for each one it does not.
 - **SC-004**: Running on-demand detection any number of times leaves the stored alert record **byte-identical** — verified by comparing the store before and after.
 - **SC-005**: **100%** of market-derived responses state whether their data is live or simulated; a reviewer can determine provenance without inspecting logs.
+- **SC-005a**: With no valid credential and no explicit opt-in, **zero** responses contain indicator, bar or detection values — every such request is refused with a stated cause.
 - **SC-006**: On-demand results for a given asset, period and date **match** what the scheduled scan produced for the same inputs, since both run the same logic.
 - **SC-007**: A full state snapshot for one asset consumes **under 2,000 tokens** of the assistant's context, and a capped bar series **under 3,000**.
 - **SC-008**: The analyst can determine why a past alert fired, and whether they already hold the asset, **without opening the web UI**.
@@ -202,7 +207,3 @@ The analyst asks their assistant about a crypto instrument held on the crypto ve
 - New indicators, new setups, or changes to existing thresholds.
 - Fundamental data, news, or broker account/position reporting.
 - Replacing or altering the scheduled scan, the triage digest, or the web UI.
-
-## Clarifications Needed
-
-- **Q2 (safety)**: When only simulated data is available, should analysis capabilities **refuse** to answer, or answer while clearly labelling the data as simulated? [NEEDS CLARIFICATION: refuse-by-default vs. label-and-proceed]

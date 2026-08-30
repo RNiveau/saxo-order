@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -48,7 +48,9 @@
 - **Q1 (exchange scope) resolved** 2026-08-30: broker exchange only for Stories 1-4, crypto venue
   promoted to its own Story 5 (P4), Binance out of scope. Spec updated; FR-006 scoped and FR-008a
   added so an out-of-scope venue reports itself rather than returning an empty result.
-- **1 [NEEDS CLARIFICATION] marker remains** (Q2 simulated-data policy) — a safety decision with no
-  safe default. Must be resolved before `/speckit.plan`.
+- **Q2 (simulated-data policy) resolved** 2026-08-30: refuse by default, explicit per-request opt-in.
+  Spec updated with FR-004a/FR-004b, SC-005a, a fifth acceptance scenario on Story 1, and tightened
+  edge cases for silent substitution and mid-session token expiry.
+- **All checklist items pass. Spec is ready for `/speckit.plan`.**
 - The side-effect-free requirement (FR-003) is the highest-risk item: the obvious reuse candidate
   persists alerts. Called out explicitly so planning cannot reintroduce it by accident.
