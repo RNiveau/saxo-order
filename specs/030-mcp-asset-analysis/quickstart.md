@@ -45,7 +45,7 @@ Then, from an MCP client in this repo:
 1. **Story 1** — "What does Air Liquide look like on the daily?"
    Expect: resolution to a single instrument, then one snapshot with moving averages, Bollinger, ATR, ADX and MACD0lag, and a stated data source.
 2. **Story 2** — "Show me the last 20 daily bars."
-   Expect: newest-first rows with today's in-progress bar flagged.
+   Expect: newest-first rows with today's in-progress bar flagged (on an EU listing during a trading day).
 3. **Story 3** — "Is anything firing on it?"
    Expect: named setups or an explicit empty result. Then check no alert rows were written.
 4. **Story 4** — "Why was it flagged yesterday, and do I hold it?"
@@ -59,7 +59,9 @@ Then, from an MCP client in this repo:
 | Stored-context tools fail, market tools fine | `AWS_PROFILE` not exported | Export it and restart the server |
 | Client fails to start the server | Protocol stream corrupted by stdout output | Nothing on the call path may `print()`. `utils/logger.py` is safe (stderr); the three `print()` calls in `client/saxo_client.py` are removed by this feature |
 | `Error executing tool <name>` with no detail | An exception escaped without translation | Every tool needs `@tool_boundary` — the SDK masks unhandled exception messages (research.md §2) |
-| One indicator missing from a snapshot | It shouldn't be — absence is a bug | Every requested indicator must appear, with `unavailable_reason` when not computable |
+| One indicator missing from a snapshot | It shouldn't be — absence is a bug | Every requested indicator must appear, with `unavailable_reason` when not computable. Same for detectors: a failure appears in `failed`, never dropped |
+| Saxo rate limiting during deep history | Wrong candle path — `CandlesService` turns a 235-bar daily request into ~13 paginated 30m round-trips | Use `services/candle_source.py` (the scan's 2-request reconstruction), per research.md §10 |
+| Today's bar looks wrong on a non-EU listing | Current-period top-up assembled against the wrong session hours | Pass `market` explicitly; with no market determinable the top-up is skipped and `current_incomplete` is `False` |
 
 ## What this does not do
 

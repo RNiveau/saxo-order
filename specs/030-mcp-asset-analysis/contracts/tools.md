@@ -11,6 +11,9 @@ The MCP tool surface *is* this feature's API — there are no HTTP endpoints. Ty
 - `allow_simulated: bool = False` is per request and never remembered (FR-004b).
 - Every market-derived response embeds `ResponseMeta` with provenance, exchange, unit time and `last_bar_date` (FR-004, FR-019).
 - No tool writes anything (FR-002).
+- **`asset_type` is required on every market-data tool.** `SaxoClient.get_historical_data(saxo_uic, asset_type, horizon, count, ...)` (`saxo_client.py:486`) has no default for it. The scan gets away with hardcoding `AssetType.STOCK` (`alerting.py:722`) because it only sweeps stocks; this server resolves arbitrary instruments — the quickstart's own example is an index — so the caller must pass back the `asset_type` that `search_asset` returned.
+- **`market` is optional and defaults to `EUMarket`.** It is consumed only by the current-period top-up. When the instrument's market cannot be determined, the top-up is **skipped** and `current_incomplete` reports `False` — an honest omission rather than today's bar assembled against the wrong session hours (research.md §10).
+- The identifier parameter is named `instrument_id`, not `saxo_uic`: these tools are venue-generic (`exchange` is a parameter, and Story 5 adds a second venue), so a venue-specific name would either mislead or force a wire-contract break later.
 
 ---
 
@@ -23,12 +26,14 @@ async def search_asset(
 ) -> list[InstrumentRef]
 ```
 
+`InstrumentRef` is the input identity for every other market-data tool: it carries `instrument_id`, `asset_type` **and** `exchange`, all three of which the downstream calls need.
+
 Resolve a free-text name or symbol to candidate instruments (FR-006).
 
 | Case | Behaviour |
 |---|---|
-| No match | Empty list — a normal result, not an error |
-| Candidate without `saxo_uic` | Returned with `unavailable_reason`, not dropped |
+| No match | Empty list — a normal result, not an error. **Implementation note**: `SaxoClient.search` raises `SaxoException(f"Nothing found for {keyword}")` on zero results (`saxo_client.py:125`) — it never returns `[]`. This case must be caught explicitly *before* `@tool_boundary` turns it into a `ToolError`, or "no match" and "venue unreachable" become indistinguishable without matching on the message text |
+| Candidate without `instrument_id` | Returned with `unavailable_reason`, not dropped |
 | `exchange` not covered by this version | `ToolError`: "exchange not supported", distinct from "not found" (FR-008a) |
 | Venue unreachable | `ToolError` naming the failure, distinct from "no match" |
 
@@ -38,10 +43,12 @@ Resolve a free-text name or symbol to candidate instruments (FR-006).
 
 ```python
 async def get_candles(
-    saxo_uic: int,
+    instrument_id: int,
+    asset_type: AssetType,
     unit_time: UnitTime = UnitTime.D,
     count: int = 100,
     exchange: Exchange = Exchange.SAXO,
+    market: MarketName | None = None,
     allow_simulated: bool = False,
 ) -> BarSeries
 ```
@@ -51,6 +58,7 @@ Recent bars, newest-first, including the reconstructed in-progress period (FR-00
 | Case | Behaviour |
 |---|---|
 | `count` > hard cap | Capped; `meta.truncated = True` (FR-008) |
+| Market undeterminable | Top-up skipped, `current_incomplete = False`, no guessed bar |
 | Current period in progress | Present at row 0, `current_incomplete = True` |
 | `unit_time` unsupported | `ToolError` listing supported values |
 | No history | Empty `rows`, `count = 0` — not an error |
@@ -61,10 +69,12 @@ Recent bars, newest-first, including the reconstructed in-progress period (FR-00
 
 ```python
 async def get_indicators(
-    saxo_uic: int,
+    instrument_id: int,
+    asset_type: AssetType,
     unit_time: UnitTime = UnitTime.D,
     include: list[IndicatorName] | None = None,
     exchange: Exchange = Exchange.SAXO,
+    market: MarketName | None = None,
     allow_simulated: bool = False,
 ) -> IndicatorSnapshot
 ```
@@ -87,9 +97,11 @@ The bundled state snapshot — the tool the assistant reaches for first (FR-009)
 
 ```python
 async def detect_patterns(
-    saxo_uic: int,
+    instrument_id: int,
+    asset_type: AssetType,
     unit_time: UnitTime = UnitTime.D,
     exchange: Exchange = Exchange.SAXO,
+    market: MarketName | None = None,
     allow_simulated: bool = False,
 ) -> DetectionResult
 ```
@@ -100,7 +112,7 @@ Runs the project's own detectors on demand (FR-013), reporting hits in the exist
 |---|---|
 | Nothing fires | `hits = []` with `evaluated` populated — explicitly distinct from failure |
 | Called repeatedly | **The alert store is byte-identical afterwards** (FR-003, SC-004) |
-| One detector raises | That detector is reported as not evaluated; the others still return |
+| One detector raises | It appears in `failed` with a reason; the others still return. **Not** silently dropped from `evaluated` |
 
 **Prohibition**: this tool's implementation must not import `run_detection_for_asset` — it persists alerts (research.md §8).
 

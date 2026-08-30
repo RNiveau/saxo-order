@@ -63,11 +63,15 @@
 
 ## 5. Provenance and the refusal gate (FR-004a / FR-004b)
 
-**Decision**: The server resolves its market client **once at startup** through a dedicated factory that returns an explicit `(client, provenance)` pair, and refuses at the tool boundary when provenance is simulated and the request did not opt in.
+**Decision**: The server resolves its market client **per request** through a dedicated factory that returns an explicit `(client, provenance)` pair, and refuses at the tool boundary when provenance is simulated and the request did not opt in.
 
 **Rationale**: `api/dependencies.py:35` (`get_saxo_client`) silently substitutes `MockSaxoClient` on a missing token *and* on any initialisation exception, returning a bare client with the substitution recorded only in a log line. That is the exact failure the spec forbids, so this feature cannot reuse it as-is — the caller must be told which client it got. A separate factory keeps the API's behaviour untouched while giving the MCP server an honest signal.
 
 **Consequence**: `provenance` is a required field on every market-derived response model (FR-004), and the refusal is a guard in the shared tool decorator (FR-004a), so no individual tool can forget it. `allow_simulated: bool = False` is a per-request parameter, never server state (FR-004b).
+
+**Per request, not once at startup** — an earlier draft of this section said startup, which contradicted plan.md and, more importantly, the spec's own edge case: *"an access token expiring mid-session MUST be refreshed, or the affected request refused"*. A provenance resolved once at boot cannot notice a token that dies an hour into the session, so the refusal gate would pass while the data underneath had turned simulated. Provenance is therefore evaluated on every market-derived call.
+
+**Consequence**: the new factory MUST NOT carry `get_saxo_client`'s `@lru_cache()`. Caching the client is what makes startup-time resolution sticky; the cache is exactly the bug here.
 
 **Alternatives considered**: refusing at construction time (server won't start without a token) — too blunt; the stored-context tools (Story 4) do not need market data and should still work.
 
@@ -86,7 +90,7 @@
 | `average_true_range` | ~15 | `indicator_service.py:667` |
 | `adx` | ~2×period | `indicator_service.py:708` |
 | `mobile_average(200)` | 200 | `indicator_service.py:96` |
-| **`macd0lag`** | **235** | `indicator_service.py:565` — `signal*9 + long*6 - 2` |
+| **`macd0lag`** | **235** | `indicator_service.py:577` (guard); formula `signal*9 + long*6 - 2` |
 
 A naive "fetch enough for everything" makes a 7-bar question cost a 235-bar fetch; a naive "fetch per indicator" makes six network calls. The registry gives one fetch sized to the actual request, which is what SC-002 measures.
 
@@ -140,3 +144,21 @@ Extracting a shared pure core out of `run_detection_for_asset` and having both c
 | Fetch depth | `max()` over the requested indicators' declared minimums (§6) |
 | DynamoDB in a long-lived process | One resource for the server lifetime; `AWS_PROFILE` required locally (§7) |
 | Detection without persistence | New orchestrator; do not touch `run_detection_for_asset` (§8) |
+
+---
+
+## 10. Which candle path is canonical (added after review of PR #716)
+
+**Decision**: The scheduled scan's reconstruction is canonical. Extract `_build_candles` from `saxo_order/commands/alerting.py` into `services/`, parameterised by `asset_type` and `Market`, and have both the scan and the MCP server call it.
+
+**Rationale**: The first draft said bars "come from `CandlesService`, never re-derived". That is wrong on two counts.
+
+**It is not what the scan does.** `alerting._build_candles` (`alerting.py:721`) fetches daily directly — `horizon=1440, count=250` — then tops up today from `horizon=60, count=10` via `build_daily_candles_from_h1`. `CandlesService.build_candles` is a different algorithm: it needs a `code` and a `Market`, calls `get_asset(code)`, and rebuilds the daily series from **30m** bars. FR-005 and SC-006 promise on-demand results match the scan; they can only match if the same reconstruction produces them.
+
+**It is far more expensive.** For the 235 daily bars `macd0lag` requires, `build_candles` computes `trading_days=235` → `calendar_days ≈ 335` → `nbr_30m ≈ 16,080` (`candles_service.py:270-280`). `get_historical_data` caps each HTTP request at `max_items = 1200` and paginates (`saxo_client.py:520`), so one call becomes **~13 round-trips** — on precisely the rate-limiting path §3 flags. The scan's path costs two requests.
+
+**Why extract rather than reimplement**: FR-005 forbids reimplementing candle-building, and a copy in `services/` would be exactly that — two implementations free to drift. This is a different situation from §8: `run_detection_for_asset` is entangled with persistence, so reusing it means inheriting a side effect, whereas `_build_candles` is a side-effect-free helper whose move is mechanical and leaves scan behaviour identical.
+
+**Open sub-decision — `Market` for an arbitrary instrument.** The scan hardcodes `EUMarket()` because it only sweeps French stocks. This server resolves anything, and the quickstart's own example is an index. `model/market.py` offers `USMarket`, `EUMarket`, `DaxCfdMarket`, `EuCfdMarket`. The top-up path is the only consumer, so: default to `EUMarket`, accept an explicit `market` override on the market-data tools, and **skip the current-period top-up rather than guess** when the instrument's market cannot be determined — reporting `current_incomplete = False` honestly instead of assembling today's bar against the wrong session hours.
+
+**Consequence for SC-002**: "exactly one market-data fetch" was unachievable — daily-with-today needs two series by construction, and one `get_historical_data` call is itself N HTTP requests. Restated as *at most two provider series fetches*. `bars_fetched` remains useful as the depth actually requested, but it is not a request count.

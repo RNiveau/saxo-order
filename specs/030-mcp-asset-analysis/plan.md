@@ -28,7 +28,7 @@ Three findings from Phase 0 drive the design and are not optional:
 **Testing**: `pytest` + `pytest-asyncio` + `unittest.mock`, mirroring source structure under `tests/mcp_server/`
 **Target Platform**: Local developer machine only — a stdio subprocess launched by an MCP client. Not deployed; out of scope for Lambda/Pulumi.
 **Project Type**: Backend entry point (single). Frontend untouched.
-**Performance Goals**: One state snapshot ≤ 2 tool calls and exactly 1 market-data fetch (SC-002); snapshot payload < 2,000 tokens, capped bar series < 3,000 (SC-007)
+**Performance Goals**: One state snapshot ≤ 2 tool calls and ≤ 2 provider series fetches (SC-002 — the base series plus the current-period top-up; "exactly one" was unachievable, see research.md §10); snapshot payload < 2,000 tokens, capped bar series < 3,000 (SC-007)
 **Constraints**: Strictly read-only (FR-002); detection leaves the alert store byte-identical (SC-004); no simulated data without explicit per-request opt-in (FR-004a/b); nothing on the call path writes to stdout
 **Scale/Scope**: Single user, single session, ~8 tools across 5 user stories. Story 5 (crypto venue) deferred to a later slice.
 
@@ -48,6 +48,8 @@ Three findings from Phase 0 drive the design and are not optional:
 **Result: PASS, no violations.** Complexity Tracking omitted — nothing to justify.
 
 One item is worth flagging as a judgement call rather than a violation: research.md §8 declines to refactor `run_detection_for_asset` into a shared pure core, even though that would be the tidier long-term shape, because it edits the live scheduled-scan path for a read-only feature's benefit. FR-005 (no divergence) still holds because both callers use the same `indicator_service` functions.
+
+The candle path is the deliberate exception to that stance (research.md §10). `_build_candles` **is** extracted from `alerting.py`, because unlike `run_detection_for_asset` it carries no side effect — the move is mechanical and leaves scan behaviour identical — and because copying it instead would put two candle reconstructions in the tree, free to drift, which is what FR-005 exists to prevent.
 
 ## Project Structure
 
@@ -86,10 +88,19 @@ mcp_server/                         # NEW - entry point layer, peer to saxo_orde
 
 services/
 ├── indicator_bundle_service.py     # NEW - depth registry + isolated computation (FR-010/011/012)
-└── detection_service.py            # NEW - side-effect-free detection (FR-003)
+├── detection_service.py            # NEW - side-effect-free detection (FR-003)
+└── candle_source.py                # NEW - _build_candles extracted from alerting.py,
+                                    #       parameterised by asset_type + Market (research.md §10)
+
+model/
+└── enum.py                         # MODIFIED - Provenance, IndicatorName, MarketName
 
 client/
 └── saxo_client.py                  # MODIFIED - 3 print() -> logger (research.md §3)
+
+saxo_order/commands/
+└── alerting.py                     # MODIFIED - _build_candles moves to services/candle_source.py;
+                                    #            the scan calls it. No behaviour change.
 
 tests/
 ├── mcp_server/
@@ -116,13 +127,14 @@ pyproject.toml                      # MODIFIED - mcp dependency; k-mcp script
 
 1. Add `mcp` to `pyproject.toml`; add the `k-mcp` script; commit `.mcp.json`.
 2. `client/saxo_client.py`: replace the three `print()` calls with logger calls (research.md §3). Independently valuable; no behaviour change.
-3. `mcp_server/dependencies.py`: market-client factory returning an explicit `(client, provenance)` pair — **not** `get_saxo_client()`. DynamoDB resource held for the server lifetime.
+3. `mcp_server/dependencies.py`: market-client factory returning an explicit `(client, provenance)` pair — **not** `get_saxo_client()`, and **without** its `@lru_cache()`. Provenance is resolved **per request**, so a token dying mid-session is caught rather than papered over by a cached client (research.md §5). DynamoDB resource held for the server lifetime.
+   3b. `services/candle_source.py`: extract `_build_candles` from `alerting.py`, parameterised by `asset_type` and `Market`; the scan calls it. Mechanical move, scan behaviour unchanged — but it is what makes FR-005/SC-006 true rather than aspirational (research.md §10).
 4. `mcp_server/errors.py`: the `@tool_boundary` decorator — translates domain exceptions to `ToolError`, and enforces the simulated-data refusal (FR-004a) so no individual tool can forget it.
 5. `mcp_server/server.py` + `main()`: server boots, exposes zero tools, responds to a client.
 
 ### Phase B — User Story 1 (P1, MVP)
 
-6. `search_asset` — `SaxoClient.search` via `asyncio.to_thread`, `exchange` explicit on every result.
+6. `search_asset` — `SaxoClient.search` via `asyncio.to_thread`, `exchange` and `asset_type` explicit on every result. Catch the zero-result `SaxoException` explicitly so "no match" stays an empty list rather than becoming an error.
 7. `services/indicator_bundle_service.py` — the depth registry, single fetch at `max()`, per-indicator isolation with reasons.
 8. `get_indicators` — bundle + provenance + `include` parameter.
 
@@ -154,7 +166,9 @@ pyproject.toml                      # MODIFIED - mcp dependency; k-mcp script
 | Sync `SaxoClient` blocks the event loop, stalling concurrent tool calls | `asyncio.to_thread` at every client call site |
 | Token expiry mid-session degrades to mock data | Factory resolves provenance per request, not once at startup, for the refusal check |
 | Payloads blow the context budget | Columnar OHLC, rounding to 4dp, hard bar cap, measured against SC-007 in Phase E |
+| Deep daily history triggers rate limiting | Use the scan's 2-request reconstruction, not `CandlesService`'s ~13 paginated 30m round-trips (research.md §10) |
+| Current-period top-up assembled against wrong market hours | `market` override; skip the top-up rather than guess |
 
 ## Post-Design Constitution Re-check
 
-Re-evaluated after data-model.md and contracts/tools.md: **still PASS**. The contracts introduce no calculation in the tool layer, every enum-valued field uses an existing enum, every asset-bearing model carries an explicit `exchange`, and no response model requires a new stored field.
+Re-evaluated after data-model.md and contracts/tools.md, and again after the PR #716 review: **still PASS**. The `_build_candles` extraction keeps candle reconstruction in the Service layer where Principle I puts it, and removes a duplicate-logic risk rather than adding one. The contracts introduce no calculation in the tool layer, every enum-valued field uses an existing enum, every asset-bearing model carries an explicit `exchange`, and no response model requires a new stored field.

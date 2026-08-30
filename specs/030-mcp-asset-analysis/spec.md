@@ -178,7 +178,7 @@ The analyst asks their assistant about a crypto instrument held on the crypto ve
 ### Measurable Outcomes
 
 - **SC-001**: The analyst can go from an asset's plain name to a complete, explained technical state in **one exchange** with the assistant, with no script written and no file read.
-- **SC-002**: A full state snapshot for one asset costs **at most 2 retrieval steps** (resolve, then snapshot) and **exactly one** market-data fetch.
+- **SC-002**: A full state snapshot for one asset costs **at most 2 retrieval steps** (resolve, then snapshot) and **at most 2 provider series fetches** — the base series, plus the top-up for the current period the provider does not return. Never one fetch per indicator.
 - **SC-003**: For an asset with fewer bars than the deepest indicator requires, the response still returns **every** indicator that the available history supports, and names the reason for each one it does not.
 - **SC-004**: Running on-demand detection any number of times leaves the stored alert record **byte-identical** — verified by comparing the store before and after.
 - **SC-005**: **100%** of market-derived responses state whether their data is live or simulated; a reviewer can determine provenance without inspecting logs.

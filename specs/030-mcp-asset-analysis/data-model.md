@@ -39,12 +39,12 @@ Required on **every** market-derived response (FR-004). A response missing it is
 |---|---|---|
 | `code` | `str` | Symbol, e.g. `"AI"` |
 | `description` | `str` | Human name |
-| `saxo_uic` | `int \| None` | Market identifier. `None` means **not analysable** — surfaced as an explicit reason, not a silent skip |
-| `asset_type` | `str` | As returned by the venue |
+| `instrument_id` | `int \| None` | Venue identifier (Saxo UIC today). `None` means **not analysable** — surfaced as an explicit reason, not a silent skip. Named venue-generically because Story 5 adds a second venue |
+| `asset_type` | `AssetType` | Existing enum. **Required downstream** — `get_historical_data` has no default for it, so every market-data tool takes it back (contracts/tools.md) |
 | `exchange` | `Exchange` | Explicit |
 | `country_code` | `str \| None` | Passed through. **Legitimately absent**; carries no meaning about the venue |
 
-**Validation**: a candidate with `saxo_uic is None` is returned with an `unavailable_reason`, never dropped — the analyst should see that the instrument exists but cannot be analysed.
+**Validation**: a candidate with `instrument_id is None` is returned with an `unavailable_reason`, never dropped — the analyst should see that the instrument exists but cannot be analysed.
 
 ---
 
@@ -62,7 +62,8 @@ Required on **every** market-derived response (FR-004). A response missing it is
 
 **Validation**:
 - Ordering is newest-first and asserted in tests (Constitution V enforcement).
-- The in-progress period comes from `CandlesService`, never re-derived (Constitution V.2).
+- The in-progress period comes from the **scan's** reconstruction — the helper extracted from `alerting._build_candles`, not `CandlesService.build_candles` (research.md §10). Using `CandlesService` here would both diverge from the scheduled scan (breaking FR-005/SC-006) and turn a 235-bar daily request into ~13 paginated 30m round-trips.
+- When the instrument's market cannot be determined, the top-up is skipped and `current_incomplete` is `False` — never a bar assembled against guessed session hours.
 - `count` ≤ the hard cap; exceeding it sets `meta.truncated`.
 - Prices rounded to 4dp, matching the existing API.
 
@@ -120,6 +121,11 @@ Each maps in the registry to `(minimum_bars, callable)` — see research.md §6.
 | `instrument` | `InstrumentRef` | |
 | `hits` | `list[PatternHit]` | Empty list = "nothing fired", explicitly distinct from a failure (Story 3 scenario 3) |
 | `evaluated` | `list[AlertType]` | What was actually checked — so an empty `hits` is interpretable |
+| `failed` | `list[DetectorFailure]` | Detectors that raised, each with a reason |
+
+**`DetectorFailure`**: `alert_type: AlertType`, `reason: str`.
+
+Without `failed`, a detector that raised would simply drop out of `evaluated` with no explanation — the exact silent-omission failure mode FR-011 forbids on the indicator side. The two halves of the response now behave the same way: absence is always explained, never implied.
 
 **Validation**: producing this MUST NOT write to any store (FR-003, SC-004). Never persisted.
 
