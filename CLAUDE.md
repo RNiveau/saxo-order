@@ -149,6 +149,8 @@ Examples:
 - existing tables only — reads `workflow_orders` and `workflows`, writes enriched asset entries into the existing `alert_digests` items. No new table, no migration. (028-triage-workflow-trigger)
 - Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + existing only — `services/indicator_service.py` (`combo`, `mobile_average`, `bollinger_bands`), `utils/helper.py` (`build_current_weekly_candle_from_daily`), `client/saxo_client.py` (`get_historical_data`, horizon 10080), `aioboto3`, `anthropic` SDK, `slack_sdk`; Axios, React Router DOM v7+, Vite. **No new dependency.** (029-combo-weekly-timeframe)
 - existing `alerts` table, unchanged schema — the free-form `data` map gains `weekly_bar_date` and `timeframe`; calibration is a one-off sampled fetch outside the scan, not a table read. No new table, no migration. (029-combo-weekly-timeframe)
+- Python 3.12 (`pyproject.toml` declares `^3.12`) + NEW — `mcp` (official Python SDK). Existing — `services/indicator_service.py`, `services/candles_service.py`, `client/saxo_client.py`, `client/aws_client.py` (`aioboto3`), `pydantic` v2 (030-mcp-asset-analysis)
+- Read-only. Existing DynamoDB tables (`alerts`, `alert_digests`, `watchlist`, `workflow_orders`), unchanged schemas. No new table, no migration, no write path. (030-mcp-asset-analysis)
 
 ## Recent Changes
 - 004-watchlist-menu: Added Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) + FastAPI (backend), Vite + React Router DOM v7+ (frontend)
