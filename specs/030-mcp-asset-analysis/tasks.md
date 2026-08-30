@@ -25,10 +25,10 @@ Backend entry point at repo root: `mcp_server/`, peer to `saxo_order/` and `api/
 
 **Purpose**: Dependency, entry point and client registration.
 
-- [ ] T001 Add `mcp` to `[tool.poetry.dependencies]` in `pyproject.toml` and run `poetry lock`
-- [ ] T002 Add `k-mcp = "mcp_server.server:main"` to `[tool.poetry.scripts]` in `pyproject.toml`
-- [ ] T003 [P] Create `.mcp.json` at repo root registering server `saxo-analysis` as `poetry run k-mcp` (per contracts/tools.md)
-- [ ] T004 [P] Create package skeleton: `mcp_server/__init__.py`, `mcp_server/tools/__init__.py`, `tests/mcp_server/__init__.py`, `tests/mcp_server/tools/__init__.py`
+- [x] T001 Add `mcp` to `[tool.poetry.dependencies]` in `pyproject.toml` and run `poetry lock`
+- [x] T002 Add `k-mcp = "mcp_server.server:main"` to `[tool.poetry.scripts]` in `pyproject.toml`
+- [x] T003 [P] Create `.mcp.json` at repo root registering server `saxo-analysis` as `poetry run k-mcp` (per contracts/tools.md)
+- [x] T004 [P] Create package skeleton: `mcp_server/__init__.py`, `mcp_server/tools/__init__.py`, `tests/mcp_server/__init__.py`, `tests/mcp_server/tools/__init__.py`
 
 ---
 
@@ -54,7 +54,7 @@ Backend entry point at repo root: `mcp_server/`, peer to `saxo_order/` and `api/
 
 - [ ] T013 Create `mcp_server/dependencies.py`: `resolve_market_client() -> tuple[SaxoClient | MockSaxoClient, Provenance]` returning provenance explicitly. Do NOT reuse `api/dependencies.get_saxo_client` and do NOT apply `@lru_cache()` — provenance must be re-evaluated per request so a mid-session token expiry is caught (research.md §5)
 - [ ] T014 Add the DynamoDB lifespan to `mcp_server/dependencies.py`: one `aioboto3` resource held for the server's lifetime feeding a single `DynamoDBClient`, modelled on `saxo_order/async_utils.create_dynamodb_client` but not per-call (research.md §7)
-- [ ] T015 Create `mcp_server/errors.py` with the `@tool_boundary` decorator: translate `SaxoException`/`ValueError`/client errors to `ToolError` (unhandled exceptions are masked by the SDK as `Error executing tool <name>` — research.md §2), and enforce the simulated-data refusal (FR-004a) so no individual tool can forget it
+- [ ] T015 Create `mcp_server/errors.py` with the `@tool_boundary` decorator: translate `SaxoException` and client errors to `ToolError` (import from `mcp.server.mcpserver.exceptions` — it is **not** re-exported from `mcp.server`). Do not blanket-catch `ValueError`: inside a pydantic validator it is already an anticipated argument-validation failure that keeps its message (unhandled exceptions are masked by the SDK as `Error executing tool <name>` — research.md §2), and enforce the simulated-data refusal (FR-004a) so no individual tool can forget it
 - [ ] T016 [P] Create `mcp_server/models.py` with `ResponseMeta`, `InstrumentRef`, `BarSeries`, `IndicatorValue`, `IndicatorSnapshot`, `PatternHit`, `DetectorFailure`, `DetectionResult`, `StoredAlert`, `DigestEntry`, `AssetContext` per data-model.md. Every asset-bearing model carries an explicit `exchange: Exchange` (Constitution V.4)
 - [ ] T017 [P] Create `mcp_server/formatters.py`: `Candle` list → columnar `{columns, rows}` newest-first, 4dp rounding, bar cap + truncation flag
 - [ ] T018 Create `mcp_server/server.py` with the `MCPServer` instance, the DynamoDB lifespan wiring and `main()` calling `mcp.run()` under a `if __name__ == "__main__":` guard; zero tools registered yet

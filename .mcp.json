@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "saxo-analysis": {
+      "command": "poetry",
+      "args": ["run", "k-mcp"]
+    }
+  }
+}
