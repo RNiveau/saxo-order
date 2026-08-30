@@ -27,10 +27,12 @@ cachetools = "^6.2.6"
 python-multipart = "^0.0.32"
 anthropic = "^0.117.0"
 tzdata = "^2026.3"
+mcp = "^2.1.1"
 
 [tool.poetry.scripts]
 k-order = "saxo_order.commands.k_order:k_order"
 k-api = "run_api:main"
+k-mcp = "mcp_server.server:main"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.3.1"

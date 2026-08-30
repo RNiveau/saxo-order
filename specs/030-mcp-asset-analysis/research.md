@@ -15,6 +15,15 @@
 - *HTTP proxy to the running FastAPI app* — ~30 lines and zero duplication, but requires `run_api.py` to be up before any analysis, and adds a hop for data the process could compute directly. Rejected as the primary design; retained as the fallback in §7.
 - *Hand-rolled JSON-RPC over stdio* — no reason to reimplement the SDK.
 
+**Verified against the installed package** (`mcp 2.1.1`, during T001):
+
+```python
+from mcp.server import MCPServer            # class lives at mcp.server.mcpserver.server.MCPServer
+MCPServer.run(transport="stdio", **kwargs)  # 'stdio' is the default
+@mcp.tool(name=None, title=None, description=None, annotations=None,
+          icons=None, meta=None, structured_output=None)
+```
+
 **Sources**: [python-sdk README](https://github.com/modelcontextprotocol/python-sdk), [py.sdk.modelcontextprotocol.io](https://py.sdk.modelcontextprotocol.io/), [Running your server](https://py.sdk.modelcontextprotocol.io/run/)
 
 ---
@@ -26,6 +35,16 @@
 **Rationale**: This is the finding that most directly shapes the code. The SDK logs an unhandled exception once at ERROR with its traceback and sends the client only `Error executing tool <name>` — **the exception message is withheld from the model**. So letting `SaxoException("Missing candles to calcule the ma")` propagate would give the assistant a blank wall, directly violating FR-021. `ToolError` messages *are* forwarded to the client and logged at INFO without a traceback.
 
 **Consequence**: FR-021 is satisfied by a deliberate translation layer, not by default behaviour. A single decorator around each tool keeps this from being repeated by hand.
+
+**Import path — verified, and not the obvious one** (`mcp 2.1.1`, during T001): `ToolError` is **not** re-exported from `mcp.server`. `from mcp.server import ToolError` raises `ImportError`. The canonical path is:
+
+```python
+from mcp.server.mcpserver.exceptions import ToolError
+```
+
+The installed source confirms the behaviour verbatim (`mcp/server/mcpserver/tools/base.py:156-158`): any exception other than `ToolError`/`ResourceError`/`MCPError` is re-raised as `UnexpectedToolError(f"Error executing tool {self.name}")`, whose own docstring states *"nothing from the original reaches the client"*.
+
+**One refinement to the translation rule**: a `ValueError` raised **inside a pydantic validator** is already treated as anticipated — it arrives as an argument-validation failure with its message intact. So `@tool_boundary` needs to translate domain exceptions (`SaxoException`, client errors), but must not blanket-catch `ValueError` in a way that would swallow pydantic's own validation path.
 
 **Alternatives considered**: returning `CallToolResult(isError=True)` — more control than needed here; `ToolError` covers every case in this feature.
 
