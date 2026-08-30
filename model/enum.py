@@ -159,3 +159,49 @@ class DayStatus(EnumWithGetValue):
     NO_DATA = "no_data"
     NO_TRADE = "no_trade"
     TRADED = "traded"
+
+
+class Provenance(EnumWithGetValue):
+    """Where a market-derived response's data actually came from.
+
+    Carried on every such response so a simulated series can never be read
+    as a live one.
+    """
+
+    LIVE = "live"
+    SIMULATED = "simulated"
+
+
+class IndicatorName(EnumWithGetValue):
+    """The indicators an asset-analysis snapshot can carry.
+
+    Each maps to a (minimum bars, callable) entry in the bundle service. The
+    spread is wide - 7 bars for MM7, 235 for MACD0LAG - which is why a
+    request names the ones it wants rather than always taking all of them.
+    """
+
+    MM7 = "mm7"
+    MM20 = "mm20"
+    MM50 = "mm50"
+    MM200 = "mm200"
+    MM7_SLOPE = "mm7_slope"
+    MM20_SLOPE = "mm20_slope"
+    MM50_SLOPE = "mm50_slope"
+    MM200_SLOPE = "mm200_slope"
+    BOLLINGER = "bollinger"
+    ATR = "atr"
+    ADX = "adx"
+    MACD0LAG = "macd0lag"
+
+
+class MarketName(EnumWithGetValue):
+    """Session hours, by name, 1:1 with the classes in model/market.py.
+
+    A wire-safe way to name a market: the tool layer takes one of these and
+    resolves it to the Market instance the candle builders need.
+    """
+
+    EU = "eu"
+    US = "us"
+    DAX_CFD = "dax_cfd"
+    EU_CFD = "eu_cfd"
