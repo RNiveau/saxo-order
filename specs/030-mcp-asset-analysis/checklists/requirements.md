@@ -45,7 +45,10 @@
 
 ### Outstanding
 
-- **2 [NEEDS CLARIFICATION] markers remain** (Q1 exchange scope, Q2 simulated-data policy) — both
-  affect scope or safety and have no safe default. Must be resolved before `/speckit.plan`.
+- **Q1 (exchange scope) resolved** 2026-08-30: broker exchange only for Stories 1-4, crypto venue
+  promoted to its own Story 5 (P4), Binance out of scope. Spec updated; FR-006 scoped and FR-008a
+  added so an out-of-scope venue reports itself rather than returning an empty result.
+- **1 [NEEDS CLARIFICATION] marker remains** (Q2 simulated-data policy) — a safety decision with no
+  safe default. Must be resolved before `/speckit.plan`.
 - The side-effect-free requirement (FR-003) is the highest-risk item: the obvious reuse candidate
   persists alerts. Called out explicitly so planning cannot reintroduce it by accident.

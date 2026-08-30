@@ -5,6 +5,12 @@
 **Status**: Draft
 **Input**: User description: "Local MCP server for asset analysis: a read-only stdio MCP server exposing search_asset, get_candles, get_indicators, detect_patterns, get_alerts/get_digest and get_watchlist/get_workflows over the existing indicator and candle services, with declared data source and token-efficient payloads."
 
+## Clarifications
+
+### Session 2026-08-30
+
+- **Q**: Which exchanges must the first version cover? → **A**: The broker exchange (Saxo) only for Stories 1-4; the crypto venue (Ouinex) is added by its own user story (Story 5, P4). The other crypto venue (Binance) is out of scope for this feature.
+
 ## Context
 
 Analysis logic in this project is currently reachable three ways: the CLI (`k-order`), the web API/frontend, and the scheduled Lambda scan. None of them is usable by an AI assistant working in the repository. To answer "what does this asset look like right now?", the assistant has to re-derive the plumbing every session and write a throwaway script against the Saxo client — slow, error-prone, and easy to get subtly wrong (missing today's candle, wrong `saxo_uic`, mock data mistaken for live data).
@@ -78,6 +84,22 @@ The morning digest flagged an asset. The analyst asks why. The assistant retriev
 
 ---
 
+### User Story 5 - Analyse a crypto instrument on the second venue (Priority: P4)
+
+The analyst asks their assistant about a crypto instrument held on the crypto venue rather than through the broker. The assistant resolves it there and returns the same state snapshot, bars and setup detection it gives for broker instruments.
+
+**Why this priority**: Deliberately last. The analysis capabilities are venue-agnostic once an instrument resolves to a bar series, so this story is a data-source addition, not new analysis. Deferring it keeps the first version to a single, well-understood market-data path and avoids paying for a second credential lifetime before the core surface has proven itself.
+
+**Independent Test**: Ask for the state of a crypto instrument by name and confirm the response carries the same indicator set as a broker instrument and declares the crypto venue as its source.
+
+**Acceptance Scenarios**:
+
+1. **Given** a crypto instrument on the supported venue, **When** its state or bars are requested, **Then** the same response shape is returned as for a broker instrument, with the venue declared.
+2. **Given** the crypto venue's session has expired mid-conversation, **When** a request is made, **Then** the session is renewed or the failure is reported — the request MUST NOT silently fall back to another venue or to simulated data.
+3. **Given** an instrument name that exists on both venues, **When** it is resolved, **Then** both candidates are returned, each labelled with its venue, rather than one being chosen implicitly.
+
+---
+
 ### Edge Cases
 
 - **Simulated data substituted silently**: the market connection falls back to simulated data when no valid credential is present. Every response MUST declare which source produced it, so simulated bars are never read as live ones.
@@ -86,6 +108,7 @@ The morning digest flagged an asset. The analyst asks why. The assistant retriev
 - **No country code**: an instrument legitimately has no country/market code. This MUST NOT be treated as an error, nor as an implicit signal about which exchange the instrument belongs to.
 - **Market data provider unavailable or rate-limited**: the response reports the failure as such, distinct from "no data" and from "indicator not computable".
 - **Credentials absent for stored data**: when the alert/watchlist store cannot be reached, the market-data capabilities MUST still work; the affected results report their own unavailability.
+- **Instrument on an unsupported venue**: asked about an instrument the current version does not cover, the system says so explicitly rather than returning "not found", which would read as "this asset does not exist".
 - **Requested period unsupported for an instrument**: reported explicitly, listing the periods that are supported.
 - **Long-running session**: the server runs for the lifetime of an assistant session; an access token expiring mid-session MUST be refreshed or reported, not silently degraded to simulated data.
 
@@ -103,9 +126,10 @@ The morning digest flagged an asset. The analyst asks why. The assistant retriev
 
 #### Resolution and market data
 
-- **FR-006**: Users MUST be able to resolve an instrument from a free-text name or symbol, receiving for each candidate its description, symbol, market identifier, instrument type and exchange.
+- **FR-006**: Users MUST be able to resolve an instrument from a free-text name or symbol, receiving for each candidate its description, symbol, market identifier, instrument type and exchange. Resolution covers the broker exchange (Stories 1-4); crypto-venue resolution is added by Story 5.
 - **FR-007**: The system MUST return recent bars for a resolved instrument and period, ordered newest-first, including the in-progress current period reconstructed as the project already does for daily and hourly data, with incomplete periods flagged.
 - **FR-008**: The system MUST cap the number of bars returned in a single response and state when a result was truncated.
+- **FR-008a**: Capabilities MUST declare the exchange each result came from, and MUST return a clear "exchange not supported" result — never a silent empty result — when asked about an instrument on a venue the current version does not cover.
 
 #### Indicators
 
@@ -164,6 +188,7 @@ The morning digest flagged an asset. The analyst asks why. The assistant retriev
 - Configuration and credentials are the ones the CLI already uses; this feature introduces no new secret and no new stored configuration.
 - Stored-data capabilities (alerts, digests, watchlist, workflow orders) are read from the existing tables with their current schemas. No table, field or migration is introduced.
 - Supported periods are those the project's indicators already support; this feature adds no new timeframe.
+- The analysis capabilities (indicator snapshot, detection) are venue-agnostic once an instrument has resolved to a bar series, so Story 5 adds a data source rather than duplicating analysis logic.
 - The bar cap defaults to roughly 100 bars, adjustable per request up to a hard ceiling.
 - Indicator values are rounded to 4 decimal places, consistent with what the existing API already returns.
 - This feature is not deployed: it runs locally only and is out of scope for the Lambda/Pulumi deployment path.
@@ -173,11 +198,11 @@ The morning digest flagged an asset. The analyst asks why. The assistant retriev
 
 - Any write operation: placing, amending or cancelling orders; creating alerts, workflows or watchlist entries.
 - Remote or shared hosting of this server; multi-user access.
+- Coverage of the Binance venue. The project supports it elsewhere, but it is not part of this feature; adding it later would follow the same shape as Story 5.
 - New indicators, new setups, or changes to existing thresholds.
 - Fundamental data, news, or broker account/position reporting.
 - Replacing or altering the scheduled scan, the triage digest, or the web UI.
 
 ## Clarifications Needed
 
-- **Q1 (scope)**: Which exchanges must the first version cover? [NEEDS CLARIFICATION: Saxo only, or also Binance/Ouinex crypto instruments from the outset?]
 - **Q2 (safety)**: When only simulated data is available, should analysis capabilities **refuse** to answer, or answer while clearly labelling the data as simulated? [NEEDS CLARIFICATION: refuse-by-default vs. label-and-proceed]
