@@ -5,9 +5,8 @@ import logging
 import os
 import time
 import uuid
-from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import aioboto3
 import boto3
@@ -158,10 +157,38 @@ class DynamoDBClient(AwsClient):
     _request_count: int = 0
     _total_duration_ms: float = 0.0
 
-    def __init__(self, dynamodb_resource: Any = None) -> None:
+    def __init__(
+        self,
+        dynamodb_resource: Any = None,
+        region_name: str = AWS_REGION,
+    ) -> None:
         self.logger = Logger.get_logger("dynamodb_client", logging.INFO)
         self._dynamodb = dynamodb_resource
         self._session = aioboto3.Session()
+        self._region_name = region_name
+        self._resource_context: Any = None
+
+    async def __aenter__(self) -> "DynamoDBClient":
+        """Open the client's own resource, using the session it already holds.
+
+        Callers that already have a resource - the API, whose lifespan owns
+        one for the whole app - keep passing it in and this does nothing.
+        Callers that just want a working client say ``async with
+        DynamoDBClient() as store`` and never touch aioboto3 themselves.
+        """
+        if self._dynamodb is None:
+            self._resource_context = self._session.resource(
+                "dynamodb", region_name=self._region_name
+            )
+            self._dynamodb = await self._resource_context.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc_info: Any) -> None:
+        """Close only what this client opened."""
+        if self._resource_context is not None:
+            await self._resource_context.__aexit__(*exc_info)
+            self._resource_context = None
+            self._dynamodb = None
 
     async def _get_table(self, table_name: str) -> Any:
         if self._dynamodb is None:
@@ -1110,42 +1137,3 @@ class DynamoDBClient(AwsClient):
             self.logger.error(f"DynamoDB delete_item error: {response}")
 
         return response
-
-
-_store: Optional[DynamoDBClient] = None
-
-
-@asynccontextmanager
-async def dynamodb_session(
-    region_name: str = AWS_REGION,
-) -> AsyncIterator[None]:
-    """Hold the DynamoDB connection open for the life of the context.
-
-    Nothing is yielded on purpose. The client, its aioboto3 session and its
-    resource stay inside this module; callers ask this module for the data
-    they want instead of being handed a client to drive. A layer that only
-    needs yesterday's alerts should not have to know that DynamoDB is what
-    is underneath, nor be able to reach past the methods it is offered.
-
-    Long-lived by design - a server holds this open for its whole run,
-    rather than opening a connection per request.
-    """
-    global _store
-    session = aioboto3.Session()
-    async with session.resource(
-        "dynamodb", region_name=region_name
-    ) as resource:
-        _store = DynamoDBClient(dynamodb_resource=resource)
-        try:
-            yield
-        finally:
-            _store = None
-
-
-def is_dynamodb_available() -> bool:
-    """Whether a connection is currently open.
-
-    Callers check this to answer "unavailable" in their own vocabulary
-    rather than letting a missing connection surface as a crash.
-    """
-    return _store is not None

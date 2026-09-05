@@ -74,7 +74,7 @@ KNOWN_FAILURES: Tuple[Type[Exception], ...] = (
 #
 # What stays a crash is _get_table's bare RuntimeError for a client with no
 # resource. That is a wiring mistake, so the stored-context tools have to
-# check aws_client.is_dynamodb_available() themselves and answer
+# check ServerContext.dynamodb themselves and answer
 # "unavailable" rather than relying on this boundary to soften it.
 
 _market_client: ContextVar[Optional[Tuple[MarketClient, Provenance]]] = (

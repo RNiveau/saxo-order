@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 from unittest.mock import AsyncMock
 
@@ -464,3 +465,45 @@ class TestStoreAlertsWeeklyDeduplication:
         await client.store_alerts("SAN", "xpar", alerts)
 
         mock_table.update_item.assert_not_called()
+
+
+class TestDynamoDBClientOwnsItsConnection:
+    """The client opens the session it has always carried.
+
+    __init__ has built an aioboto3 Session since the class was written; it
+    just had no way to open a resource from it, so every caller had to wire
+    one up and hand it in. Callers that already own a resource (the API's
+    app-wide lifespan) still pass it and are left alone.
+    """
+
+    def test_it_opens_and_closes_a_resource_it_created(self, mocker):
+        resource = mocker.AsyncMock()
+        context = mocker.AsyncMock()
+        context.__aenter__.return_value = resource
+        client = DynamoDBClient()
+        mocker.patch.object(client._session, "resource", return_value=context)
+
+        async def run():
+            async with client as opened:
+                assert opened._dynamodb is resource
+            return client
+
+        closed = asyncio.run(run())
+
+        context.__aexit__.assert_awaited_once()
+        assert closed._dynamodb is None
+
+    def test_a_supplied_resource_is_left_alone(self, mocker):
+        supplied = mocker.MagicMock()
+        client = DynamoDBClient(dynamodb_resource=supplied)
+        opening = mocker.patch.object(client._session, "resource")
+
+        async def run():
+            async with client:
+                pass
+            return client
+
+        after = asyncio.run(run())
+
+        opening.assert_not_called()
+        assert after._dynamodb is supplied

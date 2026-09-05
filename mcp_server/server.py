@@ -11,11 +11,11 @@ the protocol wire, so nothing here may print - logging goes to stderr.
 
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 from mcp.server import MCPServer
 
-from client.aws_client import AwsClient, dynamodb_session
+from client.aws_client import AwsClient, DynamoDBClient
 from utils.logger import Logger
 
 logger = Logger.get_logger("mcp_server")
@@ -35,17 +35,18 @@ passing allow_simulated.
 class ServerContext:
     """What the tools need for the life of the server.
 
-    ``store_available`` is False when the alert store could not be reached.
-    That is not fatal: the stored-context tools report their own
-    unavailability while the market-data tools carry on, so a missing
-    AWS_PROFILE costs you the alert history and nothing else.
+    ``dynamodb`` is None when the alert store could not be reached. That is
+    not fatal: the stored-context tools report their own unavailability
+    while the market-data tools carry on, so a missing AWS_PROFILE costs
+    you the alert history and nothing else.
 
-    There is no client here. The connection and everything that speaks to
-    it live in client/aws_client.py; tools ask that module for the data
-    they want rather than being handed something to drive.
+    The client arrives already connected and is passed to the tools that
+    need it, which is how the rest of this project injects clients. What
+    stays in the client layer is how the connection is made - nothing here
+    touches aioboto3.
     """
 
-    store_available: bool = False
+    dynamodb: Optional[DynamoDBClient] = None
 
 
 @asynccontextmanager
@@ -60,7 +61,7 @@ async def lifespan(server: MCPServer) -> AsyncIterator[ServerContext]:
     problem.
     """
     async with AsyncExitStack() as stack:
-        available = False
+        store: Optional[DynamoDBClient] = None
         if not AwsClient.is_aws_context():
             logger.warning(
                 "AWS_PROFILE is not set, so the alert store is unreachable: "
@@ -69,8 +70,7 @@ async def lifespan(server: MCPServer) -> AsyncIterator[ServerContext]:
             )
         else:
             try:
-                await stack.enter_async_context(dynamodb_session())
-                available = True
+                store = await stack.enter_async_context(DynamoDBClient())
                 logger.info(
                     "Alert store connected (credentials are not checked "
                     "until the first read)"
@@ -81,7 +81,7 @@ async def lifespan(server: MCPServer) -> AsyncIterator[ServerContext]:
                     "will report themselves unavailable, market data is "
                     "unaffected"
                 )
-        yield ServerContext(store_available=available)
+        yield ServerContext(dynamodb=store)
 
 
 mcp: MCPServer = MCPServer(
