@@ -5,6 +5,7 @@ import pytest
 
 from client.ouinex_client import OuinexClient
 from model.enum import AssetType, Currency, Direction, Exchange
+from model.workflow import UnitTime
 from utils.exception import OuinexException
 
 
@@ -325,3 +326,138 @@ class TestOuinexClientReport:
 
         assert len(orders) == 1
         assert orders[0].code == "ETH"
+
+
+def price_bars(bars: list) -> dict:
+    return {"data": {"priceBars": bars}}
+
+
+class TestOuinexClientCandles:
+    def test_get_candles_native_newest_first_and_rounded(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        bars = [
+            {
+                "open": 1.11111,
+                "high": 2.22222,
+                "low": 0.99999,
+                "close": 1.23456,
+                "timestamp": "2024-01-01T00:00:00Z",
+            },
+            {
+                "open": 1.23456,
+                "high": 2.5,
+                "low": 1.0,
+                "close": 2.0,
+                "timestamp": "2024-01-02T00:00:00Z",
+            },
+        ]
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, price_bars(bars)),
+        ]
+
+        candles = client.get_candles("BTCUSD", UnitTime.D, limit=200)
+
+        assert len(candles) == 2
+        # Newest first (index 0 = latest timestamp)
+        assert candles[0].close == 2.0
+        assert candles[1].close == 1.2346
+        assert candles[0].ut == UnitTime.D
+        # Instrument id and periodicity forwarded to the query
+        variables = session.post.call_args_list[-1].kwargs["json"]["variables"]
+        assert variables["instrumentId"] == "BTCUSD"
+        assert variables["periodicity"] == "1d"
+
+    def test_get_latest_candle_returns_minute_bar(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(
+                200,
+                price_bars(
+                    [
+                        {
+                            "open": 1.14,
+                            "high": 1.20,
+                            "low": 1.10,
+                            "close": 1.15,
+                            "timestamp": "2024-01-02T09:31:00Z",
+                        }
+                    ]
+                ),
+            ),
+        ]
+
+        candle = client.get_latest_candle("XRPUSD")
+
+        assert candle.close == 1.15
+        variables = session.post.call_args_list[-1].kwargs["json"]["variables"]
+        assert variables["periodicity"] == "1m"
+
+    def test_get_candles_weekly_aggregates_from_daily(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        daily = [
+            {
+                "open": 10,
+                "high": 12,
+                "low": 9,
+                "close": 11,
+                "timestamp": "2024-01-01T00:00:00Z",
+            },
+            {
+                "open": 11,
+                "high": 13,
+                "low": 8,
+                "close": 12,
+                "timestamp": "2024-01-02T00:00:00Z",
+            },
+            {
+                "open": 12,
+                "high": 14,
+                "low": 10,
+                "close": 13,
+                "timestamp": "2024-01-03T00:00:00Z",
+            },
+            {
+                "open": 13,
+                "high": 15,
+                "low": 11,
+                "close": 14,
+                "timestamp": "2024-01-08T00:00:00Z",
+            },
+            {
+                "open": 14,
+                "high": 16,
+                "low": 12,
+                "close": 15,
+                "timestamp": "2024-01-09T00:00:00Z",
+            },
+        ]
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, price_bars(daily)),
+        ]
+
+        candles = client.get_candles("BTCUSD", UnitTime.W, limit=200)
+
+        assert len(candles) == 2
+        # Newest week first
+        assert candles[0].ut == UnitTime.W
+        assert candles[0].open == 13
+        assert candles[0].close == 15
+        assert candles[0].higher == 16
+        assert candles[0].lower == 11
+        # Previous week aggregated across three daily bars
+        assert candles[1].open == 10
+        assert candles[1].close == 13
+        assert candles[1].higher == 14
+        assert candles[1].lower == 8
+        # Daily periodicity requested for aggregation
+        variables = session.post.call_args_list[-1].kwargs["json"]["variables"]
+        assert variables["periodicity"] == "1d"
