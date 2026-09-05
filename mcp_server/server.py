@@ -11,11 +11,16 @@ the protocol wire, so nothing here may print - logging goes to stderr.
 
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, List, Optional
 
 from mcp.server import MCPServer
 
 from client.aws_client import AwsClient, DynamoDBClient
+from mcp_server.errors import market_tool, tool_boundary
+from mcp_server.models import IndicatorSnapshot, InstrumentRef
+from mcp_server.tools import assets, indicators
+from model import AssetType, IndicatorName, MarketName, UnitTime
+from model.enum import Exchange
 from utils.logger import Logger
 
 logger = Logger.get_logger("mcp_server")
@@ -89,6 +94,53 @@ mcp: MCPServer = MCPServer(
     instructions=INSTRUCTIONS,
     lifespan=lifespan,
 )
+
+
+@mcp.tool()
+@tool_boundary
+async def search_asset(
+    query: str,
+    exchange: Exchange = Exchange.SAXO,
+) -> List[InstrumentRef]:
+    """Find tradeable instruments matching a name or symbol.
+
+    Start here: the instrument_id and asset_type this returns are what the
+    other market tools need. An empty list means nothing matched, which is
+    an answer rather than a failure.
+    """
+    return await assets.search_asset(query=query, exchange=exchange)
+
+
+@mcp.tool()
+@market_tool
+async def get_indicators(
+    instrument_id: int,
+    asset_type: AssetType,
+    unit_time: UnitTime = UnitTime.D,
+    include: Optional[List[IndicatorName]] = None,
+    exchange: Exchange = Exchange.SAXO,
+    market: Optional[MarketName] = None,
+    allow_simulated: bool = False,
+) -> IndicatorSnapshot:
+    """An instrument's technical state for one timeframe, in one call.
+
+    Moving averages and their slopes, Bollinger bands, ATR, ADX and the
+    lag-reduced MACD, plus the last price and its variation. Pass `include`
+    to ask for a subset - the history fetched is sized to what you asked
+    for, so a short average does not pay for the MACD's 235 bars.
+
+    An indicator the available history cannot support is returned with
+    unavailable_reason rather than omitted, so a missing number is never
+    ambiguous.
+    """
+    return await indicators.build_snapshot(
+        instrument_id=instrument_id,
+        asset_type=asset_type,
+        unit_time=unit_time,
+        include=include,
+        exchange=exchange,
+        market=market,
+    )
 
 
 def main() -> None:

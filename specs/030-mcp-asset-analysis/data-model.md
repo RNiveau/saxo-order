@@ -86,7 +86,7 @@ Required on **every** market-derived response (FR-004). A response missing it is
 | Field | Type | Notes |
 |---|---|---|
 | `meta` | `ResponseMeta` | |
-| `instrument` | `InstrumentRef` | |
+| `instrument_id` / `asset_type` | `int` / `AssetType` | What the caller passed in. **Not** a full `InstrumentRef`: filling its description and symbol would cost another provider request, and the caller already holds them from the search that produced the id |
 | `current_price` | `float` | |
 | `variation_pct` | `float \| None` | vs. previous period close |
 | `indicators` | `list[IndicatorValue]` | Every requested indicator appears — computed or explained |
@@ -120,7 +120,7 @@ Each maps in the registry to `(minimum_bars, callable)` — see research.md §6.
 | Field | Type | Notes |
 |---|---|---|
 | `meta` | `ResponseMeta` | |
-| `instrument` | `InstrumentRef` | |
+| `instrument_id` / `asset_type` | `int` / `AssetType` | As for the snapshot above |
 | `hits` | `list[PatternHit]` | Empty list = "nothing fired", explicitly distinct from a failure (Story 3 scenario 3) |
 | `evaluated` | `list[AlertType]` | What was actually checked — so an empty `hits` is interpretable. MUST cover all ten types the scheduled scan emits when the full set is requested (SC-006) |
 | `failed` | `list[DetectorFailure]` | Detectors that raised, each with a reason |
