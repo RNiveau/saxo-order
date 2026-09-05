@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import (
     get_binance_report_service,
+    get_ouinex_report_service,
     get_report_service,
 )
 from api.models.report import (
@@ -14,6 +15,7 @@ from api.models.report import (
     UpdateGSheetOrderRequest,
 )
 from api.services.binance_report_service import BinanceReportService
+from api.services.ouinex_report_service import OuinexReportService
 from api.services.report_service import ReportService
 from model import Signal, Strategy
 from utils.exception import SaxoException
@@ -40,6 +42,9 @@ async def get_report_orders(
     binance_report_service: BinanceReportService = Depends(
         get_binance_report_service
     ),
+    ouinex_report_service: OuinexReportService = Depends(
+        get_ouinex_report_service
+    ),
 ):
     """
     Get trading report orders for a specific account from a given date.
@@ -51,9 +56,13 @@ async def get_report_orders(
     summary data.
     """
     try:
-        report_service: Union[BinanceReportService, ReportService]
+        report_service: Union[
+            BinanceReportService, OuinexReportService, ReportService
+        ]
         if account_id.startswith("binance_"):
             report_service = binance_report_service
+        elif account_id.startswith("ouinex_"):
+            report_service = ouinex_report_service
         else:
             report_service = saxo_report_service
 
@@ -99,6 +108,9 @@ async def get_report_summary(
     binance_report_service: BinanceReportService = Depends(
         get_binance_report_service
     ),
+    ouinex_report_service: OuinexReportService = Depends(
+        get_ouinex_report_service
+    ),
 ):
     """
     Get summary statistics for trading report.
@@ -108,9 +120,13 @@ async def get_report_summary(
     Returns aggregated data like total orders, volume, fees, etc.
     """
     try:
-        report_service: Union[BinanceReportService, ReportService]
+        report_service: Union[
+            BinanceReportService, OuinexReportService, ReportService
+        ]
         if account_id.startswith("binance_"):
             report_service = binance_report_service
+        elif account_id.startswith("ouinex_"):
+            report_service = ouinex_report_service
         else:
             report_service = saxo_report_service
 
@@ -137,6 +153,9 @@ async def create_gsheet_order(
     binance_report_service: BinanceReportService = Depends(
         get_binance_report_service
     ),
+    ouinex_report_service: OuinexReportService = Depends(
+        get_ouinex_report_service
+    ),
 ):
     """
     Create a new order entry in Google Sheets.
@@ -146,9 +165,13 @@ async def create_gsheet_order(
     This opens a new position with stop loss, target, and strategy tracking.
     """
     try:
-        report_service: Union[BinanceReportService, ReportService]
+        report_service: Union[
+            BinanceReportService, OuinexReportService, ReportService
+        ]
         if request.account_id.startswith("binance_"):
             report_service = binance_report_service
+        elif request.account_id.startswith("ouinex_"):
+            report_service = ouinex_report_service
         else:
             report_service = saxo_report_service
 
@@ -193,6 +216,9 @@ async def update_gsheet_order(
     binance_report_service: BinanceReportService = Depends(
         get_binance_report_service
     ),
+    ouinex_report_service: OuinexReportService = Depends(
+        get_ouinex_report_service
+    ),
 ):
     """
     Update an existing order entry in Google Sheets.
@@ -202,9 +228,13 @@ async def update_gsheet_order(
     This can either update an open position or close it.
     """
     try:
-        report_service: Union[BinanceReportService, ReportService]
+        report_service: Union[
+            BinanceReportService, OuinexReportService, ReportService
+        ]
         if request.account_id.startswith("binance_"):
             report_service = binance_report_service
+        elif request.account_id.startswith("ouinex_"):
+            report_service = ouinex_report_service
         else:
             report_service = saxo_report_service
 
