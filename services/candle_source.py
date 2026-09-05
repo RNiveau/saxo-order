@@ -12,9 +12,10 @@ which ``get_historical_data`` pages out into a dozen or so requests. See
 """
 
 import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from client import client_helper
+from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from model import AssetType, Candle, Market, UnitTime
 from utils.helper import (
@@ -37,7 +38,7 @@ WEEKLY_CANDLES_COUNT = 70
 
 
 def build_daily_series(
-    saxo_client: SaxoClient,
+    saxo_client: Union[SaxoClient, MockSaxoClient],
     saxo_uic: str | int,
     market: Optional[Market],
     asset_type: str = AssetType.STOCK,
@@ -95,7 +96,7 @@ def build_daily_series(
 
 
 def build_weekly_series(
-    saxo_client: SaxoClient,
+    saxo_client: Union[SaxoClient, MockSaxoClient],
     saxo_uic: str | int,
     daily_candles: List[Candle],
     asset_type: str = AssetType.STOCK,

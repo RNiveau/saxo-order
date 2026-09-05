@@ -77,10 +77,16 @@ class IndicatorValue(BaseModel):
 
 
 class IndicatorSnapshot(BaseModel):
-    """An instrument's technical state for one timeframe."""
+    """An instrument's technical state for one timeframe.
+
+    Identified by what the caller passed in, not by a full InstrumentRef:
+    the description and symbol would need another provider request to fill,
+    and the caller already has them from the search that produced the id.
+    """
 
     meta: ResponseMeta
-    instrument: InstrumentRef
+    instrument_id: int
+    asset_type: AssetType
     current_price: Optional[float] = None
     variation_pct: Optional[float] = None
     indicators: List[IndicatorValue] = Field(default_factory=list)
@@ -112,7 +118,8 @@ class DetectionResult(BaseModel):
     """
 
     meta: ResponseMeta
-    instrument: InstrumentRef
+    instrument_id: int
+    asset_type: AssetType
     hits: List[PatternHit] = Field(default_factory=list)
     evaluated: List[AlertType] = Field(default_factory=list)
     failed: List[DetectorFailure] = Field(default_factory=list)
