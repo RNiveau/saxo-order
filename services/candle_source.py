@@ -100,6 +100,7 @@ def build_weekly_series(
     saxo_uic: str | int,
     daily_candles: List[Candle],
     asset_type: str = AssetType.STOCK,
+    count: int = WEEKLY_CANDLES_COUNT,
 ) -> List[Candle]:
     """The asset's weekly bars, newest first, including the week now forming.
 
@@ -130,7 +131,7 @@ def build_weekly_series(
         asset_type=asset_type,
         saxo_uic=saxo_uic,
         horizon=WEEKLY_HORIZON,
-        count=WEEKLY_CANDLES_COUNT,
+        count=count,
     )
     candles = client_helper.map_data_to_candles(data, ut=UnitTime.W)
     today = datetime.datetime.now(datetime.UTC)

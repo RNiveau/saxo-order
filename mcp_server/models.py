@@ -38,6 +38,13 @@ class ResponseMeta(BaseModel):
     unit_time: UnitTime
     last_bar_date: Optional[datetime.datetime] = None
     truncated: bool = False
+    forming_period_included: bool = True
+    """Whether the period now trading is part of this answer.
+
+    False means the instrument's session hours were not known, so the
+    forming bar was left out rather than assembled against guessed ones -
+    the series ends at the last completed period and the price with it.
+    """
 
 
 class InstrumentRef(BaseModel):

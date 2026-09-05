@@ -1,4 +1,5 @@
 import datetime
+import math
 from typing import List
 
 import pytest
@@ -7,6 +8,7 @@ from model import Candle, IndicatorName, UnitTime
 from services.indicator_bundle_service import (
     DEFAULT_INDICATORS,
     REGISTRY,
+    SCAN_DEPTH,
     compute_bundle,
     required_bars,
 )
@@ -29,16 +31,37 @@ def _series(count: int) -> List[Candle]:
     ]
 
 
+def _wobbly(count: int) -> List[Candle]:
+    """A series that changes direction, so path-dependent indicators move."""
+    newest = datetime.datetime(2026, 8, 30)
+    candles = []
+    for i in range(count):
+        base = 100 + 10 * math.sin(i / 7.0) + i * 0.05
+        candles.append(
+            Candle(
+                lower=base - 1.5,
+                higher=base + 1.5,
+                open=base,
+                close=base + math.sin(i / 3.0),
+                ut=UnitTime.D,
+                date=newest - datetime.timedelta(days=i),
+            )
+        )
+    return candles
+
+
 class TestRequiredBars:
     """The fetch is sized to the request, not to the deepest indicator."""
 
     def test_a_shallow_request_stays_shallow(self):
         assert required_bars([IndicatorName.MM7]) == 7
 
-    def test_the_deepest_requested_indicator_decides(self):
-        assert required_bars([IndicatorName.MACD0LAG]) == 235
-        assert (
-            required_bars([IndicatorName.MM7, IndicatorName.MACD0LAG]) == 235
+    def test_the_hungriest_requested_indicator_decides(self):
+        deep = required_bars([IndicatorName.MACD0LAG])
+
+        assert deep >= 235
+        assert required_bars([IndicatorName.MM7, IndicatorName.MACD0LAG]) == (
+            deep
         )
 
     def test_a_slope_needs_more_history_than_its_average(self):
@@ -106,3 +129,42 @@ class TestComputeBundle:
         """Too short for even the shallowest is a failed request."""
         with pytest.raises(SaxoException):
             compute_bundle(_series(3), [IndicatorName.MM7])
+
+
+class TestFetchDepthProtectsAccuracy:
+    """A recursive indicator's answer depends on how far back it was seeded.
+
+    ATR, ADX and macd0lag are smoothed forward from the oldest bar
+    available, so computing one at its bare feasibility floor returns a
+    warm-up value that disagrees with the scan's for the same instrument on
+    the same day. Windowed indicators do not have that problem: a 7-bar
+    average reads exactly 7 closes whatever was fetched.
+    """
+
+    def test_a_windowed_indicator_fetches_exactly_its_window(self):
+        assert required_bars([IndicatorName.MM7]) == 7
+        assert required_bars([IndicatorName.MM200]) == 200
+
+    def test_a_recursive_indicator_fetches_the_scan_depth(self):
+        for name in (
+            IndicatorName.ATR,
+            IndicatorName.ADX,
+            IndicatorName.MACD0LAG,
+        ):
+            assert required_bars([name]) >= SCAN_DEPTH
+
+    def test_the_floor_stays_the_floor_for_availability(self):
+        """Fetching deeper must not make a short series look unavailable."""
+        assert REGISTRY[IndicatorName.ADX].minimum_bars == 42
+        assert REGISTRY[IndicatorName.ADX].fetch_bars == SCAN_DEPTH
+
+    def test_adx_on_a_short_series_differs_from_the_scan_depth(self):
+        """The reason the distinction exists, measured rather than asserted.
+
+        A steadily rising series saturates ADX at 100 whatever its length,
+        which would hide this - so the series here actually turns.
+        """
+        at_floor = compute_bundle(_wobbly(42), [IndicatorName.ADX])[0].value
+        at_depth = compute_bundle(_wobbly(250), [IndicatorName.ADX])[0].value
+
+        assert at_floor != at_depth

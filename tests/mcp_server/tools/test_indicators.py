@@ -8,7 +8,14 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp_server import errors
 from mcp_server.tools import indicators
 from mcp_server.tools.indicators import build_snapshot
-from model import AssetType, Candle, IndicatorName, Provenance, UnitTime
+from model import (
+    AssetType,
+    Candle,
+    IndicatorName,
+    MarketName,
+    Provenance,
+    UnitTime,
+)
 from model.enum import Exchange
 
 
@@ -58,7 +65,7 @@ class TestSnapshotProvenanceAndIdentity:
             return_value=_series(300),
         )
 
-        snapshot = _snapshot()
+        snapshot = _snapshot(market=MarketName.EU)
 
         assert snapshot.meta.provenance is Provenance.LIVE
         assert snapshot.meta.exchange is Exchange.SAXO
@@ -66,6 +73,22 @@ class TestSnapshotProvenanceAndIdentity:
         assert snapshot.meta.last_bar_date == datetime.datetime(2026, 8, 30)
         assert snapshot.instrument_id == 42
         assert snapshot.asset_type is AssetType.STOCK
+        assert snapshot.meta.forming_period_included is True
+
+    def test_it_admits_when_the_forming_period_is_missing(
+        self, mocker, live_client
+    ):
+        """With no market the newest bar is the last completed day, so the
+        price is yesterday's - the caller has to be able to see that."""
+        mocker.patch.object(
+            indicators.candle_source,
+            "build_daily_series",
+            return_value=_series(300),
+        )
+
+        snapshot = _snapshot(market=None)
+
+        assert snapshot.meta.forming_period_included is False
 
     def test_the_price_and_variation_come_from_the_newest_bars(
         self, mocker, live_client
@@ -125,14 +148,78 @@ class TestSnapshotFetchesOnce:
             return_value=_series(300),
         )
 
-        snapshot = _snapshot(unit_time=UnitTime.W)
+        snapshot = _snapshot(unit_time=UnitTime.W, market=MarketName.EU)
 
         assert daily.call_count == 1
         assert weekly.call_count == 1
         assert snapshot.meta.unit_time is UnitTime.W
 
+    def test_the_weekly_depth_goes_to_the_weekly_series(
+        self, mocker, live_client
+    ):
+        """The daily leg only supplies the week now forming.
+
+        Sizing it to the indicators' depth would buy 250 days that nothing
+        reads, and leaving the weekly series at its default would cap it at
+        70 bars - so MM200 could never be computed on W however much
+        history the instrument has.
+        """
+        daily = mocker.patch.object(
+            indicators.candle_source,
+            "build_daily_series",
+            return_value=_series(20),
+        )
+        weekly = mocker.patch.object(
+            indicators.candle_source,
+            "build_weekly_series",
+            return_value=_series(300),
+        )
+
+        _snapshot(
+            unit_time=UnitTime.W,
+            market=MarketName.EU,
+            include=[IndicatorName.MM200],
+        )
+
+        assert daily.call_args.args[4] == indicators.DAYS_FOR_FORMING_WEEK
+        assert weekly.call_args.args[4] == 200
+
 
 class TestSnapshotRejections:
+    def test_the_weekly_timeframe_refuses_without_a_market(self, live_client):
+        """Without session hours the forming week is short by whole days.
+
+        Nothing downstream could tell: the close, high and low would simply
+        be understated, so refusing beats answering.
+        """
+        with pytest.raises(ToolError, match="needs a market"):
+            _snapshot(unit_time=UnitTime.W, market=None)
+
+    def test_another_venue_is_refused_rather_than_mislabelled(
+        self, live_client
+    ):
+        """Only saxo data is available, so only saxo may be claimed."""
+        with pytest.raises(ToolError, match="not supported"):
+            _snapshot(exchange=Exchange.BINANCE)
+
+    def test_the_simulated_client_says_it_has_no_candles(self, mocker):
+        """The opt-in the refusal advertises cannot actually work here.
+
+        MockSaxoClient.get_historical_data returns [] unconditionally, so
+        without this the caller gets 'needs 7 bars, got 0' and cannot tell
+        a simulated client from an instrument with no history.
+        """
+        client = mocker.MagicMock()
+        token = errors._market_client.set((client, Provenance.SIMULATED))
+        mocker.patch.object(
+            indicators.candle_source, "build_daily_series", return_value=[]
+        )
+        try:
+            with pytest.raises(ToolError, match="simulated client"):
+                _snapshot()
+        finally:
+            errors._market_client.reset(token)
+
     def test_an_unsupported_timeframe_lists_the_supported_ones(
         self, live_client
     ):
