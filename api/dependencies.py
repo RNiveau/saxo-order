@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException, Request
 from api.services.asset_details_service import AssetDetailsService
 from api.services.backtest import BacktestService
 from api.services.binance_report_service import BinanceReportService
+from api.services.ouinex_report_service import OuinexReportService
 from api.services.report_service import ReportService
 from api.services.trade_republic_service import TradeRepublicService
 from client.aws_client import AwsClient, DynamoDBClient
@@ -129,6 +130,13 @@ def get_binance_report_service() -> BinanceReportService:
     binance_client = get_binance_client()
     config = get_configuration()
     return BinanceReportService(binance_client, config)
+
+
+@lru_cache()
+def get_ouinex_report_service() -> OuinexReportService:
+    ouinex_client = get_ouinex_client()
+    config = get_configuration()
+    return OuinexReportService(ouinex_client, config)
 
 
 @lru_cache()

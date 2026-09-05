@@ -1,9 +1,11 @@
 import logging
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import requests
 
+from model import Currency, Direction, ReportOrder, Taxes
 from model.asset import Asset
 from model.enum import AssetType, Exchange
 from utils.exception import OuinexException
@@ -33,6 +35,22 @@ query Instruments {
     quote_currency {
       currency_id
     }
+  }
+}
+"""
+
+CLOSED_ORDERS_QUERY = """
+query ClosedOrders($fromDate: String!) {
+  closedOrders(fromDate: $fromDate) {
+    symbol
+    baseCurrency
+    quoteCurrency
+    side
+    price
+    quantity
+    fee
+    feeCurrency
+    executedAt
   }
 }
 """
@@ -197,3 +215,86 @@ class OuinexClient:
                 results.append(self._map_instrument_to_asset(instrument))
 
         return results
+
+    def _parse_timestamp(self, value: Any) -> datetime:
+        if isinstance(value, (int, float)):
+            return datetime.fromtimestamp(value / 1000)
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+    def _apply_commission(
+        self, trade: Dict[str, Any], order: ReportOrder, usdeur_rate: float
+    ) -> None:
+        fee = float(trade.get("fee") or 0)
+        if fee <= 0:
+            order.taxes = Taxes(cost=0, taxes=0)
+            return
+
+        fee_currency = trade.get("feeCurrency", "")
+        if fee_currency == order.name:
+            # Fee charged in the base asset (e.g. 0.539 XRP on an XRP buy):
+            # it reduces the quantity actually received and is valued in EUR
+            # at the trade price.
+            if order.direction == Direction.BUY:
+                order.quantity -= fee
+            order.taxes = Taxes(cost=fee * order.price * usdeur_rate, taxes=0)
+        else:
+            # Fee charged in the quote/cash currency: already a cash amount.
+            order.taxes = Taxes(cost=fee * usdeur_rate, taxes=0)
+
+    def _map_trade_to_order(
+        self, trade: Dict[str, Any], usdeur_rate: float
+    ) -> ReportOrder:
+        base = trade.get("baseCurrency", "")
+        side = (trade.get("side") or "").upper()
+        direction = Direction.BUY if side == "BUY" else Direction.SELL
+        order = ReportOrder(
+            code=base,
+            name=base,
+            price=float(trade["price"]),
+            quantity=float(trade["quantity"]),
+            direction=direction,
+            asset_type=AssetType.CRYPTO,
+            date=self._parse_timestamp(trade["executedAt"]),
+            currency=Currency.USD,
+        )
+        self._apply_commission(trade, order, usdeur_rate)
+        return order
+
+    def get_report_all(
+        self, date: str, usdeur_rate: float
+    ) -> List[ReportOrder]:
+        """
+        Get all closed Ouinex orders since `date`, mapped to ReportOrder.
+
+        Args:
+            date: Start date (as accepted by the Ouinex `closedOrders` query)
+            usdeur_rate: USD→EUR rate used for commission conversion
+
+        Returns:
+            List of ReportOrder objects (asset_type=CRYPTO, currency=USD)
+        """
+        data = self._execute(CLOSED_ORDERS_QUERY, {"fromDate": date})
+        return [
+            self._map_trade_to_order(trade, usdeur_rate)
+            for trade in data.get("closedOrders", [])
+        ]
+
+    def get_report(
+        self, symbol: str, date: str, usdeur_rate: float
+    ) -> List[ReportOrder]:
+        """
+        Get closed Ouinex orders for a single symbol since `date`.
+
+        Args:
+            symbol: Base currency code to filter on (e.g. "BTC")
+            date: Start date (as accepted by the Ouinex `closedOrders` query)
+            usdeur_rate: USD→EUR rate used for commission conversion
+
+        Returns:
+            List of ReportOrder objects for the given symbol
+        """
+        return [
+            order
+            for order in self.get_report_all(date, usdeur_rate)
+            if order.code == symbol
+        ]
