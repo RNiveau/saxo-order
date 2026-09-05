@@ -123,10 +123,10 @@ Backend entry point at repo root: `mcp_server/`, peer to `saxo_order/` and `api/
 
 **Independent test**: for a date with stored alerts, the answer cites the stored data plus watchlist labels and open workflow orders.
 
-- [ ] T042 [P] [US4] Implement `get_alerts` and `get_digest` in `mcp_server/tools/context.py` over `DynamoDBClient.get_alerts` / `get_alert_digest`, passing the free-form `data` map through unchanged. No alerts for a date → `[]`; no digest → `None`. Both distinct from failure
-- [ ] T043 [P] [US4] Implement `get_watchlist` and `get_workflow_orders` in `mcp_server/tools/context.py` over `DynamoDBClient.get_watchlist`/`get_watchlist_item`/`get_workflow_orders`. An asset in neither returns `in_watchlist=False` with empty lists — never an error. Use client methods only, never `client.dynamodb.Table()` (Constitution I)
+- [ ] T042 [P] [US4] Implement `get_alerts` and `get_digest` in `mcp_server/tools/context.py` (guard `ServerContext.dynamodb is None` first — see T045) over `DynamoDBClient.get_alerts` / `get_alert_digest`, passing the free-form `data` map through unchanged. No alerts for a date → `[]`; no digest → `None`. Both distinct from failure
+- [ ] T043 [P] [US4] Implement `get_watchlist` and `get_workflow_orders` in `mcp_server/tools/context.py` (guard `ServerContext.dynamodb is None` first — see T045) over `DynamoDBClient.get_watchlist`/`get_watchlist_item`/`get_workflow_orders`. An asset in neither returns `in_watchlist=False` with empty lists — never an error. Use client methods only, never `client.dynamodb.Table()` (Constitution I)
 - [ ] T044 [US4] Register the four context tools in `mcp_server/server.py` with `@tool_boundary`
-- [ ] T045 [US4] Make the stored-context tools degrade independently: with DynamoDB unreachable they raise a `ToolError` naming the cause while the market-data tools keep working (spec edge case)
+- [ ] T045 [US4] Make the stored-context tools degrade independently: with DynamoDB unreachable they raise a `ToolError` naming the cause while the market-data tools keep working (spec edge case). **Each stored-context tool MUST check `ServerContext.dynamodb is not None` and answer "unavailable" itself** — `_get_table` raises a bare `RuntimeError` for a client with no resource, which `@tool_boundary` deliberately does not soften, so relying on the boundary here would surface the opaque `Error executing tool <name>`
 - [ ] T046 [P] [US4] Test in `tests/mcp_server/tools/test_context.py` with a mocked `DynamoDBClient`: alerts returned with their `data` map intact; an unknown asset returns the explicit not-held result; an unreachable store fails without affecting market-data tools
 
 ---

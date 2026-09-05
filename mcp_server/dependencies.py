@@ -14,6 +14,7 @@ from functools import lru_cache
 from typing import AsyncIterator, Optional, Tuple, Union
 
 import aioboto3
+from cachetools import TTLCache
 
 from client.aws_client import DynamoDBClient
 from client.mock_saxo_client import MockSaxoClient
@@ -26,6 +27,15 @@ from utils.logger import Logger
 logger = Logger.get_logger("mcp_dependencies")
 
 AWS_REGION = "eu-west-1"
+
+# How often the access token is re-read from storage. Long enough that a
+# burst of tool calls costs one read, short enough that authenticating
+# mid-session is picked up without restarting the server.
+TOKEN_REFRESH_TTL_SECONDS = 30
+
+_token_refresh_gate: TTLCache = TTLCache(
+    maxsize=1, ttl=TOKEN_REFRESH_TTL_SECONDS
+)
 
 MARKETS = {
     MarketName.EU: EUMarket,
@@ -61,7 +71,7 @@ def resolve_market_client() -> (
     candles wearing a live label.
     """
     config = get_configuration()
-    config.load_tokens()
+    _refresh_tokens(config)
 
     if not config.access_token:
         logger.warning("No access token: only simulated data is available")
@@ -74,6 +84,33 @@ def resolve_market_client() -> (
             f"Saxo client unavailable ({e}): only simulated data is available"
         )
         return MockSaxoClient(config), Provenance.SIMULATED
+
+
+def _refresh_tokens(config: Configuration) -> None:
+    """Re-read the access token, at most once per TTL window.
+
+    ``load_tokens`` is not always a cheap file read. With ``AWS_PROFILE``
+    set - which is exactly the setup this server documents for reaching
+    DynamoDB - ``Configuration`` holds an ``S3Client``, and every call is a
+    blocking ``get_object`` against S3. Doing that per tool call would put a
+    synchronous network round trip on the event loop for every question the
+    assistant asks.
+
+    A failure to re-read is not a failure of the call. The token already in
+    hand is very probably still good, so a blip in token storage should not
+    turn into "your market tool failed"; the gate is set either way so a
+    sustained outage costs one attempt per window rather than one per call.
+    """
+    if _token_refresh_gate.get("refreshed"):
+        return
+    try:
+        config.load_tokens()
+    except Exception as e:
+        logger.warning(
+            f"Could not re-read the access token ({e}); "
+            "continuing with the one already loaded"
+        )
+    _token_refresh_gate["refreshed"] = True
 
 
 def resolve_market(name: Optional[MarketName]) -> Optional[Market]:

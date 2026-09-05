@@ -36,6 +36,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from mcp.server.mcpserver.exceptions import ToolError
 from requests.exceptions import RequestException
 
+from client.aws_client import DynamoDBOperationError
 from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from mcp_server.dependencies import resolve_market_client
@@ -60,9 +61,21 @@ KNOWN_FAILURES: Tuple[Type[Exception], ...] = (
     SaxoException,
     OuinexException,
     RequestException,
+    DynamoDBOperationError,
     BotoCoreError,
     ClientError,
 )
+
+# DynamoDBOperationError is the one that actually fires for stored context:
+# _dynamo_operation converts ClientError and OSError into it, so no boto
+# exception ever escapes a DynamoDBClient call and the two entries below it
+# are there only for boto used directly. api/main.py registers a handler for
+# the same class, which is the API layer reaching the same conclusion.
+#
+# What stays a crash is _get_table's bare RuntimeError for a client with no
+# resource. That is a wiring mistake, so the stored-context tools have to
+# check ServerContext.dynamodb themselves and answer "unavailable" rather
+# than relying on this boundary to soften it.
 
 _market_client: ContextVar[Optional[Tuple[MarketClient, Provenance]]] = (
     ContextVar("market_client", default=None)

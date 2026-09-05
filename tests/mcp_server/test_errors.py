@@ -4,6 +4,7 @@ import inspect
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 
+from client.aws_client import DynamoDBOperationError
 from mcp_server import errors
 from mcp_server.errors import (
     current_market_client,
@@ -38,6 +39,25 @@ class TestToolBoundary:
 
         with pytest.raises(RuntimeError):
             asyncio.run(broken())
+
+    def test_a_dynamodb_failure_is_explained_not_masked(self):
+        """The class that actually fires for stored context.
+
+        _dynamo_operation converts ClientError and OSError into
+        DynamoDBOperationError, so no boto exception ever escapes a
+        DynamoDBClient call - without this entry every real DynamoDB
+        failure would reach the model as "Error executing tool <name>".
+        """
+
+        @tool_boundary
+        async def reading():
+            raise DynamoDBOperationError("get_alerts", "ResourceNotFound")
+
+        with pytest.raises(ToolError) as caught:
+            asyncio.run(reading())
+
+        assert "get_alerts" in str(caught.value)
+        assert "ResourceNotFound" in str(caught.value)
 
     def test_an_existing_tool_error_passes_through_unwrapped(self):
         original = ToolError("already explained")
