@@ -134,6 +134,7 @@ class DigestEntry(BaseModel):
 
     run_date: str
     code: str
+    exchange: Exchange
     conviction: Optional[Conviction] = None
     rank: Optional[int] = None
     rationale: str = ""
@@ -144,6 +145,7 @@ class AssetContext(BaseModel):
     """The analyst's own relationship to an asset."""
 
     code: str
+    exchange: Exchange
     in_watchlist: bool = False
     labels: List[str] = Field(default_factory=list)
     open_workflow_orders: List[Dict[str, Any]] = Field(default_factory=list)

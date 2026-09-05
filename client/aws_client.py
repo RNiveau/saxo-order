@@ -5,8 +5,9 @@ import logging
 import os
 import time
 import uuid
+from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import aioboto3
 import boto3
@@ -21,6 +22,8 @@ from model import (
 )
 from utils.json_util import dumps_indicator, hash_indicator
 from utils.logger import Logger
+
+AWS_REGION = "eu-west-1"
 
 
 class DynamoDBOperationError(Exception):
@@ -1107,3 +1110,22 @@ class DynamoDBClient(AwsClient):
             self.logger.error(f"DynamoDB delete_item error: {response}")
 
         return response
+
+
+@asynccontextmanager
+async def dynamodb_client(
+    region_name: str = AWS_REGION,
+) -> AsyncIterator[DynamoDBClient]:
+    """A DynamoDBClient holding an open resource for the life of the context.
+
+    Callers outside this layer should not build a DynamoDBClient themselves:
+    the aioboto3 session and resource are this module's business, and wiring
+    them up elsewhere spreads knowledge of the client's internals into layers
+    that only want to read a table.
+
+    Long-lived by design - a server holds one of these for its whole run,
+    rather than opening and closing a resource per request.
+    """
+    session = aioboto3.Session()
+    async with session.resource("dynamodb", region_name=region_name) as res:
+        yield DynamoDBClient(dynamodb_resource=res)

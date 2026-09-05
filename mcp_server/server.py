@@ -15,8 +15,7 @@ from typing import AsyncIterator, Optional
 
 from mcp.server import MCPServer
 
-from client.aws_client import AwsClient, DynamoDBClient
-from mcp_server.dependencies import dynamodb_client
+from client.aws_client import AwsClient, DynamoDBClient, dynamodb_client
 from utils.logger import Logger
 
 logger = Logger.get_logger("mcp_server")

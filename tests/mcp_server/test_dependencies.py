@@ -14,6 +14,15 @@ class TestResolveMarket:
         """A new MarketName without a class would be a KeyError at runtime."""
         assert {m: MARKETS[m]() for m in MarketName}
 
+    def test_only_the_markets_analysis_uses_are_offered(self):
+        """The enum is a tool-schema choice, so it should not list dead ends.
+
+        DaxCfdMarket and EuCfdMarket exist for the backtest engine's CFD
+        session windows; no analysis path uses them, so offering them would
+        let the model pick a market this server never needs.
+        """
+        assert {m.value for m in MarketName} == {"eu", "us"}
+
     def test_an_unnamed_market_stays_unnamed(self):
         """None travels down to the candle builders, where it means
         'leave the forming period out rather than guess its hours'."""

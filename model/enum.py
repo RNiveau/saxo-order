@@ -195,13 +195,16 @@ class IndicatorName(EnumWithGetValue):
 
 
 class MarketName(EnumWithGetValue):
-    """Session hours, by name, 1:1 with the classes in model/market.py.
+    """Session hours, by name, for the instruments analysis looks at.
 
     A wire-safe way to name a market: the tool layer takes one of these and
     resolves it to the Market instance the candle builders need.
+
+    Only the cash markets are here. model/market.py also defines
+    DaxCfdMarket and EuCfdMarket, but those exist for the backtest engine's
+    CFD session windows and no analysis path uses them, so listing them
+    would put choices in the tool schema that lead nowhere.
     """
 
     EU = "eu"
     US = "us"
-    DAX_CFD = "dax_cfd"
-    EU_CFD = "eu_cfd"

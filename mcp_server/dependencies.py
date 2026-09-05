@@ -9,24 +9,19 @@ client and lets the tool boundary decide what to do about it.
 """
 
 import os
-from contextlib import asynccontextmanager
 from functools import lru_cache
-from typing import AsyncIterator, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
-import aioboto3
 from cachetools import TTLCache
 
-from client.aws_client import DynamoDBClient
 from client.mock_saxo_client import MockSaxoClient
 from client.saxo_client import SaxoClient
 from model import Market, MarketName, Provenance
-from model.market import DaxCfdMarket, EuCfdMarket, EUMarket, USMarket
+from model.market import EUMarket, USMarket
 from utils.configuration import Configuration
 from utils.logger import Logger
 
 logger = Logger.get_logger("mcp_dependencies")
-
-AWS_REGION = "eu-west-1"
 
 # How often the access token is re-read from storage. Long enough that a
 # burst of tool calls costs one read, short enough that authenticating
@@ -40,8 +35,6 @@ _token_refresh_gate: TTLCache = TTLCache(
 MARKETS = {
     MarketName.EU: EUMarket,
     MarketName.US: USMarket,
-    MarketName.DAX_CFD: DaxCfdMarket,
-    MarketName.EU_CFD: EuCfdMarket,
 }
 
 
@@ -122,21 +115,3 @@ def resolve_market(name: Optional[MarketName]) -> Optional[Market]:
     if name is None:
         return None
     return MARKETS[name]()
-
-
-@asynccontextmanager
-async def dynamodb_client() -> AsyncIterator[DynamoDBClient]:
-    """One DynamoDB resource for the life of the server.
-
-    ``DynamoDBClient`` needs an active aioboto3 resource; the CLI's
-    ``create_dynamodb_client`` opens and closes one per invocation, which for
-    a long-running server would mean a new resource on every tool call. This
-    is the same shape as the API's lifespan instead.
-
-    Reaching AWS locally needs AWS_PROFILE exported - see quickstart.md.
-    """
-    session = aioboto3.Session()
-    async with session.resource(
-        "dynamodb", region_name=AWS_REGION
-    ) as resource:
-        yield DynamoDBClient(dynamodb_resource=resource)

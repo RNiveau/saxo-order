@@ -48,7 +48,7 @@ Backend entry point at repo root: `mcp_server/`, peer to `saxo_order/` and `api/
 
 ### New shared vocabulary
 
-- [x] T012 [P] Add `Provenance` (`LIVE`, `SIMULATED`), `IndicatorName` (MM7/MM20/MM50/MM200 + their `_SLOPE` variants, `BOLLINGER`, `ATR`, `ADX`, `MACD0LAG`) and `MarketName` (`EU`, `US`, `DAX_CFD`, `EU_CFD` — 1:1 with the classes in `model/market.py`) to `model/enum.py`, all extending `EnumWithGetValue`
+- [x] T012 [P] Add `Provenance` (`LIVE`, `SIMULATED`), `IndicatorName` (MM7/MM20/MM50/MM200 + their `_SLOPE` variants, `BOLLINGER`, `ATR`, `ADX`, `MACD0LAG`) and `MarketName` (`EU`, `US` only — `DaxCfdMarket`/`EuCfdMarket` exist for the backtest engine's CFD windows and no analysis path uses them, so listing them would put dead ends in the tool schema) to `model/enum.py`, all extending `EnumWithGetValue`
 
 ### Server foundation
 
