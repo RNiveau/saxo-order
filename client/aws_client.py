@@ -22,6 +22,8 @@ from model import (
 from utils.json_util import dumps_indicator, hash_indicator
 from utils.logger import Logger
 
+AWS_REGION = "eu-west-1"
+
 
 class DynamoDBOperationError(Exception):
     """Raised when a DynamoDB operation fails."""
@@ -155,10 +157,38 @@ class DynamoDBClient(AwsClient):
     _request_count: int = 0
     _total_duration_ms: float = 0.0
 
-    def __init__(self, dynamodb_resource: Any = None) -> None:
+    def __init__(
+        self,
+        dynamodb_resource: Any = None,
+        region_name: str = AWS_REGION,
+    ) -> None:
         self.logger = Logger.get_logger("dynamodb_client", logging.INFO)
         self._dynamodb = dynamodb_resource
         self._session = aioboto3.Session()
+        self._region_name = region_name
+        self._resource_context: Any = None
+
+    async def __aenter__(self) -> "DynamoDBClient":
+        """Open the client's own resource, using the session it already holds.
+
+        Callers that already have a resource - the API, whose lifespan owns
+        one for the whole app - keep passing it in and this does nothing.
+        Callers that just want a working client say ``async with
+        DynamoDBClient() as store`` and never touch aioboto3 themselves.
+        """
+        if self._dynamodb is None:
+            self._resource_context = self._session.resource(
+                "dynamodb", region_name=self._region_name
+            )
+            self._dynamodb = await self._resource_context.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc_info: Any) -> None:
+        """Close only what this client opened."""
+        if self._resource_context is not None:
+            await self._resource_context.__aexit__(*exc_info)
+            self._resource_context = None
+            self._dynamodb = None
 
     async def _get_table(self, table_name: str) -> Any:
         if self._dynamodb is None:

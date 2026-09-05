@@ -48,19 +48,19 @@ Backend entry point at repo root: `mcp_server/`, peer to `saxo_order/` and `api/
 
 ### New shared vocabulary
 
-- [ ] T012 [P] Add `Provenance` (`LIVE`, `SIMULATED`), `IndicatorName` (MM7/MM20/MM50/MM200 + their `_SLOPE` variants, `BOLLINGER`, `ATR`, `ADX`, `MACD0LAG`) and `MarketName` (`EU`, `US`, `DAX_CFD`, `EU_CFD` — 1:1 with the classes in `model/market.py`) to `model/enum.py`, all extending `EnumWithGetValue`
+- [x] T012 [P] Add `Provenance` (`LIVE`, `SIMULATED`), `IndicatorName` (MM7/MM20/MM50/MM200 + their `_SLOPE` variants, `BOLLINGER`, `ATR`, `ADX`, `MACD0LAG`) and `MarketName` (`EU`, `US` only — `DaxCfdMarket`/`EuCfdMarket` exist for the backtest engine's CFD windows and no analysis path uses them, so listing them would put dead ends in the tool schema) to `model/enum.py`, all extending `EnumWithGetValue`
 
 ### Server foundation
 
-- [ ] T013 Create `mcp_server/dependencies.py`: `resolve_market_client() -> tuple[SaxoClient | MockSaxoClient, Provenance]` returning provenance explicitly. Do NOT reuse `api/dependencies.get_saxo_client` and do NOT apply `@lru_cache()` — provenance must be re-evaluated per request so a mid-session token expiry is caught (research.md §5)
-- [ ] T014 Add the DynamoDB lifespan to `mcp_server/dependencies.py`: one `aioboto3` resource held for the server's lifetime feeding a single `DynamoDBClient`, modelled on `saxo_order/async_utils.create_dynamodb_client` but not per-call (research.md §7)
-- [ ] T015 Create `mcp_server/errors.py` with the `@tool_boundary` decorator: translate `SaxoException` and client errors to `ToolError` (import from `mcp.server.mcpserver.exceptions` — it is **not** re-exported from `mcp.server`). Do not blanket-catch `ValueError`: inside a pydantic validator it is already an anticipated argument-validation failure that keeps its message (unhandled exceptions are masked by the SDK as `Error executing tool <name>` — research.md §2), and enforce the simulated-data refusal (FR-004a) so no individual tool can forget it
-- [ ] T016 [P] Create `mcp_server/models.py` with `ResponseMeta`, `InstrumentRef`, `BarSeries`, `IndicatorValue`, `IndicatorSnapshot`, `PatternHit`, `DetectorFailure`, `DetectionResult`, `StoredAlert`, `DigestEntry`, `AssetContext` per data-model.md. Every asset-bearing model carries an explicit `exchange: Exchange` (Constitution V.4)
-- [ ] T017 [P] Create `mcp_server/formatters.py`: `Candle` list → columnar `{columns, rows}` newest-first, 4dp rounding, bar cap + truncation flag
-- [ ] T018 Create `mcp_server/server.py` with the `MCPServer` instance, the DynamoDB lifespan wiring and `main()` calling `mcp.run()` under a `if __name__ == "__main__":` guard; zero tools registered yet
-- [ ] T019 [P] Test `@tool_boundary` in `tests/mcp_server/test_errors.py`: a `SaxoException` surfaces as a readable `ToolError`; a simulated-provenance call without `allow_simulated` is refused; with `allow_simulated=True` it proceeds
-- [ ] T020 [P] Test `mcp_server/formatters.py` in `tests/mcp_server/test_formatters.py`: newest-first ordering preserved (Constitution V.1), rounding, cap and truncation flag
-- [ ] T021 Verify the server boots and answers an MCP client with an empty tool list: `poetry run k-mcp`
+- [x] T013 Create `mcp_server/dependencies.py`: `resolve_market_client() -> tuple[SaxoClient | MockSaxoClient, Provenance]` returning provenance explicitly. Do NOT reuse `api/dependencies.get_saxo_client` and do NOT apply `@lru_cache()` — provenance must be re-evaluated per request so a mid-session token expiry is caught (research.md §5)
+- [x] T014 Add the DynamoDB lifespan to `mcp_server/dependencies.py`: one `aioboto3` resource held for the server's lifetime feeding a single `DynamoDBClient`, modelled on `saxo_order/async_utils.create_dynamodb_client` but not per-call (research.md §7)
+- [x] T015 Create `mcp_server/errors.py` with the `@tool_boundary` decorator: translate `SaxoException` and client errors to `ToolError` (import from `mcp.server.mcpserver.exceptions` — it is **not** re-exported from `mcp.server`). Do not blanket-catch `ValueError`: inside a pydantic validator it is already an anticipated argument-validation failure that keeps its message (unhandled exceptions are masked by the SDK as `Error executing tool <name>` — research.md §2), and enforce the simulated-data refusal (FR-004a) so no individual tool can forget it
+- [x] T016 [P] Create `mcp_server/models.py` with `ResponseMeta`, `InstrumentRef`, `BarSeries`, `IndicatorValue`, `IndicatorSnapshot`, `PatternHit`, `DetectorFailure`, `DetectionResult`, `StoredAlert`, `DigestEntry`, `AssetContext` per data-model.md. Every asset-bearing model carries an explicit `exchange: Exchange` (Constitution V.4)
+- [x] T017 [P] Create `mcp_server/formatters.py`: `Candle` list → columnar `{columns, rows}` newest-first, 4dp rounding, bar cap + truncation flag
+- [x] T018 Create `mcp_server/server.py` with the `MCPServer` instance, the DynamoDB lifespan wiring and `main()` calling `mcp.run()` under a `if __name__ == "__main__":` guard; zero tools registered yet
+- [x] T019 [P] Test `@tool_boundary` in `tests/mcp_server/test_errors.py`: a `SaxoException` surfaces as a readable `ToolError`; a simulated-provenance call without `allow_simulated` is refused; with `allow_simulated=True` it proceeds
+- [x] T020 [P] Test `mcp_server/formatters.py` in `tests/mcp_server/test_formatters.py`: newest-first ordering preserved (Constitution V.1), rounding, cap and truncation flag
+- [x] T021 Verify the server boots and answers an MCP client with an empty tool list: `poetry run k-mcp`
 
 **Checkpoint**: server runs, errors translate, provenance gates, scan helpers are shared. User stories may now start.
 
@@ -123,10 +123,10 @@ Backend entry point at repo root: `mcp_server/`, peer to `saxo_order/` and `api/
 
 **Independent test**: for a date with stored alerts, the answer cites the stored data plus watchlist labels and open workflow orders.
 
-- [ ] T042 [P] [US4] Implement `get_alerts` and `get_digest` in `mcp_server/tools/context.py` over `DynamoDBClient.get_alerts` / `get_alert_digest`, passing the free-form `data` map through unchanged. No alerts for a date → `[]`; no digest → `None`. Both distinct from failure
-- [ ] T043 [P] [US4] Implement `get_watchlist` and `get_workflow_orders` in `mcp_server/tools/context.py` over `DynamoDBClient.get_watchlist`/`get_watchlist_item`/`get_workflow_orders`. An asset in neither returns `in_watchlist=False` with empty lists — never an error. Use client methods only, never `client.dynamodb.Table()` (Constitution I)
+- [ ] T042 [P] [US4] Implement `get_alerts` and `get_digest` in `mcp_server/tools/context.py` (guard `ServerContext.dynamodb is None` first — see T045). **Call `DynamoDBClient` methods only** — add methods there if one is missing, never reach for the resource or a table. The free-form `data` map passes through unchanged. No alerts for a date → `[]`; no digest → `None`. Both distinct from failure
+- [ ] T043 [P] [US4] Implement `get_watchlist` and `get_workflow_orders` in `mcp_server/tools/context.py` (guard `ServerContext.dynamodb is None` first — see T045), through `DynamoDBClient` methods only. An asset in neither returns `in_watchlist=False` with empty lists — never an error (Constitution I)
 - [ ] T044 [US4] Register the four context tools in `mcp_server/server.py` with `@tool_boundary`
-- [ ] T045 [US4] Make the stored-context tools degrade independently: with DynamoDB unreachable they raise a `ToolError` naming the cause while the market-data tools keep working (spec edge case)
+- [ ] T045 [US4] Make the stored-context tools degrade independently: with DynamoDB unreachable they raise a `ToolError` naming the cause while the market-data tools keep working (spec edge case). **Each stored-context tool MUST check `ServerContext.dynamodb is not None` and answer "unavailable" itself** — `_get_table` raises a bare `RuntimeError` for a client with no resource, which `@tool_boundary` deliberately does not soften, so relying on the boundary here would surface the opaque `Error executing tool <name>`
 - [ ] T046 [P] [US4] Test in `tests/mcp_server/tools/test_context.py` with a mocked `DynamoDBClient`: alerts returned with their `data` map intact; an unknown asset returns the explicit not-held result; an unreachable store fails without affecting market-data tools
 
 ---
