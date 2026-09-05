@@ -8,6 +8,7 @@ from api.main import app
 from api.routers.indicator import (
     get_binance_client,
     get_candles_service,
+    get_ouinex_client,
     get_saxo_client,
 )
 from model import Candle, UnitTime
@@ -44,6 +45,19 @@ def mock_binance_client():
         return mock_client
 
     app.dependency_overrides[get_binance_client] = override_get_binance_client
+    yield mock_client
+    # Don't delete - mock_saxo_client clears all overrides
+
+
+@pytest.fixture(autouse=True)
+def mock_ouinex_client():
+    """Mock OuinexClient - autouse so all tests have it."""
+    mock_client = MagicMock()
+
+    def override_get_ouinex_client():
+        return mock_client
+
+    app.dependency_overrides[get_ouinex_client] = override_get_ouinex_client
     yield mock_client
     # Don't delete - mock_saxo_client clears all overrides
 
@@ -433,6 +447,52 @@ class TestIndicatorEndpoint:
         mock_binance_client.get_latest_candle.assert_called_once_with(
             "BTCUSDT"
         )
+
+    def test_get_asset_indicators_ouinex_symbol(
+        self, mock_ouinex_client, mock_candles_service
+    ):
+        """Ouinex exchange dispatches to the Ouinex candle path."""
+        mock_candles = []
+        for i in range(210):
+            mock_candles.append(
+                Candle(
+                    open=0.5 + i,
+                    close=0.5 + i,
+                    lower=0.4 + i,
+                    higher=0.6 + i,
+                    ut=UnitTime.D,
+                    date=datetime.datetime(2024, 1, 1, 0, 0, 0)
+                    + datetime.timedelta(days=210 - i),
+                )
+            )
+
+        mock_ouinex_client.get_candles.return_value = mock_candles
+        mock_ouinex_client.get_latest_candle.return_value = Candle(
+            open=1.14,
+            close=1.15,
+            lower=1.10,
+            higher=1.20,
+            ut=UnitTime.M15,
+            date=datetime.datetime.now(datetime.UTC),
+        )
+
+        response = client.get(
+            "/api/indicator/asset/XRPUSD?exchange=ouinex&unit_time=daily"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["asset_symbol"] == "XRPUSD"
+        assert data["current_price"] == 1.15
+        assert data["currency"] == "USD"
+        assert data["unit_time"] == "daily"
+        assert len(data["moving_averages"]) == 4
+
+        mock_ouinex_client.get_candles.assert_called_once_with(
+            "XRPUSD", UnitTime.D, limit=210
+        )
+        mock_ouinex_client.get_latest_candle.assert_called_once_with("XRPUSD")
 
     def test_get_asset_indicators_binance_variation(
         self, mock_binance_client, mock_candles_service
