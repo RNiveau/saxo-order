@@ -11,11 +11,11 @@ the protocol wire, so nothing here may print - logging goes to stderr.
 
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator
 
 from mcp.server import MCPServer
 
-from client.aws_client import AwsClient, DynamoDBClient, dynamodb_client
+from client.aws_client import AwsClient, dynamodb_session
 from utils.logger import Logger
 
 logger = Logger.get_logger("mcp_server")
@@ -35,13 +35,17 @@ passing allow_simulated.
 class ServerContext:
     """What the tools need for the life of the server.
 
-    ``dynamodb`` is None when the store could not be reached. That is not
-    fatal: the stored-context tools report their own unavailability while
-    the market-data tools carry on, so a missing AWS_PROFILE costs you the
-    alert history and nothing else.
+    ``store_available`` is False when the alert store could not be reached.
+    That is not fatal: the stored-context tools report their own
+    unavailability while the market-data tools carry on, so a missing
+    AWS_PROFILE costs you the alert history and nothing else.
+
+    There is no client here. The connection and everything that speaks to
+    it live in client/aws_client.py; tools ask that module for the data
+    they want rather than being handed something to drive.
     """
 
-    dynamodb: Optional[DynamoDBClient] = None
+    store_available: bool = False
 
 
 @asynccontextmanager
@@ -56,26 +60,28 @@ async def lifespan(server: MCPServer) -> AsyncIterator[ServerContext]:
     problem.
     """
     async with AsyncExitStack() as stack:
-        client: Optional[DynamoDBClient] = None
+        available = False
         if not AwsClient.is_aws_context():
             logger.warning(
-                "AWS_PROFILE is not set, so DynamoDB is unreachable: "
+                "AWS_PROFILE is not set, so the alert store is unreachable: "
                 "stored-context tools will report themselves unavailable, "
                 "market data is unaffected"
             )
         else:
             try:
-                client = await stack.enter_async_context(dynamodb_client())
+                await stack.enter_async_context(dynamodb_session())
+                available = True
                 logger.info(
-                    "DynamoDB resource open (credentials are not checked "
+                    "Alert store connected (credentials are not checked "
                     "until the first read)"
                 )
             except Exception as e:
                 logger.warning(
-                    f"DynamoDB unavailable ({e}): stored-context tools will "
-                    "report themselves unavailable, market data is unaffected"
+                    f"Alert store unavailable ({e}): stored-context tools "
+                    "will report themselves unavailable, market data is "
+                    "unaffected"
                 )
-        yield ServerContext(dynamodb=client)
+        yield ServerContext(store_available=available)
 
 
 mcp: MCPServer = MCPServer(

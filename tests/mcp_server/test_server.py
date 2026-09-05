@@ -40,12 +40,12 @@ class TestLifespan:
         context = asyncio.run(run())
 
         assert isinstance(context, ServerContext)
-        assert context.dynamodb is None
+        assert context.store_available is False
 
     def test_a_failure_opening_the_store_is_not_fatal(self, monkeypatch):
         monkeypatch.setenv("AWS_PROFILE", "whatever")
         monkeypatch.setattr(
-            "mcp_server.server.dynamodb_client",
+            "mcp_server.server.dynamodb_session",
             lambda: (_ for _ in ()).throw(OSError("no route to host")),
         )
 
@@ -53,4 +53,17 @@ class TestLifespan:
             async with lifespan(None) as ctx:
                 return ctx
 
-        assert asyncio.run(run()).dynamodb is None
+        assert asyncio.run(run()).store_available is False
+
+
+class TestTheServerHoldsNoStoreClient:
+    def test_the_context_carries_availability_not_a_client(self):
+        """The connection belongs to client/aws_client.py.
+
+        A tool handed a client can reach past whatever methods that layer
+        chose to offer; a tool handed a boolean has to ask.
+        """
+        fields = ServerContext.__dataclass_fields__
+
+        assert set(fields) == {"store_available"}
+        assert fields["store_available"].type in (bool, "bool")

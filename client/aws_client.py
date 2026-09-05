@@ -1112,20 +1112,40 @@ class DynamoDBClient(AwsClient):
         return response
 
 
+_store: Optional[DynamoDBClient] = None
+
+
 @asynccontextmanager
-async def dynamodb_client(
+async def dynamodb_session(
     region_name: str = AWS_REGION,
-) -> AsyncIterator[DynamoDBClient]:
-    """A DynamoDBClient holding an open resource for the life of the context.
+) -> AsyncIterator[None]:
+    """Hold the DynamoDB connection open for the life of the context.
 
-    Callers outside this layer should not build a DynamoDBClient themselves:
-    the aioboto3 session and resource are this module's business, and wiring
-    them up elsewhere spreads knowledge of the client's internals into layers
-    that only want to read a table.
+    Nothing is yielded on purpose. The client, its aioboto3 session and its
+    resource stay inside this module; callers ask this module for the data
+    they want instead of being handed a client to drive. A layer that only
+    needs yesterday's alerts should not have to know that DynamoDB is what
+    is underneath, nor be able to reach past the methods it is offered.
 
-    Long-lived by design - a server holds one of these for its whole run,
-    rather than opening and closing a resource per request.
+    Long-lived by design - a server holds this open for its whole run,
+    rather than opening a connection per request.
     """
+    global _store
     session = aioboto3.Session()
-    async with session.resource("dynamodb", region_name=region_name) as res:
-        yield DynamoDBClient(dynamodb_resource=res)
+    async with session.resource(
+        "dynamodb", region_name=region_name
+    ) as resource:
+        _store = DynamoDBClient(dynamodb_resource=resource)
+        try:
+            yield
+        finally:
+            _store = None
+
+
+def is_dynamodb_available() -> bool:
+    """Whether a connection is currently open.
+
+    Callers check this to answer "unavailable" in their own vocabulary
+    rather than letting a missing connection surface as a crash.
+    """
+    return _store is not None
