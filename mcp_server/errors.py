@@ -19,6 +19,7 @@ parameter would show up as something the model is expected to supply.
 """
 
 import functools
+import inspect
 from contextvars import ContextVar
 from typing import (
     Any,
@@ -49,13 +50,18 @@ MarketClient = Union[SaxoClient, MockSaxoClient]
 # Failures we know how to describe. Anything outside this list is a genuine
 # crash and is left to the SDK, which logs a traceback server-side - a bug
 # should look like a bug, not like a tidy explanation.
+#
+# RuntimeError is deliberately absent. It is what this project raises for
+# wiring mistakes - a DynamoDB client with no resource, or
+# current_market_client() called from a tool that forgot @market_tool -
+# and dressing those up as an explanation for the model is exactly the
+# outcome this module exists to avoid.
 KNOWN_FAILURES: Tuple[Type[Exception], ...] = (
     SaxoException,
     OuinexException,
     RequestException,
     BotoCoreError,
     ClientError,
-    RuntimeError,
 )
 
 _market_client: ContextVar[Optional[Tuple[MarketClient, Provenance]]] = (
@@ -97,7 +103,18 @@ def market_tool(func: F) -> F:
     ``allow_simulated`` is read from the call's own arguments and never
     remembered, so opting in once does not opt in for the rest of the
     session.
+
+    The wrapped tool must declare ``allow_simulated`` itself, since that is
+    what puts it in the tool's JSON schema. Without it the refusal below
+    advertises an escape hatch the caller has no way to reach, so this is
+    checked at import rather than left to be discovered at runtime.
     """
+    if "allow_simulated" not in inspect.signature(func).parameters:
+        raise TypeError(
+            f"{func.__name__} is decorated with @market_tool but does not "
+            "declare allow_simulated, so the refusal it can raise would be "
+            "unescapable"
+        )
 
     @functools.wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:

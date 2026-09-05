@@ -9,13 +9,13 @@ Started as a stdio subprocess by an MCP client (see .mcp.json). stdout is
 the protocol wire, so nothing here may print - logging goes to stderr.
 """
 
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from typing import AsyncIterator, Optional
 
 from mcp.server import MCPServer
 
-from client.aws_client import DynamoDBClient
+from client.aws_client import AwsClient, DynamoDBClient
 from mcp_server.dependencies import dynamodb_client
 from utils.logger import Logger
 
@@ -47,16 +47,36 @@ class ServerContext:
 
 @asynccontextmanager
 async def lifespan(server: MCPServer) -> AsyncIterator[ServerContext]:
-    try:
-        async with dynamodb_client() as client:
-            logger.info("DynamoDB ready")
-            yield ServerContext(dynamodb=client)
-    except Exception as e:
-        logger.warning(
-            f"DynamoDB unavailable ({e}): stored-context tools will report "
-            "themselves unavailable, market data is unaffected"
-        )
-        yield ServerContext(dynamodb=None)
+    """Open what the tools need, and get out of the way of real errors.
+
+    The ``yield`` deliberately sits outside the ``except``. Inside it, an
+    exception raised by the server while this context is active gets thrown
+    back in at the yield point, caught here, and followed by a second yield -
+    which ``@asynccontextmanager`` turns into "generator didn't stop after
+    athrow()", losing the actual cause and mislabelling it as a storage
+    problem.
+    """
+    async with AsyncExitStack() as stack:
+        client: Optional[DynamoDBClient] = None
+        if not AwsClient.is_aws_context():
+            logger.warning(
+                "AWS_PROFILE is not set, so DynamoDB is unreachable: "
+                "stored-context tools will report themselves unavailable, "
+                "market data is unaffected"
+            )
+        else:
+            try:
+                client = await stack.enter_async_context(dynamodb_client())
+                logger.info(
+                    "DynamoDB resource open (credentials are not checked "
+                    "until the first read)"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"DynamoDB unavailable ({e}): stored-context tools will "
+                    "report themselves unavailable, market data is unaffected"
+                )
+        yield ServerContext(dynamodb=client)
 
 
 mcp: MCPServer = MCPServer(

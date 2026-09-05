@@ -58,9 +58,9 @@ Backend entry point at repo root: `mcp_server/`, peer to `saxo_order/` and `api/
 - [x] T016 [P] Create `mcp_server/models.py` with `ResponseMeta`, `InstrumentRef`, `BarSeries`, `IndicatorValue`, `IndicatorSnapshot`, `PatternHit`, `DetectorFailure`, `DetectionResult`, `StoredAlert`, `DigestEntry`, `AssetContext` per data-model.md. Every asset-bearing model carries an explicit `exchange: Exchange` (Constitution V.4)
 - [x] T017 [P] Create `mcp_server/formatters.py`: `Candle` list → columnar `{columns, rows}` newest-first, 4dp rounding, bar cap + truncation flag
 - [x] T018 Create `mcp_server/server.py` with the `MCPServer` instance, the DynamoDB lifespan wiring and `main()` calling `mcp.run()` under a `if __name__ == "__main__":` guard; zero tools registered yet
-- [ ] T019 [P] Test `@tool_boundary` in `tests/mcp_server/test_errors.py`: a `SaxoException` surfaces as a readable `ToolError`; a simulated-provenance call without `allow_simulated` is refused; with `allow_simulated=True` it proceeds
-- [ ] T020 [P] Test `mcp_server/formatters.py` in `tests/mcp_server/test_formatters.py`: newest-first ordering preserved (Constitution V.1), rounding, cap and truncation flag
-- [ ] T021 Verify the server boots and answers an MCP client with an empty tool list: `poetry run k-mcp`
+- [x] T019 [P] Test `@tool_boundary` in `tests/mcp_server/test_errors.py`: a `SaxoException` surfaces as a readable `ToolError`; a simulated-provenance call without `allow_simulated` is refused; with `allow_simulated=True` it proceeds
+- [x] T020 [P] Test `mcp_server/formatters.py` in `tests/mcp_server/test_formatters.py`: newest-first ordering preserved (Constitution V.1), rounding, cap and truncation flag
+- [x] T021 Verify the server boots and answers an MCP client with an empty tool list: `poetry run k-mcp`
 
 **Checkpoint**: server runs, errors translate, provenance gates, scan helpers are shared. User stories may now start.
 

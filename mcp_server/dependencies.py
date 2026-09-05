@@ -45,13 +45,23 @@ def resolve_market_client() -> (
 ):
     """The market client to use right now, and what its data is worth.
 
-    Deliberately not cached. A token that expires an hour into a session has
-    to change the answer: a client resolved once at startup would keep
-    reporting LIVE while the data underneath had turned simulated, and the
-    refusal gate would wave it through. Constructing a client is cheap next
-    to the request it is about to make.
+    Not cached, and it re-reads the token every time. Both halves matter:
+    ``Configuration`` reads the token once in its constructor, so a cached
+    configuration behind an uncached client would still freeze provenance at
+    boot. The common case is the damaging one - start the server before
+    authenticating and every market tool is refused for the rest of the
+    session, while the refusal message tells you to refresh a token it will
+    never look at again.
+
+    Provenance answers "could a live client be built", not "does the token
+    still work" - checking that would mean a network round trip on every
+    call. An expired token therefore reports LIVE and fails on first use
+    with the venue's own message, which the tool boundary passes through
+    intact. That is the safe direction: a readable error, never fabricated
+    candles wearing a live label.
     """
     config = get_configuration()
+    config.load_tokens()
 
     if not config.access_token:
         logger.warning("No access token: only simulated data is available")

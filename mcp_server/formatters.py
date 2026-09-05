@@ -9,7 +9,6 @@ hundred repeated keys saved.
 import datetime
 from typing import List, Optional, Tuple, Union
 
-from mcp_server.models import BAR_COLUMNS
 from model import Candle
 
 # Enough to see structure and swing points without spending the context on
@@ -27,7 +26,7 @@ def round_price(value: float) -> float:
 
 
 def candle_row(candle: Candle) -> Row:
-    """One bar, in ``BAR_COLUMNS`` order."""
+    """One bar, in ``mcp_server.models.BAR_COLUMNS`` order."""
     return [
         candle.date.isoformat() if candle.date else None,
         round_price(candle.open),
@@ -40,32 +39,21 @@ def candle_row(candle: Candle) -> Row:
 def to_rows(
     candles: List[Candle], count: int = DEFAULT_BAR_COUNT
 ) -> Tuple[List[Row], bool]:
-    """Newest-first rows, capped. Returns the rows and whether it capped.
+    """Newest-first rows, capped. Returns the rows and whether *we* capped.
+
+    ``truncated`` means the hard cap cut the answer short, not that the
+    caller got the number of bars it asked for. Asking for 20 of 250 is a
+    request being honoured; asking for 900 and getting MAX_BAR_COUNT is the
+    server overriding you, and only the second is worth telling the reader
+    about.
 
     The newest-first order is the project's convention and is preserved all
     the way to the wire: index 0 is the most recent bar.
     """
     limit = max(1, min(count, MAX_BAR_COUNT))
-    truncated = len(candles) > limit
+    truncated = count > MAX_BAR_COUNT and len(candles) > MAX_BAR_COUNT
     return [candle_row(c) for c in candles[:limit]], truncated
 
 
 def last_bar_date(candles: List[Candle]) -> Optional[datetime.datetime]:
     return candles[0].date if candles else None
-
-
-def is_current_incomplete(
-    candles: List[Candle], forming_included: bool
-) -> bool:
-    """Whether row 0 is a period still trading.
-
-    ``forming_included`` comes from the caller because only it knows whether
-    a market was available to rebuild the forming period at all - with none,
-    the series stops at the last completed bar and nothing here can tell the
-    difference by looking.
-    """
-    return bool(candles) and forming_included
-
-
-def columns() -> List[str]:
-    return list(BAR_COLUMNS)
