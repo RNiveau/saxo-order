@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 from typing import List, Optional, Union
 
 from client.client_helper import map_data_to_candle, map_data_to_candles
@@ -12,9 +13,14 @@ from utils.helper import (
     build_daily_candles_from_h1,
     build_h4_candles_from_h1,
     get_date_utc0,
+    last_session_close,
     market_in_utc,
 )
 from utils.logger import Logger
+
+# Extra calendar days fetched beyond the strict weekend-adjusted span, to
+# absorb public holidays without needing an exchange calendar.
+HOLIDAY_BUFFER_DAYS = 2
 
 
 class CandlesService:
@@ -253,23 +259,33 @@ class CandlesService:
                 f"Wrong parameter {market.open_minutes}, "
                 "we handle only 0 and 30"
             )
-        nbr_30m = count * 2 * 3
+        num_h1_per_day = (
+            market.close_hour
+            - market.open_hour
+            + (1 if market.open_minutes == 0 else 0)
+        )
         if ut == UnitTime.H4:
-            nbr_30m = count * 8 * 3
+            candles_per_day = len(market.h4_blocks)
         elif ut == UnitTime.D:
-            num_h1 = (
-                market.close_hour
-                - market.open_hour
-                + (1 if market.open_minutes == 0 else 0)
-            )
-            nbr_30m = count * num_h1 * 2 * 3
+            candles_per_day = 1
+        else:
+            candles_per_day = num_h1_per_day
+        # Anchor the query to the last session close so the newest returned
+        # bars are in-session even when we run off-hours; then fetch just
+        # enough calendar days to span the requested in-session candles.
+        anchor = last_session_close(date, market)
+        trading_days = math.ceil(count / candles_per_day)
+        calendar_days = (
+            trading_days + 2 * (trading_days // 5) + HOLIDAY_BUFFER_DAYS
+        )
+        nbr_30m = calendar_days * 48
         asset = self.saxo_client.get_asset(code)
         data = self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
             horizon=30,
             count=nbr_30m,
-            date=date,
+            date=anchor,
         )
         if len(data) == 0:
             raise SaxoException(f"No data returned for {code}")

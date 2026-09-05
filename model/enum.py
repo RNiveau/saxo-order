@@ -5,6 +5,16 @@ class Strategy(EnumWithGetValue):
     IMP = "Bougie impulsive"
     B9H = "Bougie de 9h"
     B9HTC = "Bougie de 9h (time cut)"
+    G9H = "Bougie de 9h GER40"
+    G9HSL = "Bougie de 9h GER40 (lot unique)"
+    B9HWS = "Bougie de 9h (wide-range structural stop)"
+    G9HIC = "Bougie de 9h GER40 (bougie impulsive)"
+    G9HICD = "Bougie de 9h GER40 (bougie impulsive, 2 lots)"
+    G9HICMH = "Bougie de 9h GER40 (bougie impulsive, MM50 h1)"
+    G9HICMD = "Bougie de 9h GER40 (bougie impulsive, MM50 daily)"
+    C5M = "Combo GER40 5m"
+    C15M = "Combo GER40 15m"
+    C1H = "Combo GER40 h1"
     BH = "Breakout haussier"
     C200 = "Cassure mm200"
     CRANGE = "Cassure de range"
@@ -111,11 +121,13 @@ class AlertType(EnumWithGetValue):
     CONGESTION20 = "congestion20"
     CONGESTION100 = "congestion100"
     COMBO = "combo"
+    COMBO_WEEKLY = "combo_weekly"
     DOUBLE_TOP = "double_top"
     DOUBLE_BOTTOM = "double_bottom"
     DOUBLE_INSIDE_BAR = "double_inside_bar"
     CONTAINING_CANDLE = "containing_candle"
     MM50_TOUCH = "mm50_touch"
+    MM7_BREAK = "mm7_break"
 
 
 class Exchange(EnumWithGetValue):
@@ -138,7 +150,9 @@ class ExitReason(EnumWithGetValue):
     BREAK_EVEN = "break_even"
     TAKE_PROFIT = "take_profit"
     END_OF_DAY = "end_of_day"
+    END_OF_RUN = "end_of_run"
     TIME_CUT = "time_cut"
+    TRAILING_STOP = "trailing_stop"
 
 
 class DayStatus(EnumWithGetValue):

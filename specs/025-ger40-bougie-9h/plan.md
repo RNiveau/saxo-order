@@ -117,3 +117,240 @@ No constitutional violations. Two design points are recorded here because they a
 |---|---|---|
 | Stop-loss measured from the **H1 reference level** (150 pts beyond it) for `G9H`, while `B9H` measures its stop from **entry**. | Spec FR-G05 / user rule "SL 150 points below the lower". | Implemented as a `stop_from_reference_level` flag on `BacktestDefinition` so `B9H`/`B9HTC` behavior is byte-for-byte unchanged; only `G9H` takes the reference-based branch. Surfaced in the spec Clarifications for the owner to confirm during validation. |
 | A two-lot position is surfaced as **one aggregated `Trade`** whose `points` ≠ `exit_price − entry_price`. | Spec FR-G07 (owner chose one aggregated trade over two rows). | Kept within the existing `Trade` shape (no response change, FR-G10); the engine computes the summed points explicitly via a dedicated close helper. The aggregated `exit_price`/`exit_reason` reflect the runner's final exit. |
+
+---
+
+# Addendum: "GER40 Bougie de 9h (bougie impulsive)" variant (`G9HIC`)
+
+**Branch**: `claude/dax-backtest-impulsive-candle-61dj2p` | **Date**: 2026-07-27 | **Spec**: [spec.md](./spec.md) §Addendum
+
+## Summary
+
+A fourth GER40 backtest that keeps the single-lot `G9HSL` setup (take-profit at the H1 far level − 10, break-even arming at +50) and replaces the fixed 150-point stop with an **impulse stop**: the position closes only on a 5-minute candle that is at least 70 points wide, closes within 25% of its range from the extreme adverse to the position, and closes beyond the H1 reference level — or on its take-profit, its armed break-even stop, or end of day. Days whose 9:00–10:00 H1 range is not strictly greater than 70 points are not traded. The session runs 9:00–22:00 Paris on a new `EuCfdMarket` instead of the 17:30 cash close.
+
+**Note on the base**: this addendum is written against the **refactored backtest package** (`api/services/backtest/`, PR #672), not the single `api/services/backtest_service.py` module the sections above describe. The refactor is what makes this variant cheap: the impulse rule is one new `ExitPolicy` plus one new `Side` predicate, composed in `rules.build_exit_chain`. No engine code branches on which backtest is running.
+
+## Design
+
+### 1. `EuCfdMarket` and per-definition markets
+
+`Market`, `USMarket` and `EUMarket` move from `model/__init__.py` into a new `model/market.py`, re-exported from `model/__init__.py` so every existing import keeps working. The move is required, not cosmetic: `model/__init__.py` imports `model.backtest` at line 5, so `BacktestDefinition` cannot reference a market class defined further down the same file without a circular import.
+
+`EuCfdMarket` follows the `USMarket` convention for a close that is not on an H1 boundary label: `close_hour=21, end_minute=60` → a 22:00 close, where `close_hour` stays the last-full-H1-candle label hour. `h4_blocks=[3, 4, 4, 2]` (9-12 / 12-16 / 16-20 / 20-22).
+
+`BacktestDefinition` gains `market: Market = field(default_factory=EUMarket)`. `api/services/backtest/calendar.py` stops hardcoding `EUMarket()` and takes the market as a parameter (`paris_reference_window_utc`, `paris_session_end_utc`, `is_today_not_yet_closed`); `candle_source.py` and `service._fetch_daily_candles` pass `definition.market`; `api/routers/backtest.py` threads it into `_parse_date`/`_parse_range`, which every endpoint already calls **after** `_resolve_definition`.
+
+No cache-schema bump: the raw-candle cache key is `code:instrument:vN`, so a new definition code gets its own namespace and no existing entry is reinterpreted under the longer session. *(Updated 2026-07-28: the key is now `instrument:session window:vN`, dropping the definition code. The longer CFD session is still isolated — it is now the session window itself, rather than the definition code, that keeps this variant from reading a cash-session entry.)*
+
+### 2. The impulse rule
+
+One new predicate on `Side`, so the long and short forms are one expression rather than two:
+
+```python
+def closed_near_adverse_extreme(self, candle: Candle, fraction: float) -> bool:
+    span = candle.higher - candle.lower
+    return self.favorable(candle.close, self.adverse_extreme(candle)) <= fraction * span
+```
+
+For a long, `adverse_extreme` is the candle's low and `favorable(close, low)` is `close − low`; for a short it is the high and the expression becomes `high − close`. Multiplicative, so a zero-range candle needs no guard (and cannot pass the 70-point amplitude test anyway).
+
+One new policy, `policies.ImpulsiveStop(points, fraction)`, closing at the candle's close with `ExitReason.STOP_LOSS`. It sits **after** `Target()` in the chain for the same reason `StructuralStop` does — it is measured on the close, while a target is touched intrabar — and returns `None` once break-even is armed, at which point `Stop(only_when_armed=True)` at the head of the chain owns the exit.
+
+Chain for `G9HIC`: `Stop(only_when_armed=True)` → `Target()` → `ImpulsiveStop(70, 0.25)` → `ArmBreakEven(50)`.
+
+### 3. Definition fields and guards
+
+`impulsive_candle_points: Optional[float] = None` and `impulsive_close_fraction: Optional[float] = None`, both off by default. `BacktestDefinition.__post_init__` gains guards in the style of the existing ones — a flag that cannot take effect must fail at registration, never ship as a silent no-op: `impulsive_candle_points > 0`; `0 < impulsive_close_fraction < 1`; the two are set together or not at all; and the combination with `structural_stop` is rejected (two competing close-measured stops, no backtest needs it and none has been validated against it).
+
+### 4. The definition
+
+`G9HIC` — `Strategy.G9HIC`, `GER40.I`, `market=EuCfdMarket()`, GER40 defaults 150/10/50/40 (`stop_loss_points` unused, as it already is for `B9HWS`), `min_h1_range_points=70.0`, `impulsive_candle_points=70.0`, `impulsive_close_fraction=0.25`.
+
+## Constitution Check
+
+| Principle | Check | Result |
+|---|---|---|
+| I. Layered Architecture Discipline | The market is a Model-layer type (`model/market.py`, stdlib only); the impulse rule is a Service-layer policy; no router or client change beyond threading the definition's market into date parsing. | PASS |
+| II. Clean Code First | New `Strategy.G9HIC` enum member, no hardcoded strategy string; the rule is composed from the existing policy chain rather than a new engine branch; the long/short forms are one `Side` expression; no `assert` in production code — the registration guards raise `ValueError`. | PASS |
+| III. Configuration-Driven Design | The impulse threshold and close fraction are fixed strategy properties on the definition (FR-G18), not deployment config and not per-run knobs; the four numeric thresholds stay per-run analysis inputs. | PASS |
+| IV. Safe Deployment Practices | Purely additive: one new definition, one new market, two new definition fields. No Lambda/ECR/Pulumi change. Conventional commits. | PASS |
+| V. Domain Model Integrity | `Candle` used throughout outside the client; `GER40.I` is a hardcoded index instrument so the `country_code` inference rule does not apply; the longer CFD session only changes the fetch window, not the "Saxo does not return the current period" handling. | PASS |
+
+## Complexity Tracking
+
+| Design point | Why | Note |
+|---|---|---|
+| Moving `Market`/`USMarket`/`EUMarket` to `model/market.py`. | `model/__init__.py` imports `model.backtest` before the market classes are defined, so `BacktestDefinition.market` would be a circular import. | Pure move + re-export; every `from model import EUMarket` keeps working, and no other module changes. |
+| A definition with **no stop-loss distance at all** while unarmed. | FR-G15 — the variant's entire premise. | Not new machinery: `B9HWS` already runs `Stop(only_when_armed=True)`. `stop_loss_points` stays on the params object (it is a shared shape) and is simply unread, as it already is for `B9HWS`. |
+| The impulse test is amplitude **and** shape **and** level, not amplitude alone. | Clarifications 2026-07-27 — amplitude alone would fire on long-wick reversal candles that closed back inside the range, which are indecision, not impulse. | Makes the name honest: "impulsive" implies a decisive move, and the 25% close fraction is what enforces it. |
+
+---
+
+# Addendum 2: entry cut-off and daily loss cap (`G9HIC`)
+
+**Branch**: `claude/dax-backtest-impulsive-candle-61dj2p` | **Date**: 2026-07-27 | **Spec**: [spec.md](./spec.md) §Addendum 2
+
+## Summary
+
+Two entry filters on `G9HIC`: no position opened on a candle starting at or after 16:00 Paris, and none once two positions have closed at a loss that day. Exit handling is untouched.
+
+## Design
+
+### Where these belong
+
+The exit-policy chain is the wrong home for both. A policy answers "does this rule close an open position?", and neither of these ever closes anything — they decide whether the engine may open one. Forcing them into the chain would mean a policy that mutates engine state it does not own, which is the coupling the #672 refactor removed.
+
+They also do not belong in `is_valid_entry`/`DirectionSearch`: that layer judges a *candidate breakout* against price levels and is deliberately stateless across positions. The clock and the day's realised losses are properties of the run, not of the breakout.
+
+So they go where the engine already decides whether to open — `service._evaluate_trades` — behind one small, testable object rather than two `if`s inline:
+
+```python
+class EntryGate:
+    """Whether the engine may open a position on this candle."""
+    def allows(self, candle_time) -> bool
+    def record(self, trade) -> None     # counts a closed loss
+```
+
+`rules.build_entry_gate(definition, trading_date)` constructs it from the definition's flags, mirroring `build_exit_chain`/`build_lot_model` — so `definitions.py` stays the only place variant flags are read, and a definition with neither filter gets a gate that always allows (the existing behavior, no branching at the call site).
+
+The engine change is then two lines: consult `gate.allows(candle_time)` before opening, and `gate.record(closed)` where trades are already appended.
+
+### Definition fields
+
+- `last_entry_time: Optional[datetime.time] = None` — 16:00 for `G9HIC`. Stored as a naive local time and resolved against the definition's market timezone per trading date, the same DST-aware path `paris_reference_window_utc` uses, so it is 14:00 UTC in summer and 15:00 in winter. Candle timestamps are naive UTC, so the gate compares in UTC.
+- `max_daily_losses: Optional[int] = None` — 2 for `G9HIC`.
+
+`__post_init__` guards, in the existing style: a positive `max_daily_losses`, and a `last_entry_time` that actually falls inside the session (a cut-off at 23:00 on a 22:00 market, or at 08:00 before the 10:00 scan start, is a filter that could never fire or could never allow — both are configuration errors worth failing at registration).
+
+### What counts as a loss
+
+`trade.points < 0`, matching `SingleLot.classify`'s losing branch and therefore the summary's "number of losing positions". Deliberately not `exit_reason == STOP_LOSS`: under an impulse stop a day can bleed through end-of-day closes without a single stop firing, and a cap that ignored those would not bound what it claims to.
+
+## Constitution Check
+
+| Principle | Check | Result |
+|---|---|---|
+| I. Layered Architecture | Definition fields in `model/`; the gate and its construction in the Service layer beside the exit chain; no router, client or frontend change. | PASS |
+| II. Clean Code First | One object with two methods rather than two inline conditions; built by the same `rules.py` that builds the chain, so variant flags stay read in one place; no `assert` — the registration guards raise `ValueError`. | PASS |
+| III. Configuration-Driven | Both are fixed strategy properties (FR-G22), not deployment config and not per-run knobs. | PASS |
+| IV. Safe Deployment | Additive to one definition; no infrastructure change. The `G9HIC` golden rows move, which is the intended, reviewable evidence. | PASS |
+| V. Domain Model Integrity | `Candle`/`Trade` throughout; no new instrument or market handling. | PASS |
+
+## Complexity Tracking
+
+| Design point | Why | Note |
+|---|---|---|
+| A new `EntryGate` concept rather than two `if`s in `_evaluate_trades`. | The engine loop is the one place that already knows both the clock and the closed trades; adding two stateful conditions inline would put day-scoped state in the middle of the candle walk. | It is ~20 lines and is unit-testable without building candles. `build_entry_gate` returns an always-allow gate for the five definitions with neither filter, so their code path is unchanged. |
+| The `G9HIC` golden snapshot moves. | FR-G19/FR-G20 change which entries are taken. | Expected and load-bearing: the diff shows exactly which trades the filters removed. The other five definitions must stay byte-for-byte identical (SC-G13). |
+
+---
+
+# Addendum 3: two-lot impulsive variant (`G9HICD`)
+
+**Branch**: `claude/dax-backtest-impulsive-candle-61dj2p` | **Date**: 2026-07-27 | **Spec**: [spec.md](./spec.md) §Addendum 3
+
+## Summary
+
+A seventh definition: `G9HIC` plus a two-lot overlay whose first lot takes the standard take-profit and whose runner targets 100 points beyond it, with break-even armed on the TP1 fill. Everything else about `G9HIC` is inherited unchanged, and `G9HIC` itself is untouched.
+
+## Design
+
+### Where the two targets come from
+
+The existing `TwoLot` model computes TP1 as a fraction of the H1 range and leaves TP2 as the position's ordinary take-profit. This variant inverts that: TP1 *is* the ordinary take-profit and TP2 sits beyond it. Both are "where do this lot model's targets sit", so rather than bolt a second question onto the engine, `LotModel` gains one method that answers it whole:
+
+```python
+def targets(self, side, h1_high, h1_low, take_profit_level) -> Targets   # (first, runner)
+```
+
+- `SingleLot` → `(None, take_profit_level)` — no first target, runner target is the ordinary one.
+- `TwoLot(fraction)` → `(h1_low + fraction * range, take_profit_level)` — today's `G9H` behavior.
+- `ExtendedTwoLot(points)` → `(take_profit_level, take_profit_level + side.sign * points)`.
+
+This replaces `first_target_level(h1_high, h1_low)`, which could not express either half of the new model: it had no side (the midpoint is direction-independent, the standard take-profit is not) and no say over the runner's level.
+
+The engine then computes targets **per side** instead of once — a real change, since `G9H`'s midpoint was the same level for a long and a short while these are mirrored. `DirectionSearch` and `Position` each take the pair for their side.
+
+### Everything else falls out
+
+`build_exit_chain` already emits `DoubleTarget` for any two-lot definition and appends `ImpulsiveStop` for any impulse definition, so `G9HICD`'s chain — `Stop(only_when_armed=True)` → `DoubleTarget` → `ImpulsiveStop` → `ArmBreakEven` — needs no new code, and is the first shipped definition to combine those two flags. `DoubleTarget` already arms break-even on the TP1 fill (FR-G27), `TwoLot.total_points` already doubles a pre-TP1 exit leg (FR-G28), and the engine's end-of-day close already runs through the lot model (FR-G29).
+
+**A consequence worth stating**: because TP1 arming break-even is immediate and `ImpulsiveStop` stands down once armed, the impulse rule can never close the runner — it protects the pre-TP1 position only. That follows from the chosen semantics rather than from an implementation detail, and is recorded in the spec's Assumptions.
+
+### Definition fields and guards
+
+`runner_extension_points: Optional[float] = None`. `__post_init__` gains: it requires `double_take_profit`; it must be positive; and a double-take-profit definition must carry **exactly one** of `first_target_fraction` / `runner_extension_points` — two ways to place TP1 is one way too many, and the existing "double_take_profit requires first_target_fraction" guard is relaxed to that broader rule.
+
+## Constitution Check
+
+| Principle | Check | Result |
+|---|---|---|
+| I. Layered Architecture | New field in `model/`; lot model and its construction in the Service layer; no router, client or frontend change. | PASS |
+| II. Clean Code First | One `targets()` method replacing a narrower one rather than a second parallel accessor; the exit chain and points arithmetic are reused untouched; new `Strategy` enum member; guards raise rather than `assert`. | PASS |
+| III. Configuration-Driven | Two-lot structure and the 100-point extension are fixed strategy properties (FR-G31). | PASS |
+| IV. Safe Deployment | Additive: one definition, one field. Existing golden rows must not move (SC-G16). | PASS |
+| V. Domain Model Integrity | `Candle`/`Trade` throughout; no new instrument or market. | PASS |
+
+## Complexity Tracking
+
+| Design point | Why | Note |
+|---|---|---|
+| Changing `LotModel.first_target_level` into `targets()` rather than adding a second method. | The new model decides *both* levels, and the old signature had neither the side nor the runner. | Touches three implementations and their tests; the engine gets simpler (one call per side instead of a call plus a separate take-profit computation threaded into `_open_position`). |
+| Targets computed per side. | TP1 is now direction-dependent; `G9H`'s midpoint was not. | `G9H`'s behavior is unchanged because `TwoLot.targets` ignores the side it is handed. |
+
+---
+
+# Addendum 5: MM50 direction filter (`G9HICMH`, `G9HICMD`)
+
+**Branch**: `claude/ger40-ma50-strategy-test-4p69yj` | **Date**: 2026-08-03 | **Spec**: [spec.md](./spec.md) §Addendum 5
+
+## Summary
+
+Two definitions reproducing `G9HIC` — the single-take-profit impulsive variant — plus one rule: the day trades in at most one direction, decided at 10:00 by the 9h reference candle's close against an MA50. The pair differs only in the timeframe that MA50 is read on (H1 / daily), so a difference between their results is attributable to the timeframe and nothing else. `G9HIC` is untouched and is the control run.
+
+## Design
+
+### 1. Where the rule belongs
+
+Not in the exit chain (it closes nothing), and not in `EntryGate` (that answers "may *anything* open now?" from the clock and the day's losses, with no notion of a side). It is a third question — "may *this side* open?" — resolved once per day and consulted where the engine picks a side to open on.
+
+So: a per-day `Optional[Side]` computed before the 5-minute scan and threaded into `_evaluate_trades`, where the open loop skips a side that is not it. Deliberately a `continue` inside the existing loop rather than dropping the side from `searches`: both `DirectionSearch` objects must keep being fed (FR-G42), and a refused entry must not trigger `_reset`, or a pending candidate on the *allowed* side would be silently discarded — the case `TestBothSearchesStillFed` pins.
+
+### 2. `direction_filter.py`
+
+A new module rather than a function in `analytics.py`. Both average candles, but the measures in `analytics` are *reported* next to a day and never change what the strategy does, while this one decides whether a position may open; and they differ on the lookahead boundary — a regime column reads strictly prior days, the H1 filter includes the reference candle itself, which has closed by 10:00.
+
+`allowed_side(definition, series, trading_date, reference_close) -> Optional[Side]` returns `None` both for "closed exactly on the MA50" and for "no MA50 available": each is a day nobody could have traded, and the caller reports `NO_TRADE` without distinguishing them.
+
+### 3. The candle series
+
+`_fetch_filter_series` on the engine, on `EUMarket` for both variants — the same comparability argument `_fetch_daily_candles` already makes: the CFD session would put ~13 H1 bars in a day instead of 9, so a 50-period MA would span four sessions instead of six.
+
+- **Daily**: reuses the series `run_range` already fetches for `mm50_slope` / `adx14` / `overnight_gap`. No new fetch.
+- **H1**: one `build_candles(..., UnitTime.H1, EUMarket(), ...)` per range run, anchored on the day *after* the range's last day — an anchor at midnight Paris on `end_date` resolves to the previous session's close, which would leave the last day's own reference candle out of the series.
+
+Fetched once per run, not once per day: `run_range` passes the series down, so `evaluate_day` keeps its signature and only a single-day request pays for its own fetch — and even then not on a day the cheaper minimum-range filter already rejects (FR-G43).
+
+A failed fetch degrades to an empty series, which reads as "no MA50" and makes every day of the run a `NO_TRADE` (FR-G40) — visibly nothing, rather than a run that silently reports unfiltered results under a filtered definition's name.
+
+### 4. Definition field and guard
+
+`ma50_direction_filter: Optional[UnitTime] = None`. `__post_init__` rejects any value other than `H1` / `D`: no other timeframe has a series the filter knows how to build, so it would ship as a filter that never allows anything.
+
+## Constitution Check
+
+| Principle | Check | Result |
+|---|---|---|
+| I. Layered Architecture | New field in `model/`; the filter and its fetch in the Service layer; no router, client or frontend change (the menu is registry-driven). | PASS |
+| II. Clean Code First | One new module with one public function; the open loop gains one guarded `continue`; guards raise rather than `assert`; two new `Strategy` members. | PASS |
+| III. Configuration-Driven | The period (50) and the timeframe are fixed definition properties (FR-G44); the four numeric thresholds stay per-run tunable. | PASS |
+| IV. Safe Deployment | Additive: two definitions, one field. Existing golden rows unmoved (SC-G23, verified). | PASS |
+| V. Domain Model Integrity | `Candle` / `Side` throughout; existing `mobile_average`; no new instrument or market. | PASS |
+
+## Complexity Tracking
+
+| Design point | Why | Note |
+|---|---|---|
+| A private `_evaluate_day` taking the series, behind the public `evaluate_day`. | The series must be fetched once per range, not once per day, without changing the strategy Protocol's signature. | `run_range`'s per-day seam moves to `_evaluate_day`; the range tests patch that instead. |
+| `None` conflates "on the MA50" with "no MA50". | Both are untradeable days and the day export has one `NO_TRADE` status for them. | If the two ever need telling apart in the export, they need distinct statuses first. |
+| The H1 series is built on the cash session while the strategy trades the CFD session. | Comparability with the daily variant and with the existing regime columns. | Means the 17:30–22:00 bars the strategy scans never enter its own MA50 — stated in the spec's edge cases. |

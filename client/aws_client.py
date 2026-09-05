@@ -12,7 +12,13 @@ import aioboto3
 import boto3
 from botocore.exceptions import ClientError
 
-from model import Alert, AlertDigest, AlertType
+from model import (
+    Alert,
+    AlertDigest,
+    AlertType,
+    TriagedAsset,
+    alert_dedup_signature,
+)
 from utils.json_util import dumps_indicator, hash_indicator
 from utils.logger import Logger
 
@@ -70,6 +76,33 @@ def _dynamo_operation(func):
             raise DynamoDBOperationError(operation, "Connection error") from e
 
     return wrapper
+
+
+def _serialize_triaged_asset(asset: TriagedAsset) -> Dict[str, Any]:
+    item: Dict[str, Any] = {
+        "asset_code": asset.asset_code,
+        "asset_description": asset.asset_description,
+        "exchange": asset.exchange,
+        "conviction": asset.conviction.value,
+        "rationale": asset.rationale,
+        "patterns": [p.value for p in asset.patterns],
+        "ma50_slope": asset.ma50_slope,
+        "rank": asset.rank,
+        "country_code": asset.country_code,
+    }
+    if asset.workflow_triggers:
+        item["workflow_triggers"] = [
+            {
+                "workflow_name": trigger.workflow_name,
+                "direction": trigger.direction.name,
+                "order_price": trigger.order_price,
+                "trigger_close": trigger.trigger_close,
+                "placed_at": trigger.placed_at,
+                "dry_run": trigger.dry_run,
+            }
+            for trigger in asset.workflow_triggers
+        ]
+    return item
 
 
 class AwsClient:
@@ -507,21 +540,19 @@ class DynamoDBClient(AwsClient):
         existing_signatures = set()
         for existing in existing_alerts:
             try:
-                alert_date = datetime.datetime.fromisoformat(existing["date"])
-                signature = (
-                    existing["alert_type"],
-                    alert_date.date().isoformat(),
+                existing_signatures.add(
+                    alert_dedup_signature(
+                        existing["alert_type"],
+                        existing["date"],
+                        existing.get("data"),
+                    )
                 )
-                existing_signatures.add(signature)
             except (KeyError, ValueError):
                 continue
 
         unique_alerts = []
         for alert in alerts:
-            signature = (
-                alert.alert_type.value,
-                alert.date.date().isoformat(),
-            )
+            signature = alert.dedup_signature
             if signature not in existing_signatures:
                 unique_alerts.append(alert)
                 existing_signatures.add(signature)
@@ -895,17 +926,7 @@ class DynamoDBClient(AwsClient):
             "summary": digest.summary,
             "counts": digest.counts,
             "triaged_assets": [
-                {
-                    "asset_code": asset.asset_code,
-                    "asset_description": asset.asset_description,
-                    "exchange": asset.exchange,
-                    "conviction": asset.conviction.value,
-                    "rationale": asset.rationale,
-                    "patterns": [p.value for p in asset.patterns],
-                    "ma50_slope": asset.ma50_slope,
-                    "rank": asset.rank,
-                    "country_code": asset.country_code,
-                }
+                _serialize_triaged_asset(asset)
                 for asset in digest.triaged_assets
             ],
             "fallback_used": digest.fallback_used,
@@ -969,3 +990,120 @@ class DynamoDBClient(AwsClient):
 
         items = response.get("Items", [])
         return items[0] if items else None
+
+    # The table's hash key attribute is named "definition_code" for
+    # historical reasons: it held a per-definition key until the cache was
+    # re-keyed on (instrument, session). Renaming a DynamoDB key attribute
+    # means replacing the table, so the attribute keeps its name while the
+    # value it carries is now whatever cache key the caller computed.
+    @_dynamo_operation
+    async def get_cached_backtest_candles(
+        self, cache_key: str, trading_date: str
+    ) -> Optional[Dict[str, Any]]:
+        table = await self._get_table("backtest_candle_cache")
+        response = await table.get_item(
+            Key={
+                "definition_code": cache_key,
+                "trading_date": trading_date,
+            }
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB get_item error: {response}")
+            return None
+
+        return response.get("Item")
+
+    @_dynamo_operation
+    async def store_backtest_candles(
+        self,
+        cache_key: str,
+        trading_date: str,
+        has_data: bool,
+        h1_candle: Optional[Dict[str, Any]] = None,
+        m5_candles: Optional[List[Dict[str, Any]]] = None,
+        m5_fetched: bool = True,
+        only_if_absent: bool = False,
+    ) -> Dict[str, Any]:
+        """only_if_absent makes the write conditional on nothing being
+        cached for this key yet. Used for a partial entry, which must
+        never overwrite the richer entry another concurrent run may have
+        just written for the same day."""
+        item: Dict[str, Any] = {
+            "definition_code": cache_key,
+            "trading_date": trading_date,
+            "has_data": has_data,
+            "cached_at": int(time.time()),
+        }
+        if has_data:
+            item["h1_candle"] = h1_candle
+            item["m5_candles"] = m5_candles or []
+            item["m5_fetched"] = m5_fetched
+        item = self._convert_floats_to_decimal(item)
+
+        kwargs: Dict[str, Any] = {"Item": item}
+        if only_if_absent:
+            kwargs["ConditionExpression"] = (
+                "attribute_not_exists(definition_code)"
+            )
+
+        table = await self._get_table("backtest_candle_cache")
+        try:
+            response = await table.put_item(**kwargs)
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code")
+            if code != "ConditionalCheckFailedException":
+                raise
+            # Someone else cached this day first, which is the whole point
+            # of the condition - not an error.
+            self.logger.debug(
+                f"Skipped conditional write for {cache_key}/{trading_date}: "
+                "an entry already exists"
+            )
+            return {}
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB put_item error: {response}")
+
+        return response
+
+    @_dynamo_operation
+    async def scan_backtest_candles(self) -> List[Dict[str, Any]]:
+        """Every item in the raw-candle cache. Only the cache migration
+        needs this - the backtests themselves always read a single
+        (cache key, trading date) item."""
+        table = await self._get_table("backtest_candle_cache")
+        response = await table.scan()
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB scan error: {response}")
+            return []
+
+        items = response.get("Items", [])
+        while "LastEvaluatedKey" in response:
+            response = await table.scan(
+                ExclusiveStartKey=response["LastEvaluatedKey"]
+            )
+            if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+                self.logger.error(f"DynamoDB scan error: {response}")
+                break
+            items.extend(response.get("Items", []))
+
+        return items
+
+    @_dynamo_operation
+    async def delete_backtest_candles(
+        self, cache_key: str, trading_date: str
+    ) -> Dict[str, Any]:
+        table = await self._get_table("backtest_candle_cache")
+        response = await table.delete_item(
+            Key={
+                "definition_code": cache_key,
+                "trading_date": trading_date,
+            }
+        )
+
+        if response["ResponseMetadata"]["HTTPStatusCode"] >= 400:
+            self.logger.error(f"DynamoDB delete_item error: {response}")
+
+        return response

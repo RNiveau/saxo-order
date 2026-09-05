@@ -319,6 +319,17 @@
   color: #f85149;
 }
 
+.status-expired {
+  background: rgba(139, 148, 158, 0.15);
+  border: 1px solid #8b949e;
+  color: #8b949e;
+}
+
+.detail-value.expired-date {
+  color: #8b949e;
+  text-decoration: line-through;
+}
+
 .dry-run-badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;

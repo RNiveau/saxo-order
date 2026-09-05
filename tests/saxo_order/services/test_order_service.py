@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -112,32 +112,30 @@ class TestOrderService:
     def test_create_order_validation_failure(
         self, order_service, mock_client, mock_account, mock_asset
     ):
-        """Test order creation with validation failure."""
+        """A buy order larger than the account fund is rejected before it
+        ever reaches Saxo."""
         mock_client.get_asset.return_value = mock_asset
         mock_client.get_accounts.return_value = {
             "Data": [{"AccountKey": mock_account.key}]
         }
         mock_client.get_account.return_value = mock_account
         mock_client.get_open_orders.return_value = []
-        mock_client.get_total_amount.return_value = 10000.0
+        mock_client.get_total_amount.return_value = 10_000_000.0
 
-        with patch(
-            "saxo_order.services.order_service.apply_rules",
-            return_value="Not enough money for this order",
-        ):
-            with pytest.raises(SaxoException) as exc_info:
-                order_service.create_order(
-                    code="TEST",
-                    price=5000.0,
-                    quantity=100,
-                    order_type=OrderType.LIMIT,
-                    direction=Direction.BUY,
-                    stop=4900.0,
-                    objective=5500.0,
-                    account_key=mock_account.key,
-                )
+        # 100 * 5000 = 500_000, far beyond the account's 10_000 fund.
+        with pytest.raises(SaxoException, match="Not enough money"):
+            order_service.create_order(
+                code="TEST",
+                price=5000.0,
+                quantity=100,
+                order_type=OrderType.LIMIT,
+                direction=Direction.BUY,
+                stop=4900.0,
+                objective=5500.0,
+                account_key=mock_account.key,
+            )
 
-            assert "Not enough money" in str(exc_info.value)
+        mock_client.set_order.assert_not_called()
 
     def test_create_oco_order_success(
         self, order_service, mock_client, mock_account, mock_asset
@@ -250,9 +248,11 @@ class TestOrderService:
     def test_validate_buy_order_success(
         self, order_service, mock_client, mock_account
     ):
-        """Test successful buy order validation."""
+        """An order passing all three rules validates without raising:
+        ratio 2.0 (>= 1.1), 1000 within the 10_000 fund, and 1000 under
+        10% of the 100_000 total amount."""
         mock_client.get_open_orders.return_value = []
-        mock_client.get_total_amount.return_value = 10000.0
+        mock_client.get_total_amount.return_value = 100_000.0
 
         order = Order(
             code="TEST",
@@ -262,31 +262,54 @@ class TestOrderService:
             objective=110.0,
         )
 
-        with patch(
-            "saxo_order.services.order_service.apply_rules", return_value=None
-        ):
-            order_service._validate_buy_order(mock_account, order)
+        order_service._validate_buy_order(mock_account, order)
 
-    def test_validate_buy_order_failure(
-        self, order_service, mock_client, mock_account
+    @pytest.mark.parametrize(
+        "objective, open_orders, total_amount, expected_error",
+        [
+            # (105 - 100) / (100 - 95) = 1.0, below the 1.1 minimum.
+            (105.0, [], 100_000.0, "Ratio earn / lost"),
+            # 1000 needed, but 9500 of the 10_000 fund is already
+            # committed to other open buy orders on this account.
+            (
+                110.0,
+                [
+                    {
+                        "AccountKey": "test-account-123",
+                        "BuySell": "Buy",
+                        "Amount": 95,
+                        "Price": 100.0,
+                    }
+                ],
+                100_000.0,
+                "Not enough money",
+            ),
+            # 1000 is more than 10% of a 5000 total amount.
+            (110.0, [], 5_000.0, "can't be greater than 10%"),
+        ],
+        ids=["ratio_too_low", "fund_exhausted", "position_too_large"],
+    )
+    def test_validate_buy_order_rejects_rule_breach(
+        self,
+        order_service,
+        mock_client,
+        mock_account,
+        objective,
+        open_orders,
+        total_amount,
+        expected_error,
     ):
-        """Test buy order validation failure."""
-        mock_client.get_open_orders.return_value = []
-        mock_client.get_total_amount.return_value = 10000.0
+        """Each of the three rules in apply_rules blocks the order."""
+        mock_client.get_open_orders.return_value = open_orders
+        mock_client.get_total_amount.return_value = total_amount
 
         order = Order(
             code="TEST",
             price=100.0,
             quantity=10,
             stop=95.0,
-            objective=105.0,
+            objective=objective,
         )
 
-        with patch(
-            "saxo_order.services.order_service.apply_rules",
-            return_value="Ratio earn / lost must be greater than 1.5",
-        ):
-            with pytest.raises(SaxoException) as exc_info:
-                order_service._validate_buy_order(mock_account, order)
-
-            assert "Ratio" in str(exc_info.value)
+        with pytest.raises(SaxoException, match=expected_error):
+            order_service._validate_buy_order(mock_account, order)

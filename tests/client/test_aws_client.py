@@ -5,26 +5,32 @@ import pytest
 from botocore.exceptions import ClientError
 
 from client.aws_client import DynamoDBClient, DynamoDBOperationError
-from model import Alert, AlertType
+from model import Alert, AlertType, alert_dedup_signature
+
+
+@pytest.fixture
+def mock_dynamodb_resource():
+    """Create a mock async DynamoDB resource."""
+    mock_resource = AsyncMock()
+    mock_table = AsyncMock()
+    mock_resource.Table.return_value = mock_table
+    return mock_resource, mock_table
+
+
+@pytest.fixture
+def mock_table(mock_dynamodb_resource):
+    return mock_dynamodb_resource[1]
+
+
+@pytest.fixture
+def client(mock_dynamodb_resource):
+    """Create DynamoDBClient with mocked resource."""
+    mock_resource, _ = mock_dynamodb_resource
+    return DynamoDBClient(dynamodb_resource=mock_resource)
 
 
 class TestDynamoDBClient:
-    @pytest.fixture
-    def mock_dynamodb_resource(self):
-        """Create a mock async DynamoDB resource."""
-        mock_resource = AsyncMock()
-        mock_table = AsyncMock()
-        mock_resource.Table.return_value = mock_table
-        return mock_resource, mock_table
-
-    @pytest.fixture
-    def client(self, mock_dynamodb_resource):
-        """Create DynamoDBClient with mocked resource."""
-        mock_resource, _ = mock_dynamodb_resource
-        return DynamoDBClient(dynamodb_resource=mock_resource)
-
-    async def test_store_alerts(self, mock_dynamodb_resource, client):
-        _, mock_table = mock_dynamodb_resource
+    async def test_store_alerts(self, mock_table, client):
         # Mock get_item for get_alerts (no existing alerts)
         mock_table.get_item.return_value = {
             "ResponseMetadata": {"HTTPStatusCode": 200},
@@ -64,10 +70,7 @@ class TestDynamoDBClient:
         assert isinstance(call_args["ExpressionAttributeValues"][":ttl"], int)
         assert "list_append" in call_args["UpdateExpression"]
 
-    async def test_store_alerts_without_country_code(
-        self, mock_dynamodb_resource, client
-    ):
-        _, mock_table = mock_dynamodb_resource
+    async def test_store_alerts_without_country_code(self, mock_table, client):
         # Mock get_item for get_alerts (no existing alerts)
         mock_table.get_item.return_value = {
             "ResponseMetadata": {"HTTPStatusCode": 200},
@@ -98,11 +101,8 @@ class TestDynamoDBClient:
         assert ":ttl" in call_args["ExpressionAttributeValues"]
         assert isinstance(call_args["ExpressionAttributeValues"][":ttl"], int)
 
-    async def test_store_alerts_deduplication(
-        self, mock_dynamodb_resource, client
-    ):
+    async def test_store_alerts_deduplication(self, mock_table, client):
         """Test that duplicate alerts are filtered out."""
-        _, mock_table = mock_dynamodb_resource
         # Mock existing alerts
         mock_table.get_item.return_value = {
             "ResponseMetadata": {"HTTPStatusCode": 200},
@@ -153,11 +153,8 @@ class TestDynamoDBClient:
         assert len(stored_alerts) == 1
         assert stored_alerts[0]["alert_type"] == "congestion20"
 
-    async def test_store_alerts_all_duplicates(
-        self, mock_dynamodb_resource, client
-    ):
+    async def test_store_alerts_all_duplicates(self, mock_table, client):
         """Test that when all alerts are duplicates, no update is made."""
-        _, mock_table = mock_dynamodb_resource
         # Mock existing alerts
         mock_table.get_item.return_value = {
             "ResponseMetadata": {"HTTPStatusCode": 200},
@@ -194,22 +191,9 @@ class TestDynamoDBClient:
 
 
 class TestDynamoDBErrorHandling:
-    @pytest.fixture
-    def mock_dynamodb_resource(self):
-        mock_resource = AsyncMock()
-        mock_table = AsyncMock()
-        mock_resource.Table.return_value = mock_table
-        return mock_resource, mock_table
-
-    @pytest.fixture
-    def client(self, mock_dynamodb_resource):
-        mock_resource, _ = mock_dynamodb_resource
-        return DynamoDBClient(dynamodb_resource=mock_resource)
-
     async def test_client_error_raises_dynamodb_operation_error(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
-        _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ClientError(
             {
                 "Error": {
@@ -227,9 +211,8 @@ class TestDynamoDBErrorHandling:
         assert "ResourceNotFoundException" in exc_info.value.message
 
     async def test_throughput_exceeded_raises_dynamodb_operation_error(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
-        _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ClientError(
             {
                 "Error": {
@@ -248,9 +231,8 @@ class TestDynamoDBErrorHandling:
         )
 
     async def test_connection_error_raises_dynamodb_operation_error(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
-        _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ConnectionError("Connection refused")
 
         with pytest.raises(DynamoDBOperationError) as exc_info:
@@ -260,10 +242,9 @@ class TestDynamoDBErrorHandling:
         assert "Connection error" in exc_info.value.message
 
     async def test_graceful_degradation_get_all_tradingview_links(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
         """Methods with internal try/except return defaults on ClientError."""
-        _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ClientError(
             {
                 "Error": {
@@ -278,9 +259,8 @@ class TestDynamoDBErrorHandling:
         assert result == {}
 
     async def test_graceful_degradation_get_excluded_assets(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
-        _, mock_table = mock_dynamodb_resource
         mock_table.scan.side_effect = ClientError(
             {"Error": {"Code": "InternalServerError", "Message": "Error"}},
             "Scan",
@@ -290,9 +270,8 @@ class TestDynamoDBErrorHandling:
         assert result == []
 
     async def test_graceful_degradation_get_workflow_orders(
-        self, mock_dynamodb_resource, client
+        self, mock_table, client
     ):
-        _, mock_table = mock_dynamodb_resource
         mock_table.query.side_effect = ClientError(
             {"Error": {"Code": "InternalServerError", "Message": "Error"}},
             "Query",
@@ -300,3 +279,188 @@ class TestDynamoDBErrorHandling:
 
         result = await client.get_workflow_orders("some-id")
         assert result == []
+
+
+class TestAlertDeduplicationSignature:
+    """
+    Every alert type but one is a repeat when it fires again on the same scan
+    date. A weekly combo is a repeat when it describes the same weekly bar in
+    the same direction, because the scan runs daily against a bar that lives
+    for a week.
+    """
+
+    def _weekly(self, bar_date: str, direction: str) -> Alert:
+        return Alert(
+            alert_type=AlertType.COMBO_WEEKLY,
+            date=datetime.datetime(2026, 8, 20, 18, 15, 0),
+            data={
+                "direction": direction,
+                "weekly_bar_date": bar_date,
+                "price": 42.0,
+            },
+            asset_code="SAN",
+            asset_description="Sanofi",
+            exchange="saxo",
+            country_code="xpar",
+        )
+
+    def test_other_types_keep_the_scan_date_rule(self):
+        for alert_type in AlertType:
+            if alert_type == AlertType.COMBO_WEEKLY:
+                continue
+            alert = Alert(
+                alert_type=alert_type,
+                date=datetime.datetime(2026, 8, 20, 18, 15, 0),
+                data={"price": 1.0},
+                asset_code="SAN",
+                asset_description="Sanofi",
+            )
+            assert alert.dedup_signature == (
+                alert_type.value,
+                "2026-08-20",
+            )
+
+    def test_a_stored_row_and_a_fresh_alert_agree(self):
+        alert = self._weekly("2026-08-17", "Buy")
+
+        stored = alert_dedup_signature(
+            "combo_weekly",
+            "2026-08-20T18:15:00",
+            {"direction": "Buy", "weekly_bar_date": "2026-08-17"},
+        )
+
+        assert alert.dedup_signature == stored
+
+    def test_the_same_bar_on_a_later_scan_is_a_repeat(self):
+        monday = self._weekly("2026-08-17", "Buy")
+        thursday = self._weekly("2026-08-17", "Buy")
+        thursday.date = datetime.datetime(2026, 8, 20, 18, 15, 0)
+
+        assert monday.dedup_signature == thursday.dedup_signature
+
+    def test_a_direction_flip_on_the_same_bar_is_not(self):
+        assert (
+            self._weekly("2026-08-17", "Buy").dedup_signature
+            != self._weekly("2026-08-17", "Sell").dedup_signature
+        )
+
+    def test_a_new_bar_is_not(self):
+        assert (
+            self._weekly("2026-08-17", "Buy").dedup_signature
+            != self._weekly("2026-08-24", "Buy").dedup_signature
+        )
+
+    def test_a_weekly_row_missing_its_keys_falls_back(self):
+        """A row written before this feature is still comparable, just under
+        the shared rule - it must not raise."""
+        assert alert_dedup_signature(
+            "combo_weekly", "2026-08-20T18:15:00", {"price": 1.0}
+        ) == ("combo_weekly", "2026-08-20")
+        assert alert_dedup_signature(
+            "combo_weekly", "2026-08-20T18:15:00", None
+        ) == ("combo_weekly", "2026-08-20")
+
+
+class TestStoreAlertsWeeklyDeduplication:
+
+    async def test_the_same_weekly_bar_is_stored_once(
+        self, mock_table, client
+    ):
+        mock_table.get_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Item": {
+                "alerts": [
+                    {
+                        "alert_type": "combo_weekly",
+                        "date": "2026-08-17T18:15:00",
+                        "data": {
+                            "direction": "Buy",
+                            "weekly_bar_date": "2026-08-17",
+                        },
+                    }
+                ]
+            },
+        }
+
+        alerts = [
+            Alert(
+                alert_type=AlertType.COMBO_WEEKLY,
+                date=datetime.datetime(2026, 8, 20, 18, 15, 0),
+                data={"direction": "Buy", "weekly_bar_date": "2026-08-17"},
+                asset_code="SAN",
+                asset_description="Sanofi",
+                country_code="xpar",
+            )
+        ]
+
+        await client.store_alerts("SAN", "xpar", alerts)
+
+        mock_table.update_item.assert_not_called()
+
+    async def test_a_flip_on_that_bar_is_stored(self, mock_table, client):
+        mock_table.get_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Item": {
+                "alerts": [
+                    {
+                        "alert_type": "combo_weekly",
+                        "date": "2026-08-17T18:15:00",
+                        "data": {
+                            "direction": "Buy",
+                            "weekly_bar_date": "2026-08-17",
+                        },
+                    }
+                ]
+            },
+        }
+        mock_table.update_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Attributes": {},
+        }
+
+        alerts = [
+            Alert(
+                alert_type=AlertType.COMBO_WEEKLY,
+                date=datetime.datetime(2026, 8, 20, 18, 15, 0),
+                data={"direction": "Sell", "weekly_bar_date": "2026-08-17"},
+                asset_code="SAN",
+                asset_description="Sanofi",
+                country_code="xpar",
+            )
+        ]
+
+        await client.store_alerts("SAN", "xpar", alerts)
+
+        mock_table.update_item.assert_called_once()
+
+    async def test_a_daily_combo_on_the_same_day_still_de_dupes(
+        self, mock_table, client
+    ):
+        """The change must be inert for every pre-existing type (SC-007)."""
+        mock_table.get_item.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200},
+            "Item": {
+                "alerts": [
+                    {
+                        "alert_type": "combo",
+                        "date": "2026-08-20T09:00:00",
+                        "data": {"price": 1.0},
+                    }
+                ]
+            },
+        }
+
+        alerts = [
+            Alert(
+                alert_type=AlertType.COMBO,
+                date=datetime.datetime(2026, 8, 20, 18, 15, 0),
+                data={"price": 2.0},
+                asset_code="SAN",
+                asset_description="Sanofi",
+                country_code="xpar",
+            )
+        ]
+
+        await client.store_alerts("SAN", "xpar", alerts)
+
+        mock_table.update_item.assert_not_called()

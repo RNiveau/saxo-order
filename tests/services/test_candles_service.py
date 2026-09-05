@@ -6,6 +6,26 @@ import pytest
 from model import Candle, EUMarket, Market, UnitTime, USMarket
 from services.candles_service import CandlesService
 
+STOCK_ASSET = {
+    "Description": "",
+    "AssetType": "Stock",
+    "Identifier": 12345,
+    "CurrencyCode": "EUR",
+}
+CFD_INDEX_ASSET = {"Identifier": 123, "AssetType": "CfdOnIndex"}
+
+
+@pytest.fixture
+def make_saxo_client(mocker):
+    """A Saxo client stubbed to resolve one asset."""
+
+    def _make(asset):
+        client = mocker.Mock()
+        client.get_asset.return_value = asset
+        return client
+
+    return _make
+
 
 class TestCandlesService:
 
@@ -77,18 +97,9 @@ class TestCandlesService:
         results: List[Candle],
         expected_len: int,
         mocker,
+        make_saxo_client,
     ):
-        saxo_client = mocker.Mock()
-        mocker.patch.object(
-            saxo_client,
-            "get_asset",
-            return_value={
-                "Description": "",
-                "AssetType": "Stock",
-                "Identifier": 12345,
-                "CurrencyCode": "EUR",
-            },
-        )
+        saxo_client = make_saxo_client(STOCK_ASSET)
         with open(f"tests/services/files/{file}", "r") as f:
             data = eval(f.read(), {"datetime": datetime})
 
@@ -303,18 +314,9 @@ class TestCandlesService:
         date: datetime.datetime,
         expected: List[Candle],
         mocker,
+        make_saxo_client,
     ):
-        saxo_client = mocker.Mock()
-        mocker.patch.object(
-            saxo_client,
-            "get_asset",
-            return_value={
-                "Description": "",
-                "AssetType": "Stock",
-                "Identifier": 12345,
-                "CurrencyCode": "EUR",
-            },
-        )
+        saxo_client = make_saxo_client(STOCK_ASSET)
         with open(f"tests/services/files/{file_index}", "r") as f:
             data = eval(f.read(), {"datetime": datetime})
         mocker.patch.object(
@@ -329,15 +331,88 @@ class TestCandlesService:
         for i in range(0, len(expected)):
             assert expected[i] == candles[i]
 
-
-class TestGetCandlesInWindow:
-    def test_h1_window_returns_matching_candle(self, mocker):
-        saxo_client = mocker.Mock()
+    @pytest.mark.parametrize(
+        "market, ut, count, expected_count",
+        [
+            # EU H1: 9 in-session candles/day -> 1 trading day -> 3 cal days.
+            (EUMarket(), UnitTime.H1, 1, 3 * 48),
+            # EU H1 count=55 (MA50): ceil(55/9)=7 trading -> 7+2+2=11 days.
+            (EUMarket(), UnitTime.H1, 55, 11 * 48),
+            # EU H1 count=750 (COMBO): ceil(750/9)=84 -> 84+32+2=118 days.
+            (EUMarket(), UnitTime.H1, 750, 118 * 48),
+            # EU H4: len(h4_blocks)=3 candles/day -> 1 trading day -> 3 days.
+            (EUMarket(), UnitTime.H4, 1, 3 * 48),
+            # EU D: 1 candle/day -> ceil(5/1)=5 -> 5+2+2=9 days.
+            (EUMarket(), UnitTime.D, 5, 9 * 48),
+            # US H1: 6 in-session candles/day -> 1 trading day -> 3 days.
+            (USMarket(), UnitTime.H1, 1, 3 * 48),
+        ],
+    )
+    def test_build_candles_fetch_sizing(
+        self,
+        market: Market,
+        ut: UnitTime,
+        count: int,
+        expected_count: int,
+        mocker,
+        make_saxo_client,
+    ):
+        saxo_client = make_saxo_client(
+            {"Identifier": 12345, "AssetType": "Stock"}
+        )
+        # One off-session bar: enough to avoid the empty-data guard while
+        # producing no candles, so we can assert only on the fetch arguments.
         mocker.patch.object(
             saxo_client,
-            "get_asset",
-            return_value={"Identifier": 123, "AssetType": "CfdOnIndex"},
+            "get_historical_data",
+            return_value=[{"Time": datetime.datetime(2024, 6, 21, 3, 0)}],
         )
+        candles_service = CandlesService(saxo_client)
+        candles_service.build_candles(
+            "code",
+            ut,
+            market,
+            count,
+            datetime.datetime(
+                2024, 6, 21, 19, 56, tzinfo=datetime.timezone.utc
+            ),
+        )
+        kwargs = saxo_client.get_historical_data.call_args.kwargs
+        assert kwargs["horizon"] == 30
+        assert kwargs["count"] == expected_count
+
+    def test_build_candles_anchors_to_last_session_close(
+        self, mocker, make_saxo_client
+    ):
+        """Off-hours runs anchor the query to the last session close."""
+        saxo_client = make_saxo_client(
+            {"Identifier": 12345, "AssetType": "Stock"}
+        )
+        mocker.patch.object(
+            saxo_client,
+            "get_historical_data",
+            return_value=[{"Time": datetime.datetime(2024, 6, 21, 3, 0)}],
+        )
+        candles_service = CandlesService(saxo_client)
+        # Friday 19:56 UTC, after the 15:00 UTC EU summer close.
+        candles_service.build_candles(
+            "code",
+            UnitTime.H1,
+            EUMarket(),
+            1,
+            datetime.datetime(
+                2024, 6, 21, 19, 56, tzinfo=datetime.timezone.utc
+            ),
+        )
+        kwargs = saxo_client.get_historical_data.call_args.kwargs
+        assert kwargs["date"] == datetime.datetime(
+            2024, 6, 21, 15, 0, tzinfo=datetime.timezone.utc
+        )
+
+
+class TestGetCandlesInWindow:
+    def test_h1_window_returns_matching_candle(self, mocker, make_saxo_client):
+        saxo_client = make_saxo_client(CFD_INDEX_ASSET)
         data = [
             {
                 "Time": datetime.datetime(2026, 6, 2, 8, 0),
@@ -377,13 +452,8 @@ class TestGetCandlesInWindow:
         assert candles[0].lower == 7990
         assert candles[0].higher == 8040
 
-    def test_m5_window_filters_to_range(self, mocker):
-        saxo_client = mocker.Mock()
-        mocker.patch.object(
-            saxo_client,
-            "get_asset",
-            return_value={"Identifier": 123, "AssetType": "CfdOnIndex"},
-        )
+    def test_m5_window_filters_to_range(self, mocker, make_saxo_client):
+        saxo_client = make_saxo_client(CFD_INDEX_ASSET)
         base = datetime.datetime(2026, 6, 2, 8, 0)
         data = [
             {
@@ -409,13 +479,8 @@ class TestGetCandlesInWindow:
         assert len(candles) == 4
         assert all(start <= c.date < end for c in candles)  # type: ignore
 
-    def test_empty_result_when_no_data(self, mocker):
-        saxo_client = mocker.Mock()
-        mocker.patch.object(
-            saxo_client,
-            "get_asset",
-            return_value={"Identifier": 123, "AssetType": "CfdOnIndex"},
-        )
+    def test_empty_result_when_no_data(self, mocker, make_saxo_client):
+        saxo_client = make_saxo_client(CFD_INDEX_ASSET)
         mocker.patch.object(
             saxo_client, "get_historical_data", return_value=[]
         )

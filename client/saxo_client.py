@@ -29,6 +29,8 @@ from utils.configuration import Configuration
 from utils.exception import EmptyResponseException, SaxoException
 from utils.logger import Logger
 
+logger = Logger.get_logger("saxo_client")
+
 RATE_LIMITING_KEYS = [
     (
         "X-RateLimit-RefDataInstrumentsMinute-Remaining",
@@ -260,7 +262,7 @@ class SaxoClient:
         self._check_response(response)
         price = response.json()
         if price["Quote"]["MarketState"] == "Closed":
-            print("Market is closed, price is set to 1")
+            self.logger.warning("Market is closed, price is set to 1")
             return 1.0
         return price["Quote"]["Ask"]
 
@@ -363,7 +365,7 @@ class SaxoClient:
         self._check_response(response)
         return response.json()
 
-    def get_asset_detail(self, saxo_uic: int, asset_type: str) -> Dict:
+    def get_asset_detail(self, saxo_uic: str | int, asset_type: str) -> Dict:
         asset_http = self.session.get(
             f"{self.configuration.saxo_url}ref/v1/instruments/details?"
             f"Uics={saxo_uic}&AssetTypes={asset_type}"
@@ -592,7 +594,7 @@ class SaxoClient:
         if response.status_code == 401:
             raise SaxoException("The access_token is expired")
         if response.status_code == 429:
-            print(f"Rate limiting: ${response.headers}")
+            logger.warning(f"Rate limiting: {response.headers}")
         for remaining_key, reset_key in RATE_LIMITING_KEYS:
             SaxoClient.handle_rate_limiting(response, remaining_key, reset_key)
         if response.text == "":
@@ -611,5 +613,5 @@ class SaxoClient:
             and int(response.headers[remaining_key]) <= 1
         ):
             wait_time = int(response.headers[reset_key]) + 1
-            print(f"Rate limiting: wait {wait_time}")
+            logger.warning(f"Rate limiting: wait {wait_time}")
             time.sleep(wait_time)

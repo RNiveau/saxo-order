@@ -1,2 +1,7 @@
 [flake8]
 ignore = E203, W503, W504
+# node_modules holds vendored Python that is not ours to lint; without this,
+# running the documented gate after an `npm install` buries real findings.
+# extend-exclude rather than exclude: the latter replaces flake8's defaults,
+# which would silently drop .tox, .nox, .eggs and *.egg from the list.
+extend-exclude = frontend/node_modules,.venv

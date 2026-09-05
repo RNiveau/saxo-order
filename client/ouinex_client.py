@@ -11,6 +11,9 @@ from model.enum import AssetType, Exchange
 from utils.exception import OuinexException
 from utils.logger import Logger
 
+# UNVERIFIED: the Ouinex schema exposes no `signIn` mutation (introspection is
+# disabled, and no candidate name validates). Authenticated operations —
+# candles and reporting — stay blocked until the auth entry point is known.
 SIGN_IN_MUTATION = """
 mutation SignIn($apiKey: String!, $secretKey: String!) {
   signIn(apiKey: $apiKey, secretKey: $secretKey) {
@@ -24,10 +27,14 @@ mutation SignIn($apiKey: String!, $secretKey: String!) {
 INSTRUMENTS_QUERY = """
 query Instruments {
   instruments {
-    id
-    symbol
-    baseCurrency
-    quoteCurrency
+    instrument_id
+    name
+    base_currency {
+      currency_id
+    }
+    quote_currency {
+      currency_id
+    }
   }
 }
 """
@@ -47,6 +54,8 @@ query ClosedOrders($fromDate: String!) {
   }
 }
 """
+
+CONVERSION_SUFFIX = "_CONV"
 
 
 class OuinexClient:
@@ -85,7 +94,9 @@ class OuinexClient:
         try:
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            raise OuinexException(f"Ouinex sign-in request failed: {e}")
+            raise OuinexException(
+                f"Ouinex sign-in request failed: {e} - {response.text}"
+            )
 
         payload = response.json()
         if payload.get("errors"):
@@ -106,19 +117,32 @@ class OuinexClient:
             self._sign_in()
 
     def _execute(
-        self, query: str, variables: Optional[Dict[str, Any]] = None
+        self,
+        query: str,
+        variables: Optional[Dict[str, Any]] = None,
+        authenticated: bool = True,
     ) -> Dict[str, Any]:
         """
-        Execute a GraphQL query/mutation against the Ouinex endpoint with a
-        valid JWT, refreshing the token once on an authentication failure.
+        Execute a GraphQL query/mutation against the Ouinex endpoint.
+
+        Authenticated operations sign in first and refresh the token once on an
+        authentication failure. Public operations (`authenticated=False`, e.g.
+        `instruments`) are sent without a bearer token and never sign in, but a
+        401 still triggers one signed retry.
         """
-        self._ensure_token()
+        if authenticated:
+            self._ensure_token()
 
         def _post() -> requests.Response:
+            headers = (
+                {"Authorization": f"Bearer {self._access_token}"}
+                if self._access_token
+                else {}
+            )
             return self.session.post(
                 self.graphql_url,
                 json={"query": query, "variables": variables or {}},
-                headers={"Authorization": f"Bearer {self._access_token}"},
+                headers=headers,
                 timeout=10,
             )
 
@@ -130,7 +154,9 @@ class OuinexClient:
         try:
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            raise OuinexException(f"Ouinex request failed: {e}")
+            raise OuinexException(
+                f"Ouinex request failed: {e} - {response.text}"
+            )
 
         payload = response.json()
         if payload.get("errors"):
@@ -138,26 +164,31 @@ class OuinexClient:
 
         return payload.get("data") or {}
 
+    @staticmethod
+    def _currencies(instrument: Dict[str, Any]) -> tuple:
+        base = (instrument.get("base_currency") or {}).get("currency_id", "")
+        quote = (instrument.get("quote_currency") or {}).get("currency_id", "")
+        return base, quote
+
     def _map_instrument_to_asset(self, instrument: Dict[str, Any]) -> Asset:
-        base = instrument.get("baseCurrency", "")
-        quote = instrument.get("quoteCurrency", "")
-        symbol = instrument.get("symbol") or f"{base}{quote}"
-        identifier = instrument.get("id")
+        base, quote = self._currencies(instrument)
+        symbol = instrument.get("instrument_id") or f"{base}{quote}"
         return Asset(
             symbol=symbol,
-            description=f"{base}/{quote}",
+            description=instrument.get("name") or f"{base}/{quote}",
             asset_type=AssetType.CRYPTO,
             exchange=Exchange.OUINEX,
-            identifier=int(identifier) if identifier is not None else None,
+            identifier=None,
         )
 
     def search(self, keyword: str) -> List[Asset]:
         """
         Search Ouinex instruments by keyword.
 
-        Fetches the instrument list via the `instruments` GraphQL query and
-        filters client-side against the symbol and base/quote currencies,
-        mirroring the Binance search behavior.
+        Fetches the instrument list via the public `instruments` GraphQL query
+        and filters client-side against the symbol and base/quote currencies,
+        mirroring the Binance search behavior. Conversion pairs (`*_CONV`) are
+        excluded — they are not tradable instruments.
 
         Args:
             keyword: Search keyword to match against symbol or currencies
@@ -165,14 +196,16 @@ class OuinexClient:
         Returns:
             List of Asset objects tagged Exchange.OUINEX / AssetType.CRYPTO
         """
-        data = self._execute(INSTRUMENTS_QUERY)
+        data = self._execute(INSTRUMENTS_QUERY, authenticated=False)
         keyword_lower = keyword.lower()
 
         results = []
         for instrument in data.get("instruments", []):
-            base = instrument.get("baseCurrency", "")
-            quote = instrument.get("quoteCurrency", "")
-            symbol = instrument.get("symbol") or f"{base}{quote}"
+            base, quote = self._currencies(instrument)
+            symbol = instrument.get("instrument_id") or f"{base}{quote}"
+
+            if symbol.endswith(CONVERSION_SUFFIX):
+                continue
 
             if (
                 keyword_lower in symbol.lower()

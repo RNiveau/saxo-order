@@ -14,25 +14,31 @@ google-api-python-client = "^2.187.0"
 google-auth-oauthlib = "^1.2.3"
 binance-connector = "^3.7.0"
 beautifulsoup4 = "^4.14.2"
-slack-sdk = "^3.37.0"
+slack-sdk = "^3.40.1"
 numpy = "^2.3.5"
 aioboto3 = "^13.0.0"
 pulumi = {version = "^3.206.0", extras = ["pulumi"]}
-pulumi-aws = {version = "^7.11.1", extras = ["pulumi"]}
-prettytable = "^3.12.0"
+pulumi-aws = {version = "^7.20.0", extras = ["pulumi"]}
+prettytable = "^3.17.0"
 fastapi = "^0.121.1"
 uvicorn = {extras = ["standard"], version = "^0.38.0"}
 pydantic = "^2.12.4"
-cachetools = "^6.2.1"
+cachetools = "^6.2.6"
 python-multipart = "^0.0.32"
 anthropic = "^0.117.0"
 tzdata = "^2026.3"
+mcp = "^2.1.1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.scripts]
+k-order = "saxo_order.commands.k_order:k_order"
+k-api = "run_api:main"
+k-mcp = "mcp_server.server:main"
+
+[tool.poetry.group.dev.dependencies]
 black = "^26.3.1"
 pytest = "^9.0.0"
 pytest-cov = "^7.0.0"
-mypy = "^1.18.2"
+mypy = "^1.19.1"
 pytest-mock = "^3.15.1"
 pytest-asyncio = "^1.0.0"
 mock = "^5.1.0"
@@ -44,12 +50,6 @@ types-boto3 = "^1.42.40"
 types-pyyaml = "^6.0.12.20250915"
 flake8 = "^7.3.0"
 httpx = "^0.28.1"
-
-[tool.poetry.scripts]
-k-order = "saxo_order.commands.k_order:k_order"
-k-api = "run_api:main"
-
-[tool.poetry.group.dev.dependencies]
 types-cachetools = "^6.2.0.20251022"
 
 [build-system]

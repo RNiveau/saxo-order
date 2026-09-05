@@ -1,5 +1,5 @@
 import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 
 from model.backtest import (  # noqa: F401
@@ -7,6 +7,7 @@ from model.backtest import (  # noqa: F401
     BacktestParameters,
     BacktestRunResult,
     BacktestSummary,
+    CachedDayCandles,
     DayResult,
     DayResultSummary,
     Trade,
@@ -23,6 +24,13 @@ from model.enum import (  # noqa: F401
     Signal,
     Strategy,
     TriggerOrder,
+)
+from model.market import (  # noqa: F401
+    DaxCfdMarket,
+    EuCfdMarket,
+    EUMarket,
+    Market,
+    USMarket,
 )
 from model.workflow import (  # noqa: F401
     BollingerBands,
@@ -64,6 +72,56 @@ class Alert:
         else:
             return self.asset_code
 
+    @property
+    def dedup_signature(self) -> tuple:
+        """What makes this alert a repeat of one already stored."""
+        return alert_dedup_signature(
+            self.alert_type.value, self.date.isoformat(), self.data
+        )
+
+
+def alert_dedup_signature(
+    alert_type: str, date: str, data: Optional[Dict[str, Any]]
+) -> tuple:
+    """
+    What makes two alerts the same alert.
+
+    Every type but one is a repeat when it fires again on the same scan date,
+    which is the rule the alerts table has always applied. A weekly combo is
+    different: the scan runs daily against a bar that lives for a week, so the
+    same setup would be recorded five times under that rule. It is a repeat
+    when it describes the same weekly bar in the same direction - and a
+    direction that flips mid-bar is new information, not a repeat.
+
+    Callers pass stored rows and freshly detected alerts through the same
+    function, so the two sides cannot drift apart. A weekly alert missing
+    either key falls back to the shared rule rather than raising: a row
+    written by an older version is still comparable, just less precisely.
+    """
+    same_day = (
+        alert_type,
+        datetime.datetime.fromisoformat(date).date().isoformat(),
+    )
+    if alert_type != AlertType.COMBO_WEEKLY.value or not isinstance(
+        data, dict
+    ):
+        return same_day
+    bar_date = data.get("weekly_bar_date")
+    direction = data.get("direction")
+    if bar_date is None or direction is None:
+        return same_day
+    return (alert_type, str(bar_date), str(direction))
+
+
+@dataclass
+class WorkflowTrigger:
+    workflow_name: str
+    direction: Direction
+    order_price: float
+    placed_at: int
+    dry_run: bool
+    trigger_close: Optional[float] = None
+
 
 @dataclass
 class TriagedAsset:
@@ -76,6 +134,7 @@ class TriagedAsset:
     ma50_slope: Optional[float] = None
     rank: Optional[int] = None
     country_code: Optional[str] = None
+    workflow_triggers: List[WorkflowTrigger] = field(default_factory=list)
 
 
 @dataclass
@@ -215,47 +274,6 @@ class StackingReport:
     @property
     def id(self) -> str:
         return f"{self.date}{self.asset}"
-
-
-@dataclass
-class Market:
-    open_hour: int
-    open_minutes: int
-    close_hour: int
-    h4_blocks: List[int] = None  # type: ignore[assignment]
-    timezone: str = "UTC"
-    # Minutes past close_hour:00 at which the regular session actually
-    # ends (e.g. 30 for Euronext Paris's 17:30 close). close_hour itself
-    # stays the last-full-H1-candle-label hour used by the H4/daily
-    # candle builders in utils/helper.py, so this can exceed 59 when
-    # close_hour is a full hour short of the literal close (see
-    # USMarket, whose true 16:00 close is 60 minutes past its 15:00
-    # close_hour label).
-    end_minute: int = 0
-
-
-class USMarket(Market):
-    def __init__(self) -> None:
-        super().__init__(
-            open_hour=9,
-            close_hour=15,
-            open_minutes=30,
-            h4_blocks=[4, 3],
-            timezone="America/New_York",
-            end_minute=60,
-        )
-
-
-class EUMarket(Market):
-    def __init__(self) -> None:
-        super().__init__(
-            open_hour=9,
-            close_hour=17,
-            open_minutes=0,
-            h4_blocks=[3, 4, 2],
-            timezone="Europe/Paris",
-            end_minute=30,
-        )
 
 
 @dataclass

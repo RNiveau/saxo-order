@@ -7,13 +7,13 @@
 
 ## Summary
 
-Add a "Backtest" menu that runs one hardcoded strategy — "CAC40 Bougie de 9h" (reusing the existing `Strategy.B9H` enum) — against historical FRA40.I candles. For a given past day, the strategy takes the 9:00–10:00 Paris-local H1 candle as a reference range, then evaluates 5-minute candles from 10:00 onward for **both** a breakout-reversal long entry off the H1 low **and** the mirror-image short entry off the H1 high (added 2026-07-21, FR-019–FR-024), each with a stop-loss, a break-even-armed stop (once +20pts in profit), a take-profit, and an end-of-day exit — allowing multiple sequential (non-overlapping) trades per day, with at most one position (long or short) open at a time. Each `Trade` records its `direction` (reusing the existing `model.enum.Direction`). The UI lets a trader run a single day (full trade detail) or a date range (an 8-figure aggregate summary: days, trades, wins, losses, BE, avg win, avg loss, final result), with results computed on demand and not persisted. Implementation reuses the existing Saxo historical-candle client through a new `CandlesService` method (5-minute granularity is new; H1 already exists), adds a small set of new enums/dataclasses under the existing layered architecture, and follows the established FastAPI + React page/service/component conventions used by the Report feature.
+Add a "Backtest" menu that runs one hardcoded strategy — "CAC40 Bougie de 9h" (reusing the existing `Strategy.B9H` enum) — against historical FRA40.I candles. For a given past day, the strategy takes the 9:00–10:00 Paris-local H1 candle as a reference range, then evaluates 5-minute candles from 10:00 onward for **both** a breakout-reversal long entry off the H1 low **and** the mirror-image short entry off the H1 high (added 2026-07-21, FR-019–FR-024), each with a stop-loss, a break-even-armed stop (once +20pts in profit), a take-profit, and an end-of-day exit — allowing multiple sequential (non-overlapping) trades per day, with at most one position (long or short) open at a time. Each `Trade` records its `direction` (reusing the existing `model.enum.Direction`). The UI lets a trader run a single day (full trade detail) or a date range (an 8-figure aggregate summary: days, trades, wins, losses, BE, avg win, avg loss, final result), with results computed on demand and not persisted. Implementation reuses the existing Saxo historical-candle client through a new `CandlesService` method (5-minute granularity is new; H1 already exists), adds a small set of new enums/dataclasses under the existing layered architecture, and follows the established FastAPI + React page/service/component conventions used by the Report feature. To cut repeated Saxo calls across runs (added 2026-07-24), a new DynamoDB-backed cache — keyed by (backtest definition code, trading date) — stores the raw H1/5-minute candles for each evaluated day; the strategy computation still runs fresh on every request against those (cached or freshly fetched) candles, so the cache never holds a computed trade or summary result and needs no invalidation scheme (research.md §8).
 
 ## Technical Context
 
 **Language/Version**: Python 3.11 (backend), TypeScript 5+ / React 19+ (frontend) — no change from existing stack.
 **Primary Dependencies**: FastAPI (backend, existing), Pydantic v2 (existing), `zoneinfo` (Python stdlib — new usage in this codebase for DST-aware Paris-local time math, see research.md §1), Python stdlib `csv` module (CSV export, FR-017/FR-018 — same stdlib usage as 022-trade-republic-report), existing `SaxoClient`/`CandlesService`; React Router DOM v7+, Axios, Vite (frontend, existing).
-**Storage**: N/A — ephemeral, computed on demand per request, nothing persisted (Clarifications, Session 2026-07-14).
+**Storage**: Computed Backtest Run/Day Result output remains ephemeral, computed on demand per request (Clarifications, Session 2026-07-14). Added 2026-07-24: a new DynamoDB table caches raw Saxo candle data (H1 reference candle + 5-minute session candles, or an explicit "no data" marker) with no TTL — see research.md §8 and data-model.md. Re-keyed 2026-07-28 from (backtest definition code, trading date) to (instrument, session window, trading date), so the definitions on an instrument share one entry instead of each storing its own copy of identical candles.
 **Testing**: pytest with mocked `SaxoClient`/`MockSaxoClient` (backend, existing convention); no frontend test framework configured (existing gap, unchanged by this feature).
 **Target Platform**: Existing FastAPI backend (Lambda-deployable) + React SPA (Vite), served locally via `run_api.py` / `npm run dev` in development.
 **Project Type**: Web application (existing backend at repo root + `frontend/`) — matches the codebase's established layout, not the generic `backend/`+`frontend/` template split.
@@ -30,7 +30,7 @@ Add a "Backtest" menu that runs one hardcoded strategy — "CAC40 Bougie de 9h" 
 | I. Layered Architecture Discipline | New router (`api/routers/backtest.py`) stays thin; business logic (breakout/exit rules, aggregation) lives in a new `api/services/backtest_service.py`; new historical-candle fetch logic lives in `services/candles_service.py` (Service layer), which alone talks to `client/saxo_client.py`; new domain types live in `model/` with no external deps; frontend keeps API calls in `frontend/src/services/api.ts` only. | PASS |
 | II. Clean Code First | Reuses `Strategy.B9H` instead of a new hardcoded name; new `ExitReason`/`DayStatus` enums instead of string literals; no speculative generic "backtest engine" is built (FR-002 explicitly forbids it). | PASS |
 | III. Configuration-Driven Design | Strategy thresholds default in code but are tunable per request via `BacktestParameters` (FR-025, added 2026-07-21) rather than living in `config.yml` — appropriate, since they are per-run analysis inputs, not deployment configuration or external-integration settings. No new external integration or credential is introduced, so no new config surface is needed. | PASS |
-| IV. Safe Deployment Practices | No new infrastructure, no new Lambda, no Pulumi changes required — feature is additive within the existing API/frontend deployment. | PASS |
+| IV. Safe Deployment Practices | The candle cache (added 2026-07-24, FR-036–FR-040) requires one new Pulumi-managed DynamoDB table (`backtest_candle_cache`), following the existing `pulumi/dynamodb.py` pattern (e.g. `alert_digests_table`) and existing IAM grants (`pulumi/iam.py`); no new Lambda or external integration. Everything else remains additive within the existing API/frontend deployment. | PASS |
 | V. Domain Model Integrity | New `UnitTime.M5` follows the existing enum pattern; 5-minute/H1 historical fetches for closed past days sidestep the "current day/hour not returned" Saxo limitation correctly (research.md §2) rather than ignoring it; `Candle` objects are used for all candle data outside the client layer; `exchange`/`country_code` concerns don't apply (FRA40.I is a single hardcoded Saxo instrument, not a general asset lookup). | PASS |
 
 No violations requiring justification (the earlier hardcoded-thresholds exception was resolved when the thresholds became per-run parameters — see Complexity Tracking).
@@ -65,6 +65,16 @@ services/
                                     #   for an explicit historical [start, end) UTC
                                     #   window at a given horizon (60 or 5 minutes)
 
+client/
+└── aws_client.py                  # + DynamoDBClient.get_cached_backtest_candles(...)
+                                    #   / store_backtest_candles(...) — raw H1/M5
+                                    #   candle cache keyed by (instrument +
+                                    #   session window, trading_date), no TTL
+                                    #   (added 2026-07-24, re-keyed 2026-07-28)
+
+pulumi/
+└── dynamodb.py                    # + backtest_candle_cache_table() (added 2026-07-24)
+
 api/
 ├── models/
 │   └── backtest.py                # NEW: Pydantic request/response models
@@ -72,7 +82,10 @@ api/
 │   └── backtest.py                # NEW: GET /definitions, /run, /day,
                                     #      /run/csv, /day/csv (FR-017/FR-018)
 ├── services/
-│   └── backtest_service.py        # NEW: breakout/exit rule engine + aggregation
+│   └── backtest_service.py        # NEW: breakout/exit rule engine + aggregation;
+                                    #      + candle-cache lookup/store around the
+                                    #      per-day candle fetch (FR-036–FR-040,
+                                    #      added 2026-07-24)
 ├── dependencies.py                # + get_backtest_service()
 └── main.py                        # + app.include_router(backtest.router)
 
@@ -91,9 +104,13 @@ frontend/src/
 tests/
 ├── services/
 │   └── test_candles_service.py     # + tests for get_candles_in_window
+├── client/
+│   └── test_aws_client_backtest_cache.py  # NEW: tests for the candle-cache
+                                             #      get/store methods (2026-07-24)
 └── api/
     ├── services/
-    │   └── test_backtest_service.py  # NEW: strategy rule-engine tests
+    │   └── test_backtest_service.py  # NEW: strategy rule-engine tests;
+                                       #      + cache-hit/miss tests (added 2026-07-24)
     └── routers/
         └── test_backtest.py          # NEW: endpoint tests
 ```

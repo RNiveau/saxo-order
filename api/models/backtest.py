@@ -19,10 +19,19 @@ from model import (
 )
 
 
+class BacktestParametersResponse(BaseModel):
+    stop_loss_points: float
+    take_profit_offset_points: float
+    break_even_trigger_points: float
+    max_entry_distance_points: float
+
+
 class BacktestDefinitionResponse(BaseModel):
     code: str
     display_name: str
     instrument: str
+    double_take_profit: bool = False
+    default_parameters: BacktestParametersResponse
 
 
 class TradeResponse(BaseModel):
@@ -60,6 +69,9 @@ class DayResultSummaryResponse(BaseModel):
     h1_high: Optional[float] = None
     h1_low: Optional[float] = None
     mm50_slope: Optional[float] = None
+    adx14: Optional[float] = None
+    h1_open: Optional[float] = None
+    overnight_gap: Optional[float] = None
 
 
 class BacktestSummaryResponse(BaseModel):
@@ -84,10 +96,18 @@ class BacktestRunResponse(BaseModel):
 def backtest_definition_to_response(
     definition: BacktestDefinition,
 ) -> BacktestDefinitionResponse:
+    defaults = definition.default_parameters
     return BacktestDefinitionResponse(
         code=definition.code,
         display_name=definition.display_name,
         instrument=definition.instrument,
+        double_take_profit=definition.double_take_profit,
+        default_parameters=BacktestParametersResponse(
+            stop_loss_points=defaults.stop_loss_points,
+            take_profit_offset_points=defaults.take_profit_offset_points,
+            break_even_trigger_points=defaults.break_even_trigger_points,
+            max_entry_distance_points=defaults.max_entry_distance_points,
+        ),
     )
 
 
@@ -135,6 +155,9 @@ def _day_result_summary_to_response(
         h1_high=summary.h1_high,
         h1_low=summary.h1_low,
         mm50_slope=summary.mm50_slope,
+        adx14=summary.adx14,
+        h1_open=summary.h1_open,
+        overnight_gap=summary.overnight_gap,
     )
 
 
@@ -200,6 +223,9 @@ def backtest_run_result_to_csv(
             "h1_low",
             "h1_range",
             "mm50_slope",
+            "adx14",
+            "h1_open",
+            "overnight_gap",
         ]
     )
     for day in run_result.days:
@@ -218,6 +244,9 @@ def backtest_run_result_to_csv(
                 day.h1_low,
                 h1_range,
                 day.mm50_slope,
+                day.adx14,
+                day.h1_open,
+                day.overnight_gap,
             ]
         )
     return output.getvalue()

@@ -11,17 +11,25 @@ import './Backtest.css';
 
 type Mode = 'day' | 'range';
 
-// Strategy thresholds, pre-filled with the backend defaults. Clearing a
-// field falls back to that default (the value is simply not sent).
-const PARAM_FIELDS: { key: keyof BacktestParameters; label: string; default: number }[] = [
-  { key: 'stop_loss_points', label: 'Stop loss (pts)', default: 50 },
-  { key: 'take_profit_offset_points', label: 'Take profit offset (pts)', default: 10 },
-  { key: 'break_even_trigger_points', label: 'Break-even trigger (pts)', default: 20 },
-  { key: 'max_entry_distance_points', label: 'Max entry distance (pts)', default: 20 },
+// Strategy thresholds. Each field is pre-filled from the selected
+// definition's default_parameters (CAC40 50/10/20/20, GER40 150/10/50/40);
+// clearing a field falls back to that same backend default (not sent).
+const PARAM_FIELDS: { key: keyof BacktestParameters; label: string }[] = [
+  { key: 'stop_loss_points', label: 'Stop loss (pts)' },
+  { key: 'take_profit_offset_points', label: 'Take profit offset (pts)' },
+  { key: 'break_even_trigger_points', label: 'Break-even trigger (pts)' },
+  { key: 'max_entry_distance_points', label: 'Max entry distance (pts)' },
 ];
 
-const initialParamValues = (): Record<string, string> =>
-  Object.fromEntries(PARAM_FIELDS.map((f) => [f.key, String(f.default)]));
+const paramValuesFromDefinition = (
+  definition?: BacktestDefinition
+): Record<string, string> =>
+  Object.fromEntries(
+    PARAM_FIELDS.map((f) => [
+      f.key,
+      definition ? String(definition.default_parameters[f.key]) : '',
+    ])
+  );
 
 const formatReason = (reason: string) => reason.replace(/_/g, ' ');
 
@@ -48,11 +56,15 @@ export function Backtest() {
   const [drilldownLoading, setDrilldownLoading] = useState(false);
   const [drilldownError, setDrilldownError] = useState<string | null>(null);
 
-  const [paramValues, setParamValues] = useState<Record<string, string>>(initialParamValues);
+  const [paramValues, setParamValues] = useState<Record<string, string>>(
+    paramValuesFromDefinition
+  );
   const [appliedParams, setAppliedParams] = useState<BacktestParameters>({});
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedDef = definitions.find((d) => d.code === selectedDefinition);
 
   const buildParameters = (): BacktestParameters => {
     const params: BacktestParameters = {};
@@ -82,6 +94,13 @@ export function Backtest() {
         console.error('Backtest definitions error:', err);
       });
   }, []);
+
+  useEffect(() => {
+    const def = definitions.find((d) => d.code === selectedDefinition);
+    if (def) {
+      setParamValues(paramValuesFromDefinition(def));
+    }
+  }, [selectedDefinition, definitions]);
 
   const runSingleDay = async () => {
     if (!selectedDefinition || !date) return;
@@ -233,8 +252,10 @@ export function Backtest() {
                 type="number"
                 min="0"
                 step="any"
-                value={paramValues[field.key]}
-                placeholder={String(field.default)}
+                value={paramValues[field.key] ?? ''}
+                placeholder={
+                  selectedDef ? String(selectedDef.default_parameters[field.key]) : ''
+                }
                 onChange={(e) =>
                   setParamValues((prev) => ({ ...prev, [field.key]: e.target.value }))
                 }
@@ -244,7 +265,7 @@ export function Backtest() {
           <button
             type="button"
             className="backtest-parameters-reset"
-            onClick={() => setParamValues(initialParamValues())}
+            onClick={() => setParamValues(paramValuesFromDefinition(selectedDef))}
           >
             Reset
           </button>
@@ -258,6 +279,7 @@ export function Backtest() {
           detail={dayResult}
           definition={selectedDefinition}
           parameters={appliedParams}
+          doubleTakeProfit={selectedDef?.double_take_profit}
         />
       )}
 
@@ -345,6 +367,7 @@ export function Backtest() {
                 detail={drilldown}
                 definition={selectedDefinition}
                 parameters={appliedParams}
+                doubleTakeProfit={selectedDef?.double_take_profit}
               />
             </div>
           )}

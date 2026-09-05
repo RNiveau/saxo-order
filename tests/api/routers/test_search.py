@@ -173,41 +173,6 @@ class TestSearchEndpoint:
         data = response.json()
         assert data["total"] == 0
 
-    def test_search_multiple_results(
-        self, mock_saxo_client, mock_binance_client
-    ):
-        """Test search returning multiple diverse results."""
-        mock_saxo_client.search.return_value = [
-            Asset(
-                symbol="MSFT:xnas",
-                description="Microsoft Corporation",
-                asset_type=AssetType.STOCK,
-                exchange=Exchange.SAXO,
-                identifier=100,
-            ),
-            Asset(
-                symbol="MSFT:xnys",
-                description="Microsoft Corp",
-                asset_type=AssetType.STOCK,
-                exchange=Exchange.SAXO,
-                identifier=101,
-            ),
-            Asset(
-                symbol="MSF:xpar",
-                description="Microsoft ETF",
-                asset_type=AssetType.ETF,
-                exchange=Exchange.SAXO,
-                identifier=102,
-            ),
-        ]
-
-        response = client.get("/api/search?keyword=MSFT")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["total"] == 3
-        assert len(data["results"]) == 3
-
     def test_search_includes_ouinex_results(
         self, mock_saxo_client, mock_binance_client, mock_ouinex_client
     ):

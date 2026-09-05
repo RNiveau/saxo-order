@@ -1,5 +1,6 @@
 import datetime
-from typing import List
+from dataclasses import FrozenInstanceError, replace
+from typing import List, Optional
 
 import pytest
 
@@ -12,20 +13,30 @@ from model import (
     UnitTime,
 )
 from services.indicator_service import (
+    COMBO_MIN_CANDLES,
+    COMBO_SETTINGS,
+    ComboSettings,
+    _ComboContext,
+    adx,
     apply_linear_function,
     average_true_range,
     bollinger_bands,
     combo,
+    combo_slopes,
     containing_candle,
     double_bottom,
     double_top,
     exponentiel_mobile_average,
     find_linear_function,
+    is_far_from_levels,
+    is_price_within_bands,
     macd0lag,
+    mm7_break,
     mm50_touch,
     number_of_day_between_dates,
     slope_percentage,
 )
+from utils.exception import SaxoException
 
 
 def _make_candles(closes: List[float]) -> List[Candle]:
@@ -407,20 +418,12 @@ class TestIndicatorService:
         "file_candles, expected",
         [
             (
+                # Was a buy signal while bb_first was read 2 candles back but
+                # scaled over 3. The corrected slopes (bbh -6.96, bbb -21.23)
+                # both clear COMBO_BB_FLAT_SLOPE_MAX, so neither band is flat
+                # and the combo is discarded before it is scored.
                 "combo_buy_daily_cac.obj",
-                ComboSignal(
-                    7401.35,
-                    True,
-                    Direction.BUY,
-                    SignalStrength.MEDIUM,
-                    {
-                        "macd": True,
-                        "ma50_over_bb": False,
-                        "price_within_bb": True,
-                        "strong_ma50": True,
-                        "both_bb_flat": False,
-                    },
-                ),
+                None,
             ),
             (
                 "combo_buy_h4_dax.obj",
@@ -469,12 +472,15 @@ class TestIndicatorService:
                 ),
             ),
             (
+                # One criterion met: a real combo, and a faint one. Before
+                # the zero case became None, "weak" was reserved for signals
+                # that met nothing, so this scored MEDIUM.
                 "combo_sell_h1_cac.obj",
                 ComboSignal(
                     7861.23,
                     False,
                     Direction.SELL,
-                    SignalStrength.MEDIUM,
+                    SignalStrength.WEAK,
                     {
                         "macd": False,
                         "ma50_over_bb": False,
@@ -683,3 +689,660 @@ class TestIndicatorService:
     def test_mm50_touch_returns_none_when_fewer_than_sixty_candles(self):
         candles = _make_candles([100.0] * 59)
         assert mm50_touch(candles) is None
+
+
+def _candle(lower: float, higher: float, close: float) -> Candle:
+    return Candle(lower=lower, higher=higher, open=close, close=close)
+
+
+class TestIsPriceWithinBands:
+    """
+    The zone is widened by COMBO_BB_TOLERANCE (0.5%) at both ends. The
+    values just inside each end are the ones that pin the tolerance down:
+    they fall outside the zone under the 0.05% factor the buy side used
+    before, so these cases fail if the tolerance regresses.
+    """
+
+    # Same two numbers in both directions; which one is the outer 2.5 band
+    # flips with the direction, which is what the mirror is about.
+    LOWER_BAND = 1000.0
+    UPPER_BAND = 1100.0
+
+    @pytest.mark.parametrize(
+        "close, expected",
+        [
+            (996.0, True),  # inside only thanks to the 0.5% tolerance
+            (995.5, True),
+            (994.0, False),  # past the widened outer edge
+            (1050.0, True),
+            (1105.0, True),  # inside only thanks to the 0.5% tolerance
+            (1106.0, False),  # past the widened inner edge
+        ],
+    )
+    def test_buy_zone(self, close: float, expected: bool):
+        """The 2.5 band is the lower edge and the 2.0 the upper."""
+        assert (
+            is_price_within_bands(
+                close,
+                outer=self.LOWER_BAND,
+                inner=self.UPPER_BAND,
+                direction=Direction.BUY,
+            )
+            is expected
+        )
+
+    @pytest.mark.parametrize(
+        "close, expected",
+        [
+            (996.0, True),
+            (995.5, True),
+            (994.0, False),
+            (1050.0, True),
+            (1105.0, True),
+            (1106.0, False),
+        ],
+    )
+    def test_sell_zone(self, close: float, expected: bool):
+        """Mirrored: the 2.0 band is the lower edge and the 2.5 the upper."""
+        assert (
+            is_price_within_bands(
+                close,
+                outer=self.UPPER_BAND,
+                inner=self.LOWER_BAND,
+                direction=Direction.SELL,
+            )
+            is expected
+        )
+
+
+class TestComboBandOffsets:
+    """
+    The previous candle must be compared against bands read at its own
+    offset. No recorded fixture separates the shifted from the unshifted
+    2.5 band - the perturbation is too small for any recorded close to land
+    in the gap - so the two leading candles are constructed on top of 233
+    recorded ones: the spike in candle 0 lifts the 20-period deviation
+    enough to pull bb25 and bb25_1 apart, and candle 1 is placed in the
+    resulting gap.
+    """
+
+    def _candles(self) -> List[Candle]:
+        with open("tests/services/files/combo_buy_h4_dax.obj", "r") as f:
+            candles = eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+        candles[0] = Candle(
+            lower=18670.0,
+            higher=18730.0,
+            open=18690.0,
+            close=18700.0,
+            ut=candles[0].ut,
+            date=candles[0].date,
+        )
+        candles[1] = Candle(
+            lower=18355.0,
+            higher=18415.0,
+            open=18395.0,
+            close=18385.0,
+            ut=candles[1].ut,
+            date=candles[1].date,
+        )
+        return candles
+
+    def test_the_two_offsets_disagree_on_this_input(self):
+        """Guards the premise of the test below: if a future change makes
+        both offsets agree here, the next test stops proving anything."""
+        candles = self._candles()
+        previous_close = candles[1].close
+        bb25 = bollinger_bands(candles, 2.5)
+        bb25_1 = bollinger_bands(candles[1:], 2.5)
+        bb20_1 = bollinger_bands(candles[1:], 2.0)
+
+        assert (
+            is_price_within_bands(
+                previous_close,
+                outer=bb25_1.bottom,
+                inner=bb20_1.bottom,
+                direction=Direction.BUY,
+            )
+            is True
+        )
+        assert (
+            is_price_within_bands(
+                previous_close,
+                outer=bb25.bottom,
+                inner=bb20_1.bottom,
+                direction=Direction.BUY,
+            )
+            is False
+        )
+
+    def test_combo_reads_the_previous_candle_band_at_its_own_offset(self):
+        signal = combo(self._candles())
+        assert signal is not None
+        assert signal.details["price_within_bb"] is True
+
+
+class TestComboDefersMacd0lag:
+    """
+    macd0lag needs COMBO_MIN_CANDLES candles, far more than the 60 the rest
+    of combo needs. Computing it up front made combo raise on any shorter
+    history, and in run_detection_for_asset that exception discarded every
+    alert already collected for the asset. It must only be reached once a
+    direction is actually being scored, and a history too short to reach it
+    at all must be declined rather than raised on.
+    """
+
+    def _short_flat_candles(self) -> List[Candle]:
+        """60 candles with a flat ma50: rejected before macd0lag is needed."""
+        return _make_candles([100.0] * 60)
+
+    def test_short_history_returns_none_instead_of_raising(self):
+        assert combo(self._short_flat_candles()) is None
+
+    def test_a_scored_direction_on_short_history_returns_none(self):
+        """The flat-ma50 sets above bail before macd0lag is reached, so they
+        say nothing about the path that does reach it. This fixture produces
+        a real signal at full length; truncated below the minimum it must
+        decline rather than raise part-way through scoring."""
+        with open("tests/services/files/combo_buy_h4_dax.obj", "r") as f:
+            candles = eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+        assert combo(candles) is not None
+        assert combo(candles[: COMBO_MIN_CANDLES - 1]) is None
+
+    def test_the_minimum_matches_what_macd0lag_actually_needs(self):
+        """Pins the two numbers together: COMBO_MIN_CANDLES is a constant but
+        macd0lag derives its own from the periods, so they can drift."""
+        with open("tests/services/files/combo_buy_daily_cac.obj", "r") as f:
+            candles = eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+        macd0lag(candles[:COMBO_MIN_CANDLES])
+        with pytest.raises(SaxoException):
+            macd0lag(candles[: COMBO_MIN_CANDLES - 1])
+
+    def test_macd0lag_is_not_called_when_the_ma50_is_flat(self, mocker):
+        spy = mocker.patch(
+            "services.indicator_service.macd0lag", return_value=(1.0, 0.0)
+        )
+        assert combo(self._short_flat_candles()) is None
+        spy.assert_not_called()
+
+    def test_macd0lag_is_called_when_a_direction_is_scored(self, mocker):
+        with open("tests/services/files/combo_buy_h4_dax.obj", "r") as f:
+            candles = eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+        spy = mocker.patch(
+            "services.indicator_service.macd0lag", return_value=(1.0, 0.0)
+        )
+        signal = combo(candles)
+        assert signal is not None
+        spy.assert_called_once()
+        assert signal.details["macd"] is True
+
+
+class TestIsFarFromLevels:
+    """
+    Both legs of the conjunction have to be exercised on their own, so the
+    geometry changes per test: whichever level is the harder one to clear is
+    the leg that decides the outcome. The default geometry puts the ma50
+    (1000) above the bollinger bottom (960), making the ma50 the deciding
+    leg for a buy; `band` is overridden where the band leg must decide.
+    """
+
+    MA50 = 1000.0
+    MARGIN_BAND = 3.0
+    MARGIN_MA50 = 1.0
+
+    def _is_far(
+        self,
+        candles: List[Candle],
+        direction: Direction,
+        band: Optional[float] = None,
+    ) -> bool:
+        if band is None:
+            band = 960.0 if direction == Direction.BUY else 1040.0
+        return is_far_from_levels(
+            candles,
+            band,
+            self.MA50,
+            self.MARGIN_BAND,
+            self.MARGIN_MA50,
+            direction,
+        )
+
+    def test_buy_far_from_both_levels(self):
+        candles = [
+            _candle(lower=1010.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is True
+
+    def test_buy_low_wicking_into_the_ma50_is_not_far(self):
+        """The close stays above the ma50 but the low pierces it: the
+        pullback did touch, so the signal must not be discarded."""
+        candles = [
+            _candle(lower=999.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is False
+
+    def test_buy_previous_low_wicking_into_the_ma50_is_not_far(self):
+        candles = [
+            _candle(lower=1010.0, higher=1030.0, close=1020.0),
+            _candle(lower=1000.5, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is False
+
+    def test_buy_band_leg_alone_decides(self):
+        """Band (1000 + 3) above the ma50 (1000 + 1), so only the band leg
+        can fail: the low clears the ma50 but not the band."""
+        candles = [
+            _candle(lower=1002.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+        ]
+        assert self._is_far(candles, Direction.BUY, band=1000.0) is False
+        candles[0] = _candle(lower=1004.0, higher=1030.0, close=1020.0)
+        assert self._is_far(candles, Direction.BUY, band=1000.0) is True
+
+    def test_sell_far_from_both_levels(self):
+        candles = [
+            _candle(lower=970.0, higher=990.0, close=980.0),
+            _candle(lower=975.0, higher=992.0, close=985.0),
+        ]
+        assert self._is_far(candles, Direction.SELL) is True
+
+    def test_sell_high_wicking_into_the_ma50_is_not_far(self):
+        candles = [
+            _candle(lower=970.0, higher=1000.0, close=980.0),
+            _candle(lower=975.0, higher=992.0, close=985.0),
+        ]
+        assert self._is_far(candles, Direction.SELL) is False
+
+    def test_sell_previous_high_wicking_into_the_ma50_is_not_far(self):
+        """Only the second candle pierces: the first one stays clear."""
+        candles = [
+            _candle(lower=970.0, higher=990.0, close=980.0),
+            _candle(lower=975.0, higher=999.5, close=985.0),
+        ]
+        assert self._is_far(candles, Direction.SELL) is False
+
+    def test_sell_band_leg_alone_decides(self):
+        """Band (990 - 3) below the ma50 (1000 - 1), so only the band leg
+        can fail: the high clears the ma50 but not the band."""
+        candles = [
+            _candle(lower=970.0, higher=990.0, close=980.0),
+            _candle(lower=975.0, higher=985.0, close=980.0),
+        ]
+        assert self._is_far(candles, Direction.SELL, band=990.0) is False
+        candles[0] = _candle(lower=970.0, higher=986.0, close=980.0)
+        assert self._is_far(candles, Direction.SELL, band=990.0) is True
+
+    def test_fewer_than_two_candles_raises(self):
+        candle = _candle(lower=1010.0, higher=1030.0, close=1020.0)
+        with pytest.raises(SaxoException):
+            self._is_far([candle], Direction.BUY)
+        with pytest.raises(SaxoException):
+            self._is_far([], Direction.BUY)
+
+    def test_only_the_last_two_candles_are_considered(self):
+        candles = [
+            _candle(lower=1010.0, higher=1030.0, close=1020.0),
+            _candle(lower=1008.0, higher=1025.0, close=1015.0),
+            _candle(lower=900.0, higher=900.0, close=900.0),
+        ]
+        assert self._is_far(candles, Direction.BUY) is True
+
+
+def _trending_daily(count: int, step: float = 5.0) -> List[Candle]:
+    """Newest-first steady uptrend: the more recent the bar (smaller
+    index), the higher its price."""
+    base = datetime.datetime(2026, 1, 1)
+    candles = []
+    for i in range(count):
+        close = 8000 + step * (count - i)
+        candles.append(
+            Candle(
+                lower=close - 2,
+                higher=close + 2,
+                open=close,
+                close=close,
+                ut=UnitTime.D,
+                date=base - datetime.timedelta(days=i),
+            )
+        )
+    return candles
+
+
+def _choppy_daily(count: int) -> List[Candle]:
+    """Newest-first sideways chop: close alternates around a flat mean, so
+    +DM and -DM roughly cancel and ADX stays low."""
+    base = datetime.datetime(2026, 1, 1)
+    candles = []
+    for i in range(count):
+        close = 8000 + (3 if i % 2 == 0 else -3)
+        candles.append(
+            Candle(
+                lower=close - 2,
+                higher=close + 2,
+                open=close,
+                close=close,
+                ut=UnitTime.D,
+                date=base - datetime.timedelta(days=i),
+            )
+        )
+    return candles
+
+
+class TestAdx:
+    def test_high_for_strong_uptrend(self):
+        # a one-directional trend drives DX toward 100
+        assert adx(_trending_daily(60)) > 40
+
+    def test_low_for_chop(self):
+        assert adx(_choppy_daily(60)) < 25
+
+    def test_trend_scores_higher_than_chop(self):
+        assert adx(_trending_daily(60)) > adx(_choppy_daily(60))
+
+    def test_raises_when_insufficient_candles(self):
+        # period * 3 = 42 required; 41 is one short
+        with pytest.raises(SaxoException):
+            adx(_trending_daily(41))
+
+
+class TestMm7Break:
+
+    def test_breakdown_below_average(self):
+        # close 95 against a 7-MA near 99.3 → ~-4.3%, after 3 candles above
+        result = mm7_break(_make_candles([95.0] + [100.0] * 9))
+
+        assert result is not None
+        assert result["direction"] == Direction.SELL.value
+        assert result["close"] == 95.0
+        assert result["distance_pct"] < 0
+        assert result["streak"] >= 3
+
+    def test_reclaim_above_average(self):
+        result = mm7_break(_make_candles([105.0] + [100.0] * 9))
+
+        assert result is not None
+        assert result["direction"] == Direction.BUY.value
+        assert result["distance_pct"] > 0
+        assert result["streak"] >= 3
+
+    def test_none_when_close_only_grazes_the_average(self):
+        # ~-0.43%, inside MM7_BREAK_MIN_DISTANCE
+        assert mm7_break(_make_candles([99.5] + [100.0] * 9)) is None
+
+    def test_none_when_price_chops_around_the_average(self):
+        # alternating closes → the previous candles never hold one side
+        candles = _make_candles(
+            [90.0, 100.0, 95.0, 100.0, 95.0, 100.0, 95.0, 100.0, 95.0, 100.0]
+        )
+
+        assert mm7_break(candles) is None
+
+    def test_none_when_not_enough_candles(self):
+        assert mm7_break(_make_candles([95.0] + [100.0] * 8)) is None
+
+    def test_none_at_exactly_the_distance_threshold(self):
+        # mm7 is exactly 100.0 and the close exactly 0.5% under it, so the
+        # threshold is exclusive: clearing it is required, equalling it is not
+        # enough. The streak is satisfied here - the companion test below
+        # fires on the same shape once the close moves past the threshold -
+        # so this pins the distance gate alone.
+        candles = _make_candles([99.5, 100.5] + [100.0] * 8)
+
+        assert mm7_break(candles) is None
+
+    def test_fires_just_past_the_distance_threshold(self):
+        result = mm7_break(_make_candles([99.4, 100.5] + [100.0] * 8))
+
+        assert result is not None
+        assert result["distance_pct"] < -0.5
+
+    def test_none_when_the_prior_run_is_one_candle_short(self):
+        # candles 1 and 2 close above their own MM7, candle 3 closes below
+        # its own - a 2-candle run, one short of MM7_BREAK_MIN_STREAK
+        candles = _make_candles([90.0, 101.0, 101.0, 99.0] + [100.0] * 9)
+
+        assert mm7_break(candles) is None
+
+    def test_fires_on_a_strictly_one_sided_run(self):
+        # every prior close is strictly above its own MM7 - the happy-path
+        # tests above satisfy the streak through the equality branch only
+        candles = _make_candles(
+            [80.0, 106.0, 105.0, 104.0, 103.0, 102.0, 101.0, 100.0, 99.0, 98.0]
+        )
+
+        result = mm7_break(candles)
+
+        assert result is not None
+        assert result["direction"] == Direction.SELL.value
+        assert result["streak"] >= 3
+
+
+class TestComboSlopes:
+    """
+    combo_slopes exists so the weekly calibration measures what the detector
+    measures. Pinning it to the context the detector builds is the only
+    assertion that catches the drift it was written to prevent: comparing it
+    against a second copy of the slope formulas would pass even if both
+    copies moved away from the detector.
+    """
+
+    def _candles(self) -> List[Candle]:
+        with open("tests/services/files/combo_buy_h4_dax.obj", "r") as f:
+            return eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+
+    def test_it_reports_the_slopes_the_detector_scores_against(self):
+        candles = self._candles()
+        context = _ComboContext(candles)
+
+        assert combo_slopes(candles) == {
+            "ma50_slope": context.ma50_slope,
+            "bbh_slope": context.bbh_slope,
+            "bbb_slope": context.bbb_slope,
+        }
+
+    def test_it_runs_on_the_weekly_history_floor(self):
+        """The weekly criteria set needs 60 candles, far below the 235 a full
+        combo needs, so the calibration must work on a set that short."""
+        candles = self._candles()[:60]
+
+        slopes = combo_slopes(candles)
+
+        assert set(slopes) == {"ma50_slope", "bbh_slope", "bbb_slope"}
+        assert all(isinstance(value, float) for value in slopes.values())
+
+    def test_it_refuses_a_set_shorter_than_the_moving_average(self):
+        with pytest.raises(SaxoException):
+            combo_slopes(self._candles()[:59])
+
+
+class TestWeeklyComboSettings:
+    """
+    The weekly combo is the same detector under different settings: one
+    criterion fewer, thresholds measured on weekly bars rather than daily
+    ones, and a history floor that follows from dropping the criterion which
+    demanded 235 candles.
+    """
+
+    def _candles(self) -> List[Candle]:
+        with open("tests/services/files/combo_sell_daily_aca.obj", "r") as f:
+            return eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+
+    def _scoring_settings(self) -> ComboSettings:
+        """The weekly criteria set, with the band ceiling relaxed so this
+        recorded series actually scores. The subject here is which criteria
+        are scored, not what the thresholds are - those are pinned against
+        the calibration in TestComboSettingsInvariants."""
+        return replace(COMBO_SETTINGS[UnitTime.W], bb_flat_slope_max=100.0)
+
+    def test_weekly_scoring_drops_the_macd_criterion(self):
+        signal = combo(self._candles(), self._scoring_settings())
+
+        assert signal is not None
+        assert "macd" not in signal.details
+        assert set(signal.details) == {
+            "ma50_over_bb",
+            "price_within_bb",
+            "strong_ma50",
+            "both_bb_flat",
+        }
+
+    def test_daily_scoring_keeps_it(self):
+        signal = combo(self._candles())
+
+        assert signal is not None
+        assert "macd" in signal.details
+        assert len(signal.details) == 5
+
+    def test_weekly_runs_on_sixty_candles(self):
+        """The floor the reduced set allows - a quarter of what daily needs,
+        and what makes the weekly timeframe reachable for most assets."""
+        candles = self._candles()
+        settings = self._scoring_settings()
+
+        assert combo(candles[:60], settings) is not None
+        assert combo(candles[:59], settings) is None
+
+    def test_daily_settings_still_demand_the_full_history(self):
+        candles = self._candles()
+
+        assert combo(candles[: COMBO_MIN_CANDLES - 1]) is None
+
+    def test_the_weekly_signal_matches_the_daily_shape(self):
+        signal = combo(self._candles(), self._scoring_settings())
+
+        assert signal is not None
+        assert signal.direction == Direction.SELL
+        assert signal.price == 13.91
+        assert signal.has_been_triggered is False
+        assert signal.strength == SignalStrength.WEAK
+
+
+class TestNoCriteriaIsNoCombo:
+    """
+    Clearing the structural gates and then meeting none of the scoring
+    criteria means the setup is absent, not faint. Reporting it as a WEAK
+    signal made "nothing found" indistinguishable from "found, barely" for
+    every consumer downstream.
+    """
+
+    def _candles(self, name: str) -> List[Candle]:
+        with open(f"tests/services/files/{name}", "r") as f:
+            return eval(
+                f.read(),
+                {"datetime": datetime, "Candle": Candle, "UnitTime": UnitTime},
+            )
+
+    def test_a_series_meeting_no_criterion_returns_nothing(self):
+        """A recorded series that clears the gates and scores zero."""
+        candles = self._candles("combo_buy_daily_aca.obj")
+
+        assert combo(candles) is None
+
+    def test_a_series_meeting_one_criterion_is_still_reported(self):
+        """A weak combo is a combo. It is raised, labelled weak."""
+        signal = combo(self._candles("combo_sell_h1_cac.obj"))
+
+        assert signal is not None
+        assert signal.strength == SignalStrength.WEAK
+        assert sum(signal.details.values()) == 1
+
+    def test_weak_is_never_returned_for_an_empty_score(self):
+        """Whatever the settings, a returned signal met something."""
+        for name in (
+            "combo_buy_daily_aca.obj",
+            "combo_buy_daily_cac.obj",
+            "combo_buy_h4_dax.obj",
+            "combo_sell_daily_aca.obj",
+            "combo_sell_h1_cac.obj",
+            "combo_sell_h1_dax.obj",
+            "combo_sell_h1_sp500.obj",
+        ):
+            for settings in (None, COMBO_SETTINGS[UnitTime.W]):
+                signal = combo(self._candles(name), settings)
+                if signal is not None:
+                    assert sum(signal.details.values()) >= 1
+
+
+class TestComboSettingsInvariants:
+    """A settings object that cannot reach its own top band, or that asks for
+    less history than its criteria read, is a silent misconfiguration - the
+    detector would simply never say "strong", or raise mid-scoring."""
+
+    def test_every_setting_can_reach_its_top_band(self):
+        for unit_time, settings in COMBO_SETTINGS.items():
+            active_criteria = 5 if settings.use_macd else 4
+            assert (
+                0 < settings.strong_signal_min <= active_criteria
+            ), f"{unit_time.value} cannot reach STRONG"
+
+    def test_macd_settings_carry_the_history_it_reads(self):
+        for unit_time, settings in COMBO_SETTINGS.items():
+            floor = COMBO_MIN_CANDLES if settings.use_macd else 60
+            assert (
+                settings.min_candles >= floor
+            ), f"{unit_time.value} would raise mid-scoring"
+
+    def test_settings_are_frozen(self):
+        """They are read at scoring time, and the map holds one shared object
+        per timeframe - a mutated copy would change what every later asset in
+        the same scan is measured against, with nothing raised or logged."""
+        with pytest.raises(FrozenInstanceError):
+            COMBO_SETTINGS[UnitTime.D].ma50_slope_min = 99.0
+
+    def test_it_holds_only_the_calibrated_timeframes(self):
+        """An uncalibrated timeframe must raise on lookup rather than be
+        served daily values under its own name."""
+        assert set(COMBO_SETTINGS) == {UnitTime.D, UnitTime.W}
+
+        for unit_time in (UnitTime.H1, UnitTime.H4, UnitTime.M):
+            with pytest.raises(KeyError):
+                COMBO_SETTINGS[unit_time]
+
+    def test_a_caller_passing_no_settings_still_scores_as_daily(self):
+        """What every pre-existing caller does, including a combo workflow
+        running on H1 or H4 candles: the daily entry holds the constants they
+        scored against before the settings object existed."""
+        assert COMBO_SETTINGS[UnitTime.D] == ComboSettings(
+            min_candles=COMBO_MIN_CANDLES,
+            ma50_slope_min=3.0,
+            ma50_slope_strong=10.0,
+            bb_flat_slope_max=5.0,
+            strong_signal_min=4,
+            use_macd=True,
+        )
+
+    def test_the_weekly_thresholds_are_the_calibrated_ones(self):
+        """Guards the calibration recorded in calibration.md: these are
+        measured values, not the daily ones carried over."""
+        weekly = COMBO_SETTINGS[UnitTime.W]
+        daily = COMBO_SETTINGS[UnitTime.D]
+
+        assert weekly == ComboSettings(
+            min_candles=60,
+            ma50_slope_min=15.0,
+            ma50_slope_strong=50.0,
+            bb_flat_slope_max=25.0,
+            strong_signal_min=3,
+            use_macd=False,
+        )
+        assert weekly.ma50_slope_min > daily.ma50_slope_min
+        assert weekly.bb_flat_slope_max > daily.bb_flat_slope_max

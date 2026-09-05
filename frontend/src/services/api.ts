@@ -904,6 +904,15 @@ export const tradeRepublicService = {
   },
 };
 
+export interface WorkflowTrigger {
+  workflow_name: string;
+  direction: 'BUY' | 'SELL';
+  order_price: number;
+  trigger_close: number | null;
+  placed_at: number;
+  dry_run: boolean;
+}
+
 export interface TriagedAsset {
   asset_code: string;
   asset_description: string;
@@ -915,6 +924,7 @@ export interface TriagedAsset {
   patterns: string[];
   ma50_slope: number | null;
   tradingview_url: string | null;
+  workflow_triggers: WorkflowTrigger[] | null;
 }
 
 export interface AlertDigest {
@@ -948,10 +958,19 @@ export const alertDigestService = {
   },
 };
 
+export interface BacktestDefinitionParameters {
+  stop_loss_points: number;
+  take_profit_offset_points: number;
+  break_even_trigger_points: number;
+  max_entry_distance_points: number;
+}
+
 export interface BacktestDefinition {
   code: string;
   display_name: string;
   instrument: string;
+  double_take_profit: boolean;
+  default_parameters: BacktestDefinitionParameters;
 }
 
 export interface BacktestTrade {

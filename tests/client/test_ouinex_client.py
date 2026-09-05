@@ -15,6 +15,7 @@ def make_response(
     response = MagicMock()
     response.status_code = status_code
     response.json.return_value = json_data or {}
+    response.text = ""
     if status_code >= 400:
         import requests
 
@@ -118,7 +119,7 @@ class TestOuinexClientExecute:
             make_response(200, {"data": {"instruments": []}}),
         ]
 
-        result = client._execute("query { instruments { id } }")
+        result = client._execute("query { instruments { instrument_id } }")
 
         assert result == {"instruments": []}
         auth_call = session.post.call_args_list[-1]
@@ -154,21 +155,21 @@ class TestOuinexClientExecute:
             client._execute("query { ok }")
 
 
+def instrument(instrument_id: str, base: str, quote: str) -> dict:
+    return {
+        "instrument_id": instrument_id,
+        "name": f"{base}/{quote}",
+        "base_currency": {"currency_id": base},
+        "quote_currency": {"currency_id": quote},
+    }
+
+
 INSTRUMENTS_OK = {
     "data": {
         "instruments": [
-            {
-                "id": 1,
-                "symbol": "BTCUSD",
-                "baseCurrency": "BTC",
-                "quoteCurrency": "USD",
-            },
-            {
-                "id": 2,
-                "symbol": "ETHUSD",
-                "baseCurrency": "ETH",
-                "quoteCurrency": "USD",
-            },
+            instrument("BTCUSD", "BTC", "USD"),
+            instrument("ETHUSD", "ETH", "USD"),
+            instrument("BTCUSD_CONV", "BTC", "USD"),
         ]
     }
 }
@@ -179,10 +180,7 @@ class TestOuinexClientSearch:
         self, client_and_session: Tuple[OuinexClient, MagicMock]
     ):
         client, session = client_and_session
-        session.post.side_effect = [
-            make_response(200, SIGN_IN_OK),
-            make_response(200, INSTRUMENTS_OK),
-        ]
+        session.post.return_value = make_response(200, INSTRUMENTS_OK)
 
         results = client.search("btc")
 
@@ -192,21 +190,30 @@ class TestOuinexClientSearch:
         assert asset.description == "BTC/USD"
         assert asset.exchange == Exchange.OUINEX
         assert asset.asset_type == AssetType.CRYPTO
-        assert asset.identifier == 1
+        assert asset.identifier is None
 
     def test_search_matches_quote_currency(
         self, client_and_session: Tuple[OuinexClient, MagicMock]
     ):
         client, session = client_and_session
-        session.post.side_effect = [
-            make_response(200, SIGN_IN_OK),
-            make_response(200, INSTRUMENTS_OK),
-        ]
+        session.post.return_value = make_response(200, INSTRUMENTS_OK)
 
         results = client.search("usd")
 
         assert {asset.symbol for asset in results} == {"BTCUSD", "ETHUSD"}
         assert all(asset.exchange == Exchange.OUINEX for asset in results)
+
+    def test_search_does_not_sign_in(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.return_value = make_response(200, INSTRUMENTS_OK)
+
+        client.search("btc")
+
+        assert session.post.call_count == 1
+        assert session.post.call_args.kwargs["headers"] == {}
+        assert client._access_token is None
 
 
 CLOSED_ORDERS_OK = {
