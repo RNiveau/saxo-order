@@ -14,7 +14,7 @@ whether it failed or was flat.
 import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from model import (
     AlertType,
@@ -45,6 +45,23 @@ class ResponseMeta(BaseModel):
     forming bar was left out rather than assembled against guessed ones -
     the series ends at the last completed period and the price with it.
     """
+
+    @field_serializer("last_bar_date")
+    def _serialize_last_bar_date(
+        self, value: Optional[datetime.datetime]
+    ) -> Optional[str]:
+        """Emit RFC 3339, which the tool schema's date-time format demands.
+
+        Saxo's bar times are UTC, but the client parses the trailing Z as a
+        literal, so they arrive naive and serialise without an offset -
+        valid ISO 8601, rejected by an RFC 3339 validator. Restoring the
+        offset the parse dropped is what makes the payload readable.
+        """
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=datetime.timezone.utc)
+        return value.isoformat()
 
 
 class InstrumentRef(BaseModel):
