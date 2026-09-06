@@ -38,6 +38,13 @@ class ResponseMeta(BaseModel):
     unit_time: UnitTime
     last_bar_date: Optional[datetime.datetime] = None
     truncated: bool = False
+    forming_period_included: bool = True
+    """Whether the period now trading is part of this answer.
+
+    False means the instrument's session hours were not known, so the
+    forming bar was left out rather than assembled against guessed ones -
+    the series ends at the last completed period and the price with it.
+    """
 
 
 class InstrumentRef(BaseModel):
@@ -77,10 +84,16 @@ class IndicatorValue(BaseModel):
 
 
 class IndicatorSnapshot(BaseModel):
-    """An instrument's technical state for one timeframe."""
+    """An instrument's technical state for one timeframe.
+
+    Identified by what the caller passed in, not by a full InstrumentRef:
+    the description and symbol would need another provider request to fill,
+    and the caller already has them from the search that produced the id.
+    """
 
     meta: ResponseMeta
-    instrument: InstrumentRef
+    instrument_id: int
+    asset_type: AssetType
     current_price: Optional[float] = None
     variation_pct: Optional[float] = None
     indicators: List[IndicatorValue] = Field(default_factory=list)
@@ -112,7 +125,8 @@ class DetectionResult(BaseModel):
     """
 
     meta: ResponseMeta
-    instrument: InstrumentRef
+    instrument_id: int
+    asset_type: AssetType
     hits: List[PatternHit] = Field(default_factory=list)
     evaluated: List[AlertType] = Field(default_factory=list)
     failed: List[DetectorFailure] = Field(default_factory=list)
