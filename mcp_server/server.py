@@ -17,7 +17,8 @@ from mcp.server import MCPServer
 
 from client.aws_client import AwsClient, DynamoDBClient
 from mcp_server.errors import market_tool, tool_boundary
-from mcp_server.models import IndicatorSnapshot, InstrumentRef
+from mcp_server.formatters import DEFAULT_BAR_COUNT
+from mcp_server.models import BarSeries, IndicatorSnapshot, InstrumentRef
 from mcp_server.tools import assets, indicators
 from model import AssetType, IndicatorName, MarketName, UnitTime
 from model.enum import Exchange
@@ -109,6 +110,38 @@ async def search_asset(
     an answer rather than a failure.
     """
     return await assets.search_asset(query=query, exchange=exchange)
+
+
+@mcp.tool()
+@market_tool
+async def get_candles(
+    instrument_id: int,
+    asset_type: AssetType,
+    unit_time: UnitTime = UnitTime.D,
+    count: int = DEFAULT_BAR_COUNT,
+    exchange: Exchange = Exchange.SAXO,
+    market: Optional[MarketName] = None,
+    allow_simulated: bool = False,
+) -> BarSeries:
+    """Recent price bars, newest first, columnar to stay cheap to read.
+
+    Row 0 is the most recent bar and includes the period now trading when
+    the instrument's session hours are known - `current_incomplete` says
+    whether it does, so a price is never silently a day old. Pass `market`
+    to make them known; without it the series ends at the last completed
+    period rather than guessing.
+
+    An instrument with no history comes back with no rows, which is an
+    answer rather than a failure.
+    """
+    return await assets.get_candles(
+        instrument_id=instrument_id,
+        asset_type=asset_type,
+        unit_time=unit_time,
+        count=count,
+        exchange=exchange,
+        market=market,
+    )
 
 
 @mcp.tool()
