@@ -93,6 +93,15 @@ async def search_asset(
     ]
 
 
+def _now(tz: Optional[datetime.timezone] = None) -> datetime.datetime:
+    """The clock, indirected so tests can pin it.
+
+    Patching ``datetime.datetime`` directly would rebind it for every module
+    in the process, since ``assets.datetime`` is the stdlib module itself.
+    """
+    return datetime.datetime.now(tz)
+
+
 def _newest_bar_is_forming(candles: List[Candle], unit_time: UnitTime) -> bool:
     """Whether row 0 is the period now trading rather than a closed one.
 
@@ -107,12 +116,12 @@ def _newest_bar_is_forming(candles: List[Candle], unit_time: UnitTime) -> bool:
     if not candles or candles[0].date is None:
         return False
     if unit_time is UnitTime.W:
-        now = datetime.datetime.now(datetime.UTC)
+        now = _now(datetime.UTC)
         return (
             now.weekday() < 5
             and candles[0].date.isocalendar()[:2] == now.isocalendar()[:2]
         )
-    return candles[0].date.date() == datetime.datetime.now().date()
+    return candles[0].date.date() == _now().date()
 
 
 async def get_candles(
@@ -168,7 +177,7 @@ async def get_candles(
             "work - refresh the Saxo access token."
         )
 
-    rows, cut = formatters.to_rows(candles, count)
+    rows = formatters.to_rows(candles, count)
     return BarSeries(
         meta=ResponseMeta(
             provenance=provenance,
@@ -177,7 +186,7 @@ async def get_candles(
             last_bar_date=formatters.last_bar_date(candles),
             # The fetch was capped too, so a count above the cap was
             # overridden whether or not rows were dropped afterwards.
-            truncated=cut or count > formatters.MAX_BAR_COUNT,
+            truncated=formatters.exceeds_cap(count),
             forming_period_included=resolved_market is not None,
         ),
         instrument_id=instrument_id,

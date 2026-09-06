@@ -1,6 +1,7 @@
 """The bundled state snapshot: what an instrument looks like right now."""
 
 import asyncio
+import functools
 from typing import List, Optional
 
 from mcp.server.mcpserver.exceptions import ToolError
@@ -59,21 +60,27 @@ async def build_snapshot(
     # On the weekly path the daily leg only supplies the forming week, so
     # the indicators' depth applies to the weekly series instead.
     daily = await asyncio.to_thread(
-        candle_source.build_daily_series,
-        client,
-        instrument_id,
-        resolved_market,
-        asset_type,
-        DAYS_FOR_FORMING_WEEK if unit_time is UnitTime.W else needed,
+        functools.partial(
+            candle_source.build_daily_series,
+            client,
+            instrument_id,
+            market=resolved_market,
+            asset_type=asset_type,
+            count=(
+                DAYS_FOR_FORMING_WEEK if unit_time is UnitTime.W else needed
+            ),
+        )
     )
     if unit_time is UnitTime.W:
         candles = await asyncio.to_thread(
-            candle_source.build_weekly_series,
-            client,
-            instrument_id,
-            daily,
-            asset_type,
-            needed,
+            functools.partial(
+                candle_source.build_weekly_series,
+                client,
+                instrument_id,
+                daily_candles=daily,
+                asset_type=asset_type,
+                count=needed,
+            )
         )
     else:
         candles = daily

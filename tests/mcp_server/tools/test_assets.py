@@ -150,10 +150,15 @@ def _weekly_returns(mocker, candles):
 
 
 def _clock_at(mocker, moment):
-    """datetime.datetime with now() pinned, everything else untouched."""
-    clock = mocker.MagicMock(wraps=datetime.datetime)
-    clock.now.return_value = moment
-    return clock
+    """Pin the tool's clock, without touching the stdlib for everyone else.
+
+    assets.datetime IS the stdlib module, so patching datetime.datetime on
+    it rebinds the class process-wide for the duration of the test. The
+    module's own _now indirection is the patch point instead.
+    """
+    return mocker.patch.object(
+        assets, "_now", side_effect=lambda tz=None: moment
+    )
 
 
 class TestCandleSeries:
@@ -321,9 +326,7 @@ class TestWeeklyCandles:
         self, mocker, live_client
     ):
         wednesday = datetime.datetime(2026, 8, 26, tzinfo=datetime.UTC)
-        mocker.patch.object(
-            assets.datetime, "datetime", _clock_at(mocker, wednesday)
-        )
+        _clock_at(mocker, wednesday)
         _weekly_returns(mocker, _series(5, wednesday))
 
         series = _candles(unit_time=UnitTime.W, market=MarketName.EU)
@@ -335,9 +338,7 @@ class TestWeeklyCandles:
     ):
         """The ISO week has to match, not just the ISO year."""
         wednesday = datetime.datetime(2026, 8, 26, tzinfo=datetime.UTC)
-        mocker.patch.object(
-            assets.datetime, "datetime", _clock_at(mocker, wednesday)
-        )
+        _clock_at(mocker, wednesday)
         _weekly_returns(
             mocker, _series(5, wednesday - datetime.timedelta(weeks=6))
         )
@@ -353,9 +354,7 @@ class TestWeeklyCandles:
         closed is still 'this week' by the calendar - and build_weekly_series
         prepends nothing then, so row 0 is a finished bar."""
         saturday = datetime.datetime(2026, 8, 29, tzinfo=datetime.UTC)
-        mocker.patch.object(
-            assets.datetime, "datetime", _clock_at(mocker, saturday)
-        )
+        _clock_at(mocker, saturday)
         _weekly_returns(mocker, _series(5, saturday))
 
         series = _candles(unit_time=UnitTime.W, market=MarketName.EU)
@@ -392,3 +391,30 @@ class TestCandleRejections:
                 _candles()
         finally:
             errors._market_client.reset(token)
+
+
+class TestTheBarCountBoundIsOnTheWire:
+    """The schema is the only thing rejecting a nonsense count.
+
+    get_candles has no max(1, ...) of its own, and to_rows no longer floors
+    the limit either, so ge=1 in the tool signature is what stops a caller
+    asking for zero or negative bars. Nothing else pins it.
+    """
+
+    def _schema(self):
+        from mcp_server.server import mcp
+
+        tools = asyncio.run(mcp.list_tools())
+        tool = next(t for t in tools if t.name == "get_candles")
+        return tool.input_schema["properties"]["count"]
+
+    def test_the_schema_forbids_a_count_below_one(self):
+        assert self._schema()["minimum"] == 1
+
+    def test_the_schema_names_the_cap_it_does_not_enforce(self):
+        """No `le`: a request above the cap is answered and flagged, not
+        rejected, which is what keeps meta.truncated reachable."""
+        schema = self._schema()
+
+        assert "maximum" not in schema
+        assert str(formatters.MAX_BAR_COUNT) in schema["description"]
