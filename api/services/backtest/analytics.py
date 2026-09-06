@@ -20,13 +20,32 @@ MM50_MIN_DAILY_CANDLES = 60
 MM50_SLOPE_LOOKBACK = 10
 
 # Daily ADX regime measure: Wilder's double smoothing needs period * 3
-# prior daily candles (matches services.indicator_service.adx).
+# prior daily candles (matches services.indicator_service.adx). This is a
+# feasibility floor - the fewest candles that produce a number at all - and
+# it stays where services.indicator_service.adx puts it.
 ADX_PERIOD = 14
 ADX_MIN_DAILY_CANDLES = ADX_PERIOD * 3
 
+# Convergence floor, not a feasibility floor. Wilder's ADX is seeded from
+# the oldest bar and smoothed forward, so its value depends on how far back
+# the series starts. Measured against a converged 900-bar value: 42 prior
+# bars is off by 2.3 on average (worst case 8.9, enough to land on the other
+# side of the conventional ADX 25 threshold), 75 bars by 0.36, and 150 bars
+# by 0.00 (worst case 0.01). Feeding the measure this many prior candles
+# makes a day's ADX a property of the day rather than of where the run
+# happened to start.
+ADX_CONVERGENCE_DAILY_CANDLES = 150
+
 # Lead-in a run needs before its first day can be scored, plus a small
-# margin for holidays.
-DAILY_CANDLES_LEAD_IN = MM50_MIN_DAILY_CANDLES + MM50_SLOPE_LOOKBACK + 5
+# margin for holidays. The MM50 slope and a converged ADX have different
+# depths, so the run needs whichever reaches back furthest.
+DAILY_CANDLES_LEAD_IN = (
+    max(
+        MM50_MIN_DAILY_CANDLES + MM50_SLOPE_LOOKBACK,
+        ADX_CONVERGENCE_DAILY_CANDLES,
+    )
+    + 5
+)
 
 
 def _prior_candles_newest_first(

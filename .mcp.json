@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "saxo-analysis": {
-      "command": "poetry",
-      "args": ["run", "k-mcp"]
+      "command": "docker",
+      "args": ["compose", "run", "--rm", "-T", "--quiet-pull", "mcp"]
     }
   }
 }
