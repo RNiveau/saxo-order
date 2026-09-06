@@ -142,6 +142,20 @@ def _daily_returns(mocker, candles):
     )
 
 
+def _weekly_returns(mocker, candles):
+    _daily_returns(mocker, _series(5, datetime.datetime(2026, 8, 30)))
+    return mocker.patch.object(
+        assets.candle_source, "build_weekly_series", return_value=candles
+    )
+
+
+def _clock_at(mocker, moment):
+    """datetime.datetime with now() pinned, everything else untouched."""
+    clock = mocker.MagicMock(wraps=datetime.datetime)
+    clock.now.return_value = moment
+    return clock
+
+
 class TestCandleSeries:
     def test_the_newest_bar_is_row_zero_all_the_way_to_the_wire(
         self, mocker, live_client
@@ -206,40 +220,59 @@ class TestTheFormingPeriod:
 
         series = _candles(market=None)
 
-        assert fetch.call_args.args[2] is None
+        assert fetch.call_args.kwargs["market"] is None
         assert series.current_incomplete is False
         assert series.meta.forming_period_included is False
 
     def test_a_closed_newest_bar_is_not_called_in_progress(
         self, mocker, live_client
     ):
-        """A weekend or a provider that already published today.
+        """A weekend, or an instrument that has not traded for days.
 
-        The market is known, yet nothing was reconstructed - flagging it
-        anyway would invent an in-progress bar out of a closed one.
+        The market is known, yet the newest bar is a closed one - flagging
+        it anyway would invent an in-progress bar out of a finished one.
         """
         _daily_returns(mocker, _series(3, datetime.datetime(2026, 8, 30)))
 
         series = _candles(market=MarketName.EU)
 
         assert series.current_incomplete is False
-        assert series.meta.forming_period_included is False
+        # The session hours were known - that is what this flag reports,
+        # and it is the same answer get_indicators gives for this call.
+        assert series.meta.forming_period_included is True
 
 
 class TestTheHardCap:
     def test_asking_beyond_the_cap_says_the_server_overrode_you(
         self, mocker, live_client
     ):
+        # What a capped fetch can really hand back: the depth asked for,
+        # plus the bar the builder prepends for the day now trading.
         _daily_returns(
             mocker,
             _series(
-                formatters.MAX_BAR_COUNT + 50, datetime.datetime(2026, 8, 30)
+                formatters.MAX_BAR_COUNT + 1, datetime.datetime(2026, 8, 30)
             ),
         )
 
         series = _candles(count=900)
 
         assert series.count == formatters.MAX_BAR_COUNT
+        assert series.meta.truncated is True
+
+    def test_the_cap_is_reported_even_when_the_history_is_short(
+        self, mocker, live_client
+    ):
+        """The fetch was capped too, so nothing can tell us what was missed.
+
+        Reporting False here would claim the 900 bars asked for were all
+        there was, which this code is in no position to know.
+        """
+        _daily_returns(mocker, _series(10, datetime.datetime(2026, 8, 30)))
+
+        series = _candles(count=900)
+
+        assert series.count == 10
         assert series.meta.truncated is True
 
     def test_asking_for_fewer_bars_is_a_request_being_honoured(
@@ -262,7 +295,7 @@ class TestTheHardCap:
 
         _candles(count=900)
 
-        assert fetch.call_args.args[4] == formatters.MAX_BAR_COUNT
+        assert fetch.call_args.kwargs["count"] == formatters.MAX_BAR_COUNT
 
 
 class TestWeeklyCandles:
@@ -280,24 +313,54 @@ class TestWeeklyCandles:
 
         series = _candles(unit_time=UnitTime.W, market=MarketName.EU)
 
-        assert daily.call_args.args[4] == assets.DAYS_FOR_FORMING_WEEK
-        assert weekly.call_args.args[4] == 100
+        assert daily.call_args.kwargs["count"] == assets.DAYS_FOR_FORMING_WEEK
+        assert weekly.call_args.kwargs["count"] == 100
         assert series.meta.unit_time is UnitTime.W
 
     def test_the_forming_week_is_flagged_from_the_weekly_bar(
         self, mocker, live_client
     ):
-        now = datetime.datetime.now(datetime.UTC)
-        _daily_returns(mocker, _series(5, datetime.datetime(2026, 8, 30)))
+        wednesday = datetime.datetime(2026, 8, 26, tzinfo=datetime.UTC)
         mocker.patch.object(
-            assets.candle_source,
-            "build_weekly_series",
-            return_value=_series(5, now),
+            assets.datetime, "datetime", _clock_at(mocker, wednesday)
         )
+        _weekly_returns(mocker, _series(5, wednesday))
 
         series = _candles(unit_time=UnitTime.W, market=MarketName.EU)
 
         assert series.current_incomplete is True
+
+    def test_a_week_that_closed_earlier_this_year_is_not_in_progress(
+        self, mocker, live_client
+    ):
+        """The ISO week has to match, not just the ISO year."""
+        wednesday = datetime.datetime(2026, 8, 26, tzinfo=datetime.UTC)
+        mocker.patch.object(
+            assets.datetime, "datetime", _clock_at(mocker, wednesday)
+        )
+        _weekly_returns(
+            mocker, _series(5, wednesday - datetime.timedelta(weeks=6))
+        )
+
+        series = _candles(unit_time=UnitTime.W, market=MarketName.EU)
+
+        assert series.current_incomplete is False
+
+    def test_the_week_that_closed_on_friday_is_not_in_progress(
+        self, mocker, live_client
+    ):
+        """ISO weeks run to Sunday, so on a Saturday the week that just
+        closed is still 'this week' by the calendar - and build_weekly_series
+        prepends nothing then, so row 0 is a finished bar."""
+        saturday = datetime.datetime(2026, 8, 29, tzinfo=datetime.UTC)
+        mocker.patch.object(
+            assets.datetime, "datetime", _clock_at(mocker, saturday)
+        )
+        _weekly_returns(mocker, _series(5, saturday))
+
+        series = _candles(unit_time=UnitTime.W, market=MarketName.EU)
+
+        assert series.current_incomplete is False
 
 
 class TestCandleRejections:

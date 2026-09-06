@@ -33,18 +33,46 @@ BAR_COLUMNS = ["date", "open", "high", "low", "close"]
 class ResponseMeta(BaseModel):
     """What this answer describes, when, and how much it is worth."""
 
-    provenance: Provenance
-    exchange: Exchange
-    unit_time: UnitTime
-    last_bar_date: Optional[datetime.datetime] = None
-    truncated: bool = False
-    forming_period_included: bool = True
-    """Whether the period now trading is part of this answer.
-
-    False means the instrument's session hours were not known, so the
-    forming bar was left out rather than assembled against guessed ones -
-    the series ends at the last completed period and the price with it.
-    """
+    provenance: Provenance = Field(
+        description=(
+            "Where the numbers came from. SIMULATED means fabricated data "
+            "that was explicitly opted in to, and says nothing about the "
+            "real instrument."
+        )
+    )
+    exchange: Exchange = Field(description="The venue this answer describes.")
+    unit_time: UnitTime = Field(
+        description="The timeframe of the bars behind this answer."
+    )
+    last_bar_date: Optional[datetime.datetime] = Field(
+        default=None,
+        description=(
+            "Timestamp of the newest bar, which is how current this answer "
+            "is. None when there was no history at all."
+        ),
+    )
+    truncated: bool = Field(
+        default=False,
+        description=(
+            "True when the number of bars asked for exceeded the server's "
+            "hard cap, so the request was overridden and both the fetch and "
+            "the answer stop at the cap. Asking for fewer bars than that "
+            "is a request being honoured and leaves this False, however "
+            "much history came back."
+        ),
+    )
+    forming_period_included: bool = Field(
+        default=True,
+        description=(
+            "Whether the instrument's session hours were known, so the "
+            "period now trading could be part of this answer. False means "
+            "they were not, and the forming bar was left out rather than "
+            "assembled against guessed hours - the series ends at the last "
+            "completed period and the price with it. True does not by "
+            "itself mean a period is currently trading: see "
+            "current_incomplete on a bar series."
+        ),
+    )
 
 
 class InstrumentRef(BaseModel):
@@ -69,10 +97,33 @@ class BarSeries(BaseModel):
 
     meta: ResponseMeta
     instrument_id: int
-    columns: List[str] = Field(default_factory=lambda: list(BAR_COLUMNS))
-    rows: List[List[Union[str, float, None]]] = Field(default_factory=list)
-    current_incomplete: bool = False
-    count: int = 0
+    columns: List[str] = Field(
+        default_factory=lambda: list(BAR_COLUMNS),
+        description="The field each position in a row holds.",
+    )
+    rows: List[List[Union[str, float, None]]] = Field(
+        default_factory=list,
+        description=(
+            "One bar per row, values in `columns` order, newest first: row "
+            "0 is the most recent bar. Empty means the instrument has no "
+            "history, which is an answer rather than a failure."
+        ),
+    )
+    current_incomplete: bool = Field(
+        default=False,
+        description=(
+            "True when row 0 is the period still trading, so its close, "
+            "high and low can still move. False means every row is a "
+            "closed bar."
+        ),
+    )
+    count: int = Field(
+        default=0,
+        description=(
+            "How many bars are actually in `rows`, which may be fewer than "
+            "were asked for. meta.truncated says whether the cap is why."
+        ),
+    )
 
 
 class IndicatorValue(BaseModel):

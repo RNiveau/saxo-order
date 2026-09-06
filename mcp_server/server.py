@@ -11,13 +11,14 @@ the protocol wire, so nothing here may print - logging goes to stderr.
 
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator, List, Optional
+from typing import Annotated, AsyncIterator, List, Optional
 
 from mcp.server import MCPServer
+from pydantic import Field
 
 from client.aws_client import AwsClient, DynamoDBClient
 from mcp_server.errors import market_tool, tool_boundary
-from mcp_server.formatters import DEFAULT_BAR_COUNT
+from mcp_server.formatters import DEFAULT_BAR_COUNT, MAX_BAR_COUNT
 from mcp_server.models import BarSeries, IndicatorSnapshot, InstrumentRef
 from mcp_server.tools import assets, indicators
 from model import AssetType, IndicatorName, MarketName, UnitTime
@@ -118,7 +119,17 @@ async def get_candles(
     instrument_id: int,
     asset_type: AssetType,
     unit_time: UnitTime = UnitTime.D,
-    count: int = DEFAULT_BAR_COUNT,
+    count: Annotated[
+        int,
+        Field(
+            ge=1,
+            description=(
+                "How many bars to return, newest first. Values above "
+                f"{MAX_BAR_COUNT} are capped there and come back with "
+                f"meta.truncated set."
+            ),
+        ),
+    ] = DEFAULT_BAR_COUNT,
     exchange: Exchange = Exchange.SAXO,
     market: Optional[MarketName] = None,
     allow_simulated: bool = False,
@@ -132,7 +143,9 @@ async def get_candles(
     period rather than guessing.
 
     An instrument with no history comes back with no rows, which is an
-    answer rather than a failure.
+    answer rather than a failure - the one exception being simulated data,
+    which is empty for every instrument and is refused rather than reported
+    as an absence of history.
     """
     return await assets.get_candles(
         instrument_id=instrument_id,
