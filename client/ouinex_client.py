@@ -1,13 +1,14 @@
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
 from model import Currency, Direction, ReportOrder, Taxes
 from model.asset import Asset
 from model.enum import AssetType, Exchange
+from model.workflow import Candle, UnitTime
 from utils.exception import OuinexException
 from utils.logger import Logger
 
@@ -55,6 +56,26 @@ query ClosedOrders($fromDate: String!) {
 }
 """
 
+# UNVERIFIED (research R1): the Ouinex landing docs only expose OHLC via the
+# `instrument_price_bar` WebSocket subscription; a historical-bars *query* is
+# assumed here (Option A) so indicators can backfill. Field/query names stay
+# isolated in the candle helpers for easy correction once the schema is known.
+PRICE_BARS_QUERY = """
+query PriceBars($instrumentId: String!, $periodicity: String!, $limit: Int!) {
+  priceBars(
+    instrument_id: $instrumentId
+    periodicity: $periodicity
+    limit: $limit
+  ) {
+    open
+    high
+    low
+    close
+    timestamp
+  }
+}
+"""
+
 CONVERSION_SUFFIX = "_CONV"
 
 
@@ -69,6 +90,18 @@ class OuinexClient:
     """
 
     TOKEN_REFRESH_MARGIN = 30
+
+    # Native Ouinex periodicities (research: 1m/5m/15m/1h/4h/1d, no 1w/1M).
+    NATIVE_PERIODICITY = {
+        UnitTime.M5: "5m",
+        UnitTime.M15: "15m",
+        UnitTime.H1: "1h",
+        UnitTime.H4: "4h",
+        UnitTime.D: "1d",
+    }
+    # Weekly/monthly are aggregated from daily bars (research R2): how many
+    # daily bars to request per target period.
+    DAILY_PER_PERIOD = {UnitTime.W: 7, UnitTime.M: 32}
 
     def __init__(self, key: str, secret: str, graphql_url: str) -> None:
         self.logger = Logger.get_logger("ouinex_client", logging.INFO)
@@ -220,6 +253,134 @@ class OuinexClient:
         if isinstance(value, (int, float)):
             return datetime.fromtimestamp(value / 1000)
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+    def _map_bar_to_candle(
+        self, bar: Dict[str, Any], unit_time: UnitTime
+    ) -> Candle:
+        return Candle(
+            open=round(float(bar["open"]), 4),
+            higher=round(float(bar["high"]), 4),
+            lower=round(float(bar["low"]), 4),
+            close=round(float(bar["close"]), 4),
+            ut=unit_time,
+            date=self._parse_timestamp(bar["timestamp"]),
+        )
+
+    def _fetch_price_bars(
+        self, symbol: str, periodicity: str, limit: int, unit_time: UnitTime
+    ) -> List[Candle]:
+        """Fetch bars at a native periodicity, newest-first (0=latest)."""
+        data = self._execute(
+            PRICE_BARS_QUERY,
+            {
+                "instrumentId": symbol,
+                "periodicity": periodicity,
+                "limit": limit,
+            },
+        )
+        candles = [
+            self._map_bar_to_candle(bar, unit_time)
+            for bar in data.get("priceBars", [])
+        ]
+        candles.sort(
+            key=lambda candle: candle.date or datetime.min, reverse=True
+        )
+        return candles
+
+    def _aggregate_candles(
+        self, daily: List[Candle], unit_time: UnitTime
+    ) -> List[Candle]:
+        """
+        Aggregate daily candles (newest-first) into weekly/monthly candles.
+
+        Used because Ouinex exposes no native 1w/1M periodicity (research R2).
+        """
+
+        def period_key(moment: datetime) -> tuple:
+            if unit_time == UnitTime.W:
+                return moment.isocalendar()[:2]
+            return (moment.year, moment.month)
+
+        dated: List[Tuple[datetime, Candle]] = []
+        for candle in daily:
+            if candle.date is not None:
+                dated.append((candle.date, candle))
+
+        aggregated: List[Candle] = []
+        last_key: Optional[tuple] = None
+        # Oldest-first so each group's open/close land chronologically.
+        for moment, candle in sorted(dated, key=lambda pair: pair[0]):
+            current_key = period_key(moment)
+            if aggregated and current_key == last_key:
+                current = aggregated[-1]
+                current.higher = max(current.higher, candle.higher)
+                current.lower = min(current.lower, candle.lower)
+                current.close = candle.close
+                current.date = moment
+            else:
+                aggregated.append(
+                    Candle(
+                        open=candle.open,
+                        higher=candle.higher,
+                        lower=candle.lower,
+                        close=candle.close,
+                        ut=unit_time,
+                        date=moment,
+                    )
+                )
+                last_key = current_key
+        aggregated.reverse()
+        return aggregated
+
+    def get_candles(
+        self, symbol: str, unit_time: UnitTime, limit: int = 200
+    ) -> List[Candle]:
+        """
+        Get historical candles for a Ouinex instrument, newest-first.
+
+        Native periodicities (15m/1h/4h/1d) are fetched directly; weekly and
+        monthly are aggregated from daily bars (research R2).
+
+        Args:
+            symbol: Ouinex instrument id (e.g. "BTCUSD")
+            unit_time: Time unit (D, W, M, H1, H4, M15)
+            limit: Number of candles to return (default 200)
+
+        Returns:
+            List of Candle objects, sorted newest first (index 0 = latest)
+        """
+        if unit_time in self.NATIVE_PERIODICITY:
+            return self._fetch_price_bars(
+                symbol, self.NATIVE_PERIODICITY[unit_time], limit, unit_time
+            )
+
+        if unit_time in self.DAILY_PER_PERIOD:
+            daily = self._fetch_price_bars(
+                symbol,
+                self.NATIVE_PERIODICITY[UnitTime.D],
+                limit * self.DAILY_PER_PERIOD[unit_time],
+                UnitTime.D,
+            )
+            return self._aggregate_candles(daily, unit_time)[:limit]
+
+        raise OuinexException(
+            f"Unsupported unit_time for Ouinex candles: {unit_time.value}"
+        )
+
+    def get_latest_candle(self, symbol: str) -> Candle:
+        """
+        Get the most recent fine-grained candle for the current price.
+
+        Args:
+            symbol: Ouinex instrument id (e.g. "BTCUSD")
+
+        Returns:
+            Latest 1-minute Candle
+        """
+        candles = self._fetch_price_bars(symbol, "1m", 1, UnitTime.M15)
+        if not candles:
+            raise OuinexException(f"No price bar returned for {symbol}")
+        return candles[0]
 
     def _apply_commission(
         self, trade: Dict[str, Any], order: ReportOrder, usdeur_rate: float

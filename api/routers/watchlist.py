@@ -4,6 +4,7 @@ from api.dependencies import (
     get_binance_client,
     get_candles_service,
     get_dynamodb_client,
+    get_ouinex_client,
     get_saxo_client,
 )
 from api.models.watchlist import (
@@ -20,6 +21,7 @@ from api.services.indicator_service import IndicatorService
 from api.services.watchlist_service import WatchlistService
 from client.aws_client import DynamoDBClient
 from client.binance_client import BinanceClient
+from client.ouinex_client import OuinexClient
 from client.saxo_client import SaxoClient
 from model import AssetType
 from services.candles_service import CandlesService
@@ -32,6 +34,7 @@ logger = Logger.get_logger("watchlist_router")
 def get_watchlist_service(
     saxo_client: SaxoClient = Depends(get_saxo_client),
     binance_client: BinanceClient = Depends(get_binance_client),
+    ouinex_client: OuinexClient = Depends(get_ouinex_client),
     candles_service: CandlesService = Depends(get_candles_service),
     dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client),
 ) -> WatchlistService:
@@ -40,7 +43,11 @@ def get_watchlist_service(
     This is a dependency that can be injected into FastAPI endpoints.
     """
     indicator_service = IndicatorService(
-        saxo_client, binance_client, candles_service
+        saxo_client,
+        binance_client,
+        candles_service,
+        dynamodb_client,
+        ouinex_client=ouinex_client,
     )
     return WatchlistService(dynamodb_client, indicator_service)
 
