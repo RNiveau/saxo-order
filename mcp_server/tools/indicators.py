@@ -1,6 +1,7 @@
 """The bundled state snapshot: what an instrument looks like right now."""
 
 import asyncio
+import functools
 from typing import List, Optional
 
 from mcp.server.mcpserver.exceptions import ToolError
@@ -8,6 +9,10 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp_server.dependencies import resolve_market
 from mcp_server.errors import current_market_client
 from mcp_server.models import IndicatorSnapshot, IndicatorValue, ResponseMeta
+from mcp_server.tools.market_request import (
+    DAYS_FOR_FORMING_WEEK,
+    check_market_request,
+)
 from model import (
     AssetType,
     IndicatorName,
@@ -20,13 +25,6 @@ from services import candle_source, indicator_bundle_service
 from utils.logger import Logger
 
 logger = Logger.get_logger("mcp_tools_indicators")
-
-SUPPORTED_UNIT_TIMES = (UnitTime.D, UnitTime.W)
-
-# Enough completed days to cover the week now forming; the weekly series
-# only reads the current ISO week out of them, so fetching the indicators'
-# full daily depth here would buy history nothing looks at.
-DAYS_FOR_FORMING_WEEK = 10
 
 
 def _variation_pct(closes: List[float]) -> Optional[float]:
@@ -44,31 +42,11 @@ async def build_snapshot(
     market: Optional[MarketName],
 ) -> IndicatorSnapshot:
     """Fetch once, then compute. Kept apart from the tool for testability."""
-    if unit_time not in SUPPORTED_UNIT_TIMES:
-        raise ToolError(
-            f"{unit_time.value} is not supported; this server reads "
-            + " and ".join(u.value for u in SUPPORTED_UNIT_TIMES)
-        )
+    check_market_request(unit_time, exchange, market)
     if include is not None and len(include) == 0:
         raise ToolError(
             "include was empty; omit it for the full set, or name the "
             "indicators you want"
-        )
-
-    if exchange is not Exchange.SAXO:
-        raise ToolError(
-            f"{exchange.value} is not supported yet; this server reads "
-            "market data from saxo only. Labelling a saxo answer with "
-            "another venue would be worse than refusing - an instrument id "
-            "means something different on each."
-        )
-    if unit_time is UnitTime.W and market is None:
-        raise ToolError(
-            "The weekly timeframe needs a market: the week now forming is "
-            "assembled from the days elapsed in it, and without session "
-            "hours those days are incomplete, which would understate the "
-            "bar's close, high and low with no way to tell. Pass market, "
-            "or ask for the daily timeframe."
         )
 
     requested = include or indicator_bundle_service.DEFAULT_INDICATORS
@@ -82,21 +60,27 @@ async def build_snapshot(
     # On the weekly path the daily leg only supplies the forming week, so
     # the indicators' depth applies to the weekly series instead.
     daily = await asyncio.to_thread(
-        candle_source.build_daily_series,
-        client,
-        instrument_id,
-        resolved_market,
-        asset_type,
-        DAYS_FOR_FORMING_WEEK if unit_time is UnitTime.W else needed,
+        functools.partial(
+            candle_source.build_daily_series,
+            client,
+            instrument_id,
+            market=resolved_market,
+            asset_type=asset_type,
+            count=(
+                DAYS_FOR_FORMING_WEEK if unit_time is UnitTime.W else needed
+            ),
+        )
     )
     if unit_time is UnitTime.W:
         candles = await asyncio.to_thread(
-            candle_source.build_weekly_series,
-            client,
-            instrument_id,
-            daily,
-            asset_type,
-            needed,
+            functools.partial(
+                candle_source.build_weekly_series,
+                client,
+                instrument_id,
+                daily_candles=daily,
+                asset_type=asset_type,
+                count=needed,
+            )
         )
     else:
         candles = daily
