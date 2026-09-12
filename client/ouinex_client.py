@@ -65,8 +65,24 @@ query ClosedOrders($dateRange: DateRangeInput, $pager: PagerInput) {
 }
 """
 
+CONVERSIONS_QUERY = """
+query Conversions($dateRange: DateRangeInput, $pager: PagerInput) {
+  conversions(wallet_id: "", dateRange: $dateRange, pager: $pager) {
+    conversion_id
+    source_currency_id
+    source_currency_amount
+    target_currency_id
+    target_currency_amount
+    price
+    status
+    created_at_iso
+  }
+}
+"""
+
 CLOSED_ORDERS_PAGE_SIZE = 200
 ORDER_STATUS_COMPLETED = "completed"
+CASH_CURRENCIES = {"USD", "USDC", "USDT", "EUR", "EURC", "GBP"}
 # `dateRange` filters on the order placement time; a limit order can be filled
 # long after it was placed, so the query window is widened backwards and the
 # result is filtered on the fill date instead.
@@ -321,7 +337,56 @@ class OuinexClient:
             closed_order.get("updated_at") or closed_order["created_at"]
         )
 
-    def _fetch_closed_orders(self, date: str) -> List[Dict[str, Any]]:
+    def _map_conversion_to_report(
+        self, conversion: Dict[str, Any], usdeur_rate: float
+    ) -> Optional[ReportOrder]:
+        """
+        Map an Ouinex conversion (instant / recurring swap) to a ReportOrder.
+
+        A conversion between a cash currency and a crypto asset is a buy or a
+        sell of that asset; anything else (funding swaps between cash
+        currencies, crypto-to-crypto) is not reported. `price` is the quoted
+        market rate and the amount received is net of the spread, which is
+        reported as the commission.
+        """
+        source = conversion.get("source_currency_id", "")
+        target = conversion.get("target_currency_id", "")
+        source_amount = float(conversion.get("source_currency_amount") or 0)
+        target_amount = float(conversion.get("target_currency_amount") or 0)
+        price = float(conversion.get("price") or 0)
+        if price <= 0 or source_amount <= 0 or target_amount <= 0:
+            return None
+
+        if source in CASH_CURRENCIES and target not in CASH_CURRENCIES:
+            direction, asset = Direction.BUY, target
+            quantity = source_amount / price
+            fee, fee_currency = max(quantity - target_amount, 0), target
+        elif target in CASH_CURRENCIES and source not in CASH_CURRENCIES:
+            direction, asset = Direction.SELL, source
+            quantity = source_amount
+            fee, fee_currency = (
+                max(source_amount * price - target_amount, 0),
+                target,
+            )
+        else:
+            return None
+
+        order = ReportOrder(
+            code=asset,
+            name=asset,
+            price=price,
+            quantity=quantity,
+            direction=direction,
+            asset_type=AssetType.CRYPTO,
+            date=self._parse_timestamp(conversion["created_at_iso"]),
+            currency=Currency.USD,
+        )
+        self._apply_commission(fee, fee_currency, order, usdeur_rate)
+        return order
+
+    def _fetch_completed(
+        self, query: str, field: str, date: str
+    ) -> List[Dict[str, Any]]:
         time_from = (
             datetime.fromisoformat(date)
             - timedelta(days=CLOSED_ORDERS_LOOKBACK_DAYS)
@@ -329,11 +394,11 @@ class OuinexClient:
         time_to = (datetime.now(timezone.utc) + timedelta(days=1)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         )
-        closed_orders: List[Dict[str, Any]] = []
+        items: List[Dict[str, Any]] = []
         offset = 0
         while True:
             data = self._execute(
-                CLOSED_ORDERS_QUERY,
+                query,
                 {
                     "dateRange": {"time_from": time_from, "time_to": time_to},
                     "pager": {
@@ -342,17 +407,22 @@ class OuinexClient:
                     },
                 },
             )
-            page = data.get("closed_orders") or []
-            closed_orders.extend(page)
+            page = data.get(field) or []
+            items.extend(
+                item
+                for item in page
+                if item.get("status") == ORDER_STATUS_COMPLETED
+            )
             if len(page) < CLOSED_ORDERS_PAGE_SIZE:
-                return closed_orders
+                return items
             offset += CLOSED_ORDERS_PAGE_SIZE
 
     def get_report_all(
         self, date: str, usdeur_rate: float
     ) -> List[ReportOrder]:
         """
-        Get all completed Ouinex orders since `date`, mapped to ReportOrder.
+        Get all completed Ouinex orders and conversions since `date`, mapped
+        to ReportOrder and sorted newest first.
 
         Args:
             date: Start date in YYYY-MM-DD format
@@ -364,10 +434,21 @@ class OuinexClient:
         from_date = datetime.fromisoformat(date)
         orders = [
             self._map_closed_order_to_report(closed_order, usdeur_rate)
-            for closed_order in self._fetch_closed_orders(date)
-            if closed_order.get("status") == ORDER_STATUS_COMPLETED
+            for closed_order in self._fetch_completed(
+                CLOSED_ORDERS_QUERY, "closed_orders", date
+            )
         ]
-        return [order for order in orders if order.date >= from_date]
+        for conversion in self._fetch_completed(
+            CONVERSIONS_QUERY, "conversions", date
+        ):
+            order = self._map_conversion_to_report(conversion, usdeur_rate)
+            if order is not None:
+                orders.append(order)
+        return sorted(
+            (order for order in orders if order.date >= from_date),
+            key=lambda order: order.date,
+            reverse=True,
+        )
 
     def get_report(
         self, symbol: str, date: str, usdeur_rate: float
