@@ -18,7 +18,7 @@ from api.services.binance_report_service import BinanceReportService
 from api.services.ouinex_report_service import OuinexReportService
 from api.services.report_service import ReportService
 from model import Signal, Strategy
-from utils.exception import SaxoException
+from utils.exception import OuinexException, SaxoException
 from utils.logger import Logger
 
 router = APIRouter(prefix="/api/report", tags=["report"])
@@ -89,8 +89,8 @@ async def get_report_orders(
     except ValueError as e:
         logger.error(f"Invalid request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
-    except SaxoException as e:
-        logger.error(f"Saxo error getting report: {e}")
+    except (SaxoException, OuinexException) as e:
+        logger.error(f"Provider error getting report: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         import traceback
@@ -138,8 +138,8 @@ async def get_report_summary(
     except ValueError as e:
         logger.error(f"Invalid request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
-    except SaxoException as e:
-        logger.error(f"Saxo error getting summary: {e}")
+    except (SaxoException, OuinexException) as e:
+        logger.error(f"Provider error getting summary: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Unexpected error getting summary: {e}")

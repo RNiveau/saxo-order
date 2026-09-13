@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   backend:
@@ -20,6 +19,36 @@ services:
       - API_MODE=true
       - LOG_LEVEL=DEBUG
     command: python run_api_docker.py
+    networks:
+      - saxo-network
+
+  # The MCP asset-analysis server. Not a network service: an MCP client
+  # launches it and speaks JSON-RPC over stdin/stdout, so it publishes no
+  # port and is kept out of `docker compose up` by its profile - started
+  # with no stdin attached it would sit there doing nothing.
+  #
+  # Run by .mcp.json as: docker compose run --rm -T mcp
+  #
+  # The image installs dependencies with --no-root, so there is no k-mcp
+  # console script inside it; the module is invoked directly. Source is
+  # baked in at build time as it is for backend, so run
+  # `docker compose build mcp` after changing server code.
+  mcp:
+    profiles: ["mcp"]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - ./prod_config.yml:/app/prod_config.yml:ro
+      - ./secrets.yml:/app/secrets.yml:ro
+      - ./access_token:/app/access_token:ro
+      - ~/.aws:/root/.aws:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - AWS_PROFILE=default
+      - CONFIG_FILE=prod_config.yml
+    command: python -m mcp_server.server
     networks:
       - saxo-network
 

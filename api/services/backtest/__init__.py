@@ -12,8 +12,10 @@ around it hold the pieces it orchestrates:
 """
 
 from api.services.backtest.analytics import (
+    ADX_CONVERGENCE_DAILY_CANDLES,
     ADX_MIN_DAILY_CANDLES,
     ADX_PERIOD,
+    DAILY_CANDLES_LEAD_IN,
     MM50_MIN_DAILY_CANDLES,
     MM50_SLOPE_LOOKBACK,
     adx_before,
@@ -39,10 +41,12 @@ from api.services.backtest.service import BacktestService
 from api.services.backtest.statistics import build_summary
 
 __all__ = [
+    "ADX_CONVERGENCE_DAILY_CANDLES",
     "ADX_MIN_DAILY_CANDLES",
     "ADX_PERIOD",
     "BACKTEST_DEFINITIONS",
     "BacktestService",
+    "DAILY_CANDLES_LEAD_IN",
     "MM50_MIN_DAILY_CANDLES",
     "MM50_SLOPE_LOOKBACK",
     "PARIS_TZ",

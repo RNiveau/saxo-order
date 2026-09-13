@@ -185,14 +185,16 @@ The analyst's own relationship to an asset — labels and open exposure (FR-017)
 {
   "mcpServers": {
     "saxo-analysis": {
-      "command": "poetry",
-      "args": ["run", "k-mcp"]
+      "command": "docker",
+      "args": ["compose", "run", "--rm", "-T", "--quiet-pull", "mcp"]
     }
   }
 }
 ```
 
-Committed to the repo: it holds a command, no credentials. Credentials continue to come from `config.yml` / `secrets.yml` (Constitution III).
+Committed to the repo: it holds a command, no credentials. Credentials reach the container through the same mounts `backend` uses (Constitution III).
+
+The `mcp` compose service carries a `profiles: ["mcp"]` marker so it stays out of `docker compose up` — an MCP stdio server has no port and needs a client on its stdin, so starting it as a long-running service would achieve nothing. `docker compose run` enables the target service's profile on its own.
 
 ---
 

@@ -15,7 +15,9 @@ poetry install
 | Valid Saxo access token (`secrets.yml` / `access_token`) | Stories 1, 2, 3, 5 | Market-data tools **refuse** rather than answer from simulated data (FR-004a) |
 | `AWS_PROFILE` exported | Story 4 (alerts, digest, watchlist, workflow orders) | Stored-context tools report themselves unavailable; market-data tools unaffected |
 
-> `AwsClient.is_aws_context()` (`client/aws_client.py:110`) checks for `AWS_LAMBDA_FUNCTION_NAME` or `AWS_PROFILE`. Locally only the second applies — export it before starting the client, or Story 4's tools cannot reach DynamoDB:
+Running in the container covers both: it mounts `access_token`, `secrets.yml` and `~/.aws` and sets `AWS_PROFILE`, exactly as `backend` does. It also sets `CONFIG_FILE=prod_config.yml`, so the server reads the **live** Saxo endpoint — the same one the API uses. Run outside the container and it defaults to `config.yml`, which points at the **simulation** endpoint.
+
+> `AwsClient.is_aws_context()` (`client/aws_client.py:110`) checks for `AWS_LAMBDA_FUNCTION_NAME` or `AWS_PROFILE`. The container sets it. Running outside the container, export it yourself or Story 4's tools cannot reach DynamoDB:
 >
 > ```bash
 > export AWS_PROFILE=your-profile
@@ -23,15 +25,29 @@ poetry install
 
 ## Running
 
-The server is normally launched by the MCP client, not by hand — `.mcp.json` in the repo root registers it, so an MCP client opened in this directory starts it automatically.
-
-To run it directly (for debugging):
+The server runs in a container, like the rest of the stack. `.mcp.json` registers it as:
 
 ```bash
-poetry run k-mcp
+docker compose run --rm -T mcp
 ```
 
-It speaks JSON-RPC on stdin/stdout and blocks. Logs go to **stderr** — stdout is the protocol wire.
+An MCP client opened in this directory starts that itself — there is nothing to launch by hand.
+
+It is **not** a `docker compose up` service. MCP stdio servers have no port: the client owns the process and speaks JSON-RPC over its stdin/stdout, so a container started with nothing attached to stdin would just sit idle. The `mcp` profile keeps it out of `up` while leaving it available to `run`.
+
+`-T` is what makes this work: it disables TTY allocation so the JSON-RPC stream passes through unmangled.
+
+Logs go to **stderr** — stdout is the protocol wire.
+
+To run it outside the container (for debugging):
+
+```bash
+poetry run k-mcp                    # or: poetry run python -m mcp_server.server
+```
+
+Note the container invokes the module rather than the `k-mcp` script: `Dockerfile.dev` installs dependencies with `--no-root`, so the project's console scripts are not installed inside the image.
+
+**After changing server code, rebuild**: `docker compose build mcp`. Source is baked into the image at build time, as it is for `backend`.
 
 ## Verifying the install
 
@@ -56,8 +72,9 @@ Then, from an MCP client in this repo:
 | Symptom | Cause | Fix |
 |---|---|---|
 | Every market tool refuses | No valid Saxo token — the server will not serve simulated data by default | Refresh the token, or pass `allow_simulated=true` on a request if you genuinely want mock data |
-| Stored-context tools fail, market tools fine | `AWS_PROFILE` not exported | Export it and restart the server |
-| Client fails to start the server | Protocol stream corrupted by stdout output | Nothing on the call path may `print()`. `utils/logger.py` is safe (stderr); the three `print()` calls in `client/saxo_client.py` are removed by this feature |
+| Stored-context tools fail, market tools fine | `AWS_PROFILE` not exported (outside the container) or `~/.aws` not mounted | Export it, or check the mount, then restart the server |
+| Server code changes have no effect | The image has the old source baked in | `docker compose build mcp` |
+| Client fails to start the server | Protocol stream corrupted by stdout output, or `-T` missing from the compose invocation | Nothing on the call path may `print()`. `utils/logger.py` is safe (stderr); the three `print()` calls in `client/saxo_client.py` are removed by this feature |
 | `Error executing tool <name>` with no detail | An exception escaped without translation | Every tool needs `@tool_boundary` — the SDK masks unhandled exception messages (research.md §2) |
 | One indicator missing from a snapshot | It shouldn't be — absence is a bug | Every requested indicator must appear, with `unavailable_reason` when not computable. Same for detectors: a failure appears in `failed`, never dropped |
 | Saxo rate limiting during deep history | Wrong candle path — `CandlesService` turns a 235-bar daily request into ~13 paginated 30m round-trips | Use `services/candle_source.py` (the scan's 2-request reconstruction), per research.md §10 |
