@@ -422,7 +422,7 @@ class OuinexClient:
     ) -> List[ReportOrder]:
         """
         Get all completed Ouinex orders and conversions since `date`, mapped
-        to ReportOrder and sorted newest first.
+        to ReportOrder and sorted by date ascending (oldest first).
 
         Args:
             date: Start date in YYYY-MM-DD format
@@ -447,7 +447,6 @@ class OuinexClient:
         return sorted(
             (order for order in orders if order.date >= from_date),
             key=lambda order: order.date,
-            reverse=True,
         )
 
     def get_report(

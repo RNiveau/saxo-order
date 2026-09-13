@@ -518,10 +518,10 @@ class TestOuinexClientReport:
         orders = client.get_report_all("2026-06-01", usdeur_rate=0.9)
 
         assert [(o.code, o.direction) for o in orders] == [
-            ("XRP", Direction.SELL),
             ("BTC", Direction.BUY),
+            ("XRP", Direction.SELL),
         ]
-        sell, buy = orders
+        buy, sell = orders
         assert buy.price == pytest.approx(65219.86)
         assert buy.quantity == pytest.approx(0.00176)
         assert buy.taxes is not None
@@ -532,7 +532,7 @@ class TestOuinexClientReport:
         assert sell.taxes is not None
         assert sell.taxes.cost == pytest.approx((141 - 140.5) * 0.9)
 
-    def test_report_merges_orders_and_conversions_newest_first(
+    def test_report_merges_orders_and_conversions_oldest_first(
         self, client_and_session: Tuple[OuinexClient, MagicMock]
     ):
         client, session = client_and_session
@@ -561,8 +561,8 @@ class TestOuinexClientReport:
         orders = client.get_report_all("2026-06-01", usdeur_rate=0.9)
 
         assert len(orders) == 3
-        assert orders[-1].price == pytest.approx(62944.68)
-        assert orders[0].date >= orders[1].date >= orders[2].date
+        assert orders[0].price == pytest.approx(62944.68)
+        assert orders[0].date <= orders[1].date <= orders[2].date
 
     def test_get_report_filters_by_symbol(
         self, client_and_session: Tuple[OuinexClient, MagicMock]
