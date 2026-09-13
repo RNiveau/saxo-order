@@ -1,10 +1,11 @@
 import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from api.models.indicator import AssetIndicatorsResponse, MovingAverageInfo
 from client.aws_client import DynamoDBClient
 from client.binance_client import BinanceClient
 from client.client_helper import map_data_to_candles
+from client.ouinex_client import OuinexClient
 from client.saxo_client import SaxoClient
 from model import Candle, Currency, UnitTime
 from model.enum import Exchange
@@ -34,11 +35,13 @@ class IndicatorService:
         binance_client: BinanceClient,
         candles_service: CandlesService,
         dynamodb_client: Optional[DynamoDBClient] = None,
+        ouinex_client: Optional[OuinexClient] = None,
     ):
         self.saxo_client = saxo_client
         self.binance_client = binance_client
         self.candles_service = candles_service
         self.dynamodb_client = dynamodb_client
+        self.ouinex_client = ouinex_client
 
     def _is_same_period(
         self,
@@ -186,10 +189,16 @@ class IndicatorService:
             SaxoException: If asset not found or insufficient data
         """
         if exchange == Exchange.BINANCE:
-            return await self._get_binance_asset_indicators(code, unit_time)
-        elif exchange.is_crypto():
-            raise SaxoException(
-                f"Indicators are not supported yet for {exchange.value}"
+            return await self._get_crypto_asset_indicators(
+                code, unit_time, self.binance_client
+            )
+        elif exchange == Exchange.OUINEX:
+            if self.ouinex_client is None:
+                raise SaxoException(
+                    "Ouinex client is not configured for indicators"
+                )
+            return await self._get_crypto_asset_indicators(
+                code, unit_time, self.ouinex_client
             )
         else:
             return await self._get_saxo_asset_indicators(
@@ -291,22 +300,27 @@ class IndicatorService:
             tradingview_url=tradingview_url,
         )
 
-    async def _get_binance_asset_indicators(
+    async def _get_crypto_asset_indicators(
         self,
         symbol: str,
         unit_time: UnitTime,
+        client: Union[BinanceClient, OuinexClient],
     ) -> AssetIndicatorsResponse:
         """
-        Get indicator data for a Binance asset.
+        Get indicator data for a crypto asset (Binance or Ouinex).
+
+        Both clients expose the same candle surface (`get_candles`,
+        `get_latest_candle`), so the indicator computation is identical.
 
         Args:
-            symbol: Binance symbol (e.g., "BTCUSDT")
+            symbol: Crypto symbol (e.g., "BTCUSDT", "BTCUSD")
             unit_time: Unit time for calculations
+            client: The crypto client providing the candles
 
         Returns:
             AssetIndicatorsResponse with all indicator data
         """
-        candles = self.binance_client.get_candles(symbol, unit_time, limit=210)
+        candles = client.get_candles(symbol, unit_time, limit=210)
 
         if len(candles) < 200:
             raise SaxoException(
@@ -314,7 +328,7 @@ class IndicatorService:
                 f"only {len(candles)} candles available, need at least 200"
             )
 
-        latest_candle = self.binance_client.get_latest_candle(symbol)
+        latest_candle = client.get_latest_candle(symbol)
         current_price = latest_candle.close
 
         previous_close = (
