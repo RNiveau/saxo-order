@@ -131,8 +131,7 @@ class TestSnapshotFetchesOnce:
 
         _snapshot(include=[IndicatorName.MM7])
 
-        requested_count = fetch.call_args.args[4]
-        assert requested_count < 235
+        assert fetch.call_args.kwargs["count"] < 235
 
     def test_the_weekly_timeframe_costs_one_extra_series(
         self, mocker, live_client
@@ -181,8 +180,10 @@ class TestSnapshotFetchesOnce:
             include=[IndicatorName.MM200],
         )
 
-        assert daily.call_args.args[4] == indicators.DAYS_FOR_FORMING_WEEK
-        assert weekly.call_args.args[4] == 200
+        assert daily.call_args.kwargs["count"] == (
+            indicators.DAYS_FOR_FORMING_WEEK
+        )
+        assert weekly.call_args.kwargs["count"] == 200
 
 
 class TestSnapshotRejections:

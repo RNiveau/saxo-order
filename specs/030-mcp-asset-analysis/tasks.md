@@ -92,9 +92,9 @@ Backend entry point at repo root: `mcp_server/`, peer to `saxo_order/` and `api/
 
 **Independent test**: bars for a known instrument match its chart, including the in-progress period.
 
-- [ ] T031 [US2] Implement `get_candles` in `mcp_server/tools/assets.py` per contracts/tools.md: newest-first columnar rows via `mcp_server/formatters.py`, `current_incomplete` flag, cap + `meta.truncated`. Where the market cannot be determined, **skip** the current-period top-up and report `current_incomplete = False` rather than assembling today's bar against guessed session hours (research.md §10)
-- [ ] T032 [US2] Register `get_candles` in `mcp_server/server.py` with `@tool_boundary`
-- [ ] T033 [P] [US2] Test `get_candles` in `tests/mcp_server/tools/test_assets.py`: newest-first ordering; in-progress period present and flagged; `count` above the cap sets `meta.truncated`; empty history returns `count=0` not an error; undeterminable market skips the top-up
+- [x] T031 [US2] Implement `get_candles` in `mcp_server/tools/assets.py` per contracts/tools.md: newest-first columnar rows via `mcp_server/formatters.py`, `current_incomplete` flag, cap + `meta.truncated`. Where the market cannot be determined, **skip** the current-period top-up and report `current_incomplete = False` rather than assembling today's bar against guessed session hours (research.md §10)
+- [x] T032 [US2] Register `get_candles` in `mcp_server/server.py` with `@tool_boundary`
+- [x] T033 [P] [US2] Test `get_candles` in `tests/mcp_server/tools/test_assets.py`: newest-first ordering; in-progress period present and flagged; `count` above the cap sets `meta.truncated`; empty history returns `count=0` not an error; undeterminable market skips the top-up
 
 ---
 

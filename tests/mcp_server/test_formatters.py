@@ -4,6 +4,7 @@ from typing import List
 from mcp_server.formatters import (
     MAX_BAR_COUNT,
     candle_row,
+    exceeds_cap,
     last_bar_date,
     to_rows,
 )
@@ -52,40 +53,52 @@ class TestCandleRow:
 
 class TestToRows:
     def test_the_newest_bar_stays_first(self):
-        rows, _ = to_rows(_candles(5))
+        rows = to_rows(_candles(5))
 
         dates = [row[0] for row in rows]
         assert dates == sorted(dates, reverse=True)
 
-    def test_asking_for_fewer_bars_is_not_truncation(self):
-        """The caller got what it asked for; nothing was overridden."""
-        rows, truncated = to_rows(_candles(50), count=10)
+    def test_it_returns_what_was_asked_for(self):
+        assert len(to_rows(_candles(50), count=10)) == 10
 
-        assert len(rows) == 10
-        assert truncated is False
+    def test_it_never_returns_more_than_the_hard_cap(self):
+        assert len(to_rows(_candles(MAX_BAR_COUNT + 10), count=99999)) == (
+            MAX_BAR_COUNT
+        )
 
-    def test_the_hard_cap_is_reported_as_truncation(self):
-        rows, truncated = to_rows(_candles(MAX_BAR_COUNT + 10), count=99999)
-
-        assert len(rows) == MAX_BAR_COUNT
-        assert truncated is True
-
-    def test_a_cap_that_had_nothing_to_cut_is_not_truncation(self):
-        rows, truncated = to_rows(_candles(5), count=99999)
-
-        assert len(rows) == 5
-        assert truncated is False
+    def test_it_returns_what_exists_when_that_is_less(self):
+        assert len(to_rows(_candles(5), count=99999)) == 5
 
     def test_no_candles_yields_no_rows(self):
-        rows, truncated = to_rows([])
+        assert to_rows([]) == []
 
-        assert rows == []
-        assert truncated is False
+    def test_a_zero_count_returns_nothing(self):
+        """No silent floor: the schema forbids 0, and if one ever reaches
+        here the honest answer is no bars, not a bar nobody asked for."""
+        assert to_rows(_candles(5), count=0) == []
 
-    def test_a_zero_count_still_returns_a_bar(self):
-        rows, _ = to_rows(_candles(5), count=0)
 
-        assert len(rows) == 1
+class TestExceedsCap:
+    """Truncation is a property of the request, asked in one place.
+
+    Returning it from to_rows as well left two definitions alive that
+    disagreed on the same input, both asserted by passing tests.
+    """
+
+    def test_a_request_beyond_the_cap_was_overridden(self):
+        assert exceeds_cap(MAX_BAR_COUNT + 1) is True
+
+    def test_a_request_within_the_cap_was_honoured(self):
+        assert exceeds_cap(MAX_BAR_COUNT) is False
+        assert exceeds_cap(1) is False
+
+    def test_it_does_not_depend_on_how_much_history_exists(self):
+        """The disputed case: 900 asked for, 10 bars in the instrument.
+
+        The fetch was capped at 500 regardless, so the tool cannot claim
+        those 10 were all there was.
+        """
+        assert exceeds_cap(900) is True
 
 
 class TestLastBarDate:
