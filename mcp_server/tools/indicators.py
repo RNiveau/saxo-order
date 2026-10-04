@@ -12,6 +12,7 @@ from mcp_server.models import IndicatorSnapshot, IndicatorValue, ResponseMeta
 from mcp_server.tools.market_request import (
     DAYS_FOR_FORMING_WEEK,
     check_market_request,
+    settle_market,
 )
 from model import (
     AssetType,
@@ -42,7 +43,7 @@ async def build_snapshot(
     market: Optional[MarketName],
 ) -> IndicatorSnapshot:
     """Fetch once, then compute. Kept apart from the tool for testability."""
-    check_market_request(unit_time, exchange, market)
+    check_market_request(unit_time, exchange)
     if include is not None and len(include) == 0:
         raise ToolError(
             "include was empty; omit it for the full set, or name the "
@@ -55,6 +56,9 @@ async def build_snapshot(
     # the full cost.
     needed = indicator_bundle_service.required_bars(requested)
     client, provenance = current_market_client()
+    market = await settle_market(
+        client, provenance, instrument_id, asset_type, unit_time, market
+    )
     resolved_market = resolve_market(market)
 
     # On the weekly path the daily leg only supplies the forming week, so

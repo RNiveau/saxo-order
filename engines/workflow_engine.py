@@ -21,6 +21,7 @@ from model import (
     EUMarket,
     Indicator,
     IndicatorType,
+    MarketName,
     Order,
     OrderType,
     UnitTime,
@@ -34,7 +35,7 @@ from model import (
 from model.enum import AssetType
 from services.candles_service import CandlesService
 from utils.exception import SaxoException
-from utils.helper import get_date_utc0
+from utils.helper import get_date_utc0, market_name_from_symbol
 from utils.logger import Logger
 
 
@@ -174,13 +175,10 @@ class WorkflowEngine:
                         f"Failed to track order for {order[0].name}: {e}"
                     )
 
-    _US_EXCHANGES = (":xnys", ":xnas", ":xase")
-
     def _get_market(self, workflow: Workflow):
         if workflow.is_us:
             return USMarket()
-        code = (workflow.cfd or "").lower()
-        if any(code.endswith(ex) for ex in self._US_EXCHANGES):
+        if market_name_from_symbol(workflow.cfd) is MarketName.US:
             return USMarket()
         return EUMarket()
 

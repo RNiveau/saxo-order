@@ -2,8 +2,17 @@ import datetime
 from typing import Any, List, Optional
 from zoneinfo import ZoneInfo
 
-from model import Candle, Market, UnitTime
+from model import Candle, Market, MarketName, UnitTime
 from utils.logger import Logger
+
+US_EXCHANGE_SUFFIXES = (":xnys", ":xnas", ":xase")
+
+
+def market_name_from_symbol(symbol: Optional[str]) -> MarketName:
+    code = (symbol or "").lower()
+    if code.endswith(US_EXCHANGE_SUFFIXES):
+        return MarketName.US
+    return MarketName.EU
 
 
 def to_float(value: Any) -> Optional[float]:
