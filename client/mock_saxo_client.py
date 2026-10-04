@@ -15,7 +15,16 @@ class MockSaxoClient:
         """Initialize mock client (accepts any args for compatibility)."""
         pass
 
-    def get_accounts(self) -> Dict[str, Any]:
+    async def __aenter__(self) -> "MockSaxoClient":
+        return self
+
+    async def __aexit__(self, *exc_info: Any) -> None:
+        await self.aclose()
+
+    async def aclose(self) -> None:
+        pass
+
+    async def get_accounts(self) -> Dict[str, Any]:
         """Return mock accounts list in Saxo API format."""
         return {
             "Data": [
@@ -36,7 +45,7 @@ class MockSaxoClient:
             ]
         }
 
-    def get_account(self, account_key: str) -> Account:
+    async def get_account(self, account_key: str) -> Account:
         """Return mock account with balance."""
         if account_key == "MOCK-ACC-002":
             return Account(
@@ -53,7 +62,7 @@ class MockSaxoClient:
                 available_fund=95000.00,
             )
 
-    def get_orders(self, account_key: str) -> List[Dict[str, Any]]:
+    async def get_orders(self, account_key: str) -> List[Dict[str, Any]]:
         """Return mock open orders."""
         if account_key == "MOCK-ACC-002":
             return [
@@ -98,7 +107,7 @@ class MockSaxoClient:
                 },
             ]
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    async def get_open_orders(self) -> List[Dict[str, Any]]:
         """Return all open orders (for calculating available funds)."""
         return [
             {
@@ -143,7 +152,7 @@ class MockSaxoClient:
             },
         ]
 
-    def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
+    async def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
         """Return mock asset data."""
         return {
             "Identifier": 12345,
@@ -151,7 +160,7 @@ class MockSaxoClient:
             "AssetType": "Stock",
         }
 
-    def get_historical_data(
+    async def get_historical_data(
         self,
         saxo_uic: str | int,
         asset_type: str,

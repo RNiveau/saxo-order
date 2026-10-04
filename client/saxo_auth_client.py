@@ -1,48 +1,54 @@
 import base64
 
-import requests
+import httpx
 
 from utils.configuration import Configuration
 
 
 class SaxoAuthClient:
     def __init__(self, configuration: Configuration) -> None:
-        self.session = requests.Session()
-        self.session.headers.update(
-            {"Content-Type": "application/x-www-form-urlencoded"}
-        )
         self.configuration = configuration
 
-    def login(self) -> str:
-        response = self.session.get(
-            f"{self.configuration.auth_url}authorize?"
-            f"response_type=code&client_id={self.configuration.app_key}&state"
-            "=y90dsygas98dygoidsahf8sa&redirect_uri=http%3A%2F%2Flocalhost",
-            allow_redirects=False,
+    def _http(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
         )
-        response.raise_for_status()
+
+    async def login(self) -> str:
+        async with self._http() as http:
+            response = await http.get(
+                f"{self.configuration.auth_url}authorize?"
+                f"response_type=code&client_id={self.configuration.app_key}"
+                "&state=y90dsygas98dygoidsahf8sa"
+                "&redirect_uri=http%3A%2F%2Flocalhost",
+                follow_redirects=False,
+            )
+        if not response.is_redirect:
+            response.raise_for_status()
         return response.headers["Location"]
 
-    def access_token(self, code: str) -> tuple:
-        response = self.session.post(
-            f"{self.configuration.auth_url}token",
-            data=f"grant_type=authorization_code&code={code}"
-            "&redirect_uri=http%3A%2F%2Flocalhost",
-            headers={"Authorization": f"Basic {self._auth_str()}"},
-        )
+    async def access_token(self, code: str) -> tuple:
+        async with self._http() as http:
+            response = await http.post(
+                f"{self.configuration.auth_url}token",
+                content=f"grant_type=authorization_code&code={code}"
+                "&redirect_uri=http%3A%2F%2Flocalhost",
+                headers={"Authorization": f"Basic {self._auth_str()}"},
+            )
         response.raise_for_status()
         return (
             response.json()["access_token"],
             response.json()["refresh_token"],
         )
 
-    def refresh_token(self) -> tuple:
-        response = self.session.post(
-            f"{self.configuration.auth_url}token",
-            data=f"grant_type=refresh_token&"
-            f"refresh_token={self.configuration.refresh_token}",
-            headers={"Authorization": f"Basic {self._auth_str()}"},
-        )
+    async def refresh_token(self) -> tuple:
+        async with self._http() as http:
+            response = await http.post(
+                f"{self.configuration.auth_url}token",
+                content=f"grant_type=refresh_token&"
+                f"refresh_token={self.configuration.refresh_token}",
+                headers={"Authorization": f"Basic {self._auth_str()}"},
+            )
         response.raise_for_status()
         return (
             response.json()["access_token"],
