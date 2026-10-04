@@ -12,7 +12,10 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def _clear_overrides():
-    """Clear dependency overrides after each test."""
+    """Default to an idle Saxo client, clear overrides after each test."""
+    app.dependency_overrides[get_saxo_client] = lambda: MagicMock(
+        spec=SaxoClient
+    )
     yield
     app.dependency_overrides.clear()
 

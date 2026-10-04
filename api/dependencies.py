@@ -54,8 +54,9 @@ def build_saxo_client(
 def get_saxo_client(request: Request) -> Union[SaxoClient, MockSaxoClient]:
     saxo_client = getattr(request.app.state, "saxo_client", None)
     if saxo_client is None:
-        saxo_client = build_saxo_client(get_configuration())
-        request.app.state.saxo_client = saxo_client
+        raise RuntimeError(
+            "No Saxo client on app.state: the API lifespan has not run"
+        )
     return saxo_client
 
 

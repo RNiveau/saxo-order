@@ -45,6 +45,7 @@ async def lifespan(app: FastAPI):
     )
 
     app.state.saxo_client = build_saxo_client(get_configuration())
+    app.state.report_service = None
     try:
         async with session.resource(
             "dynamodb", region_name="eu-west-1", config=config
@@ -52,7 +53,9 @@ async def lifespan(app: FastAPI):
             app.state.dynamodb = dynamodb
             yield
     finally:
+        app.state.report_service = None
         await app.state.saxo_client.aclose()
+        app.state.saxo_client = None
 
     stats = DynamoDBClient.get_stats()
     logger.info(

@@ -40,6 +40,9 @@ def mock_saxo_client():
 @pytest.fixture(autouse=True)
 def mock_binance_client():
     """Mock BinanceClient - autouse so all tests have it."""
+    app.dependency_overrides.setdefault(
+        get_saxo_client, lambda: MagicMock(spec=SaxoClient)
+    )
     mock_client = MagicMock()
 
     def override_get_binance_client():
@@ -47,7 +50,7 @@ def mock_binance_client():
 
     app.dependency_overrides[get_binance_client] = override_get_binance_client
     yield mock_client
-    # Don't delete - mock_saxo_client clears all overrides
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture

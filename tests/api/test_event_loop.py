@@ -34,9 +34,15 @@ def dynamodb_client():
     return client
 
 
-async def test_a_slow_saxo_call_does_not_block_other_routes(
+async def test_the_router_awaits_the_saxo_client(
     slow_saxo_client, dynamodb_client
 ):
+    """While a Saxo-backed route awaits its client, another route answers.
+
+    This proves the router awaits the client rather than calling it
+    synchronously; the real client's own non-blocking I/O is covered by
+    the client tests.
+    """
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport, base_url="http://test"
