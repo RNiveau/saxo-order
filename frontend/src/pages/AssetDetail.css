@@ -241,41 +241,32 @@
   margin-top: 1.5rem;
 }
 
-.workflows-header {
+.asset-workflows-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #30363d;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
 }
 
-.workflows-header h3 {
+.asset-workflows-header h3 {
   color: #e6edf3;
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   margin: 0;
 }
 
 .workflow-count {
   color: #8b949e;
-  font-size: 0.95rem;
+  background: #21262d;
+  border-radius: 10px;
+  padding: 0.05rem 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .workflows-list {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-}
-
-.workflow-header h4 {
-  color: #58a6ff;
-  font-size: 1.2rem;
-  margin: 0;
-}
-
-.workflow-status {
-  display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 .status-badge {
@@ -304,143 +295,14 @@
   border: 1px solid #8b949e;
 }
 
-.detail-row .value.expired-date {
-  color: #8b949e;
-  text-decoration: line-through;
-}
-
 .status-badge.dry-run {
   background: rgba(187, 128, 9, 0.2);
   color: #d29922;
   border: 1px solid #d29922;
 }
 
-.workflow-details {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.detail-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: baseline;
-}
-
-.detail-row .label {
-  color: #8b949e;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.detail-row .value {
-  color: #e6edf3;
-  font-family: monospace;
-}
-
-.badge-us {
-  background: rgba(88, 166, 255, 0.2);
-  color: #58a6ff;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-}
-
-.workflow-section {
-  margin-top: 1.5rem;
-}
-
-.workflow-section h5 {
-  color: #8b949e;
-  font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.75rem;
-}
-
-.conditions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.condition-item {
-  background: #0d1117;
-  border: 1px solid #21262d;
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-}
-
-.condition-text {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  color: #e6edf3;
-  font-size: 0.95rem;
-}
-
-.indicator-name {
-  color: #79c0ff;
-  font-weight: 600;
-}
-
-.indicator-ut,
-.close-ut {
-  color: #d2a8ff;
-  font-family: monospace;
-  font-size: 0.9rem;
-}
-
-.indicator-value,
-.close-value {
-  color: #56d364;
-  font-family: monospace;
-}
-
-.indicator-zone {
-  color: #8b949e;
-  font-size: 0.85rem;
-}
-
 .direction {
   color: #f85149;
-  font-weight: 600;
-}
-
-.close-label {
-  color: #8b949e;
-}
-
-.element {
-  color: #d29922;
-  font-size: 0.85rem;
-}
-
-.trigger-info {
-  background: #0d1117;
-  border: 1px solid #21262d;
-  border-radius: 6px;
-  padding: 1rem;
-}
-
-.trigger-text {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin-bottom: 0.75rem;
-  font-size: 1rem;
-}
-
-.trigger-signal {
-  color: #79c0ff;
-  font-weight: 600;
-}
-
-.trigger-location {
-  color: #d2a8ff;
   font-weight: 600;
 }
 
@@ -466,21 +328,6 @@
   background: rgba(248, 81, 73, 0.2);
   color: #f85149;
   border: 1px solid #f85149;
-}
-
-.trigger-quantity {
-  color: #e6edf3;
-  font-family: monospace;
-}
-
-.trigger-detail {
-  color: #8b949e;
-  font-size: 0.9rem;
-}
-
-.trigger-detail .value {
-  color: #e6edf3;
-  font-family: monospace;
 }
 
 /* Alerts Section */

@@ -6,7 +6,6 @@ import {
   indicatorService,
   watchlistService,
   alertService,
-  type WorkflowInfo,
   type AssetWorkflowsResponse,
   type AssetIndicatorsResponse,
   type AlertItem,
@@ -14,8 +13,8 @@ import {
 import { IndicatorCard } from '../components/IndicatorCard';
 import { AlertCard } from '../components/AlertCard';
 import { WorkflowCreateModal } from '../components/WorkflowCreateModal';
+import { WorkflowCard } from '../components/WorkflowCard';
 import { processAlerts } from '../utils/alertFilters';
-import { isWorkflowExpired } from '../utils/workflowExpiry';
 import './AssetDetail.css';
 
 export function AssetDetail() {
@@ -553,24 +552,6 @@ export function AssetDetail() {
     navigate(`/orders?${queryParams.toString()}`);
   };
 
-  const renderWorkflowStatus = (workflow: WorkflowInfo) => {
-    if (!workflow.enabled) {
-      return <span className="status-badge disabled">✗ Disabled</span>;
-    }
-    if (isWorkflowExpired(workflow.end_date)) {
-      return <span className="status-badge expired">⏱ Expired</span>;
-    }
-    if (workflow.dry_run) {
-      return (
-        <>
-          <span className="status-badge enabled">✓ Enabled</span>
-          <span className="status-badge dry-run">Dry Run</span>
-        </>
-      );
-    }
-    return <span className="status-badge enabled">✓ Enabled</span>;
-  };
-
   return (
     <div className="asset-detail-container">
       <div className="asset-header">
@@ -786,127 +767,14 @@ export function AssetDetail() {
             </div>
           ) : (
             <div className="workflows-section">
-              <div className="workflows-header">
-                <h3>Workflows for {workflowData.asset_symbol}</h3>
-                <div className="workflow-count">
-                  Total: {workflowData.total} workflow{workflowData.total !== 1 ? 's' : ''}
-                </div>
+              <div className="asset-workflows-header">
+                <h3>Workflows</h3>
+                <div className="workflow-count">{workflowData.total}</div>
               </div>
 
               <div className="workflows-list">
                 {workflowData.workflows.map((workflow, index) => (
-                  <div key={index} className="workflow-card">
-                    <div className="workflow-header">
-                      <h4>{workflow.name}</h4>
-                      <div className="workflow-status">
-                        {renderWorkflowStatus(workflow)}
-                      </div>
-                    </div>
-
-                    <div className="workflow-details">
-                      <div className="detail-row">
-                        <span className="label">Index:</span>
-                        <span className="value">{workflow.index}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="label">CFD:</span>
-                        <span className="value">{workflow.cfd}</span>
-                      </div>
-                      {workflow.end_date && (
-                        <div className="detail-row">
-                          <span className="label">End Date:</span>
-                          <span
-                            className={`value${isWorkflowExpired(workflow.end_date) ? ' expired-date' : ''}`}
-                          >
-                            {workflow.end_date}
-                          </span>
-                        </div>
-                      )}
-                      {workflow.is_us && (
-                        <div className="detail-row">
-                          <span className="label">Market:</span>
-                          <span className="value badge-us">US Market</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="workflow-section">
-                      <h5>Conditions</h5>
-                      <div className="conditions-list">
-                        {workflow.conditions.map((condition, condIndex) => (
-                          <div key={condIndex} className="condition-item">
-                            <div className="condition-text">
-                              <span className="indicator-name">
-                                {condition.indicator.name}
-                              </span>
-                              <span className="indicator-ut">
-                                {condition.indicator.unit_time}
-                              </span>
-                              {condition.indicator.value !== undefined &&
-                                condition.indicator.value !== null && (
-                                  <span className="indicator-value">
-                                    = {condition.indicator.value}
-                                  </span>
-                                )}
-                              {condition.indicator.zone_value !== undefined &&
-                                condition.indicator.zone_value !== null && (
-                                  <span className="indicator-zone">
-                                    (zone: {condition.indicator.zone_value})
-                                  </span>
-                                )}
-                              {condition.indicator.current_value !==
-                                undefined &&
-                                condition.indicator.current_value !== null && (
-                                  <span className="indicator-value">
-                                    today:{' '}
-                                    {condition.indicator.current_value.toFixed(
-                                      2,
-                                    )}
-                                  </span>
-                                )}
-                              <span className="direction">
-                                {condition.close.direction}
-                              </span>
-                              <span className="close-label">close</span>
-                              <span className="close-ut">
-                                {condition.close.unit_time}
-                              </span>
-                              {condition.close.value !== undefined && (
-                                <span className="close-value">
-                                  ({condition.close.value})
-                                </span>
-                              )}
-                              {condition.element && (
-                                <span className="element">
-                                  [{condition.element}]
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="workflow-section">
-                      <h5>Trigger</h5>
-                      <div className="trigger-info">
-                        <div className="trigger-text">
-                          <span className="trigger-signal">{workflow.trigger.signal}</span>
-                          <span className="trigger-location">{workflow.trigger.location}</span>
-                          <span className="arrow">→</span>
-                          <span className={`trigger-direction ${workflow.trigger.order_direction}`}>
-                            {workflow.trigger.order_direction.toUpperCase()}
-                          </span>
-                          <span className="trigger-quantity">
-                            (qty: {workflow.trigger.quantity})
-                          </span>
-                        </div>
-                        <div className="trigger-detail">
-                          Unit Time: <span className="value">{workflow.trigger.unit_time}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <WorkflowCard key={index} workflow={workflow} />
                 ))}
               </div>
             </div>
