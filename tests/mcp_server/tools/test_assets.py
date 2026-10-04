@@ -7,6 +7,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from client.saxo_client import SaxoClient
 from mcp_server import errors, formatters
+from mcp_server.dependencies import MARKETS
 from mcp_server.tools import assets
 from mcp_server.tools.assets import get_candles, search_asset
 from model import AssetType, Candle, MarketName, Provenance, UnitTime
@@ -49,6 +50,15 @@ class TestSearchAsset:
         assert [a.instrument_id for a in found] == [1234, 5678]
         assert all(a.exchange is Exchange.SAXO for a in found)
         assert all(a.asset_type is AssetType.STOCK for a in found)
+
+    def test_candidates_carry_their_market(self, mocker):
+        _client_returning(
+            mocker, [_asset("SGO:xpar"), _asset("AAPL:xnas", 5678)]
+        )
+
+        found = asyncio.run(search_asset("sgo"))
+
+        assert [a.market for a in found] == [MarketName.EU, MarketName.US]
 
     def test_no_match_is_an_empty_list_not_a_failure(self, mocker):
         """The client raises on zero results instead of returning [].
@@ -118,6 +128,7 @@ def _series(count: int, newest: datetime.datetime) -> List[Candle]:
 @pytest.fixture
 def live_client(mocker):
     client = mocker.MagicMock()
+    client.get_asset_detail.return_value = {"Symbol": "SGO:xpar"}
     token = errors._market_client.set((client, Provenance.LIVE))
     yield client
     errors._market_client.reset(token)
@@ -221,6 +232,7 @@ class TestTheFormingPeriod:
     ):
         """Without session hours the top-up is skipped, so saying the
         series is current would misreport a stale price as live."""
+        live_client.get_asset_detail.side_effect = SaxoException("down")
         fetch = _daily_returns(mocker, _series(3, datetime.datetime.now()))
 
         series = _candles(market=None)
@@ -228,6 +240,33 @@ class TestTheFormingPeriod:
         assert fetch.call_args.kwargs["market"] is None
         assert series.current_incomplete is False
         assert series.meta.forming_period_included is False
+
+    @pytest.mark.parametrize(
+        "symbol, expected",
+        [("SGO:xpar", MarketName.EU), ("AAPL:xnas", MarketName.US)],
+    )
+    def test_an_omitted_market_is_read_from_the_listing(
+        self, mocker, live_client, symbol, expected
+    ):
+        live_client.get_asset_detail.return_value = {"Symbol": symbol}
+        fetch = _daily_returns(mocker, _series(3, datetime.datetime.now()))
+
+        series = _candles(market=None)
+
+        assert isinstance(fetch.call_args.kwargs["market"], MARKETS[expected])
+        assert series.meta.forming_period_included is True
+
+    def test_an_explicit_market_wins_over_the_listing(
+        self, mocker, live_client
+    ):
+        fetch = _daily_returns(mocker, _series(3, datetime.datetime.now()))
+
+        _candles(market=MarketName.US)
+
+        assert isinstance(
+            fetch.call_args.kwargs["market"], MARKETS[MarketName.US]
+        )
+        live_client.get_asset_detail.assert_not_called()
 
     def test_a_closed_newest_bar_is_not_called_in_progress(
         self, mocker, live_client
@@ -363,7 +402,10 @@ class TestWeeklyCandles:
 
 
 class TestCandleRejections:
-    def test_the_weekly_timeframe_refuses_without_a_market(self, live_client):
+    def test_the_weekly_timeframe_refuses_when_no_market_is_known(
+        self, live_client
+    ):
+        live_client.get_asset_detail.side_effect = SaxoException("down")
         with pytest.raises(ToolError, match="needs a market"):
             _candles(unit_time=UnitTime.W, market=None)
 

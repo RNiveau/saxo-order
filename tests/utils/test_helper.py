@@ -3,7 +3,7 @@ from typing import List
 
 import pytest
 
-from model import Candle, EUMarket, Market, UnitTime, USMarket
+from model import Candle, EUMarket, Market, MarketName, UnitTime, USMarket
 from utils.helper import (
     build_current_weekly_candle_from_daily,
     build_daily_candles_from_h1,
@@ -11,6 +11,7 @@ from utils.helper import (
     build_weekly_candles_from_daily,
     last_session_close,
     market_in_utc,
+    market_name_from_symbol,
 )
 
 
@@ -1609,3 +1610,19 @@ class TestHelper:
             2024, 6, 21, 15, 0, tzinfo=datetime.UTC
         )
         assert anchor.tzinfo is not None
+
+
+@pytest.mark.parametrize(
+    "symbol, expected",
+    [
+        ("SGO:xpar", MarketName.EU),
+        ("AAPL:xnas", MarketName.US),
+        ("KO:XNYS", MarketName.US),
+        ("SPY:xase", MarketName.US),
+        ("GER40.I", MarketName.EU),
+        ("", MarketName.EU),
+        (None, MarketName.EU),
+    ],
+)
+def test_market_name_from_symbol(symbol, expected):
+    assert market_name_from_symbol(symbol) is expected

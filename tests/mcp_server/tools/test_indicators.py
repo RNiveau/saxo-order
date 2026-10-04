@@ -6,6 +6,7 @@ import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 
 from mcp_server import errors
+from mcp_server.dependencies import MARKETS
 from mcp_server.tools import indicators
 from mcp_server.tools.indicators import build_snapshot
 from model import (
@@ -17,6 +18,7 @@ from model import (
     UnitTime,
 )
 from model.enum import Exchange
+from utils.exception import SaxoException
 
 
 def _series(count: int) -> List[Candle]:
@@ -37,6 +39,7 @@ def _series(count: int) -> List[Candle]:
 @pytest.fixture
 def live_client(mocker):
     client = mocker.MagicMock()
+    client.get_asset_detail.return_value = {"Symbol": "SGO:xpar"}
     token = errors._market_client.set((client, Provenance.LIVE))
     yield client
     errors._market_client.reset(token)
@@ -80,6 +83,7 @@ class TestSnapshotProvenanceAndIdentity:
     ):
         """With no market the newest bar is the last completed day, so the
         price is yesterday's - the caller has to be able to see that."""
+        live_client.get_asset_detail.side_effect = SaxoException("down")
         mocker.patch.object(
             indicators.candle_source,
             "build_daily_series",
@@ -186,13 +190,72 @@ class TestSnapshotFetchesOnce:
         assert weekly.call_args.kwargs["count"] == 200
 
 
+class TestSnapshotMarketDerivation:
+    @pytest.mark.parametrize(
+        "symbol, expected",
+        [("SGO:xpar", MarketName.EU), ("AAPL:xnas", MarketName.US)],
+    )
+    def test_an_omitted_market_is_read_from_the_listing(
+        self, mocker, live_client, symbol, expected
+    ):
+        live_client.get_asset_detail.return_value = {"Symbol": symbol}
+        daily = mocker.patch.object(
+            indicators.candle_source,
+            "build_daily_series",
+            return_value=_series(300),
+        )
+
+        snapshot = _snapshot(market=None)
+
+        assert isinstance(daily.call_args.kwargs["market"], MARKETS[expected])
+        assert snapshot.meta.forming_period_included is True
+
+    def test_an_explicit_market_wins_over_the_listing(
+        self, mocker, live_client
+    ):
+        live_client.get_asset_detail.return_value = {"Symbol": "SGO:xpar"}
+        daily = mocker.patch.object(
+            indicators.candle_source,
+            "build_daily_series",
+            return_value=_series(300),
+        )
+
+        _snapshot(market=MarketName.US)
+
+        assert isinstance(
+            daily.call_args.kwargs["market"], MARKETS[MarketName.US]
+        )
+        live_client.get_asset_detail.assert_not_called()
+
+    def test_the_weekly_timeframe_works_without_a_market(
+        self, mocker, live_client
+    ):
+        mocker.patch.object(
+            indicators.candle_source,
+            "build_daily_series",
+            return_value=_series(10),
+        )
+        mocker.patch.object(
+            indicators.candle_source,
+            "build_weekly_series",
+            return_value=_series(300),
+        )
+
+        snapshot = _snapshot(unit_time=UnitTime.W, market=None)
+
+        assert snapshot.meta.forming_period_included is True
+
+
 class TestSnapshotRejections:
-    def test_the_weekly_timeframe_refuses_without_a_market(self, live_client):
+    def test_the_weekly_timeframe_refuses_when_no_market_is_known(
+        self, live_client
+    ):
         """Without session hours the forming week is short by whole days.
 
         Nothing downstream could tell: the close, high and low would simply
         be understated, so refusing beats answering.
         """
+        live_client.get_asset_detail.side_effect = SaxoException("down")
         with pytest.raises(ToolError, match="needs a market"):
             _snapshot(unit_time=UnitTime.W, market=None)
 

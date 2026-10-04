@@ -20,11 +20,13 @@ from mcp_server.models import BarSeries, InstrumentRef, ResponseMeta
 from mcp_server.tools.market_request import (
     DAYS_FOR_FORMING_WEEK,
     check_market_request,
+    settle_market,
 )
 from model import AssetType, Candle, MarketName, Provenance, UnitTime
 from model.enum import Exchange
 from services import candle_source
 from utils.exception import SaxoException
+from utils.helper import market_name_from_symbol
 from utils.logger import Logger
 
 logger = Logger.get_logger("mcp_tools_assets")
@@ -82,6 +84,7 @@ async def search_asset(
                 else AssetType(asset.asset_type)
             ),
             instrument_id=asset.identifier,
+            market=market_name_from_symbol(asset.symbol),
             unavailable_reason=(
                 None
                 if asset.identifier is not None
@@ -133,9 +136,12 @@ async def get_candles(
     market: Optional[MarketName],
 ) -> BarSeries:
     """Fetch the bars and shape them for the wire. Kept apart from the tool."""
-    check_market_request(unit_time, exchange, market)
+    check_market_request(unit_time, exchange)
 
     client, provenance = current_market_client()
+    market = await settle_market(
+        client, provenance, instrument_id, asset_type, unit_time, market
+    )
     resolved_market = resolve_market(market)
     # Buying more than the answer can carry would be paid for and thrown
     # away by to_rows, which caps at the same MAX_BAR_COUNT.

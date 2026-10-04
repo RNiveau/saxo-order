@@ -22,6 +22,7 @@ from model import (
     Conviction,
     Direction,
     IndicatorName,
+    MarketName,
     Provenance,
     UnitTime,
 )
@@ -100,6 +101,12 @@ class InstrumentRef(BaseModel):
     exchange: Exchange
     asset_type: AssetType
     instrument_id: Optional[int] = None
+    market: Optional[MarketName] = Field(
+        default=None,
+        description=(
+            "Session hours the instrument trades on, read from its listing."
+        ),
+    )
     unavailable_reason: Optional[str] = Field(
         default=None,
         description=(

@@ -138,9 +138,10 @@ async def get_candles(
 
     Row 0 is the most recent bar and includes the period now trading when
     the instrument's session hours are known - `current_incomplete` says
-    whether it does, so a price is never silently a day old. Pass `market`
-    to make them known; without it the series ends at the last completed
-    period rather than guessing.
+    whether it does, so a price is never silently a day old. `market` is
+    read from the instrument's listing when omitted; pass it only to
+    override that. If neither is known, the series ends at the last
+    completed period rather than guessing.
 
     An instrument with no history comes back with no rows, which is an
     answer rather than a failure - the one exception being simulated data,
@@ -178,6 +179,9 @@ async def get_indicators(
     An indicator the available history cannot support is returned with
     unavailable_reason rather than omitted, so a missing number is never
     ambiguous.
+
+    `market` is optional: it is read from the instrument's listing when
+    omitted. Pass it only to override that.
     """
     return await indicators.build_snapshot(
         instrument_id=instrument_id,
