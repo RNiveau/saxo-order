@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import AsyncMock
 
 import pytest
@@ -176,3 +177,127 @@ async def test_get_workflow_by_id_handles_dynamodb_failure(
         result.tradingview_url
         == "https://www.tradingview.com/chart/?symbol=EURONEXT:MC"
     )
+
+
+def _stored_workflow(**overrides):
+    workflow = {
+        "id": "wf-dax",
+        "name": "dax breakout",
+        "index": "DAX.I",
+        "cfd": "GER40.I",
+        "enable": True,
+        "dry_run": False,
+        "is_us": False,
+        "end_date": None,
+        "conditions": [
+            {
+                "indicator": {"name": "ma50", "ut": "daily"},
+                "close": {"direction": "above", "ut": "h1", "spread": 10},
+            }
+        ],
+        "trigger": {
+            "ut": "h1",
+            "signal": "breakout",
+            "location": "higher",
+            "order_direction": "buy",
+            "quantity": 0.1,
+        },
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+    }
+    workflow.update(overrides)
+    return workflow
+
+
+TODAY = date(2026, 10, 4)
+
+
+@pytest.mark.parametrize(
+    "overrides, expected",
+    [
+        ({}, True),
+        ({"enable": False}, False),
+        ({"end_date": "2026-10-03"}, False),
+        ({"end_date": "2026-10-04"}, True),
+        ({"end_date": "2026/10/05"}, True),
+        ({"end_date": "2026/10/03"}, False),
+    ],
+)
+async def test_get_active_workflows_by_asset_keeps_what_the_engine_runs(
+    service, dynamodb_client, overrides, expected
+):
+    dynamodb_client.get_all_workflows.return_value = [
+        _stored_workflow(**overrides)
+    ]
+
+    result = await service.get_active_workflows_by_asset("DAX.I", TODAY)
+
+    assert bool(result.workflows) is expected
+    assert result.unreadable == []
+
+
+@pytest.mark.parametrize("code", ["DAX.I", "dax.i", "GER40.I", "ger40.i"])
+async def test_get_active_workflows_by_asset_matches_index_or_cfd(
+    service, dynamodb_client, code
+):
+    dynamodb_client.get_all_workflows.return_value = [
+        _stored_workflow(),
+        _stored_workflow(id="wf-cac", index="CAC40.I", cfd="FRA40.I"),
+    ]
+
+    result = await service.get_active_workflows_by_asset(code, TODAY)
+
+    assert [w.id for w in result.workflows] == ["wf-dax"]
+    assert result.workflows[0].trigger.order_direction == "buy"
+    assert result.workflows[0].conditions[0].indicator.name == "ma50"
+
+
+async def test_get_active_workflows_by_asset_unrelated_asset_is_empty(
+    service, dynamodb_client
+):
+    dynamodb_client.get_all_workflows.return_value = [_stored_workflow()]
+
+    result = await service.get_active_workflows_by_asset("ITP:xpar", TODAY)
+
+    assert result.workflows == []
+    assert result.unreadable == []
+
+
+@pytest.mark.parametrize(
+    "overrides, missing_key",
+    [
+        ({"end_date": "not a date"}, None),
+        ({"trigger": {"signal": "breakout"}}, None),
+        ({}, "created_at"),
+    ],
+)
+async def test_get_active_workflows_by_asset_reports_unreadable_rows(
+    service, dynamodb_client, overrides, missing_key
+):
+    broken = _stored_workflow(id="wf-broken", name="broken", **overrides)
+    if missing_key:
+        del broken[missing_key]
+    dynamodb_client.get_all_workflows.return_value = [
+        broken,
+        _stored_workflow(),
+    ]
+
+    result = await service.get_active_workflows_by_asset("DAX.I", TODAY)
+
+    assert [w.id for w in result.workflows] == ["wf-dax"]
+    assert result.unreadable == ["broken"]
+
+
+async def test_get_active_workflows_by_asset_normalises_and_orders(
+    service, dynamodb_client
+):
+    dynamodb_client.get_all_workflows.return_value = [
+        _stored_workflow(id="wf-z", name="z", end_date="2026/12/01"),
+        _stored_workflow(id="wf-a", name="a"),
+        _stored_workflow(id="wf-null", index=None, cfd=None),
+    ]
+
+    result = await service.get_active_workflows_by_asset("DAX.I", TODAY)
+
+    assert [w.id for w in result.workflows] == ["wf-a", "wf-z"]
+    assert result.workflows[1].end_date == "2026-12-01"

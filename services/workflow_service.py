@@ -1,7 +1,7 @@
 import logging
 import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from datetime import date, datetime
+from typing import Any, Dict, List, NamedTuple, Optional
 
 from client.aws_client import DynamoDBClient
 from model.workflow import IndicatorType, WorkflowSignal
@@ -21,6 +21,11 @@ from model.workflow_api import (
 from utils.helper import to_float
 from utils.logger import Logger
 from utils.tradingview import build_tradingview_url_from_symbol
+
+
+class ActiveWorkflows(NamedTuple):
+    workflows: List[WorkflowDetail]
+    unreadable: List[str]
 
 
 class WorkflowService:
@@ -227,6 +232,50 @@ class WorkflowService:
         ]
 
         return [self._convert_to_detail(w) for w in matching_workflows]
+
+    async def get_active_workflows_by_asset(
+        self, code: str, today: date
+    ) -> ActiveWorkflows:
+        """Workflows the engine would evaluate today that watch or trade code.
+
+        Active mirrors engines/workflow_engine.py: enabled, and an end date
+        that is absent or not before today. Matching covers both ``index``
+        (the instrument watched) and ``cfd`` (the one ordered on). A matching
+        row that cannot be read is reported rather than dropped or allowed
+        to fail the others.
+        """
+        wanted = code.lower()
+        workflows_data = await self.dynamodb_client.get_all_workflows()
+
+        result = ActiveWorkflows(workflows=[], unreadable=[])
+        for workflow_data in workflows_data:
+            if not workflow_data.get("enable", False) or wanted not in (
+                (workflow_data.get("index") or "").lower(),
+                (workflow_data.get("cfd") or "").lower(),
+            ):
+                continue
+            try:
+                end_date = self._parse_end_date(workflow_data.get("end_date"))
+                if end_date is not None and end_date < today:
+                    continue
+                detail = self._convert_to_detail(workflow_data)
+            except (KeyError, TypeError, ValueError) as e:
+                label = workflow_data.get("name") or workflow_data.get("id")
+                self.logger.warning(f"Workflow {label} is unreadable: {e}")
+                result.unreadable.append(str(label))
+                continue
+            detail.end_date = end_date.isoformat() if end_date else None
+            result.workflows.append(detail)
+
+        result.workflows.sort(key=lambda w: (w.name, w.id))
+        return result
+
+    @staticmethod
+    def _parse_end_date(end_date: Optional[str]) -> Optional[date]:
+        if not end_date:
+            return None
+        date_format = "%Y/%m/%d" if "/" in end_date else "%Y-%m-%d"
+        return datetime.strptime(end_date, date_format).date()
 
     def _convert_to_list_item(
         self, workflow_data: Dict[str, Any]

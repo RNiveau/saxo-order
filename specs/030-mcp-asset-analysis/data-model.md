@@ -158,6 +158,29 @@ Without `failed`, a detector that raised would simply drop out of `evaluated` wi
 
 **Validation**: an asset in neither returns `in_watchlist=False` with empty lists — an explicit "not held / not watched", never an error (Story 4 scenario 3).
 
+**`AssetWorkflows`** — output of `get_workflows` (Story 6, FR-017a).
+
+| Field | Type | Notes |
+|---|---|---|
+| `code` | `str` | The code asked about, echoed |
+| `workflows` | `list[ActiveWorkflow]` | Only enabled, unexpired workflows |
+| `none_reason` | `str \| None` | Set when `workflows` is empty — the explicit "no active workflow" |
+| `unreadable_workflows` | `list[str]` | Enabled, matching workflows whose stored definition could not be parsed — reported, never silently dropped, never failing the others |
+
+**`ActiveWorkflow`** — projection of an existing `workflows` item.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` / `name` | `str` | Sorted by name, so repeated calls agree |
+| `index` | `str` | The instrument the workflow watches |
+| `cfd` | `str` | The instrument it orders on |
+| `dry_run` | `bool` | True → it would log, not place, an order |
+| `end_date` | `str \| None` | Normalised to `YYYY-MM-DD` (stored `YYYY/MM/DD` is converted); None = open-ended |
+| `conditions` | `list[ConditionDetail]` | Existing `model/workflow_api.py` model, values from `IndicatorType` / `UnitTime` / `WorkflowDirection` / `WorkflowElement` |
+| `trigger` | `TriggerDetail` | Existing model, values from `UnitTime` / `WorkflowSignal` / `WorkflowLocation` / `Direction` |
+
+**Validation**: `enable` is not a field — every returned workflow is enabled by construction. A workflow is active iff `enable` and (`end_date` is None or `end_date >= today UTC`), the rule `engines/workflow_engine.py` applies.
+
 ---
 
 ## Relationships
@@ -169,6 +192,7 @@ search_asset ──> InstrumentRef ──┬──> BarSeries          (get_cand
 
 date ──> [StoredAlert] / DigestEntry     (get_alerts / get_digest)
 code ──> AssetContext                    (get_watchlist / get_workflow_orders)
+code ──> AssetWorkflows                  (get_workflows)
 
 ResponseMeta ─ embedded in every market-derived response above
 ```

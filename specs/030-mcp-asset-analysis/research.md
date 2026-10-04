@@ -183,3 +183,21 @@ Extracting a shared pure core out of `run_detection_for_asset` and having both c
 **Corroboration from the code itself** (noticed during PR review, after this section was written): `_build_weekly_candles`'s docstring (`alerting.py:762-766`) already makes the same argument on the same grounds — *"This is deliberately not CandlesService.build_weekly_candles … that path re-resolves the asset and fetches its own daily candles for the forming week, three requests per asset where this is one."* This section reached its conclusion independently and agrees with reasoning the scan's author had already recorded. T007 preserves that docstring on the move.
 
 **Consequence for SC-002**: "exactly one market-data fetch" was unachievable — daily-with-today needs two series by construction, and one `get_historical_data` call is itself N HTTP requests. Restated as *at most two provider series fetches*. `bars_fetched` remains useful as the depth actually requested, but it is not a request count.
+
+---
+
+## 11. Where `get_workflows` reads from, and what "active" means (Story 6, added 2026-10-04)
+
+**Decision**: Read the DynamoDB `workflows` table through the lifespan's `DynamoDBClient`, via a new `WorkflowService.get_active_workflows_by_asset` in `services/workflow_service.py`. "Active" = `enable` is true **and** `end_date` is absent or `>= today (UTC)`. Match the asked code case-insensitively against `index` **or** `cfd`.
+
+**Rationale**:
+
+- **Source.** Two loaders exist. `engines/workflow_loader.load_workflows` reads DynamoDB only in an AWS context and otherwise reads the local `workflows.yml` — and on a DynamoDB failure or an empty table it **falls back to YAML silently**. For this server that fallback is the simulated-data problem in another form: a stale file answered as if it were the live configuration. `services/workflow_service.WorkflowService` is DynamoDB-only, is what the web UI's asset page already uses (`api/routers/workflow.py:201`), and accepts an injected client — the shape this server already holds in `ServerContext`. Its `_convert_to_detail` is reused so the stored shape has one parser.
+- **"Active" mirrors the engine.** `engines/workflow_engine.py:63` skips a workflow unless `end_date is None or end_date >= get_date_utc0().date()`. Using the same comparison means "listed here" and "evaluated by the next run" cannot disagree, including on the end date itself.
+- **`index` or `cfd`.** A workflow watches `index` and trades `cfd` (`DAX.I` / `GER40.I`). The analyst asking "what is armed on the DAX?" and "what could put an order on GER40?" both mean that workflow. Every returned workflow carries both fields, so which side matched is never ambiguous. This is a deliberate widening over the API's `get_workflows_by_asset`, which matches `index` only and assumes `country_code="xpar"` — an assumption this server cannot make (an instrument may have no country code).
+- **Not a market tool.** No market data is read, so `@market_tool` and provenance do not apply; a dead Saxo token must not stop it. It still goes through `@tool_boundary` so `DynamoDBOperationError` reaches the model readably.
+
+**Alternatives considered**:
+- `load_workflows()` — rejected for the silent YAML fallback above, and because it opens its own DynamoDB client per call.
+- Reusing `get_workflows_by_asset` and filtering in the tool — rejected: the `xpar` default is wrong for this caller and filtering is business logic that belongs in `services/` (Constitution I).
+- A typed MCP model re-parsing every field into enums — rejected: the stored values already are enum values, and a strict parse would turn one malformed legacy row into a failure of the whole call. The existing `ConditionDetail` / `TriggerDetail` models are reused as-is.
