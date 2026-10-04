@@ -4,6 +4,7 @@ from api.dependencies import (
     get_binance_client,
     get_candles_service,
     get_dynamodb_client,
+    get_ouinex_client,
     get_saxo_client,
 )
 from api.models.homepage import HomepageItemResponse, HomepageResponse
@@ -11,6 +12,7 @@ from api.models.watchlist import WatchlistTag
 from api.services.indicator_service import IndicatorService
 from client.aws_client import DynamoDBClient
 from client.binance_client import BinanceClient
+from client.ouinex_client import OuinexClient
 from client.saxo_client import SaxoClient
 from model.enum import Exchange
 from model.workflow import UnitTime
@@ -24,9 +26,15 @@ logger = Logger.get_logger("homepage_router")
 def get_indicator_service(
     saxo_client: SaxoClient = Depends(get_saxo_client),
     binance_client: BinanceClient = Depends(get_binance_client),
+    ouinex_client: OuinexClient = Depends(get_ouinex_client),
     candles_service: CandlesService = Depends(get_candles_service),
 ) -> IndicatorService:
-    return IndicatorService(saxo_client, binance_client, candles_service)
+    return IndicatorService(
+        saxo_client,
+        binance_client,
+        candles_service,
+        ouinex_client=ouinex_client,
+    )
 
 
 @router.get("", response_model=HomepageResponse)

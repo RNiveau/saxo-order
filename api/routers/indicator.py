@@ -6,12 +6,14 @@ from api.dependencies import (
     get_binance_client,
     get_candles_service,
     get_dynamodb_client_optional,
+    get_ouinex_client,
     get_saxo_client,
 )
 from api.models.indicator import AssetIndicatorsResponse
 from api.services.indicator_service import IndicatorService
 from client.aws_client import DynamoDBClient
 from client.binance_client import BinanceClient
+from client.ouinex_client import OuinexClient
 from client.saxo_client import SaxoClient
 from model import UnitTime
 from model.enum import Exchange
@@ -43,6 +45,7 @@ async def get_asset_indicators(
     ),
     saxo_client: SaxoClient = Depends(get_saxo_client),
     binance_client: BinanceClient = Depends(get_binance_client),
+    ouinex_client: OuinexClient = Depends(get_ouinex_client),
     candles_service: CandlesService = Depends(get_candles_service),
     dynamodb_client: Optional[DynamoDBClient] = Depends(
         get_dynamodb_client_optional
@@ -98,7 +101,11 @@ async def get_asset_indicators(
             )
 
         indicator_service = IndicatorService(
-            saxo_client, binance_client, candles_service, dynamodb_client
+            saxo_client,
+            binance_client,
+            candles_service,
+            dynamodb_client,
+            ouinex_client=ouinex_client,
         )
         return await indicator_service.get_asset_indicators(
             code=code, exchange=ex, country_code=country_code, unit_time=ut
