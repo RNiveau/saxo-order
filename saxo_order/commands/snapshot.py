@@ -1,3 +1,5 @@
+import asyncio
+
 import click
 from click.core import Context
 from prettytable import PrettyTable
@@ -21,13 +23,18 @@ logger = Logger.get_logger("snapshot")
 @click.pass_context
 @catch_exception(handle=SaxoException)
 def snapshot(ctx: Context):
-    execute_snapshot(ctx.obj["config"])
+    asyncio.run(execute_snapshot(ctx.obj["config"]))
 
 
-def execute_snapshot(config: str):
+async def execute_snapshot(config: str):
     configuration = Configuration(config)
-    saxo_client = SaxoClient(configuration=configuration)
-    candles_service = CandlesService(saxo_client=saxo_client)
+    async with SaxoClient(configuration=configuration) as saxo_client:
+        await _post_snapshots(configuration, CandlesService(saxo_client))
+
+
+async def _post_snapshots(
+    configuration: Configuration, candles_service: CandlesService
+) -> None:
     slack_client = WebClient(token=configuration.slack_token)
     indexes = [
         "FRA40.I",
@@ -38,21 +45,21 @@ def execute_snapshot(config: str):
     # Define columns
     for index in indexes:
         # asset = saxo_client.get_asset(code=index)
-        candles_h1 = candles_service.build_candles(
+        candles_h1 = await candles_service.build_candles(
             code=index,
             ut=UnitTime.H1,
             market=eu_market,
             count=160,
             date=get_date_utc0(),
         )
-        candles_h4 = candles_service.build_candles(
+        candles_h4 = await candles_service.build_candles(
             code=index,
             ut=UnitTime.H4,
             market=eu_market,
             count=160,
             date=get_date_utc0(),
         )
-        candles_daily = candles_service.build_candles(
+        candles_daily = await candles_service.build_candles(
             code=index,
             ut=UnitTime.D,
             market=eu_market,

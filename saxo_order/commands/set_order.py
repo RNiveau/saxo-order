@@ -3,6 +3,7 @@ from click.core import Context
 
 from client.saxo_client import SaxoClient
 from model import Currency, Direction, Order, OrderType
+from saxo_order.async_utils import run_async
 from saxo_order.commands import catch_exception
 from saxo_order.commands.common import logs_order
 from saxo_order.commands.input_helper import (
@@ -52,7 +53,8 @@ logger = Logger.get_logger("set_order")
 )
 @click.pass_context
 @catch_exception(handle=SaxoException)
-def set_order(
+@run_async
+async def set_order(
     ctx: Context,
     price: float,
     order_type: str,
@@ -62,58 +64,58 @@ def set_order(
     code = ctx.obj["code"]
     quantity = ctx.obj["quantity"]
     configuration = Configuration(ctx.obj["config"])
-    saxo_client = SaxoClient(configuration)
-    order_service = OrderService(saxo_client, configuration)
+    async with SaxoClient(configuration) as saxo_client:
+        order_service = OrderService(saxo_client, configuration)
 
-    conditional_order = None
-    if conditional == "y":
-        conditional_order = get_conditional_order(saxo_client)
+        conditional_order = None
+        if conditional == "y":
+            conditional_order = await get_conditional_order(saxo_client)
 
-    account = select_account(saxo_client)
+        account = await select_account(saxo_client)
 
-    stop = None
-    objective = None
-    strategy = None
-    signal = None
-    comment = None
+        stop = None
+        objective = None
+        strategy = None
+        signal = None
+        comment = None
 
-    if Direction.get_value(direction) == Direction.BUY:
-        temp_order = order_service.client.get_asset(
-            code=code, market=ctx.obj["country_code"]
-        )
-        temp_order_obj = Order(
+        if Direction.get_value(direction) == Direction.BUY:
+            temp_order = await order_service.client.get_asset(
+                code=code, market=ctx.obj["country_code"]
+            )
+            temp_order_obj = Order(
+                code=code,
+                name=temp_order["Description"],
+                price=price,
+                quantity=quantity,
+                asset_type=temp_order["AssetType"],
+                type=OrderType.get_value(order_type),
+                direction=Direction.get_value(direction),
+                currency=Currency.get_value(temp_order["CurrencyCode"]),
+            )
+            update_order(temp_order_obj, conditional_order)
+            await confirm_order(saxo_client, temp_order_obj)
+            stop = temp_order_obj.stop
+            objective = temp_order_obj.objective
+            strategy = temp_order_obj.strategy
+            signal = temp_order_obj.signal
+            comment = temp_order_obj.comment
+
+        result = await order_service.create_order(
             code=code,
-            name=temp_order["Description"],
             price=price,
             quantity=quantity,
-            asset_type=temp_order["AssetType"],
-            type=OrderType.get_value(order_type),
+            order_type=OrderType.get_value(order_type),
             direction=Direction.get_value(direction),
-            currency=Currency.get_value(temp_order["CurrencyCode"]),
+            country_code=ctx.obj["country_code"],
+            conditional_order=conditional_order,
+            stop=stop,
+            objective=objective,
+            strategy=strategy,
+            signal=signal,
+            comment=comment,
+            account_key=account.key,
         )
-        update_order(temp_order_obj, conditional_order)
-        confirm_order(saxo_client, temp_order_obj)
-        stop = temp_order_obj.stop
-        objective = temp_order_obj.objective
-        strategy = temp_order_obj.strategy
-        signal = temp_order_obj.signal
-        comment = temp_order_obj.comment
 
-    result = order_service.create_order(
-        code=code,
-        price=price,
-        quantity=quantity,
-        order_type=OrderType.get_value(order_type),
-        direction=Direction.get_value(direction),
-        country_code=ctx.obj["country_code"],
-        conditional_order=conditional_order,
-        stop=stop,
-        objective=objective,
-        strategy=strategy,
-        signal=signal,
-        comment=comment,
-        account_key=account.key,
-    )
-
-    if Direction.get_value(direction) == Direction.BUY:
-        logs_order(configuration, result["order"], account)
+        if Direction.get_value(direction) == Direction.BUY:
+            logs_order(configuration, result["order"], account)

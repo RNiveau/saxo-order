@@ -37,6 +37,7 @@ Usage:
 """
 
 import argparse
+import asyncio
 import datetime
 import json
 import os
@@ -118,7 +119,7 @@ def _deserialise(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     ]
 
 
-def fetch_weekly_data(
+async def fetch_weekly_data(
     saxo_client: SaxoClient,
     asset: Dict[str, Any],
     cache: Dict[str, Any],
@@ -126,7 +127,7 @@ def fetch_weekly_data(
     key = cache_key(asset, WEEKLY_COUNT)
     if key in cache:
         return _deserialise(cache[key])
-    data = saxo_client.get_historical_data(
+    data = await saxo_client.get_historical_data(
         asset_type=AssetType.STOCK,
         saxo_uic=asset["saxo_uic"],
         horizon=WEEKLY_HORIZON,
@@ -242,44 +243,47 @@ def main() -> None:
             f"(default: {DEFAULT_CONFIG})"
         ),
     )
-    args = parser.parse_args()
+    asyncio.run(run(parser.parse_args()))
 
+
+async def run(args: argparse.Namespace) -> None:
     sample = load_sample(args.sample)
     if not sample:
         print("No asset to measure - check stocks.json and --sample.")
         return
 
     cache = load_cache(args.refresh)
-    saxo_client = SaxoClient(Configuration(args.config))
-
-    measurements: List[Dict[str, float]] = []
-    emissions: Dict[str, int] = {}
-    fetched = 0
-    failed = 0
-    for asset in sample:
-        try:
-            data = fetch_weekly_data(saxo_client, asset, cache)
-        except Exception as e:
-            print(f"unreachable {asset['name']}: {e}")
-            failed += 1
-            continue
-        if not data:
-            # The client answers 403 and 404 with an empty list rather than
-            # raising, so an unreadable asset would otherwise be counted as
-            # one holding no history.
-            print(f"unreachable {asset['name']}: empty response")
-            failed += 1
-            continue
-        fetched += 1
-        candles = client_helper.map_data_to_candles(data, ut=UnitTime.W)
-        measurement = measure(candles)
-        if measurement is None:
-            print(f"{asset['name']}: {len(candles)} weekly bars, ineligible")
-            continue
-        measurements.append(measurement)
-        strength = emitted_strength(candles)
-        if strength is not None:
-            emissions[strength] = emissions.get(strength, 0) + 1
+    async with SaxoClient(Configuration(args.config)) as saxo_client:
+        measurements: List[Dict[str, float]] = []
+        emissions: Dict[str, int] = {}
+        fetched = 0
+        failed = 0
+        for asset in sample:
+            try:
+                data = await fetch_weekly_data(saxo_client, asset, cache)
+            except Exception as e:
+                print(f"unreachable {asset['name']}: {e}")
+                failed += 1
+                continue
+            if not data:
+                # The client answers 403 and 404 with an empty list rather
+                # than raising, so an unreadable asset would otherwise be
+                # counted as one holding no history.
+                print(f"unreachable {asset['name']}: empty response")
+                failed += 1
+                continue
+            fetched += 1
+            candles = client_helper.map_data_to_candles(data, ut=UnitTime.W)
+            measurement = measure(candles)
+            if measurement is None:
+                print(
+                    f"{asset['name']}: {len(candles)} weekly bars, ineligible"
+                )
+                continue
+            measurements.append(measurement)
+            strength = emitted_strength(candles)
+            if strength is not None:
+                emissions[strength] = emissions.get(strength, 0) + 1
 
     save_cache(cache)
     report(measurements, emissions, fetched, failed, len(sample))

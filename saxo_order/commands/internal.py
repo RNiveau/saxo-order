@@ -26,9 +26,9 @@ logger = Logger.get_logger("internal")
 @click.command
 @click.pass_context
 @catch_exception(handle=SaxoException)
-def refresh_stocks_list(ctx: Context):
+@run_async
+async def refresh_stocks_list(ctx: Context):
     configuration = Configuration(ctx.obj["config"])
-    client = SaxoClient(configuration)
 
     stocks = [
         "Accor",
@@ -151,29 +151,30 @@ def refresh_stocks_list(ctx: Context):
         "Wendel",
         "X-fab",
     ]
-    records = []
-    for stock in stocks:
-        results = client.search(stock, AssetType.STOCK)
-        if len(results) > 1:
-            results = list(
-                filter(
-                    lambda x: "xpar" in x.symbol
-                    or "xams" in x.symbol
-                    or "xnas" in x.symbol,
-                    results,
+    async with SaxoClient(configuration) as client:
+        records = []
+        for stock in stocks:
+            results = await client.search(stock, AssetType.STOCK)
+            if len(results) > 1:
+                results = list(
+                    filter(
+                        lambda x: "xpar" in x.symbol
+                        or "xams" in x.symbol
+                        or "xnas" in x.symbol,
+                        results,
+                    )
                 )
-            )
-        if len(results) >= 1:
-            records.append(
-                {
-                    "name": results[0].description,
-                    "code": results[0].symbol,
-                    "saxo_uic": results[0].identifier,
-                }
-            )
-        else:
-            records.append({"name": stock})
-            print(f"Doesn't find {stock}")
+            if len(results) >= 1:
+                records.append(
+                    {
+                        "name": results[0].description,
+                        "code": results[0].symbol,
+                        "saxo_uic": results[0].identifier,
+                    }
+                )
+            else:
+                records.append({"name": stock})
+                print(f"Doesn't find {stock}")
     print(json.dumps(records))
 
 
@@ -187,16 +188,17 @@ def refresh_stocks_list(ctx: Context):
     help="Stock code",
     prompt="What is the stock code ?",
 )
-def get_gpt_prompt(ctx: Context, code: str):
+@run_async
+async def get_gpt_prompt(ctx: Context, code: str):
     configuration = Configuration(ctx.obj["config"])
-    saxo_client = SaxoClient(configuration)
-    asset = saxo_client.get_asset(code, "xpar")
-    candles = saxo_client.get_historical_data(
-        asset_type=asset["AssetType"],
-        saxo_uic=asset["Identifier"],
-        horizon=1440,
-        count=150,
-    )
+    async with SaxoClient(configuration) as saxo_client:
+        asset = await saxo_client.get_asset(code, "xpar")
+        candles = await saxo_client.get_historical_data(
+            asset_type=asset["AssetType"],
+            saxo_uic=asset["Identifier"],
+            horizon=1440,
+            count=150,
+        )
     candles = map_data_to_candles(candles, ut=UnitTime.D)
     prompt = f"""
 You are an expert in swing and short-term trading.
@@ -233,12 +235,12 @@ Here is the data:
 @click.command()
 @click.pass_context
 @catch_exception(handle=SaxoException)
-def technical(ctx: Context):
+@run_async
+async def technical(ctx: Context):
     configuration = Configuration(ctx.obj["config"])
     # from services.candles_service import CandlesService
 
     # candles_service = CandlesService(SaxoClient(configuration))
-    saxo_client = SaxoClient(configuration)
     # candles = candles_service.build_hour_candles(
     #     "DAX.I", "CAC.I", UnitTime.H4, 7, 15, 1000, 0)
     # print(candles)
@@ -256,13 +258,14 @@ def technical(ctx: Context):
     #     datetime.datetime(2024, 7, 29, 14),
     # )
     # print(candles)
-    asset = saxo_client.get_asset("nke", "xnys")
-    candles = saxo_client.get_historical_data(
-        asset_type=asset["AssetType"],
-        saxo_uic=asset["Identifier"],
-        horizon=30,
-        count=40,
-    )
+    async with SaxoClient(configuration) as saxo_client:
+        asset = await saxo_client.get_asset("nke", "xnys")
+        candles = await saxo_client.get_historical_data(
+            asset_type=asset["AssetType"],
+            saxo_uic=asset["Identifier"],
+            horizon=30,
+            count=40,
+        )
     print(candles)
     # print(dumps_indicator(candles))
     # with open("tests/services/files/candles_viridien.obj", "w") as f:

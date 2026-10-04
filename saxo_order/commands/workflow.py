@@ -120,10 +120,12 @@ async def execute_workflow(
     config: str, force_from_disk: bool = False, select_workflow: bool = False
 ) -> None:
     configuration = Configuration(config)
-    saxo_client = SaxoClient(configuration)
-    candles_service = CandlesService(saxo_client)
 
-    async with create_dynamodb_client() as dynamodb_client:
+    async with (
+        SaxoClient(configuration) as saxo_client,
+        create_dynamodb_client() as dynamodb_client,
+    ):
+        candles_service = CandlesService(saxo_client)
         workflows = await load_workflows(force_from_disk)
 
         if select_workflow is True:

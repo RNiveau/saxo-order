@@ -4,6 +4,7 @@ from click.core import Context
 from client.gsheet_client import GSheetClient
 from client.saxo_client import SaxoClient
 from model import Currency, ReportOrder
+from saxo_order.async_utils import run_async
 from saxo_order.commands import catch_exception
 from saxo_order.commands.input_helper import select_account, update_order
 from saxo_order.service import calculate_currency, calculate_taxes
@@ -31,15 +32,16 @@ logger = Logger.get_logger("get_report")
 )
 @click.pass_context
 @catch_exception(handle=SaxoException)
-def get_report(ctx: Context, from_date: str, update_gsheet: bool):
+@run_async
+async def get_report(ctx: Context, from_date: str, update_gsheet: bool):
     configuration = Configuration(ctx.obj["config"])
-    client = SaxoClient(configuration)
+    async with SaxoClient(configuration) as client:
+        account = await select_account(client)
+        orders = await client.get_report(account, from_date)
     gsheet_client = GSheetClient(
         key_path=configuration.gsheet_creds_path,
         spreadsheet_id=configuration.spreadsheet_id,
     )
-    account = select_account(client)
-    orders = client.get_report(account, from_date)
     if len(orders) == 0:
         print("No order to report")
         exit(0)

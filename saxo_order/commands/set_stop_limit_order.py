@@ -2,6 +2,7 @@ import click
 from click.core import Context
 
 from client.saxo_client import SaxoClient
+from saxo_order.async_utils import run_async
 from saxo_order.commands import catch_exception
 from saxo_order.commands.common import logs_order
 from saxo_order.commands.input_helper import (
@@ -34,7 +35,8 @@ logger = Logger.get_logger("set_stop_limit_order")
 )
 @click.pass_context
 @catch_exception(handle=SaxoException)
-def set_stop_limit_order(
+@run_async
+async def set_stop_limit_order(
     ctx: Context,
     limit_price: float,
     stop_price: float,
@@ -42,39 +44,41 @@ def set_stop_limit_order(
     code = ctx.obj["code"]
     quantity = ctx.obj["quantity"]
     configuration = Configuration(ctx.obj["config"])
-    client = SaxoClient(configuration)
-    order_service = OrderService(client, configuration)
+    async with SaxoClient(configuration) as client:
+        order_service = OrderService(client, configuration)
 
-    account = select_account(client)
+        account = await select_account(client)
 
-    temp_asset = client.get_asset(code=code, market=ctx.obj["country_code"])
-    from model import Currency, Direction, Order, OrderType
+        temp_asset = await client.get_asset(
+            code=code, market=ctx.obj["country_code"]
+        )
+        from model import Currency, Direction, Order, OrderType
 
-    temp_order = Order(
-        code=code,
-        name=temp_asset["Description"],
-        price=limit_price,
-        quantity=quantity,
-        asset_type=temp_asset["AssetType"],
-        type=OrderType.STOP_LIMIT,
-        direction=Direction.BUY,
-        currency=Currency.get_value(temp_asset["CurrencyCode"]),
-    )
-    update_order(temp_order)
-    confirm_order(client, temp_order)
+        temp_order = Order(
+            code=code,
+            name=temp_asset["Description"],
+            price=limit_price,
+            quantity=quantity,
+            asset_type=temp_asset["AssetType"],
+            type=OrderType.STOP_LIMIT,
+            direction=Direction.BUY,
+            currency=Currency.get_value(temp_asset["CurrencyCode"]),
+        )
+        update_order(temp_order)
+        await confirm_order(client, temp_order)
 
-    result = order_service.create_stop_limit_order(
-        code=code,
-        quantity=quantity,
-        limit_price=limit_price,
-        stop_price=stop_price,
-        country_code=ctx.obj["country_code"],
-        stop=temp_order.stop,
-        objective=temp_order.objective,
-        strategy=temp_order.strategy,
-        signal=temp_order.signal,
-        comment=temp_order.comment,
-        account_key=account.key,
-    )
+        result = await order_service.create_stop_limit_order(
+            code=code,
+            quantity=quantity,
+            limit_price=limit_price,
+            stop_price=stop_price,
+            country_code=ctx.obj["country_code"],
+            stop=temp_order.stop,
+            objective=temp_order.objective,
+            strategy=temp_order.strategy,
+            signal=temp_order.signal,
+            comment=temp_order.comment,
+            account_key=account.key,
+        )
 
-    logs_order(configuration, result["order"], account)
+        logs_order(configuration, result["order"], account)
