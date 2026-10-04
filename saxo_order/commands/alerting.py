@@ -4,7 +4,7 @@ import json
 import os
 import time
 from functools import partial
-from typing import Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Awaitable, Callable, Dict, List, Optional, Tuple, TypeVar
 
 import click
 from click.core import Context
@@ -40,6 +40,21 @@ logger = Logger.get_logger("alerting")
 T = TypeVar("T")
 
 
+def _log_detector_failure(
+    alert_type: AlertType, asset_description: str, e: Exception
+) -> None:
+    if isinstance(e, (SaxoException, IndexError)):
+        logger.warning(
+            f"{alert_type.value} skipped for {asset_description}: {e}"
+        )
+        return
+    logger.error(
+        f"{alert_type.value} failed unexpectedly for"
+        f" {asset_description}: {e}",
+        exc_info=e,
+    )
+
+
 def _safe_detect(
     alert_type: AlertType, asset_description: str, detector: Callable[[], T]
 ) -> Optional[T]:
@@ -61,17 +76,21 @@ def _safe_detect(
     """
     try:
         return detector()
-    except (SaxoException, IndexError) as e:
-        logger.warning(
-            f"{alert_type.value} skipped for {asset_description}: {e}"
-        )
-        return None
     except Exception as e:
-        logger.error(
-            f"{alert_type.value} failed unexpectedly for"
-            f" {asset_description}: {e}",
-            exc_info=True,
-        )
+        _log_detector_failure(alert_type, asset_description, e)
+        return None
+
+
+async def _safe_detect_async(
+    alert_type: AlertType,
+    asset_description: str,
+    detector: Callable[[], Awaitable[T]],
+) -> Optional[T]:
+    """Async counterpart of ``_safe_detect`` for detectors calling Saxo."""
+    try:
+        return await detector()
+    except Exception as e:
+        _log_detector_failure(alert_type, asset_description, e)
         return None
 
 
@@ -97,7 +116,7 @@ def _parse_asset_code(code: str) -> Tuple[str, Optional[str]]:
     return code, None
 
 
-def fetch_french_stocks(saxo_client: SaxoClient) -> List[Dict]:
+async def fetch_french_stocks(saxo_client: SaxoClient) -> List[Dict]:
     """
     Fetch all French stocks from Saxo API using pagination.
 
@@ -118,7 +137,7 @@ def fetch_french_stocks(saxo_client: SaxoClient) -> List[Dict]:
     logger.info("Fetching French stocks from Saxo API...")
 
     while True:
-        response = saxo_client.list_instruments(
+        response = await saxo_client.list_instruments(
             asset_type="Stock",
             exchange_id="PAR",
             top=page_size,
@@ -172,24 +191,25 @@ def fetch_french_stocks(saxo_client: SaxoClient) -> List[Dict]:
 )
 @catch_exception(handle=SaxoException)
 def alerting(ctx: Context, code: str, country_code: str) -> None:
-    config = ctx.obj["config"]
-    if code is not None and code != "":
-        saxo_client = SaxoClient(Configuration(config))
-        asset = saxo_client.get_asset(code, country_code)
-        asyncio.run(
-            run_alerting(
-                config,
-                [
-                    {
-                        "name": asset["Description"],
-                        "code": asset["Symbol"],
-                        "saxo_uic": asset["Identifier"],
-                    }
-                ],
-            )
-        )
-    else:
-        asyncio.run(run_alerting(config))
+    asyncio.run(_alerting(ctx.obj["config"], code, country_code))
+
+
+async def _alerting(config: str, code: str, country_code: str) -> None:
+    if code is None or code == "":
+        await run_alerting(config)
+        return
+    async with SaxoClient(Configuration(config)) as saxo_client:
+        asset = await saxo_client.get_asset(code, country_code)
+    await run_alerting(
+        config,
+        [
+            {
+                "name": asset["Description"],
+                "code": asset["Symbol"],
+                "saxo_uic": asset["Identifier"],
+            }
+        ],
+    )
 
 
 async def run_detection_for_asset(
@@ -228,7 +248,7 @@ async def run_detection_for_asset(
         "saxo_uic": saxo_uic,
     }
     try:
-        candles = candle_source.build_daily_series(
+        candles = await candle_source.build_daily_series(
             saxo_client, asset_dict["saxo_uic"], EUMarket()
         )
     except Exception as e:
@@ -321,29 +341,27 @@ async def run_detection_for_asset(
                 )
             )
 
+    for alert_type, saxo_detector in (
+        (AlertType.DOUBLE_TOP, detection_service.run_double_top),
+        (AlertType.DOUBLE_BOTTOM, detection_service.run_double_bottom),
+    ):
+        if (
+            candle := await _safe_detect_async(
+                alert_type,
+                asset_description,
+                partial(
+                    saxo_detector,
+                    saxo_client,
+                    asset_dict["saxo_uic"],
+                    candles,
+                    AssetType.STOCK,
+                    asset_description,
+                ),
+            )
+        ) is not None:
+            asset_alerts.append(candle_alert(alert_type, candle))
+
     for alert_type, candle_detector in (
-        (
-            AlertType.DOUBLE_TOP,
-            partial(
-                detection_service.run_double_top,
-                saxo_client,
-                asset_dict["saxo_uic"],
-                candles,
-                AssetType.STOCK,
-                asset_description,
-            ),
-        ),
-        (
-            AlertType.DOUBLE_BOTTOM,
-            partial(
-                detection_service.run_double_bottom,
-                saxo_client,
-                asset_dict["saxo_uic"],
-                candles,
-                AssetType.STOCK,
-                asset_description,
-            ),
-        ),
         (
             AlertType.CONTAINING_CANDLE,
             partial(_run_containing_candle, asset_dict, candles),
@@ -380,8 +398,9 @@ async def run_detection_for_asset(
             )
         )
 
-    weekly_candles = detect(
+    weekly_candles = await _safe_detect_async(
         AlertType.COMBO_WEEKLY,
+        asset_description,
         partial(
             candle_source.build_weekly_series,
             saxo_client,
@@ -485,15 +504,17 @@ async def run_alerting(
 ) -> None:
 
     configuration = Configuration(config)
-    saxo_client = SaxoClient(configuration)
     slack_client = WebClient(token=configuration.slack_token)
 
-    async with create_dynamodb_client() as dynamodb_client:
+    async with (
+        SaxoClient(configuration) as saxo_client,
+        create_dynamodb_client() as dynamodb_client,
+    ):
         if assets is None:
             # Fetch French stocks from API with fallback to JSON
             try:
                 start_time = time.time()
-                french_stocks = fetch_french_stocks(saxo_client)
+                french_stocks = await fetch_french_stocks(saxo_client)
                 fetch_duration = time.time() - start_time
                 logger.info(f"API fetch completed in {fetch_duration:.2f}s")
             except Exception as e:

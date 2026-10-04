@@ -66,7 +66,7 @@ class WorkflowEngine:
                 self.logger.info(f"Run workflow {workflow.name}")
                 condition = workflow.conditions[0]
                 try:
-                    candles = self._get_candles_from_indicator_ut(
+                    candles = await self._get_candles_from_indicator_ut(
                         workflow, condition.indicator
                     )
                 except SaxoException as e:
@@ -105,7 +105,7 @@ class WorkflowEngine:
                     results.append(
                         (
                             workflow,
-                            self._run_workflow(
+                            await self._run_workflow(
                                 workflow, candles, workflow_instance
                             ),
                         )
@@ -119,7 +119,7 @@ class WorkflowEngine:
 
         for order in results:
             if order[1] is not None:
-                asset = self.saxo_client.get_asset(order[1][1].code)
+                asset = await self.saxo_client.get_asset(order[1][1].code)
                 log = (
                     f"Workflow `{order[0].name}` will trigger an order "
                     f"{order[1][1].direction} for {order[1][1].quantity} "
@@ -182,7 +182,7 @@ class WorkflowEngine:
             return USMarket()
         return EUMarket()
 
-    def _get_candles_from_indicator_ut(
+    async def _get_candles_from_indicator_ut(
         self, workflow: Workflow, indicator: Indicator
     ) -> List[Candle]:
         market = self._get_market(workflow)
@@ -214,7 +214,7 @@ class WorkflowEngine:
                 f"we need {nbr_weeks} weekly candles"
             )
 
-            return self.candles_service.build_weekly_candles(
+            return await self.candles_service.build_weekly_candles(
                 code=workflow.index,
                 market=market,
                 nbr_weeks=nbr_weeks,
@@ -241,7 +241,7 @@ class WorkflowEngine:
             f"get candles for {indicator.name} {indicator.ut}, "
             f"we need {count} candles"
         )
-        return self.candles_service.build_candles(
+        return await self.candles_service.build_candles(
             code=workflow.index,
             ut=indicator.ut,
             market=market,
@@ -264,13 +264,13 @@ class WorkflowEngine:
             case _:
                 raise SaxoException(f"We don't handle {element} price")
 
-    def _run_workflow(
+    async def _run_workflow(
         self, workflow: Workflow, candles: List[Candle], run: AbstractWorkflow
     ) -> Optional[tuple[Candle, Order]]:
-        run.init_workflow(workflow.conditions[0].indicator, candles)
+        await run.init_workflow(workflow.conditions[0].indicator, candles)
         market = self._get_market(workflow)
 
-        close_candles = self.candles_service.build_candles(
+        close_candles = await self.candles_service.build_candles(
             code=workflow.cfd,
             ut=workflow.conditions[0].close.ut,
             market=market,
@@ -290,7 +290,7 @@ class WorkflowEngine:
         )
         price = 0.0
         trigger = workflow.trigger
-        trigger_candle = self._get_trigger_candle(workflow)
+        trigger_candle = await self._get_trigger_candle(workflow)
         if workflow.conditions[0].close.direction == WorkflowDirection.BELOW:
             if run.below_condition(
                 close_candle, workflow.conditions[0].close.spread, element
@@ -343,14 +343,14 @@ class WorkflowEngine:
                 )
         return None
 
-    def _get_trigger_candle(self, workflow: Workflow) -> Candle:
+    async def _get_trigger_candle(self, workflow: Workflow) -> Candle:
         # we use the cdf here to run the workflow even in index off hours
         # TODO manage the cfd spread for some index
         self.logger.debug(
             f"get trigger candle for {workflow.cfd} {workflow.trigger.ut}"
         )
         market = self._get_market(workflow)
-        trigger_candles = self.candles_service.build_candles(
+        trigger_candles = await self.candles_service.build_candles(
             code=workflow.cfd,
             ut=workflow.trigger.ut,
             market=market,
