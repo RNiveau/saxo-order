@@ -7,7 +7,7 @@ hundred repeated keys saved.
 """
 
 import datetime
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 from model import Candle
 
@@ -38,21 +38,27 @@ def candle_row(candle: Candle) -> Row:
 
 def to_rows(
     candles: List[Candle], count: int = DEFAULT_BAR_COUNT
-) -> Tuple[List[Row], bool]:
-    """Newest-first rows, capped. Returns the rows and whether *we* capped.
+) -> List[Row]:
+    """Newest-first rows, no more than the caller asked for or the cap allows.
 
-    ``truncated`` means the hard cap cut the answer short, not that the
-    caller got the number of bars it asked for. Asking for 20 of 250 is a
-    request being honoured; asking for 900 and getting MAX_BAR_COUNT is the
-    server overriding you, and only the second is worth telling the reader
-    about.
+    Whether the cap overrode the caller is ``exceeds_cap``'s question, asked
+    where the answer is put on the wire. Returning it from here as well left
+    two definitions of "truncated" alive, disagreeing on the same input.
 
     The newest-first order is the project's convention and is preserved all
     the way to the wire: index 0 is the most recent bar.
     """
-    limit = max(1, min(count, MAX_BAR_COUNT))
-    truncated = count > MAX_BAR_COUNT and len(candles) > MAX_BAR_COUNT
-    return [candle_row(c) for c in candles[:limit]], truncated
+    return [candle_row(c) for c in candles[: min(count, MAX_BAR_COUNT)]]
+
+
+def exceeds_cap(count: int) -> bool:
+    """Whether a requested bar count was overridden by the hard cap.
+
+    A property of the request, not of what came back: asking for 20 of 250
+    is a request being honoured, while asking for 900 is the server
+    overriding you, however much history the instrument turns out to have.
+    """
+    return count > MAX_BAR_COUNT
 
 
 def last_bar_date(candles: List[Candle]) -> Optional[datetime.datetime]:
