@@ -4,6 +4,7 @@ from typing import List, Optional
 
 import pytest
 
+from client.saxo_client import SaxoClient
 from model import (
     BollingerBands,
     Candle,
@@ -560,11 +561,13 @@ class TestIndicatorService:
             )
         assert average_true_range(candles, period) == expected
 
-    def test_number_of_day_between_dates(self, mocker):
-        client = mocker.Mock()
-        client.is_day_open = lambda saxo_uic, asset_type, date: True
+    async def test_number_of_day_between_dates(self, mocker):
+        client = mocker.Mock(spec=SaxoClient)
+        client.is_day_open.side_effect = (
+            lambda saxo_uic, asset_type, date: True
+        )
         assert (
-            number_of_day_between_dates(
+            await number_of_day_between_dates(
                 client,
                 "",
                 "",
@@ -575,7 +578,7 @@ class TestIndicatorService:
         )
 
         assert (
-            number_of_day_between_dates(
+            await number_of_day_between_dates(
                 client,
                 "",
                 "",
@@ -585,12 +588,12 @@ class TestIndicatorService:
             == 7
         )
 
-        client.is_day_open = (
+        client.is_day_open.side_effect = (
             lambda saxo_uic, asset_type, date: date.weekday() != 0
         )
 
         assert (
-            number_of_day_between_dates(
+            await number_of_day_between_dates(
                 client,
                 "",
                 "",

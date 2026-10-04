@@ -1,5 +1,6 @@
 import pytest
 
+from client.saxo_client import SaxoClient
 from model import Account, Order
 from model.enum import Direction
 from saxo_order.commands.input_helper import calculate_max_stop, select_account
@@ -86,10 +87,10 @@ class TestInputHelper:
             ),
         ],
     )
-    def test_input_helper(
+    async def test_input_helper(
         self, accounts, called_input, input_str, account_key, mocker
     ):
-        saxo_service = mocker.Mock()
+        saxo_service = mocker.Mock(spec=SaxoClient)
         mocker.patch.object(
             saxo_service,
             "get_accounts",
@@ -101,8 +102,8 @@ class TestInputHelper:
             return_value=Account("AccountKey", "Pea"),
         )
         input_mock = mocker.patch("builtins.input", return_value=input_str)
-        select_account(saxo_service)
-        get_account.assert_called_once_with(account_key)
+        await select_account(saxo_service)
+        get_account.assert_awaited_once_with(account_key)
         assert input_mock.call_count == called_input
 
     @pytest.mark.parametrize(

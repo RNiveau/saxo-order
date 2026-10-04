@@ -5,6 +5,8 @@ from typing import List
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 
+from client.mock_saxo_client import MockSaxoClient
+from client.saxo_client import SaxoClient
 from mcp_server import errors
 from mcp_server.dependencies import MARKETS
 from mcp_server.tools import indicators
@@ -38,7 +40,7 @@ def _series(count: int) -> List[Candle]:
 
 @pytest.fixture
 def live_client(mocker):
-    client = mocker.MagicMock()
+    client = mocker.MagicMock(spec=SaxoClient)
     client.get_asset_detail.return_value = {"Symbol": "SGO:xpar"}
     token = errors._market_client.set((client, Provenance.LIVE))
     yield client
@@ -273,7 +275,7 @@ class TestSnapshotRejections:
         without this the caller gets 'needs 7 bars, got 0' and cannot tell
         a simulated client from an instrument with no history.
         """
-        client = mocker.MagicMock()
+        client = mocker.MagicMock(spec=MockSaxoClient)
         token = errors._market_client.set((client, Provenance.SIMULATED))
         mocker.patch.object(
             indicators.candle_source, "build_daily_series", return_value=[]

@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from client.saxo_client import SaxoClient
 from model import Account, Direction, Order, OrderType
 from saxo_order.services.order_service import OrderService
 from utils.exception import SaxoException
@@ -10,7 +11,7 @@ from utils.exception import SaxoException
 @pytest.fixture
 def mock_client():
     """Mock SaxoClient for testing."""
-    return MagicMock()
+    return MagicMock(spec=SaxoClient)
 
 
 @pytest.fixture
@@ -48,7 +49,7 @@ def mock_asset():
 
 
 class TestOrderService:
-    def test_create_order_success(
+    async def test_create_order_success(
         self, order_service, mock_client, mock_account, mock_asset
     ):
         """Test successful order creation."""
@@ -61,7 +62,7 @@ class TestOrderService:
         mock_client.get_total_amount.return_value = 100000.0
         mock_client.set_order.return_value = {"OrderId": "ORD-123"}
 
-        result = order_service.create_order(
+        result = await order_service.create_order(
             code="TEST",
             price=100.0,
             quantity=5,
@@ -79,7 +80,7 @@ class TestOrderService:
         assert result["account"].key == mock_account.key
         mock_client.set_order.assert_called_once()
 
-    def test_create_order_market_type(
+    async def test_create_order_market_type(
         self, order_service, mock_client, mock_account, mock_asset
     ):
         """Test order creation with market order type."""
@@ -93,7 +94,7 @@ class TestOrderService:
         mock_client.get_total_amount.return_value = 100000.0
         mock_client.set_order.return_value = {"OrderId": "ORD-124"}
 
-        result = order_service.create_order(
+        result = await order_service.create_order(
             code="TEST",
             price=100.0,
             quantity=5,
@@ -109,7 +110,7 @@ class TestOrderService:
             mock_asset["Identifier"], mock_asset["AssetType"]
         )
 
-    def test_create_order_validation_failure(
+    async def test_create_order_validation_failure(
         self, order_service, mock_client, mock_account, mock_asset
     ):
         """A buy order larger than the account fund is rejected before it
@@ -124,7 +125,7 @@ class TestOrderService:
 
         # 100 * 5000 = 500_000, far beyond the account's 10_000 fund.
         with pytest.raises(SaxoException, match="Not enough money"):
-            order_service.create_order(
+            await order_service.create_order(
                 code="TEST",
                 price=5000.0,
                 quantity=100,
@@ -137,7 +138,7 @@ class TestOrderService:
 
         mock_client.set_order.assert_not_called()
 
-    def test_create_oco_order_success(
+    async def test_create_oco_order_success(
         self, order_service, mock_client, mock_account, mock_asset
     ):
         """Test successful OCO order creation."""
@@ -150,7 +151,7 @@ class TestOrderService:
         mock_client.get_total_amount.return_value = 10000.0
         mock_client.set_oco_order.return_value = {"OrderId": "OCO-123"}
 
-        result = order_service.create_oco_order(
+        result = await order_service.create_oco_order(
             code="TEST",
             quantity=10,
             limit_price=105.0,
@@ -167,7 +168,7 @@ class TestOrderService:
         assert result["stop_order"].price == 95.0
         mock_client.set_oco_order.assert_called_once()
 
-    def test_create_stop_limit_order_success(
+    async def test_create_stop_limit_order_success(
         self, order_service, mock_client, mock_account, mock_asset
     ):
         """Test successful stop-limit order creation."""
@@ -180,7 +181,7 @@ class TestOrderService:
         mock_client.get_total_amount.return_value = 100000.0
         mock_client.set_order.return_value = {"OrderId": "SL-123"}
 
-        result = order_service.create_stop_limit_order(
+        result = await order_service.create_stop_limit_order(
             code="TEST",
             quantity=5,
             limit_price=100.0,
@@ -195,7 +196,7 @@ class TestOrderService:
         assert result["order"].direction == Direction.BUY
         mock_client.set_order.assert_called_once()
 
-    def test_get_account_by_key(
+    async def test_get_account_by_key(
         self, order_service, mock_client, mock_account
     ):
         """Test getting account by key."""
@@ -207,12 +208,12 @@ class TestOrderService:
         }
         mock_client.get_account.return_value = mock_account
 
-        account = order_service._get_account(mock_account.key)
+        account = await order_service._get_account(mock_account.key)
 
         assert account.key == mock_account.key
         mock_client.get_account.assert_called_once_with(mock_account.key)
 
-    def test_get_account_default(
+    async def test_get_account_default(
         self, order_service, mock_client, mock_account
     ):
         """Test getting default account when no key provided."""
@@ -221,31 +222,31 @@ class TestOrderService:
         }
         mock_client.get_account.return_value = mock_account
 
-        account = order_service._get_account(None)
+        account = await order_service._get_account(None)
 
         assert account.key == mock_account.key
 
-    def test_get_account_not_found(self, order_service, mock_client):
+    async def test_get_account_not_found(self, order_service, mock_client):
         """Test exception when account not found."""
         mock_client.get_accounts.return_value = {
             "Data": [{"AccountKey": "different-key"}]
         }
 
         with pytest.raises(SaxoException) as exc_info:
-            order_service._get_account("non-existent-key")
+            await order_service._get_account("non-existent-key")
 
         assert "not found" in str(exc_info.value)
 
-    def test_get_account_no_accounts(self, order_service, mock_client):
+    async def test_get_account_no_accounts(self, order_service, mock_client):
         """Test exception when no accounts available."""
         mock_client.get_accounts.return_value = {"Data": []}
 
         with pytest.raises(SaxoException) as exc_info:
-            order_service._get_account(None)
+            await order_service._get_account(None)
 
         assert "No accounts available" in str(exc_info.value)
 
-    def test_validate_buy_order_success(
+    async def test_validate_buy_order_success(
         self, order_service, mock_client, mock_account
     ):
         """An order passing all three rules validates without raising:
@@ -262,7 +263,7 @@ class TestOrderService:
             objective=110.0,
         )
 
-        order_service._validate_buy_order(mock_account, order)
+        await order_service._validate_buy_order(mock_account, order)
 
     @pytest.mark.parametrize(
         "objective, open_orders, total_amount, expected_error",
@@ -289,7 +290,7 @@ class TestOrderService:
         ],
         ids=["ratio_too_low", "fund_exhausted", "position_too_large"],
     )
-    def test_validate_buy_order_rejects_rule_breach(
+    async def test_validate_buy_order_rejects_rule_breach(
         self,
         order_service,
         mock_client,
@@ -312,4 +313,4 @@ class TestOrderService:
         )
 
         with pytest.raises(SaxoException, match=expected_error):
-            order_service._validate_buy_order(mock_account, order)
+            await order_service._validate_buy_order(mock_account, order)

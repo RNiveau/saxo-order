@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_dynamodb_client, get_saxo_client
 from api.main import app
+from client.saxo_client import SaxoClient
 
 client = TestClient(app)
 
@@ -245,7 +246,7 @@ class TestInclinedWorkflowCurrentValue:
 
     @pytest.fixture
     def mock_saxo(self):
-        mock = MagicMock()
+        mock = MagicMock(spec=SaxoClient)
         mock.get_asset.return_value = {
             "Identifier": 123,
             "AssetType": "Stock",

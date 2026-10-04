@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, call
 
 import pytest
 
+from client.saxo_client import SaxoClient
 from engines.workflow_engine import WorkflowEngine
 from model import (
     Candle,
@@ -21,6 +22,7 @@ from model import (
     WorkflowSignal,
 )
 from model.enum import AssetType
+from services.candles_service import CandlesService
 
 
 @pytest.fixture
@@ -35,7 +37,7 @@ def dynamodb_client():
 
 @pytest.fixture
 def saxo_client(mocker):
-    client = mocker.Mock()
+    client = mocker.Mock(spec=SaxoClient)
     client.get_asset.return_value = {"AssetType": AssetType.STOCK}
     return client
 
@@ -44,7 +46,7 @@ def saxo_client(mocker):
 def candles_service(mocker):
     """The engine asks for candles three times per run; the first call
     returns nothing so only the later two carry a candle."""
-    service = mocker.Mock()
+    service = mocker.Mock(spec=CandlesService)
     candle = Candle(close=10.6, lower=9, higher=10.5, open=8.5, ut=UnitTime.H1)
     service.build_candles.side_effect = [[], [candle], [candle]]
     return service

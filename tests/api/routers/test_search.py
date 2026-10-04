@@ -9,6 +9,7 @@ from api.dependencies import (
     get_saxo_client,
 )
 from api.main import app
+from client.saxo_client import SaxoClient
 from model import AssetType
 from model.asset import Asset
 from model.enum import Exchange
@@ -20,7 +21,7 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def mock_saxo_client():
     """Mock SaxoClient for testing."""
-    mock_client = MagicMock()
+    mock_client = MagicMock(spec=SaxoClient)
 
     def override_get_saxo_client():
         return mock_client

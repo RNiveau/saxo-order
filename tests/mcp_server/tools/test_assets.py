@@ -127,7 +127,7 @@ def _series(count: int, newest: datetime.datetime) -> List[Candle]:
 
 @pytest.fixture
 def live_client(mocker):
-    client = mocker.MagicMock()
+    client = mocker.MagicMock(spec=SaxoClient)
     client.get_asset_detail.return_value = {"Symbol": "SGO:xpar"}
     token = errors._market_client.set((client, Provenance.LIVE))
     yield client
