@@ -38,13 +38,13 @@ CONGESTION_SETTINGS: Tuple[Tuple[AlertType, int, int], ...] = (
 )
 
 
-def _tick_size(
+async def _tick_size(
     saxo_client: SaxoClient,
     saxo_uic: str | int,
     asset_type: str,
     price: float,
 ) -> float:
-    detail = saxo_client.get_asset_detail(saxo_uic, asset_type)
+    detail = await saxo_client.get_asset_detail(saxo_uic, asset_type)
     if "TickSizeScheme" not in detail:
         return 0.0
     return client_helper.get_tick_size(detail["TickSizeScheme"], price)
@@ -59,7 +59,7 @@ def _is_recent(candle: Optional[Candle]) -> bool:
     )
 
 
-def run_double_top(
+async def run_double_top(
     saxo_client: SaxoClient,
     saxo_uic: str | int,
     candles: List[Candle],
@@ -72,7 +72,9 @@ def run_double_top(
     ``indicator_service.double_top`` call: the indicator will happily report a
     pattern from weeks ago, which is not something to alert on today.
     """
-    tick = _tick_size(saxo_client, saxo_uic, asset_type, candles[0].close)
+    tick = await _tick_size(
+        saxo_client, saxo_uic, asset_type, candles[0].close
+    )
     double_top_candle = indicator_service.double_top(candles, tick)
     if _is_recent(double_top_candle):
         logger.debug(f"{name or saxo_uic}, {double_top_candle}")
@@ -80,7 +82,7 @@ def run_double_top(
     return None
 
 
-def run_double_bottom(
+async def run_double_bottom(
     saxo_client: SaxoClient,
     saxo_uic: str | int,
     candles: List[Candle],
@@ -88,7 +90,9 @@ def run_double_bottom(
     name: str = "",
 ) -> Optional[Candle]:
     """A double bottom formed within the last few days, or None."""
-    tick = _tick_size(saxo_client, saxo_uic, asset_type, candles[0].close)
+    tick = await _tick_size(
+        saxo_client, saxo_uic, asset_type, candles[0].close
+    )
     double_bottom_candle = indicator_service.double_bottom(candles, tick)
     if _is_recent(double_bottom_candle):
         logger.debug(f"{name or saxo_uic}, {double_bottom_candle}")

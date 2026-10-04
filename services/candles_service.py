@@ -29,7 +29,7 @@ class CandlesService:
         self.logger = Logger.get_logger("candles_service", logging.DEBUG)
         self.saxo_client = saxo_client
 
-    def get_latest_candle(
+    async def get_latest_candle(
         self,
         code: str,
         market: Optional[str] = None,
@@ -61,11 +61,11 @@ class CandlesService:
             saxo_uic = asset_identifier
             saxo_asset_type = asset_type
         else:
-            asset = self.saxo_client.get_asset(code, market)
+            asset = await self.saxo_client.get_asset(code, market)
             saxo_uic = asset["Identifier"]
             saxo_asset_type = asset["AssetType"]
 
-        data = self.saxo_client.get_historical_data(
+        data = await self.saxo_client.get_historical_data(
             saxo_uic=saxo_uic,
             asset_type=saxo_asset_type,
             horizon=1,
@@ -83,7 +83,7 @@ class CandlesService:
             )
         return candles[0]
 
-    def get_candles_per_minutes(
+    async def get_candles_per_minutes(
         self,
         code: str,
         duration: int,
@@ -95,8 +95,8 @@ class CandlesService:
         self.logger.debug(
             f"get_candle_per_minutes({code}, {duration}, {date})"
         )
-        asset = self.saxo_client.get_asset(code)
-        data = self.saxo_client.get_historical_data(
+        asset = await self.saxo_client.get_asset(code)
+        data = await self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
             horizon=1,
@@ -236,7 +236,7 @@ class CandlesService:
             i += 1
         return candles
 
-    def build_candles(
+    async def build_candles(
         self,
         code: str,
         ut: UnitTime,
@@ -279,8 +279,8 @@ class CandlesService:
             trading_days + 2 * (trading_days // 5) + HOLIDAY_BUFFER_DAYS
         )
         nbr_30m = calendar_days * 48
-        asset = self.saxo_client.get_asset(code)
-        data = self.saxo_client.get_historical_data(
+        asset = await self.saxo_client.get_asset(code)
+        data = await self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
             horizon=30,
@@ -298,7 +298,7 @@ class CandlesService:
             return build_daily_candles_from_h1(candles, market)
         return candles
 
-    def build_weekly_candles(
+    async def build_weekly_candles(
         self,
         code: str,
         market: Market,
@@ -324,8 +324,8 @@ class CandlesService:
             f"Build weekly candles for {code}, nbr_weeks: {nbr_weeks}"
         )
 
-        asset = self.saxo_client.get_asset(code)
-        weekly_data = self.saxo_client.get_historical_data(
+        asset = await self.saxo_client.get_asset(code)
+        weekly_data = await self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
             horizon=10080,
@@ -342,7 +342,7 @@ class CandlesService:
             != weekly_candles[0].date.isocalendar()[:2]
             and today.weekday() < 5
         ):
-            daily_candles = self.build_candles(
+            daily_candles = await self.build_candles(
                 code=code,
                 ut=UnitTime.D,
                 market=market,
@@ -357,7 +357,7 @@ class CandlesService:
 
         return weekly_candles
 
-    def get_candles_in_window(
+    async def get_candles_in_window(
         self,
         code: str,
         ut: UnitTime,
@@ -380,8 +380,8 @@ class CandlesService:
         )
         window_minutes = (end_utc - start_utc).total_seconds() / 60
         count = int(window_minutes // horizon) + 3
-        asset = self.saxo_client.get_asset(code)
-        data = self.saxo_client.get_historical_data(
+        asset = await self.saxo_client.get_asset(code)
+        data = await self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
             horizon=horizon,

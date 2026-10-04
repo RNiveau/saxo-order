@@ -26,7 +26,7 @@ class OrderService:
         self.client = client
         self.configuration = configuration
 
-    def create_order(
+    async def create_order(
         self,
         code: str,
         price: float,
@@ -66,10 +66,10 @@ class OrderService:
         Raises:
             SaxoException: If validation fails
         """
-        asset = self.client.get_asset(code=code, market=country_code)
+        asset = await self.client.get_asset(code=code, market=country_code)
 
         if order_type == OrderType.MARKET:
-            price = self.client.get_price(
+            price = await self.client.get_price(
                 asset["Identifier"], asset["AssetType"]
             )
 
@@ -92,12 +92,12 @@ class OrderService:
         if order.taxes is None:
             order.taxes = calculate_taxes(order)
 
-        account = self._get_account(account_key)
+        account = await self._get_account(account_key)
 
         if Direction.BUY == order.direction:
-            self._validate_buy_order(account, order)
+            await self._validate_buy_order(account, order)
 
-        result = self.client.set_order(
+        result = await self.client.set_order(
             account=account,
             order=order,
             saxo_uic=asset["Identifier"],
@@ -111,7 +111,7 @@ class OrderService:
             "result": result,
         }
 
-    def create_oco_order(
+    async def create_oco_order(
         self,
         code: str,
         quantity: float,
@@ -151,7 +151,7 @@ class OrderService:
         Raises:
             SaxoException: If validation fails or order placement fails
         """
-        asset = self.client.get_asset(code=code, market=country_code)
+        asset = await self.client.get_asset(code=code, market=country_code)
 
         limit_order = Order(
             code=code,
@@ -183,12 +183,12 @@ class OrderService:
         if stop_order.taxes is None:
             stop_order.taxes = calculate_taxes(stop_order)
 
-        account = self._get_account(account_key)
+        account = await self._get_account(account_key)
 
         if stop_order.direction == Direction.BUY:
-            self._validate_buy_order(account, stop_order)
+            await self._validate_buy_order(account, stop_order)
 
-        result = self.client.set_oco_order(
+        result = await self.client.set_oco_order(
             account=account,
             limit_order=limit_order,
             stop_order=stop_order,
@@ -203,7 +203,7 @@ class OrderService:
             "result": result,
         }
 
-    def create_stop_limit_order(
+    async def create_stop_limit_order(
         self,
         code: str,
         quantity: float,
@@ -239,8 +239,8 @@ class OrderService:
         Raises:
             SaxoException: If validation fails or order placement fails
         """
-        asset = self.client.get_asset(code=code, market=country_code)
-        account = self._get_account(account_key)
+        asset = await self.client.get_asset(code=code, market=country_code)
+        account = await self._get_account(account_key)
 
         order = Order(
             code=code,
@@ -261,9 +261,9 @@ class OrderService:
         if order.taxes is None:
             order.taxes = calculate_taxes(order)
 
-        self._validate_buy_order(account, order)
+        await self._validate_buy_order(account, order)
 
-        result = self.client.set_order(
+        result = await self.client.set_order(
             account=account,
             stop_price=stop_price,
             order=order,
@@ -277,7 +277,7 @@ class OrderService:
             "result": result,
         }
 
-    def _get_account(self, account_key: Optional[str] = None) -> Account:
+    async def _get_account(self, account_key: Optional[str] = None) -> Account:
         """
         Get account by key or return the first available account.
 
@@ -290,7 +290,7 @@ class OrderService:
         Raises:
             SaxoException: If account not found
         """
-        accounts = self.client.get_accounts()
+        accounts = await self.client.get_accounts()
 
         if account_key:
             matching_accounts = [
@@ -300,14 +300,18 @@ class OrderService:
             ]
             if not matching_accounts:
                 raise SaxoException(f"Account {account_key} not found")
-            return self.client.get_account(matching_accounts[0]["AccountKey"])
+            return await self.client.get_account(
+                matching_accounts[0]["AccountKey"]
+            )
 
         if not accounts["Data"]:
             raise SaxoException("No accounts available")
 
-        return self.client.get_account(accounts["Data"][0]["AccountKey"])
+        return await self.client.get_account(accounts["Data"][0]["AccountKey"])
 
-    def _validate_buy_order(self, account: Account, order: Order) -> None:
+    async def _validate_buy_order(
+        self, account: Account, order: Order
+    ) -> None:
         """
         Validate buy order against rules.
 
@@ -318,8 +322,8 @@ class OrderService:
         Raises:
             SaxoException: If validation fails
         """
-        open_orders = self.client.get_open_orders()
-        total_amount = self.client.get_total_amount()
+        open_orders = await self.client.get_open_orders()
+        total_amount = await self.client.get_total_amount()
         error = apply_rules(account, order, total_amount, open_orders)
         if error is not None:
             raise SaxoException(error)
