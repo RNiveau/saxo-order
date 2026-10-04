@@ -66,6 +66,8 @@ Then, from an MCP client in this repo:
    Expect: named setups or an explicit empty result. Then check no alert rows were written.
 4. **Story 4** — "Why was it flagged yesterday, and do I hold it?"
    Expect: the stored alert's recorded data plus watchlist labels and open workflow orders.
+5. **Story 6** — "What workflows do I have running on the DAX?"
+   Expect: only enabled, unexpired workflows whose index or CFD is the DAX, each with its conditions and trigger — or an explicit "no active workflow". Needs `AWS_PROFILE`, not a Saxo token.
 
 ## Troubleshooting
 

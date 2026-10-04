@@ -24,13 +24,13 @@ Three findings from Phase 0 drive the design and are not optional:
 
 **Language/Version**: Python 3.12 (`pyproject.toml` declares `^3.12`)
 **Primary Dependencies**: NEW — `mcp` (official Python SDK). Existing — `services/indicator_service.py`, `services/candles_service.py`, `client/saxo_client.py`, `client/aws_client.py` (`aioboto3`), `pydantic` v2
-**Storage**: Read-only. Existing DynamoDB tables (`alerts`, `alert_digests`, `watchlist`, `workflow_orders`), unchanged schemas. No new table, no migration, no write path.
+**Storage**: Read-only. Existing DynamoDB tables (`alerts`, `alert_digests`, `watchlist`, `workflows`, `workflow_orders`), unchanged schemas. No new table, no migration, no write path.
 **Testing**: `pytest` + `pytest-asyncio` + `unittest.mock`, mirroring source structure under `tests/mcp_server/`
 **Target Platform**: Local developer machine only — a stdio subprocess launched by an MCP client. Not deployed; out of scope for Lambda/Pulumi.
 **Project Type**: Backend entry point (single). Frontend untouched.
 **Performance Goals**: One state snapshot ≤ 2 tool calls and ≤ 2 provider series fetches (SC-002 — the base series plus the current-period top-up; "exactly one" was unachievable, see research.md §10); snapshot payload < 2,000 tokens, capped bar series < 3,000 (SC-007)
 **Constraints**: Strictly read-only (FR-002); detection leaves the alert store byte-identical (SC-004); no simulated data without explicit per-request opt-in (FR-004a/b); nothing on the call path writes to stdout
-**Scale/Scope**: Single user, single session, ~8 tools across 5 user stories. Story 5 (crypto venue) deferred to a later slice.
+**Scale/Scope**: Single user, single session, ~9 tools across 6 user stories. Story 5 (crypto venue) deferred to a later slice.
 
 ## Constitution Check
 
@@ -84,13 +84,15 @@ mcp_server/                         # NEW - entry point layer, peer to saxo_orde
     ├── assets.py                   # search_asset, get_candles
     ├── indicators.py               # get_indicators
     ├── detection.py                # detect_patterns
-    └── context.py                  # get_alerts, get_digest, get_watchlist, get_workflow_orders
+    ├── context.py                  # get_alerts, get_digest, get_watchlist, get_workflow_orders
+    └── workflows.py                # get_workflows (Story 6)
 
 services/
 ├── indicator_bundle_service.py     # NEW - depth registry + isolated computation (FR-010/011/012)
 ├── detection_service.py            # NEW - side-effect-free detection (FR-003)
-└── candle_source.py                # NEW - _build_candles extracted from alerting.py,
-                                    #       parameterised by asset_type + Market (research.md §10)
+├── candle_source.py                # NEW - _build_candles extracted from alerting.py,
+│                                   #       parameterised by asset_type + Market (research.md §10)
+└── workflow_service.py             # MODIFIED - get_active_workflows_by_asset (Story 6, research.md §11)
 
 model/
 └── enum.py                         # MODIFIED - Provenance, IndicatorName, MarketName
@@ -110,10 +112,13 @@ tests/
 │       ├── test_assets.py
 │       ├── test_indicators.py
 │       ├── test_detection.py       # includes the "store unchanged" assertion
-│       └── test_context.py
+│       ├── test_context.py
+│       └── test_workflows.py       # Story 6
+
 └── services/
     ├── test_indicator_bundle_service.py
-    └── test_detection_service.py
+    ├── test_detection_service.py
+    └── test_workflow_service.py    # MODIFIED - active-workflow filter (Story 6)
 
 .mcp.json                           # NEW - registers the server for this project
 pyproject.toml                      # MODIFIED - mcp dependency; k-mcp script
@@ -150,6 +155,11 @@ pyproject.toml                      # MODIFIED - mcp dependency; k-mcp script
 
 12. `get_alerts`, `get_digest`, `get_watchlist`, `get_workflow_orders` — read-only, degrading independently of the market-data tools.
 
+### Phase D2 — User Story 6 (P3, independent of Story 4)
+
+12b. `services/workflow_service.py` — `get_active_workflows_by_asset(code, today)`: one `get_all_workflows()` scan, filtered to `enable` and `end_date` not past (the same `end_date >= today (UTC)` rule `engines/workflow_engine.py:63` applies, so "active" here means "the engine would evaluate it"), matched case-insensitively on `index` **or** `cfd`. Reuses `_convert_to_detail` — no second parser for the stored shape (research.md §11).
+12c. `get_workflows` — thin tool over 12b using the lifespan's `DynamoDBClient`. Store absent → `ToolError` naming the cause; no match → explicit `none_reason`, not an error. Not a `@market_tool`: it reads no market data and must keep working when the Saxo token is dead.
+
 ### Phase E — Polish
 
 13. `quickstart.md` verification pass; token-budget measurement against SC-007; full `black` / `isort` / `mypy` / `flake8` / `pytest` gate.
@@ -168,7 +178,11 @@ pyproject.toml                      # MODIFIED - mcp dependency; k-mcp script
 | Payloads blow the context budget | Columnar OHLC, rounding to 4dp, hard bar cap, measured against SC-007 in Phase E |
 | Deep daily history triggers rate limiting | Use the scan's 2-request reconstruction, not `CandlesService`'s ~13 paginated 30m round-trips (research.md §10) |
 | Current-period top-up assembled against wrong market hours | `market` override; skip the top-up rather than guess |
+| `get_workflows` reports a workflow as active that the engine would skip (or the reverse) | Same enable + `end_date >= today UTC` rule as `workflow_engine.py`, asserted on the boundary date in tests |
+| "No active workflow" read as a store failure (or vice versa) | Missing store raises `ToolError`; an empty match returns `none_reason` |
 
 ## Post-Design Constitution Re-check
 
 Re-evaluated after data-model.md and contracts/tools.md, and again after the PR #716 review: **still PASS**. The `_build_candles` extraction keeps candle reconstruction in the Service layer where Principle I puts it, and removes a duplicate-logic risk rather than adding one. The contracts introduce no calculation in the tool layer, every enum-valued field uses an existing enum, every asset-bearing model carries an explicit `exchange`, and no response model requires a new stored field.
+
+**Story 6 re-check** (added 2026-10-04): still PASS. Filtering lives in `services/workflow_service.py` beside the existing `get_workflows_by_asset`, the tool only shapes the response (Principle I). Stored values are already the `UnitTime` / `WorkflowDirection` / `WorkflowSignal` / `WorkflowLocation` / `Direction` enum values, passed through unchanged (Principle II.3). No write path, no new table.

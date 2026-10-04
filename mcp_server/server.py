@@ -11,16 +11,22 @@ the protocol wire, so nothing here may print - logging goes to stderr.
 
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
-from typing import Annotated, AsyncIterator, List, Optional
+from typing import Annotated, Any, AsyncIterator, List, Optional
 
 from mcp.server import MCPServer
+from mcp.server.mcpserver import Context
 from pydantic import Field
 
 from client.aws_client import AwsClient, DynamoDBClient
 from mcp_server.errors import market_tool, tool_boundary
 from mcp_server.formatters import DEFAULT_BAR_COUNT, MAX_BAR_COUNT
-from mcp_server.models import BarSeries, IndicatorSnapshot, InstrumentRef
-from mcp_server.tools import assets, indicators
+from mcp_server.models import (
+    AssetWorkflows,
+    BarSeries,
+    IndicatorSnapshot,
+    InstrumentRef,
+)
+from mcp_server.tools import assets, indicators, workflows
 from model import AssetType, IndicatorName, MarketName, UnitTime
 from model.enum import Exchange
 from utils.logger import Logger
@@ -35,6 +41,9 @@ Resolve an instrument by name first; its instrument_id and asset_type feed
 every other tool. Market data is refused when only simulated data is
 available - that refusal is deliberate, so prefer fixing the credential over
 passing allow_simulated.
+
+get_workflows lists the automation armed on an asset; it reads stored
+configuration rather than market data, so it works without a Saxo token.
 """
 
 
@@ -190,6 +199,25 @@ async def get_indicators(
         include=include,
         exchange=exchange,
         market=market,
+    )
+
+
+@mcp.tool()
+@tool_boundary
+async def get_workflows(
+    code: Annotated[str, Field(min_length=1)],
+    ctx: Context[ServerContext, Any],
+) -> AssetWorkflows:
+    """The workflows currently armed on an asset: what could fire next.
+
+    `code` is the instrument code search_asset returned (e.g. ITP:xpar,
+    DAX.I). A workflow matches when it watches that instrument or places
+    its orders on it - each result names both, so which side matched is
+    never ambiguous. Only enabled workflows whose end date has not passed
+    are returned; none_reason says so explicitly when there are none.
+    """
+    return await workflows.get_workflows(
+        code=code, store=ctx.request_context.lifespan_context.dynamodb
     )
 
 

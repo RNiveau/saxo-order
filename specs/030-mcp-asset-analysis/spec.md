@@ -102,6 +102,23 @@ The analyst asks their assistant about a crypto instrument held on the crypto ve
 
 ---
 
+### User Story 6 - List the workflows currently armed on an asset (Priority: P3)
+
+The analyst asks their assistant "what automation do I have running on the DAX?". The assistant returns the workflows currently enabled for that asset — what each one watches, on which period, under which conditions it would fire, and what order it would place — so the analyst can judge whether a setup is already covered before acting on it manually.
+
+**Why this priority**: Same tier as Story 4: it situates the analysis against what the analyst has already committed to, rather than measuring the market. Open workflow orders (Story 4) say what *has* fired; this story says what *could* fire next. Depends on Story 1 for resolution.
+
+**Independent Test**: Pick an asset with at least one enabled and one disabled workflow, ask for its workflows, and confirm only the enabled one is returned with conditions and trigger matching the workflow definition shown in the web UI.
+
+**Acceptance Scenarios**:
+
+1. **Given** an asset with enabled workflows, **When** its workflows are requested, **Then** each enabled workflow is returned with its name, the instrument it watches and the instrument it trades, its conditions (indicator, period, value, close direction), its trigger (period, signal, location, order direction, quantity), whether it runs in dry-run mode, and its end date if any.
+2. **Given** an asset with disabled workflows, or workflows whose end date has passed, **When** its workflows are requested, **Then** those workflows are **not** returned.
+3. **Given** an asset with no enabled workflow, **When** its workflows are requested, **Then** an explicit "no active workflow" result is returned rather than an error or an empty success.
+4. **Given** the workflow definitions cannot be loaded, **When** workflows are requested, **Then** the failure is reported as such, distinct from "no active workflow", and the market-data capabilities keep working.
+
+---
+
 ### Edge Cases
 
 - **Simulated data substituted silently**: the market connection falls back to simulated data when no valid credential is present. The system MUST refuse rather than answer from it (FR-004a), so simulated bars can never be read as live ones. An explicit per-request opt-in is the only way to receive them, and the response still declares them simulated.
@@ -152,6 +169,7 @@ The analyst asks their assistant about a crypto instrument held on the crypto ve
 - **FR-015**: Users MUST be able to read stored alerts for a given date and asset, including each alert's recorded supporting data.
 - **FR-016**: Users MUST be able to read a stored triage digest for a given date, including ranked assets, conviction and rationale.
 - **FR-017**: Users MUST be able to read an asset's watchlist entry (including its labels) and its open workflow orders, with an explicit result when the asset is in neither.
+- **FR-017a**: Users MUST be able to list the workflows currently active for an asset — enabled and not past their end date — including each workflow's conditions, trigger and dry-run status, expressed with the project's existing workflow vocabulary (FR-014). The result MUST be explicit when no workflow is active, and MUST NOT expose any way to enable, disable or modify a workflow (FR-002).
 
 #### Payload economy
 
@@ -171,6 +189,7 @@ The analyst asks their assistant about a crypto instrument held on the crypto ve
 - **Detection result**: which of the project's setups fired for an instrument and period, with direction and supporting values. Transient — never persisted.
 - **Stored alert / digest entry**: existing records of what the scheduled scan and triage produced on a past date. Read-only here.
 - **Asset context**: the analyst's own relationship to an asset — watchlist labels and open workflow orders. Read-only here.
+- **Active workflow**: an enabled, unexpired automation targeting an asset — the instrument it watches, the instrument it trades, its conditions and trigger. Read-only here.
 - **Data provenance**: the declared origin (live vs. simulated) attached to every market-derived response.
 
 ## Success Criteria *(mandatory)*
@@ -186,12 +205,13 @@ The analyst asks their assistant about a crypto instrument held on the crypto ve
 - **SC-006**: On-demand results for a given asset, period and date **match** what the scheduled scan produced for the same inputs, since both run the same logic.
 - **SC-007**: A full state snapshot for one asset consumes **under 2,000 tokens** of the assistant's context, and a capped bar series **under 3,000**.
 - **SC-008**: The analyst can determine why a past alert fired, and whether they already hold the asset, **without opening the web UI**.
+- **SC-009**: The analyst can list every workflow currently armed on an asset in **one exchange** with the assistant, and the list contains **zero** disabled or expired workflows.
 
 ## Assumptions
 
 - The consumer is an AI assistant running locally on the analyst's machine on their behalf; there is no multi-user, authentication or authorisation dimension to this feature.
 - Configuration and credentials are the ones the CLI already uses; this feature introduces no new secret and no new stored configuration.
-- Stored-data capabilities (alerts, digests, watchlist, workflow orders) are read from the existing tables with their current schemas. No table, field or migration is introduced.
+- Stored-data capabilities (alerts, digests, watchlist, workflows, workflow orders) are read from the existing tables with their current schemas. No table, field or migration is introduced.
 - Supported periods are those the project's indicators already support; this feature adds no new timeframe.
 - The analysis capabilities (indicator snapshot, detection) are venue-agnostic once an instrument has resolved to a bar series, so Story 5 adds a data source rather than duplicating analysis logic.
 - The bar cap defaults to roughly 100 bars, adjustable per request up to a hard ceiling.

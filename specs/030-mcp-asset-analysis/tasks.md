@@ -131,6 +131,21 @@ Backend entry point at repo root: `mcp_server/`, peer to `saxo_order/` and `api/
 
 ---
 
+## Phase 6b: User Story 6 — Workflows currently armed on an asset (P3)
+
+**Goal**: list the workflows that could fire next on an asset, so the analyst knows whether a setup is already covered.
+
+**Independent test**: for an asset with one enabled and one disabled workflow, `get_workflows` returns only the enabled one, with conditions and trigger matching the web UI's workflow page; an asset with none returns `none_reason`.
+
+- [x] T052 [US6] Add `get_active_workflows_by_asset(code: str, today: datetime.date) -> List[WorkflowDetail]` to `services/workflow_service.py`: one `get_all_workflows()` scan; keep items where `enable` is true and `end_date` is absent or parses (`YYYY-MM-DD` or `YYYY/MM/DD`, as `engines/workflow_loader.py` accepts) to a date `>= today`; match `code` case-insensitively against `index` **or** `cfd`; convert with the existing `_convert_to_detail`. Do not touch `get_workflows_by_asset` (research.md §11)
+- [x] T053 [P] [US6] Add `ActiveWorkflow` and `AssetWorkflows` to `mcp_server/models.py` per data-model.md — reuse `ConditionDetail` / `TriggerDetail` from `model/workflow_api.py`, no `enable` field, `none_reason` set when empty
+- [x] T054 [US6] Implement `get_workflows(code, store)` in `mcp_server/tools/workflows.py`: raise `ToolError` naming the cause when `store is None` (check it first — see T045 for why the boundary must not be relied on); today = `get_date_utc0().date()`, the engine's clock; project `WorkflowDetail` → `ActiveWorkflow`; empty → `none_reason`
+- [x] T055 [US6] Register `get_workflows` in `mcp_server/server.py` with `@tool_boundary` (**not** `@market_tool`), reading `ServerContext.dynamodb` from the request's lifespan context via an injected `Context` parameter; update `INSTRUCTIONS` to mention it
+- [x] T056 [P] [US6] Test in `tests/services/test_workflow_service.py`: disabled excluded; `end_date` yesterday excluded, today included, absent included; `YYYY/MM/DD` accepted; match on `cfd` and case-insensitive match on `index`; unrelated asset → `[]`
+- [x] T057 [P] [US6] Test in `tests/mcp_server/tools/test_workflows.py` with a mocked `DynamoDBClient`: projection carries conditions/trigger/dry_run; empty → `none_reason`; `store=None` → `ToolError`; and an in-memory MCP client call through the registered tool proves the `Context` injection reaches the lifespan's store (and that `ctx` is absent from the tool's input schema)
+
+---
+
 ## Phase 7: Polish & Cross-Cutting
 
 - [ ] T047 Measure SC-007 against a real asset: snapshot < 2,000 tokens, capped bar series < 3,000. Tune the bar cap constant in `mcp_server/formatters.py` if exceeded
@@ -155,7 +170,8 @@ Phase 2 (Foundational) ─── BLOCKING
    ├─→ Phase 4  Phase 5      (US2 and US3 are independent of each other)
    │   (US2,P2) (US3,P2)
    │
-   └─→ Phase 6 (US4, P3)     (needs only Phase 2 — no market data)
+   ├─→ Phase 6 (US4, P3)     (needs only Phase 2 — no market data)
+   └─→ Phase 6b (US6, P3)    (needs only Phase 2 — no market data, independent of US4)
                 ↓
            Phase 7 (Polish)
 ```
@@ -171,7 +187,8 @@ Phase 2 (Foundational) ─── BLOCKING
 - T006, T007, T008 → T010 → T011 strictly sequential (extract ×3, rewire, prove).
 - T023 → T024 → T025 sequential (registry, then computation, then tool).
 - T034 → T035 → T036 → T037 sequential (all edit `services/detection_service.py`, then the tool).
-- Registration tasks (T026, T032, T038, T044) all edit `mcp_server/server.py` — never parallel with each other.
+- T052 → T054 → T055 sequential (service, tool, registration).
+- Registration tasks (T026, T032, T038, T044, T055) all edit `mcp_server/server.py` — never parallel with each other.
 
 ### Parallel opportunities
 
@@ -180,6 +197,7 @@ Phase 2 (Foundational) ─── BLOCKING
 - **Phase 3**: T022 ∥ T023; then T027, T028, T029 together
 - **Phase 5**: T040 ∥ T041
 - **Phase 6**: T042 ∥ T043
+- **Phase 6b**: T053 ∥ T052; then T056 ∥ T057 after T055
 
 ---
 
@@ -191,7 +209,7 @@ Suggested increments:
 
 1. **Increment 1** (T001–T030): MVP. Stop here and use it for a few days before building more — the tool granularity is the riskiest guess in this design, and real use is the only way to find out whether one bundled snapshot is the right shape.
 2. **Increment 2** (T031–T041): bars and detection. US2 and US3 can land in either order.
-3. **Increment 3** (T042–T046): stored context.
+3. **Increment 3** (T042–T046, T052–T057): stored context and armed workflows. US6 can land before US4.
 4. **Increment 4** (T047–T051): polish.
 
 **Out of this slice**: User Story 5 (Ouinex). Its seam is the market-data boundary in `services/candle_source.py` plus resolution in `mcp_server/tools/assets.py`; no abstraction is built for it now (research.md §9).
@@ -208,7 +226,8 @@ Suggested increments:
 | 4 | US2 (P2) | T031–T033 | 3 |
 | 5 | US3 (P2) | T034–T041 | 8 |
 | 6 | US4 (P3) | T042–T046 | 5 |
+| 6b | US6 (P3) | T052–T057 | 6 |
 | 7 Polish | — | T047–T051 | 5 |
-| **Total** | | | **51** |
+| **Total** | | | **57** |
 
 Phase 2 is large because seven of its tasks (T005–T011) correct and consolidate existing code before any new code depends on it: the stdout hazard, and **five** helpers that had to move out of `alerting.py` so the scan and the MCP server share one implementation rather than two that can drift. Two of those five (`_run_double_top`/`_run_double_bottom`) carry a tick lookup and a 2-day recency filter that exist nowhere else — calling `indicator_service.double_top` directly would silently widen what counts as a hit.

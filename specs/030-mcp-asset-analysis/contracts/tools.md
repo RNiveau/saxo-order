@@ -179,6 +179,30 @@ The analyst's own relationship to an asset — labels and open exposure (FR-017)
 
 ---
 
+## `get_workflows`
+
+```python
+async def get_workflows(code: str) -> AssetWorkflows
+```
+
+The workflows currently armed on an asset — what could fire next (FR-017a, Story 6). `code` is the `InstrumentRef.code` from `search_asset` (e.g. `ITP:xpar`, `DAX.I`), matched case-insensitively against each workflow's `index` **or** `cfd`.
+
+| Case | Behaviour |
+|---|---|
+| Enabled, unexpired workflows | Returned with conditions, trigger, `dry_run`, `end_date` |
+| Disabled, or `end_date` < today (UTC) | Excluded — the same rule the workflow engine applies |
+| `end_date` == today | **Included** — the engine still evaluates it today |
+| Nothing active | `workflows = []`, `none_reason` set — explicit, not an error |
+| A matching row is malformed (bad `end_date`, missing trigger field, …) | Listed in `unreadable_workflows`; the other workflows still return |
+| `code` empty | Rejected by the schema (`min_length=1`) |
+| Store unreachable (`ServerContext.dynamodb` is None) | `ToolError` naming the cause. Market-data tools unaffected |
+| Store read fails | `DynamoDBOperationError` → `ToolError` via `@tool_boundary` |
+| Saxo token absent/expired | **No effect** — not a `@market_tool` |
+
+No parameter enables, disables or edits a workflow (FR-002).
+
+---
+
 ## Server registration (`.mcp.json`)
 
 ```json
@@ -200,6 +224,6 @@ The `mcp` compose service carries a `profiles: ["mcp"]` marker so it stays out o
 
 ## Tool count and shape
 
-Eight tools across five stories. Deliberately coarse: one indicator call returns the whole bundle rather than one call per indicator, because the expensive shared cost is the market fetch, not the arithmetic — and six round-trips would cost six fetches of the same series (SC-002).
+Nine tools across six stories. Deliberately coarse: one indicator call returns the whole bundle rather than one call per indicator, because the expensive shared cost is the market fetch, not the arithmetic — and six round-trips would cost six fetches of the same series (SC-002).
 
 `get_alerts`/`get_digest` and `get_watchlist`/`get_workflow_orders` stay split despite both being "stored context": they are keyed differently (date vs. code) and answer different questions (why did this fire vs. do I already hold it).

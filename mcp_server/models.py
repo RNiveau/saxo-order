@@ -27,6 +27,7 @@ from model import (
     UnitTime,
 )
 from model.enum import Exchange
+from model.workflow_api import ConditionDetail, TriggerDetail
 
 BAR_COLUMNS = ["date", "open", "high", "low", "close"]
 
@@ -238,3 +239,44 @@ class AssetContext(BaseModel):
     in_watchlist: bool = False
     labels: List[str] = Field(default_factory=list)
     open_workflow_orders: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ActiveWorkflow(BaseModel):
+    """An enabled, unexpired workflow - something that could fire next."""
+
+    id: str
+    name: str
+    index: str = Field(description="The instrument the workflow watches.")
+    cfd: str = Field(description="The instrument it places orders on.")
+    dry_run: bool = Field(
+        description="True when a trigger is logged rather than ordered."
+    )
+    end_date: Optional[str] = Field(
+        default=None,
+        description=(
+            "Last day the workflow runs, YYYY-MM-DD. None means open-ended."
+        ),
+    )
+    conditions: List[ConditionDetail]
+    trigger: TriggerDetail
+
+
+class AssetWorkflows(BaseModel):
+    """The workflows currently armed on an asset."""
+
+    code: str
+    workflows: List[ActiveWorkflow] = Field(default_factory=list)
+    none_reason: Optional[str] = Field(
+        default=None,
+        description=(
+            "Set when no workflow is active on this asset, so an empty list "
+            "is never mistaken for a failed read."
+        ),
+    )
+    unreadable_workflows: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Enabled workflows on this asset whose stored definition could "
+            "not be read, so whether they are active is unknown."
+        ),
+    )
