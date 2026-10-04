@@ -8,9 +8,10 @@ confident nonsense, so this module returns the provenance alongside the
 client and lets the tool boundary decide what to do about it.
 """
 
+import asyncio
 import os
 from functools import lru_cache
-from typing import Optional, Tuple, Union
+from typing import Optional, Set, Tuple, Union
 
 from cachetools import TTLCache
 
@@ -33,6 +34,7 @@ _token_refresh_gate: TTLCache = TTLCache(
 )
 
 _live_client: Optional[SaxoClient] = None
+_closing: Set[asyncio.Task] = set()
 
 MARKETS = {
     MarketName.EU: EUMarket,
@@ -86,16 +88,34 @@ def _shared_live_client(config: Configuration) -> SaxoClient:
     caches outlive a single tool call. It follows the token just re-read,
     and is rebuilt only when the configuration itself was replaced."""
     global _live_client
-    if _live_client is None or _live_client.configuration is not config:
+    if _live_client is not None and _live_client.configuration is not config:
+        _discard(_live_client)
+        _live_client = None
+    if _live_client is None:
         _live_client = SaxoClient(config)
     else:
         _live_client.set_access_token(config.access_token)
     return _live_client
 
 
+def _discard(client: SaxoClient) -> None:
+    """Close a replaced client: on the running loop when there is one,
+    keeping a reference so the task is not collected before it runs."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(client.aclose())
+        return
+    task = loop.create_task(client.aclose())
+    _closing.add(task)
+    task.add_done_callback(_closing.discard)
+
+
 async def close_market_client() -> None:
     """Release the live client's connections, at server shutdown."""
     global _live_client
+    if _closing:
+        await asyncio.gather(*_closing)
     if _live_client is not None:
         await _live_client.aclose()
         _live_client = None

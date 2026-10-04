@@ -1,3 +1,6 @@
+import asyncio
+
+from client.saxo_client import SaxoClient
 from mcp_server import dependencies
 from mcp_server.dependencies import (
     MARKETS,
@@ -189,14 +192,32 @@ class TestSharedLiveClient:
         second, _ = resolve_market_client()
 
         assert second is first
+        assert isinstance(second, SaxoClient)
         assert second.http.headers["Authorization"] == "Bearer b-token"
         await close_market_client()
 
     async def test_shutdown_closes_the_client(self, tmp_path, monkeypatch):
         self._isolate(tmp_path, monkeypatch)
         client, _ = resolve_market_client()
+        assert isinstance(client, SaxoClient)
 
         await close_market_client()
 
         assert client.http.is_closed
         assert dependencies._live_client is None
+
+    async def test_a_replaced_configuration_closes_the_old_client(
+        self, tmp_path, monkeypatch
+    ):
+        self._isolate(tmp_path, monkeypatch)
+        old, _ = resolve_market_client()
+
+        get_configuration.cache_clear()
+        new, _ = resolve_market_client()
+        await asyncio.gather(*dependencies._closing)
+
+        assert new is not old
+        assert isinstance(old, SaxoClient) and isinstance(new, SaxoClient)
+        assert old.http.is_closed
+        assert not new.http.is_closed
+        await close_market_client()
