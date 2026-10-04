@@ -72,7 +72,7 @@ class WatchlistService:
             currency = Currency.USD
             final_description = description
         else:
-            asset_info = self.indicator_service.saxo_client.get_asset(
+            asset_info = await self.indicator_service.saxo_client.get_asset(
                 code, country_code
             )
             currency = Currency.get_value(
@@ -80,7 +80,7 @@ class WatchlistService:
             )
 
             current_price, variation_pct = (
-                self.indicator_service.get_price_and_variation(
+                await self.indicator_service.get_price_and_variation(
                     code=code,
                     country_code=country_code,
                     unit_time=UnitTime.D,

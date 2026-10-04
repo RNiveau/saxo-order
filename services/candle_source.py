@@ -37,7 +37,7 @@ WEEKLY_HORIZON = 10080
 WEEKLY_CANDLES_COUNT = 70
 
 
-def build_daily_series(
+async def build_daily_series(
     saxo_client: Union[SaxoClient, MockSaxoClient],
     saxo_uic: str | int,
     market: Optional[Market],
@@ -60,7 +60,7 @@ def build_daily_series(
     A series built with market=None must not be passed to
     ``build_weekly_series``: see its docstring.
     """
-    data = saxo_client.get_historical_data(
+    data = await saxo_client.get_historical_data(
         asset_type=asset_type,
         saxo_uic=saxo_uic,
         horizon=DAILY_HORIZON,
@@ -80,7 +80,7 @@ def build_daily_series(
                 "the series ends at the last completed day"
             )
             return candles
-        hour_data = saxo_client.get_historical_data(
+        hour_data = await saxo_client.get_historical_data(
             asset_type=asset_type,
             saxo_uic=saxo_uic,
             horizon=HOURLY_HORIZON,
@@ -95,7 +95,7 @@ def build_daily_series(
     return candles
 
 
-def build_weekly_series(
+async def build_weekly_series(
     saxo_client: Union[SaxoClient, MockSaxoClient],
     saxo_uic: str | int,
     daily_candles: List[Candle],
@@ -127,7 +127,7 @@ def build_weekly_series(
     the prepend is skipped, or it has not and the bar assembled from the
     week's dailies is the complete week rather than a partial one.
     """
-    data = saxo_client.get_historical_data(
+    data = await saxo_client.get_historical_data(
         asset_type=asset_type,
         saxo_uic=saxo_uic,
         horizon=WEEKLY_HORIZON,

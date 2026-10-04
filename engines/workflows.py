@@ -21,7 +21,7 @@ class AbstractWorkflow:
     logger: logging.Logger
     indicator_value: Any
 
-    def init_workflow(
+    async def init_workflow(
         self, indicator: Indicator, candles: List[Candle]
     ) -> None:
         self.logger.debug(
@@ -51,14 +51,14 @@ class BBWorkflow(AbstractWorkflow):
 
     logger = Logger.get_logger("bb-workflow", logging.DEBUG)
 
-    def init_workflow(
+    async def init_workflow(
         self, indicator: Indicator, candles: List[Candle]
     ) -> None:
         bb = bollinger_bands(candles, 2.5, 20)
         self.indicator_value = (
             bb.up if indicator.name == IndicatorType.BBH else bb.bottom
         )
-        super().init_workflow(indicator, candles)
+        await super().init_workflow(indicator, candles)
 
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
@@ -87,7 +87,7 @@ class ZoneWorkflow(AbstractWorkflow):
 
     logger = Logger.get_logger("zone-workflow", logging.DEBUG)
 
-    def init_workflow(
+    async def init_workflow(
         self, indicator: Indicator, candles: List[Candle]
     ) -> None:
         if indicator.value is None or indicator.zone_value is None:
@@ -102,7 +102,7 @@ class ZoneWorkflow(AbstractWorkflow):
             value = zone_value
             zone_value = tmp
         self.indicator_value = (value, zone_value)
-        super().init_workflow(indicator, candles)
+        await super().init_workflow(indicator, candles)
 
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
@@ -141,11 +141,11 @@ class MA50Workflow(AbstractWorkflow):
 
     logger = Logger.get_logger("ma50-workflow", logging.DEBUG)
 
-    def init_workflow(
+    async def init_workflow(
         self, indicator: Indicator, candles: List[Candle]
     ) -> None:
         self.indicator_value = mobile_average(candles, 50)
-        super().init_workflow(indicator, candles)
+        await super().init_workflow(indicator, candles)
 
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
@@ -174,11 +174,11 @@ class MA7Workflow(AbstractWorkflow):
 
     logger = Logger.get_logger("ma7-workflow", logging.DEBUG)
 
-    def init_workflow(
+    async def init_workflow(
         self, indicator: Indicator, candles: List[Candle]
     ) -> None:
         self.indicator_value = mobile_average(candles, 7)
-        super().init_workflow(indicator, candles)
+        await super().init_workflow(indicator, candles)
 
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
@@ -207,14 +207,14 @@ class PolariteWorkflow(AbstractWorkflow):
 
     logger = Logger.get_logger("polarite-workflow", logging.DEBUG)
 
-    def init_workflow(
+    async def init_workflow(
         self, indicator: Indicator, candles: List[Candle]
     ) -> None:
         if indicator.value is None:
             self.logger.error("can't run polarite workflow with None value")
             raise SaxoException("indicator has none value")
         self.indicator_value = indicator.value
-        super().init_workflow(indicator, candles)
+        await super().init_workflow(indicator, candles)
 
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
@@ -263,11 +263,11 @@ class ComboWorkflow(AbstractWorkflow):
 
     logger = Logger.get_logger("combo-workflow", logging.DEBUG)
 
-    def init_workflow(
+    async def init_workflow(
         self, indicator: Indicator, candles: List[Candle]
     ) -> None:
         self.indicator_value: Optional[ComboSignal] = combo(candles)
-        super().init_workflow(indicator, candles)
+        await super().init_workflow(indicator, candles)
 
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None
@@ -294,7 +294,7 @@ class InclinedWorkflow(AbstractWorkflow):
         self.saxo_client = saxo_client
         self.index_code = index_code
 
-    def init_workflow(
+    async def init_workflow(
         self, indicator: Indicator, candles: List[Candle]
     ) -> None:
         if not isinstance(indicator, IndicatorInclined):
@@ -302,18 +302,18 @@ class InclinedWorkflow(AbstractWorkflow):
         if indicator.x1 is None or indicator.x2 is None:
             raise SaxoException("inclined indicator requires x1 and x2")
 
-        asset = self.saxo_client.get_asset(self.index_code)
+        asset = await self.saxo_client.get_asset(self.index_code)
         saxo_uic = asset["Identifier"]
         asset_type = asset["AssetType"]
 
-        x1_to_x2 = number_of_day_between_dates(
+        x1_to_x2 = await number_of_day_between_dates(
             self.saxo_client,
             saxo_uic,
             asset_type,
             indicator.x1.x,
             indicator.x2.x,
         )
-        x1_to_now = number_of_day_between_dates(
+        x1_to_now = await number_of_day_between_dates(
             self.saxo_client,
             saxo_uic,
             asset_type,
@@ -324,7 +324,7 @@ class InclinedWorkflow(AbstractWorkflow):
         self.indicator_value = apply_linear_function(
             0, indicator.x1.y, x1_to_x2, indicator.x2.y, x1_to_now
         )
-        super().init_workflow(indicator, candles)
+        await super().init_workflow(indicator, candles)
 
     def below_condition(
         self, candle: Candle, spread: float, element: Optional[float] = None

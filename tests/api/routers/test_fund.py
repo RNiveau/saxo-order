@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_saxo_client
 from api.main import app
+from client.saxo_client import SaxoClient
 
 client = TestClient(app)
 
@@ -12,7 +13,7 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def mock_saxo_client():
     """Mock SaxoClient returning no Saxo accounts."""
-    mock_client = MagicMock()
+    mock_client = MagicMock(spec=SaxoClient)
     mock_client.get_accounts.return_value = {"Data": []}
 
     def override_get_saxo_client():

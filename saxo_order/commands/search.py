@@ -2,6 +2,7 @@ import click
 from click.core import Context
 
 from client.saxo_client import SaxoClient
+from saxo_order.async_utils import run_async
 from saxo_order.commands import catch_exception
 from utils.configuration import Configuration
 from utils.exception import SaxoException
@@ -20,10 +21,11 @@ logger = Logger.get_logger("search")
 )
 @click.pass_context
 @catch_exception(handle=SaxoException)
-def search(ctx: Context, search: str):
-    client = SaxoClient(Configuration(ctx.obj["config"]))
-    for data in client.search(keyword=search):
-        print(
-            f"{data.description}: code: {data.symbol} "
-            f"({data.identifier}), type: {data.asset_type}"
-        )
+@run_async
+async def search(ctx: Context, search: str):
+    async with SaxoClient(Configuration(ctx.obj["config"])) as client:
+        for data in await client.search(keyword=search):
+            print(
+                f"{data.description}: code: {data.symbol} "
+                f"({data.identifier}), type: {data.asset_type}"
+            )

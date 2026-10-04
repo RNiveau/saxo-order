@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from api.dependencies import get_trade_republic_service
@@ -57,8 +59,8 @@ async def export_trade_republic_transactions(
 
     try:
         transactions = [t.to_transaction() for t in request.transactions]
-        exported_count = trade_republic_service.export_transactions(
-            transactions
+        exported_count = await asyncio.to_thread(
+            trade_republic_service.export_transactions, transactions
         )
         return ExportTradeRepublicResponse(
             status="success", exported_count=exported_count

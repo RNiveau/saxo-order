@@ -3,6 +3,7 @@ from typing import List
 
 import pytest
 
+from client.saxo_client import SaxoClient
 from model import Candle, EUMarket, Market, UnitTime, USMarket
 from services.candles_service import CandlesService
 
@@ -20,7 +21,7 @@ def make_saxo_client(mocker):
     """A Saxo client stubbed to resolve one asset."""
 
     def _make(asset):
-        client = mocker.Mock()
+        client = mocker.Mock(spec=SaxoClient)
         client.get_asset.return_value = asset
         return client
 
@@ -90,7 +91,7 @@ class TestCandlesService:
             ),
         ],
     )
-    def test_get_candle_per_minutes(
+    async def test_get_candle_per_minutes(
         self,
         file: str,
         ut: UnitTime,
@@ -107,7 +108,7 @@ class TestCandlesService:
             saxo_client, "get_historical_data", return_value=data
         )
         worfklow_service = CandlesService(saxo_client)
-        candles = worfklow_service.get_candles_per_minutes(
+        candles = await worfklow_service.get_candles_per_minutes(
             "code", len(data), ut
         )
         for i, result in enumerate(results):
@@ -306,7 +307,7 @@ class TestCandlesService:
             ),
         ],
     )
-    def test_build_candles(
+    async def test_build_candles(
         self,
         file_index: str,
         market: Market,
@@ -327,7 +328,9 @@ class TestCandlesService:
             return_value=date.replace(tzinfo=datetime.timezone.utc),
         )
         candles_service = CandlesService(saxo_client)
-        candles = candles_service.build_candles("code", ut, market, 50, date)
+        candles = await candles_service.build_candles(
+            "code", ut, market, 50, date
+        )
         for i in range(0, len(expected)):
             assert expected[i] == candles[i]
 
@@ -348,7 +351,7 @@ class TestCandlesService:
             (USMarket(), UnitTime.H1, 1, 3 * 48),
         ],
     )
-    def test_build_candles_fetch_sizing(
+    async def test_build_candles_fetch_sizing(
         self,
         market: Market,
         ut: UnitTime,
@@ -368,7 +371,7 @@ class TestCandlesService:
             return_value=[{"Time": datetime.datetime(2024, 6, 21, 3, 0)}],
         )
         candles_service = CandlesService(saxo_client)
-        candles_service.build_candles(
+        await candles_service.build_candles(
             "code",
             ut,
             market,
@@ -381,7 +384,7 @@ class TestCandlesService:
         assert kwargs["horizon"] == 30
         assert kwargs["count"] == expected_count
 
-    def test_build_candles_anchors_to_last_session_close(
+    async def test_build_candles_anchors_to_last_session_close(
         self, mocker, make_saxo_client
     ):
         """Off-hours runs anchor the query to the last session close."""
@@ -395,7 +398,7 @@ class TestCandlesService:
         )
         candles_service = CandlesService(saxo_client)
         # Friday 19:56 UTC, after the 15:00 UTC EU summer close.
-        candles_service.build_candles(
+        await candles_service.build_candles(
             "code",
             UnitTime.H1,
             EUMarket(),
@@ -411,7 +414,9 @@ class TestCandlesService:
 
 
 class TestGetCandlesInWindow:
-    def test_h1_window_returns_matching_candle(self, mocker, make_saxo_client):
+    async def test_h1_window_returns_matching_candle(
+        self, mocker, make_saxo_client
+    ):
         saxo_client = make_saxo_client(CFD_INDEX_ASSET)
         data = [
             {
@@ -443,7 +448,7 @@ class TestGetCandlesInWindow:
         start = datetime.datetime(2026, 6, 2, 7, 0)
         end = datetime.datetime(2026, 6, 2, 8, 0)
 
-        candles = candles_service.get_candles_in_window(
+        candles = await candles_service.get_candles_in_window(
             "FRA40.I", UnitTime.H1, 60, start, end
         )
 
@@ -452,7 +457,7 @@ class TestGetCandlesInWindow:
         assert candles[0].lower == 7990
         assert candles[0].higher == 8040
 
-    def test_m5_window_filters_to_range(self, mocker, make_saxo_client):
+    async def test_m5_window_filters_to_range(self, mocker, make_saxo_client):
         saxo_client = make_saxo_client(CFD_INDEX_ASSET)
         base = datetime.datetime(2026, 6, 2, 8, 0)
         data = [
@@ -472,21 +477,21 @@ class TestGetCandlesInWindow:
         start = base + datetime.timedelta(minutes=15)
         end = base + datetime.timedelta(minutes=35)
 
-        candles = candles_service.get_candles_in_window(
+        candles = await candles_service.get_candles_in_window(
             "FRA40.I", UnitTime.M5, 5, start, end
         )
 
         assert len(candles) == 4
         assert all(start <= c.date < end for c in candles)  # type: ignore
 
-    def test_empty_result_when_no_data(self, mocker, make_saxo_client):
+    async def test_empty_result_when_no_data(self, mocker, make_saxo_client):
         saxo_client = make_saxo_client(CFD_INDEX_ASSET)
         mocker.patch.object(
             saxo_client, "get_historical_data", return_value=[]
         )
         candles_service = CandlesService(saxo_client)
 
-        candles = candles_service.get_candles_in_window(
+        candles = await candles_service.get_candles_in_window(
             "FRA40.I",
             UnitTime.H1,
             60,

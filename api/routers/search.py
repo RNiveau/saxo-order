@@ -45,7 +45,7 @@ async def search_instruments(
         search_service = SearchService(
             saxo_client, binance_client, ouinex_client
         )
-        results = search_service.search_instruments(
+        results = await search_service.search_instruments(
             keyword=keyword, asset_type=asset_type
         )
 

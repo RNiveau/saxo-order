@@ -1,3 +1,5 @@
+import asyncio
+
 import click
 from click.core import Context
 
@@ -45,7 +47,7 @@ def shortcut_common_options(func):
 @click.pass_context
 def dax(ctx: Context, price: float, order_type: str, direction: str):
     code = "GER40.I"
-    shortcut(ctx, price, order_type, direction, code)
+    asyncio.run(shortcut(ctx, price, order_type, direction, code))
 
 
 @click.command()
@@ -54,7 +56,7 @@ def dax(ctx: Context, price: float, order_type: str, direction: str):
 @click.pass_context
 def nasdaq(ctx: Context, price: float, order_type: str, direction: str):
     code = "USNAS100.I"
-    shortcut(ctx, price, order_type, direction, code)
+    asyncio.run(shortcut(ctx, price, order_type, direction, code))
 
 
 @click.command()
@@ -63,7 +65,7 @@ def nasdaq(ctx: Context, price: float, order_type: str, direction: str):
 @click.pass_context
 def nikkei(ctx: Context, price: float, order_type: str, direction: str):
     code = "JP225.I"
-    shortcut(ctx, price, order_type, direction, code)
+    asyncio.run(shortcut(ctx, price, order_type, direction, code))
 
 
 @click.command()
@@ -72,7 +74,7 @@ def nikkei(ctx: Context, price: float, order_type: str, direction: str):
 @click.pass_context
 def cac(ctx: Context, price: float, order_type: str, direction: str):
     code = "FRA40.I"
-    shortcut(ctx, price, order_type, direction, code)
+    asyncio.run(shortcut(ctx, price, order_type, direction, code))
 
 
 @click.command()
@@ -81,7 +83,7 @@ def cac(ctx: Context, price: float, order_type: str, direction: str):
 @click.pass_context
 def sp500(ctx: Context, price: float, order_type: str, direction: str):
     code = "US500.I"
-    shortcut(ctx, price, order_type, direction, code)
+    asyncio.run(shortcut(ctx, price, order_type, direction, code))
 
 
 @click.command()
@@ -91,47 +93,47 @@ def sp500(ctx: Context, price: float, order_type: str, direction: str):
 def russell(ctx: Context, price: float, order_type: str, direction: str):
     print("You need to think about the cotation diff: future is + 23pts")
     code = "US2000SEP24"
-    shortcut(ctx, price, order_type, direction, code)
+    asyncio.run(shortcut(ctx, price, order_type, direction, code))
 
 
-def shortcut(
+async def shortcut(
     ctx: Context, price: float, order_type: str, direction: str, code: str
 ):
     configuration = Configuration(ctx.obj["config"])
-    saxo_client = SaxoClient(configuration)
-    asset = saxo_client.get_asset(code=code)
-    saxo_uic = asset["Identifier"]
-    asset = saxo_client.get_asset_detail(
-        saxo_uic=saxo_uic, asset_type=asset["AssetType"]
-    )
-    if len(asset["TradableOn"]) != 1:
-        click.Abort("Can't select a tradable account")
-        exit(1)
-    if OrderType.MARKET == OrderType.get_value(order_type):
-        price = saxo_client.get_price(saxo_uic, asset["AssetType"])
-    order = Order(
-        code=code,
-        name=asset["Description"],
-        price=price,
-        quantity=ctx.obj["quantity"],
-        asset_type=asset["AssetType"],
-        type=OrderType.get_value(order_type),
-        direction=Direction.get_value(direction),
-        currency=Currency.get_value(asset["CurrencyCode"]),
-    )
-    accounts = saxo_client.get_accounts()
-    account_key = list(
-        filter(
-            lambda x: x["AccountId"] == asset["TradableOn"][0],
-            accounts["Data"],
+    async with SaxoClient(configuration) as saxo_client:
+        asset = await saxo_client.get_asset(code=code)
+        saxo_uic = asset["Identifier"]
+        asset = await saxo_client.get_asset_detail(
+            saxo_uic=saxo_uic, asset_type=asset["AssetType"]
         )
-    )[0]["AccountKey"]
-    account = saxo_client.get_account(account_key)
-    update_order(order)
-    confirm_order(saxo_client, order)
-    saxo_client.set_order(
-        account=account,
-        order=order,
-        saxo_uic=saxo_uic,
-    )
-    logs_order(configuration, order, account)
+        if len(asset["TradableOn"]) != 1:
+            click.Abort("Can't select a tradable account")
+            exit(1)
+        if OrderType.MARKET == OrderType.get_value(order_type):
+            price = await saxo_client.get_price(saxo_uic, asset["AssetType"])
+        order = Order(
+            code=code,
+            name=asset["Description"],
+            price=price,
+            quantity=ctx.obj["quantity"],
+            asset_type=asset["AssetType"],
+            type=OrderType.get_value(order_type),
+            direction=Direction.get_value(direction),
+            currency=Currency.get_value(asset["CurrencyCode"]),
+        )
+        accounts = await saxo_client.get_accounts()
+        account_key = list(
+            filter(
+                lambda x: x["AccountId"] == asset["TradableOn"][0],
+                accounts["Data"],
+            )
+        )[0]["AccountKey"]
+        account = await saxo_client.get_account(account_key)
+        update_order(order)
+        await confirm_order(saxo_client, order)
+        await saxo_client.set_order(
+            account=account,
+            order=order,
+            saxo_uic=saxo_uic,
+        )
+        logs_order(configuration, order, account)

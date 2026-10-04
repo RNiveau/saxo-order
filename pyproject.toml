@@ -28,6 +28,7 @@ python-multipart = "^0.0.32"
 anthropic = "^0.117.0"
 tzdata = "^2026.3"
 mcp = "^2.1.1"
+httpx = "^0.28.1"
 
 [tool.poetry.scripts]
 k-order = "saxo_order.commands.k_order:k_order"
@@ -49,7 +50,6 @@ types-beautifulsoup4 = "^4.12.0"
 types-boto3 = "^1.42.40"
 types-pyyaml = "^6.0.12.20250915"
 flake8 = "^7.3.0"
-httpx = "^0.28.1"
 types-cachetools = "^6.2.0.20251022"
 
 [build-system]

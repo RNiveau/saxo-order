@@ -1,6 +1,6 @@
 import os
 from functools import lru_cache
-from typing import Optional, Union, cast
+from typing import Optional, Union
 
 from fastapi import Depends, HTTPException, Request
 
@@ -32,10 +32,10 @@ def get_configuration() -> Configuration:
     return Configuration(config_file)
 
 
-@lru_cache()
-def get_saxo_client() -> Union[SaxoClient, MockSaxoClient]:
-    config = get_configuration()
-
+def build_saxo_client(
+    config: Configuration,
+) -> Union[SaxoClient, MockSaxoClient]:
+    """Create the process-wide Saxo client, owned by the app lifespan."""
     if not config.access_token:
         logger.warning(
             "No access token found, using MockSaxoClient for local development"
@@ -51,9 +51,18 @@ def get_saxo_client() -> Union[SaxoClient, MockSaxoClient]:
         return MockSaxoClient(config)
 
 
-@lru_cache()
-def get_candles_service() -> CandlesService:
-    saxo_client = get_saxo_client()
+def get_saxo_client(request: Request) -> Union[SaxoClient, MockSaxoClient]:
+    saxo_client = getattr(request.app.state, "saxo_client", None)
+    if saxo_client is None:
+        raise RuntimeError(
+            "No Saxo client on app.state: the API lifespan has not run"
+        )
+    return saxo_client
+
+
+def get_candles_service(
+    saxo_client: SaxoClient = Depends(get_saxo_client),
+) -> CandlesService:
     return CandlesService(saxo_client)
 
 
@@ -118,11 +127,15 @@ def get_gsheet_client() -> GSheetClient:
     )
 
 
-@lru_cache()
-def get_report_service() -> ReportService:
-    saxo_client = cast(SaxoClient, get_saxo_client())
-    config = get_configuration()
-    return ReportService(saxo_client, config)
+def get_report_service(
+    request: Request,
+    saxo_client: SaxoClient = Depends(get_saxo_client),
+) -> ReportService:
+    report_service = getattr(request.app.state, "report_service", None)
+    if report_service is None:
+        report_service = ReportService(saxo_client, get_configuration())
+        request.app.state.report_service = report_service
+    return report_service
 
 
 @lru_cache()
@@ -147,8 +160,8 @@ def get_trade_republic_service() -> TradeRepublicService:
 
 def get_backtest_service(
     dynamodb_client: DynamoDBClient = Depends(get_dynamodb_client_best_effort),
+    candles_service: CandlesService = Depends(get_candles_service),
 ) -> BacktestService:
-    candles_service = get_candles_service()
     return BacktestService(candles_service, dynamodb_client)
 
 

@@ -1,6 +1,10 @@
+import asyncio
+
+from client.saxo_client import SaxoClient
 from mcp_server import dependencies
 from mcp_server.dependencies import (
     MARKETS,
+    close_market_client,
     get_configuration,
     resolve_market,
     resolve_market_client,
@@ -163,3 +167,57 @@ class TestTokenRefreshCost:
             resolve_market_client()
 
         assert failing.call_count == 1
+
+
+class TestSharedLiveClient:
+    """One live client serves the whole session and is closed at shutdown."""
+
+    def _isolate(self, tmp_path, monkeypatch):
+        get_configuration.cache_clear()
+        dependencies._token_refresh_gate.clear()
+        dependencies._live_client = None
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("AWS_PROFILE", raising=False)
+        monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+        (tmp_path / "access_token").write_text("a-token\na-refresh-token\n")
+
+    async def test_calls_share_the_client_and_follow_the_token(
+        self, tmp_path, monkeypatch
+    ):
+        self._isolate(tmp_path, monkeypatch)
+        first, _ = resolve_market_client()
+
+        (tmp_path / "access_token").write_text("b-token\nb-refresh-token\n")
+        dependencies._token_refresh_gate.clear()
+        second, _ = resolve_market_client()
+
+        assert second is first
+        assert isinstance(second, SaxoClient)
+        assert second.http.headers["Authorization"] == "Bearer b-token"
+        await close_market_client()
+
+    async def test_shutdown_closes_the_client(self, tmp_path, monkeypatch):
+        self._isolate(tmp_path, monkeypatch)
+        client, _ = resolve_market_client()
+        assert isinstance(client, SaxoClient)
+
+        await close_market_client()
+
+        assert client.http.is_closed
+        assert dependencies._live_client is None
+
+    async def test_a_replaced_configuration_closes_the_old_client(
+        self, tmp_path, monkeypatch
+    ):
+        self._isolate(tmp_path, monkeypatch)
+        old, _ = resolve_market_client()
+
+        get_configuration.cache_clear()
+        new, _ = resolve_market_client()
+        await asyncio.gather(*dependencies._closing)
+
+        assert new is not old
+        assert isinstance(old, SaxoClient) and isinstance(new, SaxoClient)
+        assert old.http.is_closed
+        assert not new.http.is_closed
+        await close_market_client()

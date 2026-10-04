@@ -131,7 +131,7 @@ class CandleSource:
             trading_date, definition.market
         )
         try:
-            m5_candles = self._fetch_five_minute_candles(
+            m5_candles = await self._fetch_five_minute_candles(
                 definition.instrument, h1_end_utc, session_end_utc
             )
         except SaxoException as e:
@@ -163,7 +163,7 @@ class CandleSource:
             trading_date, definition.market
         )
         try:
-            h1_candle = self._fetch_h1_reference_candle(
+            h1_candle = await self._fetch_h1_reference_candle(
                 definition.instrument, h1_start_utc, h1_end_utc
             )
         except SaxoException as e:
@@ -207,7 +207,7 @@ class CandleSource:
             trading_date, definition.market
         )
         try:
-            m5_candles = self._fetch_five_minute_candles(
+            m5_candles = await self._fetch_five_minute_candles(
                 definition.instrument, h1_end_utc, session_end_utc
             )
         except SaxoException as e:
@@ -230,7 +230,7 @@ class CandleSource:
             has_data=True, h1_candle=h1_candle, m5_candles=m5_candles
         )
 
-    def _fetch_h1_reference_candle(
+    async def _fetch_h1_reference_candle(
         self,
         instrument: str,
         h1_start_utc: datetime.datetime,
@@ -240,14 +240,14 @@ class CandleSource:
         window (a real "no data" day, safe to cache as such). A
         SaxoException is a transient fetch failure, not "no data" - it
         propagates so the caller never confuses the two."""
-        candles = self.candles_service.get_candles_in_window(
+        candles = await self.candles_service.get_candles_in_window(
             instrument, UnitTime.H1, H1_HORIZON, h1_start_utc, h1_end_utc
         )
         if not candles:
             return None
         return sorted(candles, key=candle_date)[0]
 
-    def _fetch_five_minute_candles(
+    async def _fetch_five_minute_candles(
         self,
         instrument: str,
         start_utc: datetime.datetime,
@@ -256,7 +256,7 @@ class CandleSource:
         """An empty result is a genuine (cacheable) "no candles"; a
         SaxoException is a transient fetch failure and propagates - see
         _fetch_h1_reference_candle."""
-        return self.candles_service.get_candles_in_window(
+        return await self.candles_service.get_candles_in_window(
             instrument, UnitTime.M5, FIVE_MINUTE_HORIZON, start_utc, end_utc
         )
 

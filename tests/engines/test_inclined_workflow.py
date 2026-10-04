@@ -2,6 +2,7 @@ import datetime
 
 import pytest
 
+from client.saxo_client import SaxoClient
 from engines.workflows import InclinedWorkflow
 from model import Candle, UnitTime
 from model.workflow import IndicatorInclined, Point
@@ -11,7 +12,7 @@ from utils.exception import SaxoException
 @pytest.fixture
 def saxo_client(mocker):
     """A Saxo client whose market is open every day."""
-    client = mocker.Mock()
+    client = mocker.Mock(spec=SaxoClient)
     client.get_asset.return_value = {
         "Identifier": "123",
         "AssetType": "Stock",
@@ -56,7 +57,7 @@ def candle():
 
 class TestInclinedWorkflow:
 
-    def test_init_workflow_computes_line_value(
+    async def test_init_workflow_computes_line_value(
         self, workflow, make_indicator, freeze_now, candle
     ):
         indicator = make_indicator(
@@ -67,12 +68,12 @@ class TestInclinedWorkflow:
         )
         freeze_now(datetime.datetime(2024, 10, 1))
 
-        workflow.init_workflow(indicator, [candle])
+        await workflow.init_workflow(indicator, [candle])
 
         assert workflow.indicator_value is not None
         assert isinstance(workflow.indicator_value, float)
 
-    def test_init_workflow_rejects_non_inclined_indicator(
+    async def test_init_workflow_rejects_non_inclined_indicator(
         self, workflow, candle
     ):
         from model import Indicator
@@ -80,15 +81,17 @@ class TestInclinedWorkflow:
         indicator = Indicator(name="ma50", ut="h1")
 
         with pytest.raises(SaxoException):
-            workflow.init_workflow(indicator, [candle])
+            await workflow.init_workflow(indicator, [candle])
 
-    def test_init_workflow_rejects_missing_points(self, workflow, candle):
+    async def test_init_workflow_rejects_missing_points(
+        self, workflow, candle
+    ):
         indicator = IndicatorInclined(
             name="inclined", ut="h1", x1=None, x2=None
         )
 
         with pytest.raises(SaxoException):
-            workflow.init_workflow(indicator, [candle])
+            await workflow.init_workflow(indicator, [candle])
 
     def test_below_condition_with_element(self, workflow):
         workflow.indicator_value = 105.0
@@ -158,7 +161,7 @@ class TestInclinedWorkflow:
                 x2=Point(x=same_date, y=200),
             )
 
-    def test_real_data_inclined_line(
+    async def test_real_data_inclined_line(
         self, workflow, make_indicator, freeze_now
     ):
         indicator = make_indicator(
@@ -173,11 +176,11 @@ class TestInclinedWorkflow:
             Candle(lower=125, higher=130, open=127, close=128, ut=UnitTime.H1)
         ]
 
-        workflow.init_workflow(indicator, candles)
+        await workflow.init_workflow(indicator, candles)
 
         assert workflow.indicator_value == pytest.approx(127.39, abs=0.01)
 
-    def test_real_data_ascending_line(
+    async def test_real_data_ascending_line(
         self, saxo_client, make_indicator, freeze_now
     ):
         """Closed market days are skipped when projecting the line."""
@@ -208,11 +211,11 @@ class TestInclinedWorkflow:
             Candle(lower=60, higher=65, open=62, close=63, ut=UnitTime.H1)
         ]
 
-        workflow.init_workflow(indicator, candles)
+        await workflow.init_workflow(indicator, candles)
 
         assert workflow.indicator_value == pytest.approx(63.79, abs=0.01)
 
-    def test_descending_line(
+    async def test_descending_line(
         self, workflow, make_indicator, freeze_now, candle
     ):
         indicator = make_indicator(
@@ -223,6 +226,6 @@ class TestInclinedWorkflow:
         )
         freeze_now(datetime.datetime(2024, 9, 25))
 
-        workflow.init_workflow(indicator, [candle])
+        await workflow.init_workflow(indicator, [candle])
 
         assert workflow.indicator_value < 110.0

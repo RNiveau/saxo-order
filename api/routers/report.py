@@ -1,4 +1,5 @@
-from typing import Union
+import asyncio
+from typing import Any, List, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -23,6 +24,38 @@ from utils.logger import Logger
 
 router = APIRouter(prefix="/api/report", tags=["report"])
 logger = Logger.get_logger("report_router")
+
+AnyReportService = Union[
+    BinanceReportService, OuinexReportService, ReportService
+]
+
+
+async def _get_orders_report(
+    report_service: AnyReportService, account_id: str, from_date: str
+) -> List:
+    if isinstance(report_service, ReportService):
+        return await report_service.get_orders_report(account_id, from_date)
+    return await asyncio.to_thread(
+        report_service.get_orders_report, account_id, from_date
+    )
+
+
+async def _create_gsheet_order(
+    report_service: AnyReportService, **kwargs: Any
+) -> None:
+    if isinstance(report_service, ReportService):
+        await report_service.create_gsheet_order(**kwargs)
+        return
+    await asyncio.to_thread(report_service.create_gsheet_order, **kwargs)
+
+
+async def _update_gsheet_order(
+    report_service: AnyReportService, **kwargs: Any
+) -> None:
+    if isinstance(report_service, ReportService):
+        await report_service.update_gsheet_order(**kwargs)
+        return
+    await asyncio.to_thread(report_service.update_gsheet_order, **kwargs)
 
 
 @router.get("/config")
@@ -56,9 +89,7 @@ async def get_report_orders(
     summary data.
     """
     try:
-        report_service: Union[
-            BinanceReportService, OuinexReportService, ReportService
-        ]
+        report_service: AnyReportService
         if account_id.startswith("binance_"):
             report_service = binance_report_service
         elif account_id.startswith("ouinex_"):
@@ -66,7 +97,9 @@ async def get_report_orders(
         else:
             report_service = saxo_report_service
 
-        orders = report_service.get_orders_report(account_id, from_date)
+        orders = await _get_orders_report(
+            report_service, account_id, from_date
+        )
 
         # Convert orders to response format
         order_responses = []
@@ -120,9 +153,7 @@ async def get_report_summary(
     Returns aggregated data like total orders, volume, fees, etc.
     """
     try:
-        report_service: Union[
-            BinanceReportService, OuinexReportService, ReportService
-        ]
+        report_service: AnyReportService
         if account_id.startswith("binance_"):
             report_service = binance_report_service
         elif account_id.startswith("ouinex_"):
@@ -130,7 +161,9 @@ async def get_report_summary(
         else:
             report_service = saxo_report_service
 
-        orders = report_service.get_orders_report(account_id, from_date)
+        orders = await _get_orders_report(
+            report_service, account_id, from_date
+        )
 
         summary = report_service.calculate_summary(orders)
         return ReportSummaryResponse(**summary)
@@ -165,9 +198,7 @@ async def create_gsheet_order(
     This opens a new position with stop loss, target, and strategy tracking.
     """
     try:
-        report_service: Union[
-            BinanceReportService, OuinexReportService, ReportService
-        ]
+        report_service: AnyReportService
         if request.account_id.startswith("binance_"):
             report_service = binance_report_service
         elif request.account_id.startswith("ouinex_"):
@@ -176,8 +207,8 @@ async def create_gsheet_order(
             report_service = saxo_report_service
 
         # Get orders using the same from_date as the frontend used
-        orders = report_service.get_orders_report(
-            request.account_id, from_date=request.from_date
+        orders = await _get_orders_report(
+            report_service, request.account_id, request.from_date
         )
 
         if request.order_index >= len(orders):
@@ -186,7 +217,8 @@ async def create_gsheet_order(
         order = orders[request.order_index]
 
         # Create in Google Sheets
-        report_service.create_gsheet_order(
+        await _create_gsheet_order(
+            report_service,
             account_id=request.account_id,
             order=order,
             stop=request.stop,
@@ -228,9 +260,7 @@ async def update_gsheet_order(
     This can either update an open position or close it.
     """
     try:
-        report_service: Union[
-            BinanceReportService, OuinexReportService, ReportService
-        ]
+        report_service: AnyReportService
         if request.account_id.startswith("binance_"):
             report_service = binance_report_service
         elif request.account_id.startswith("ouinex_"):
@@ -239,8 +269,8 @@ async def update_gsheet_order(
             report_service = saxo_report_service
 
         # Get orders using the same from_date as the frontend used
-        orders = report_service.get_orders_report(
-            request.account_id, from_date=request.from_date
+        orders = await _get_orders_report(
+            report_service, request.account_id, request.from_date
         )
 
         if request.order_index >= len(orders):
@@ -249,7 +279,8 @@ async def update_gsheet_order(
         order = orders[request.order_index]
 
         # Update in Google Sheets
-        report_service.update_gsheet_order(
+        await _update_gsheet_order(
+            report_service,
             account_id=request.account_id,
             order=order,
             line_number=request.line_number,

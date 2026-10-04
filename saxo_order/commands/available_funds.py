@@ -2,6 +2,7 @@ import click
 from click.core import Context
 
 from client.saxo_client import SaxoClient
+from saxo_order.async_utils import run_async
 from saxo_order.commands import catch_exception
 from saxo_order.commands.input_helper import select_account
 from saxo_order.service import get_account_open_orders
@@ -15,12 +16,13 @@ logger = Logger.get_logger("available_funds")
 @click.command()
 @click.pass_context
 @catch_exception(handle=SaxoException)
-def available_funds(ctx: Context):
+@run_async
+async def available_funds(ctx: Context):
 
-    client = SaxoClient(Configuration(ctx.obj["config"]))
-    account = select_account(client)
-    open_orders = client.get_open_orders()
-    sum_open_order = get_account_open_orders(
-        account=account, open_orders=open_orders
-    )
-    print(account.available_fund - sum_open_order)
+    async with SaxoClient(Configuration(ctx.obj["config"])) as client:
+        account = await select_account(client)
+        open_orders = await client.get_open_orders()
+        sum_open_order = get_account_open_orders(
+            account=account, open_orders=open_orders
+        )
+        print(account.available_fund - sum_open_order)

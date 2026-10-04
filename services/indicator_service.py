@@ -780,7 +780,7 @@ def double_inside_bar(candles: List[Candle]) -> bool:
     return inside_bar(candles) and inside_bar(candles[1:])
 
 
-def number_of_day_between_dates(
+async def number_of_day_between_dates(
     saxo_client: SaxoClient,
     saxo_uic: str,
     asset_type: str,
@@ -792,7 +792,7 @@ def number_of_day_between_dates(
         return 0
     while date1 < date2:
         date1 += datetime.timedelta(days=1)
-        if date1.weekday() < 5 and saxo_client.is_day_open(
+        if date1.weekday() < 5 and await saxo_client.is_day_open(
             saxo_uic=saxo_uic, asset_type=asset_type, date=date1
         ):
             diff += 1

@@ -9,6 +9,7 @@ from api.dependencies import (
     get_saxo_client,
 )
 from api.main import app
+from client.saxo_client import SaxoClient
 
 client = TestClient(app)
 
@@ -16,7 +17,7 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def mock_dependencies():
     """Mock order endpoint dependencies."""
-    mock_saxo = MagicMock()
+    mock_saxo = MagicMock(spec=SaxoClient)
     mock_config = MagicMock()
     mock_gsheet = MagicMock()
 

@@ -9,6 +9,9 @@ from api.dependencies import (
     get_report_service,
 )
 from api.main import app
+from api.services.binance_report_service import BinanceReportService
+from api.services.ouinex_report_service import OuinexReportService
+from api.services.report_service import ReportService
 
 client = TestClient(app)
 
@@ -16,11 +19,11 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def mock_report_services():
     """Override the three report services with mocks returning no orders."""
-    saxo = MagicMock()
+    saxo = MagicMock(spec=ReportService)
     saxo.get_orders_report.return_value = []
-    binance = MagicMock()
+    binance = MagicMock(spec=BinanceReportService)
     binance.get_orders_report.return_value = []
-    ouinex = MagicMock()
+    ouinex = MagicMock(spec=OuinexReportService)
     ouinex.get_orders_report.return_value = []
 
     app.dependency_overrides[get_report_service] = lambda: saxo

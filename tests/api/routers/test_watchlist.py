@@ -10,6 +10,7 @@ from api.routers.watchlist import (
     get_saxo_client,
     get_watchlist_service,
 )
+from client.saxo_client import SaxoClient
 from model import Currency
 
 client = TestClient(app)
@@ -25,7 +26,7 @@ def _clear_overrides():
 @pytest.fixture
 def mock_saxo_client():
     """Mock SaxoClient."""
-    mock_client = MagicMock()
+    mock_client = MagicMock(spec=SaxoClient)
 
     # Default mock behavior - return asset with description
     mock_client.get_asset.return_value = {

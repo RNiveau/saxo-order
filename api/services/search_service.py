@@ -1,3 +1,4 @@
+import asyncio
 from typing import List, Optional
 
 from client.binance_client import BinanceClient
@@ -20,7 +21,7 @@ class SearchService:
         self.binance_client = binance_client
         self.ouinex_client = ouinex_client
 
-    def search_instruments(
+    async def search_instruments(
         self, keyword: str, asset_type: Optional[str] = None
     ) -> List[Asset]:
         """
@@ -33,10 +34,10 @@ class SearchService:
         Returns:
             List of Asset objects from both Saxo and Binance
         """
-        results = []
+        results: List[Asset] = []
 
         try:
-            saxo_results = self.saxo_client.search(
+            saxo_results = await self.saxo_client.search(
                 keyword=keyword, asset_type=asset_type
             )
             results.extend(saxo_results)
@@ -44,13 +45,17 @@ class SearchService:
             logger.error(f"Saxo search error: {e}")
 
         try:
-            binance_results = self.binance_client.search(keyword=keyword)
+            binance_results = await asyncio.to_thread(
+                self.binance_client.search, keyword=keyword
+            )
             results.extend(binance_results)
         except Exception as e:
             logger.error(f"Binance search error: {e}")
 
         try:
-            ouinex_results = self.ouinex_client.search(keyword=keyword)
+            ouinex_results = await asyncio.to_thread(
+                self.ouinex_client.search, keyword=keyword
+            )
             results.extend(ouinex_results)
         except Exception as e:
             logger.error(f"Ouinex search error: {e}")

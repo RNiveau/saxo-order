@@ -10,7 +10,9 @@ from api.routers.indicator import (
     get_candles_service,
     get_saxo_client,
 )
+from client.saxo_client import SaxoClient
 from model import Candle, UnitTime
+from services.candles_service import CandlesService
 from utils.exception import SaxoException
 
 client = TestClient(app)
@@ -19,7 +21,7 @@ client = TestClient(app)
 @pytest.fixture
 def mock_saxo_client():
     """Mock SaxoClient with get_asset and get_historical_data methods."""
-    mock_client = MagicMock()
+    mock_client = MagicMock(spec=SaxoClient)
     mock_client.get_asset.return_value = {
         "Identifier": 123,
         "AssetType": "Stock",
@@ -38,6 +40,9 @@ def mock_saxo_client():
 @pytest.fixture(autouse=True)
 def mock_binance_client():
     """Mock BinanceClient - autouse so all tests have it."""
+    app.dependency_overrides.setdefault(
+        get_saxo_client, lambda: MagicMock(spec=SaxoClient)
+    )
     mock_client = MagicMock()
 
     def override_get_binance_client():
@@ -45,13 +50,13 @@ def mock_binance_client():
 
     app.dependency_overrides[get_binance_client] = override_get_binance_client
     yield mock_client
-    # Don't delete - mock_saxo_client clears all overrides
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
 def mock_candles_service():
     """Mock CandlesService with get_latest_candle method."""
-    mock_service = MagicMock()
+    mock_service = MagicMock(spec=CandlesService)
     # Default: return a candle with close price of 100.0
     mock_service.get_latest_candle.return_value = Candle(
         open=100.0,

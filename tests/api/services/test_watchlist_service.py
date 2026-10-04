@@ -4,8 +4,10 @@ import pytest
 
 from api.models.indicator import AssetIndicatorsResponse
 from api.models.watchlist import WatchlistTag
+from api.services.indicator_service import IndicatorService
 from api.services.watchlist_service import WatchlistService
 from client.aws_client import DynamoDBClient
+from client.saxo_client import SaxoClient
 from model import Currency
 from model.enum import Exchange
 
@@ -19,7 +21,8 @@ def mock_dynamodb_client():
 @pytest.fixture
 def mock_indicator_service():
     """Mock IndicatorService."""
-    mock_service = MagicMock()
+    mock_service = MagicMock(spec=IndicatorService)
+    mock_service.saxo_client = MagicMock(spec=SaxoClient)
     # Mock get_price_and_variation to return consistent values
     mock_service.get_price_and_variation.return_value = (100.0, 5.0)
     # Mock saxo_client.get_asset

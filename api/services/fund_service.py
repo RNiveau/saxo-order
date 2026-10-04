@@ -12,29 +12,29 @@ class FundService:
     def __init__(self, client: SaxoClient):
         self.client = client
 
-    def get_accounts(self) -> List[Dict]:
+    async def get_accounts(self) -> List[Dict]:
         """Get all accounts from Saxo."""
-        accounts_data = self.client.get_accounts()
+        accounts_data = await self.client.get_accounts()
         return accounts_data.get("Data", [])
 
-    def get_account_by_id(self, account_id: str) -> Optional[Account]:
+    async def get_account_by_id(self, account_id: str) -> Optional[Account]:
         """Get a specific account by ID."""
-        accounts = self.get_accounts()
+        accounts = await self.get_accounts()
         for acc_data in accounts:
             if acc_data["AccountId"] == account_id:
                 # Use get_account method to fetch full account with balance
-                return self.client.get_account(acc_data["AccountKey"])
+                return await self.client.get_account(acc_data["AccountKey"])
         return None
 
-    def get_default_account(self) -> Optional[Account]:
+    async def get_default_account(self) -> Optional[Account]:
         """Get the first account as default."""
-        accounts = self.get_accounts()
+        accounts = await self.get_accounts()
         if accounts:
             # Return the first account as default
-            return self.client.get_account(accounts[0]["AccountKey"])
+            return await self.client.get_account(accounts[0]["AccountKey"])
         return None
 
-    def calculate_available_fund(
+    async def calculate_available_fund(
         self, account_id: Optional[str] = None
     ) -> Dict:
         """
@@ -43,17 +43,17 @@ class FundService:
         """
         # Get account
         if account_id:
-            account = self.get_account_by_id(account_id)
+            account = await self.get_account_by_id(account_id)
             if not account:
                 return {"error": f"Account {account_id} not found"}
         else:
             # Use the first account as default
-            account = self.get_default_account()
+            account = await self.get_default_account()
             if not account:
                 return {"error": "No accounts found"}
 
         # Reuse exact logic from CLI available_funds command
-        open_orders = self.client.get_open_orders()
+        open_orders = await self.client.get_open_orders()
         sum_open_order = get_account_open_orders(
             account=account, open_orders=open_orders
         )

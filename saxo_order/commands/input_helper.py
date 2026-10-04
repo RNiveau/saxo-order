@@ -18,8 +18,8 @@ from saxo_order.service import apply_rules, calculate_taxes, get_earn, get_lost
 from utils.exception import SaxoException
 
 
-def select_account(client: SaxoClient) -> Account:
-    accounts = client.get_accounts()
+async def select_account(client: SaxoClient) -> Account:
+    accounts = await client.get_accounts()
     if len(accounts["Data"]) > 1:
         prompt = "Select the account (select with ID):\n"
         for index, account in enumerate(accounts["Data"]):
@@ -41,11 +41,11 @@ def select_account(client: SaxoClient) -> Account:
         )
         if len(account) != 1:
             raise SaxoException("Wrong account selection")
-        return client.get_account(account[0]["AccountKey"])
+        return await client.get_account(account[0]["AccountKey"])
     if int(id) < 1 or int(id) > len(accounts["Data"]):
         raise SaxoException("Wrong account selection")
     account = accounts["Data"][int(id) - 1]
-    return client.get_account(account["AccountKey"])
+    return await client.get_account(account["AccountKey"])
 
 
 def get_stop_objective(
@@ -161,25 +161,25 @@ def get_signal() -> Optional[Signal]:
     return Signal.get_value(_list[index - 1])
 
 
-def validate_buy_order(
+async def validate_buy_order(
     account: Account, client: SaxoClient, order: Order
 ) -> None:
-    open_orders = client.get_open_orders()
-    total_amount = client.get_total_amount()
+    open_orders = await client.get_open_orders()
+    total_amount = await client.get_total_amount()
     error = apply_rules(account, order, total_amount, open_orders)
     if error is not None:
         print(error)
         raise click.Abort(error)
 
 
-def confirm_order(client: SaxoClient, order: Order) -> None:
-    total = client.get_total_amount()
+async def confirm_order(client: SaxoClient, order: Order) -> None:
+    total = await client.get_total_amount()
     print(get_lost(total, order))
     print(get_earn(total, order))
     click.confirm("Do you want to continue?", abort=True)
 
 
-def get_conditional_order(client: SaxoClient) -> ConditionalOrder:
+async def get_conditional_order(client: SaxoClient) -> ConditionalOrder:
     code_conditional = click.prompt(
         "What is the code of the condition ?", type=str
     )
@@ -192,7 +192,7 @@ def get_conditional_order(client: SaxoClient) -> ConditionalOrder:
             type=click.Choice(["above", "below"]),
         )
     )
-    asset_conditional = client.get_asset(code=code_conditional)
+    asset_conditional = await client.get_asset(code=code_conditional)
     return ConditionalOrder(
         saxo_uic=asset_conditional["Identifier"],
         price=price_conditional,

@@ -9,7 +9,6 @@ exist, or about how deep the forming week is, would be a bug the schema
 still advertises as a feature.
 """
 
-import asyncio
 from typing import Optional
 
 from mcp.server.mcpserver.exceptions import ToolError
@@ -58,9 +57,7 @@ async def derive_market(
     forming period out rather than guessing.
     """
     try:
-        detail = await asyncio.to_thread(
-            client.get_asset_detail, instrument_id, asset_type.value
-        )
+        detail = await client.get_asset_detail(instrument_id, asset_type.value)
     except SaxoException as e:
         logger.warning(
             f"Could not read the symbol of instrument {instrument_id}: {e}"

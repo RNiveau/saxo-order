@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from api.dependencies import build_saxo_client, get_configuration
 from api.routers import (
     alert_digest,
     alerting,
@@ -43,11 +44,18 @@ async def lifespan(app: FastAPI):
         retries={"mode": "standard", "total_max_attempts": 3},
     )
 
-    async with session.resource(
-        "dynamodb", region_name="eu-west-1", config=config
-    ) as dynamodb:
-        app.state.dynamodb = dynamodb
-        yield
+    app.state.saxo_client = build_saxo_client(get_configuration())
+    app.state.report_service = None
+    try:
+        async with session.resource(
+            "dynamodb", region_name="eu-west-1", config=config
+        ) as dynamodb:
+            app.state.dynamodb = dynamodb
+            yield
+    finally:
+        app.state.report_service = None
+        await app.state.saxo_client.aclose()
+        app.state.saxo_client = None
 
     stats = DynamoDBClient.get_stats()
     logger.info(

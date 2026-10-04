@@ -203,7 +203,7 @@ class AlertingService:
             )
 
         try:
-            asset_info = saxo_client.get_asset(
+            asset_info = await saxo_client.get_asset(
                 request.asset_code, request.country_code
             )
             asset_description = asset_info.get(

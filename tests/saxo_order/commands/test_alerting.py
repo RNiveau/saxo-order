@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from client.saxo_client import SaxoClient
 from model import (
     AlertType,
     Candle,
@@ -40,7 +41,7 @@ def _mm50_touch_candles() -> List[Candle]:
 
 @pytest.fixture
 def saxo_client():
-    return MagicMock()
+    return MagicMock(spec=SaxoClient)
 
 
 @pytest.fixture
@@ -508,7 +509,7 @@ class TestRunDetectionForAssetIsolatesDetectors:
         sends _run_double_top down a branch that never reads candles[0] - so
         the mock has to carry a tick size scheme for the no-candle case to
         exercise the code path it is about."""
-        saxo_client = MagicMock()
+        saxo_client = MagicMock(spec=SaxoClient)
         saxo_client.get_asset_detail.return_value = {
             "TickSizeScheme": {
                 "DefaultTickSize": 0.01,
@@ -634,7 +635,7 @@ class TestBuildWeeklyCandles:
     """
 
     def _saxo_client_returning(self, mocker, candles: List[Candle]):
-        client = MagicMock()
+        client = MagicMock(spec=SaxoClient)
         client.get_historical_data.return_value = [{"raw": True}]
         mocker.patch(
             "services.candle_source.client_helper.map_data_to_candles",
@@ -642,7 +643,7 @@ class TestBuildWeeklyCandles:
         )
         return client
 
-    def test_it_prepends_the_forming_week(self, mocker):
+    async def test_it_prepends_the_forming_week(self, mocker):
         today = datetime.datetime.now(datetime.UTC)
         last_week = today - datetime.timedelta(weeks=1)
         client = self._saxo_client_returning(
@@ -661,12 +662,12 @@ class TestBuildWeeklyCandles:
             return_value=forming,
         )
 
-        candles = build_weekly_series(client, 1, [])
+        candles = await build_weekly_series(client, 1, [])
 
         assert candles[0] is forming
         assert len(candles) == 61
 
-    def test_it_does_not_prepend_when_the_provider_already_returned_it(
+    async def test_it_does_not_prepend_when_the_provider_already_returned_it(
         self, mocker
     ):
         today = datetime.datetime.now(datetime.UTC)
@@ -677,12 +678,12 @@ class TestBuildWeeklyCandles:
             "services.candle_source." "build_current_weekly_candle_from_daily",
         )
 
-        candles = build_weekly_series(client, 1, [])
+        candles = await build_weekly_series(client, 1, [])
 
         assert len(candles) == 60
         build.assert_not_called()
 
-    def test_it_ends_at_the_last_completed_week_before_monday_opens(
+    async def test_it_ends_at_the_last_completed_week_before_monday_opens(
         self, mocker
     ):
         """No daily candle falls in the current ISO week, so there is nothing
@@ -698,16 +699,16 @@ class TestBuildWeeklyCandles:
             return_value=None,
         )
 
-        candles = build_weekly_series(client, 1, [])
+        candles = await build_weekly_series(client, 1, [])
 
         assert len(candles) == 60
 
-    def test_it_asks_the_provider_for_weekly_bars_once(self, mocker):
+    async def test_it_asks_the_provider_for_weekly_bars_once(self, mocker):
         client = self._saxo_client_returning(
             mocker, _weekly_candles(60, datetime.datetime.now(datetime.UTC))
         )
 
-        build_weekly_series(client, 42, [])
+        await build_weekly_series(client, 42, [])
 
         client.get_historical_data.assert_called_once()
         kwargs = client.get_historical_data.call_args[1]

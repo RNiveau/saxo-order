@@ -1,13 +1,10 @@
+import asyncio
 import logging
-import time
 from datetime import datetime
-from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
-import requests
-from cachetools import TTLCache
-from requests import Response
-from requests.adapters import HTTPAdapter, Retry
+import httpx
+from cachetools import LRUCache, TTLCache
 
 from client.client_helper import get_price_from_saxo_data
 from client.saxo_auth_client import SaxoAuthClient
@@ -38,74 +35,130 @@ RATE_LIMITING_KEYS = [
     ),
     ("X-RateLimit-ChartMinute-Remaining", "X-RateLimit-ChartMinute-Reset"),
 ]
+RETRY_STATUSES = {500, 502, 503, 504}
+IDEMPOTENT_METHODS = frozenset(
+    {"DELETE", "GET", "HEAD", "OPTIONS", "PUT", "TRACE"}
+)
+RETRY_ERRORS = (httpx.ReadError, httpx.ReadTimeout, httpx.RemoteProtocolError)
+MAX_RETRIES = 3
+RETRY_BACKOFF_SECONDS = 0.5
+REQUEST_TIMEOUT_SECONDS = 30.0
 
 
 class SaxoClient:
-    def __init__(self, configuration: Configuration) -> None:
+    def __init__(
+        self,
+        configuration: Configuration,
+        transport: Optional[httpx.AsyncBaseTransport] = None,
+    ) -> None:
         self.logger = Logger.get_logger("saxo_client", logging.INFO)
-        self.session = requests.Session()
         self.configuration = configuration
         # Cache for historical data with 30 min TTL
         # (only for horizon=30, horizon=60, horizon=1440, and horizon=10080)
         self.historical_data_cache: TTLCache = TTLCache(maxsize=256, ttl=1800)
         # Cache for 5min intraday data with 5 min TTL (only for horizon=5)
         self.intraday_data_cache: TTLCache = TTLCache(maxsize=256, ttl=300)
-        self.session.headers.update(
-            {"Authorization": f"Bearer {configuration.access_token}"}
+        self.asset_cache: LRUCache = LRUCache(maxsize=256)
+        self._refresh_lock = asyncio.Lock()
+        self.http = httpx.AsyncClient(
+            headers={
+                "Authorization": f"Bearer {configuration.access_token}",
+                "Content-Type": "application/json",
+            },
+            timeout=REQUEST_TIMEOUT_SECONDS,
+            transport=transport or httpx.AsyncHTTPTransport(retries=3),
         )
-        self.session.headers.update({"Content-Type": "application/json"})
-        retries = Retry(
-            total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504]
-        )
-        adapter = HTTPAdapter(max_retries=retries)
-        self.session.mount("https://", adapter)
-        self.session.hooks["response"].append(self.refresh_token)
 
-    def refresh_token(self, request, *args, **kwargs):
-        if request.status_code == 401:
-            # In API mode, first try to reload tokens from S3
-            # (another container may have already refreshed them)
-            if self.configuration.api_mode:
-                self.logger.info(
-                    "API mode: attempting to reload tokens from S3 first"
-                )
-                if self.configuration.reload_tokens_from_s3():
-                    self.logger.info(
-                        "Tokens reloaded from S3, retrying request"
-                    )
-                    auth_header = f"Bearer {self.configuration.access_token}"
-                    self.session.headers.update({"Authorization": auth_header})
-                    request.request.headers["Authorization"] = (
-                        self.session.headers["Authorization"]
-                    )
-                    retry_response = self.session.send(request.request)
+    async def __aenter__(self) -> "SaxoClient":
+        return self
 
-                    # If still 401, proceed to refresh token API call
-                    if retry_response.status_code != 401:
-                        return retry_response
-                    self.logger.info(
-                        "Still 401 after S3 reload, calling refresh token API"
-                    )
+    async def __aexit__(self, *exc_info: Any) -> None:
+        await self.aclose()
 
-            # Standard refresh flow: call refresh token API
-            auth_client = SaxoAuthClient(self.configuration)
-            access_token, refresh_token = auth_client.refresh_token()
-            self.configuration.save_tokens(access_token, refresh_token)
-            self.session.headers.update(
-                {"Authorization": f"Bearer {access_token}"}
+    async def aclose(self) -> None:
+        await self.http.aclose()
+
+    async def _request(
+        self, method: str, url: str, **kwargs: Any
+    ) -> httpx.Response:
+        """Send a request, retrying transient failures on idempotent
+        methods only: replaying an order POST could place it twice."""
+        retryable = method.upper() in IDEMPOTENT_METHODS
+        for attempt in range(MAX_RETRIES + 1):
+            last_attempt = not retryable or attempt == MAX_RETRIES
+            try:
+                response = await self._send(method, url, **kwargs)
+            except RETRY_ERRORS:
+                if last_attempt:
+                    raise
+            else:
+                if response.status_code not in RETRY_STATUSES or last_attempt:
+                    break
+            await asyncio.sleep(RETRY_BACKOFF_SECONDS * 2**attempt)
+        await self._wait_for_rate_limit(response)
+        return response
+
+    async def _send(
+        self, method: str, url: str, **kwargs: Any
+    ) -> httpx.Response:
+        response = await self.http.request(method, url, **kwargs)
+        if response.status_code == 401:
+            response = await self._retry_after_refresh(
+                response, method, url, **kwargs
             )
-            request.request.headers["Authorization"] = self.session.headers[
-                "Authorization"
-            ]
-            return self.session.send(request.request)
+        return response
 
-    @lru_cache(maxsize=256)
-    def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
+    async def _retry_after_refresh(
+        self, rejected: httpx.Response, method: str, url: str, **kwargs: Any
+    ) -> httpx.Response:
+        rejected_auth = rejected.request.headers.get("Authorization")
+        async with self._refresh_lock:
+            if self.http.headers.get("Authorization") == rejected_auth:
+                response = await self._reload_tokens_from_s3(
+                    method, url, **kwargs
+                )
+                if response is not None and response.status_code != 401:
+                    return response
+                self.logger.info("Calling refresh token API")
+                access_token, refresh_token = await SaxoAuthClient(
+                    self.configuration
+                ).refresh_token()
+                await asyncio.to_thread(
+                    self.configuration.save_tokens,
+                    access_token,
+                    refresh_token,
+                )
+                self.set_access_token(access_token)
+        return await self.http.request(method, url, **kwargs)
+
+    async def _reload_tokens_from_s3(
+        self, method: str, url: str, **kwargs: Any
+    ) -> Optional[httpx.Response]:
+        """In API mode another container may have already refreshed the
+        tokens, so try those before calling the refresh token API."""
+        if not self.configuration.api_mode:
+            return None
+        self.logger.info("API mode: attempting to reload tokens from S3 first")
+        if not await asyncio.to_thread(
+            self.configuration.reload_tokens_from_s3
+        ):
+            return None
+        self.logger.info("Tokens reloaded from S3, retrying request")
+        self.set_access_token(self.configuration.access_token)
+        return await self.http.request(method, url, **kwargs)
+
+    def set_access_token(self, access_token: str) -> None:
+        self.http.headers["Authorization"] = f"Bearer {access_token}"
+
+    async def get_asset(self, code: str, market: Optional[str] = None) -> Dict:
+        cache_key = (code, market)
+        if cache_key in self.asset_cache:
+            return self.asset_cache[cache_key]
         symbol = (
             f"{code}:{market}" if market is not None and market != "" else code
         )
         self.logger.debug(f"get_asset {symbol}")
-        data = self._find_asset(symbol)
+        data = await self._find_asset(symbol)
         data = list(
             filter(lambda x: x["Symbol"].lower() == symbol.lower(), data)
         )
@@ -117,12 +170,13 @@ class SaxoClient:
             )
         if len(data) == 0:
             raise SaxoException(f"Stock {symbol} doesn't exist")
+        self.asset_cache[cache_key] = data[0]
         return data[0]
 
-    def search(
+    async def search(
         self, keyword: str, asset_type: Optional[str] = None
     ) -> List[Asset]:
-        data = self._find_asset(keyword, asset_type)
+        data = await self._find_asset(keyword, asset_type)
         if len(data) == 0:
             raise SaxoException(f"Nothing found for {keyword}")
 
@@ -146,19 +200,20 @@ class SaxoClient:
 
         return results
 
-    def _find_asset(
+    async def _find_asset(
         self, keyword: str, asset_type: Optional[str] = None
     ) -> List:
         if asset_type is None:
             asset_type = AssetType.all_saxo_values()
-        response = self.session.get(
+        response = await self._request(
+            "GET",
             f"{self.configuration.saxo_url}ref/v1/instruments/?Keywords="
-            f"{keyword}&AssetTypes={asset_type}&IncludeNonTradable=true"
+            f"{keyword}&AssetTypes={asset_type}&IncludeNonTradable=true",
         )
         self._check_response(response)
         return response.json()["Data"]
 
-    def list_instruments(
+    async def list_instruments(
         self,
         asset_type: str = "Stock",
         exchange_id: Optional[str] = None,
@@ -192,43 +247,45 @@ class SaxoClient:
         # Build query string
         query_string = "&".join(f"{k}={v}" for k, v in params.items())
 
-        response = self.session.get(
-            f"{self.configuration.saxo_url}ref/v1/instruments/?{query_string}"
+        response = await self._request(
+            "GET",
+            f"{self.configuration.saxo_url}ref/v1/instruments/?{query_string}",
         )
         self._check_response(response)
         return response.json()
 
-    def get_total_amount(self) -> float:
-        response = self.session.get(
-            f"{self.configuration.saxo_url}port/v1/balances/me"
+    async def get_total_amount(self) -> float:
+        response = await self._request(
+            "GET", f"{self.configuration.saxo_url}port/v1/balances/me"
         )
         self._check_response(response)
         return response.json()["TotalValue"]
 
-    def get_open_orders(self) -> List:
-        response = self.session.get(
-            f"{self.configuration.saxo_url}port/v1/orders/me/?$top=50"
+    async def get_open_orders(self) -> List:
+        response = await self._request(
+            "GET", f"{self.configuration.saxo_url}port/v1/orders/me/?$top=50"
         )
         self._check_response(response)
         return response.json()["Data"]
 
-    def get_positions(self) -> List[Dict]:
-        response = self.session.get(
-            f"{self.configuration.saxo_url}port/v1/positions/me/?top=50"
+    async def get_positions(self) -> List[Dict]:
+        response = await self._request(
+            "GET", f"{self.configuration.saxo_url}port/v1/positions/me/?top=50"
         )
         self._check_response(response)
         return response.json()
 
-    def get_accounts(self):
-        response = self.session.get(
-            f"{self.configuration.saxo_url}port/v1/accounts/me"
+    async def get_accounts(self):
+        response = await self._request(
+            "GET", f"{self.configuration.saxo_url}port/v1/accounts/me"
         )
         self._check_response(response)
         return response.json()
 
-    def get_account(self, account_key: str) -> Account:
-        response = self.session.get(
-            f"{self.configuration.saxo_url}port/v1/accounts/{account_key}"
+    async def get_account(self, account_key: str) -> Account:
+        response = await self._request(
+            "GET",
+            f"{self.configuration.saxo_url}port/v1/accounts/{account_key}",
         )
         self._check_response(response)
         account = response.json()
@@ -239,9 +296,10 @@ class SaxoClient:
         )
         client_key = account["ClientKey"]
 
-        response = self.session.get(
+        response = await self._request(
+            "GET",
             f"{self.configuration.saxo_url}port/v1/balances/"
-            f"?AccountKey={account_key}&ClientKey={client_key}"
+            f"?AccountKey={account_key}&ClientKey={client_key}",
         )
         self._check_response(response)
         account_balance = response.json()
@@ -254,10 +312,11 @@ class SaxoClient:
             client_key=client_key,
         )
 
-    def get_price(self, saxo_uic: int, asset_type: str) -> float:
-        response = self.session.get(
+    async def get_price(self, saxo_uic: int, asset_type: str) -> float:
+        response = await self._request(
+            "GET",
             f"{self.configuration.saxo_url}trade/v1/infoprices/"
-            f"?Uic={saxo_uic}&AssetType={asset_type}"
+            f"?Uic={saxo_uic}&AssetType={asset_type}",
         )
         self._check_response(response)
         price = response.json()
@@ -266,7 +325,7 @@ class SaxoClient:
             return 1.0
         return price["Quote"]["Ask"]
 
-    def set_order(
+    async def set_order(
         self,
         account: Account,
         order: Order,
@@ -323,13 +382,13 @@ class SaxoClient:
                 }
             ]
 
-        response = self.session.post(
-            f"{self.configuration.saxo_url}trade/v2/orders", json=data
+        response = await self._request(
+            "POST", f"{self.configuration.saxo_url}trade/v2/orders", json=data
         )
         self._check_response(response)
         return response.json()
 
-    def set_oco_order(
+    async def set_oco_order(
         self,
         account: Account,
         limit_order: Order,
@@ -359,16 +418,19 @@ class SaxoClient:
             "Uic": saxo_uic,
         }
         data = {"Orders": [saxo_limit_order, saxo_stop_order]}
-        response = self.session.post(
-            f"{self.configuration.saxo_url}trade/v2/orders", json=data
+        response = await self._request(
+            "POST", f"{self.configuration.saxo_url}trade/v2/orders", json=data
         )
         self._check_response(response)
         return response.json()
 
-    def get_asset_detail(self, saxo_uic: str | int, asset_type: str) -> Dict:
-        asset_http = self.session.get(
+    async def get_asset_detail(
+        self, saxo_uic: str | int, asset_type: str
+    ) -> Dict:
+        asset_http = await self._request(
+            "GET",
             f"{self.configuration.saxo_url}ref/v1/instruments/details?"
-            f"Uics={saxo_uic}&AssetTypes={asset_type}"
+            f"Uics={saxo_uic}&AssetTypes={asset_type}",
         )
         self._check_response(asset_http)
         asset = asset_http.json()
@@ -376,18 +438,23 @@ class SaxoClient:
             raise SaxoException(f"Nothing found for {saxo_uic}")
         return asset["Data"][0]
 
-    def get_report(self, account: Account, date_s: str) -> List[ReportOrder]:
-        response = self.session.get(
+    async def get_report(
+        self, account: Account, date_s: str
+    ) -> List[ReportOrder]:
+        response = await self._request(
+            "GET",
             f"{self.configuration.saxo_url}cs/v1/audit/orderactivities/"
             f"?ClientKey={account.client_key}&AccountKey={account.key}"
-            f"&status=FinalFill&FromDateTime={date_s}"
+            f"&status=FinalFill&FromDateTime={date_s}",
         )
         self._check_response(response)
         orders = []
         for data in response.json()["Data"]:
             date = datetime.fromisoformat(data["ActivityTime"])
             try:
-                asset = self.get_asset_detail(data["Uic"], data["AssetType"])
+                asset = await self.get_asset_detail(
+                    data["Uic"], data["AssetType"]
+                )
             except EmptyResponseException:
                 self.logger.error(
                     f"No asset for {data['Uic']} {data['AssetType']} at {date}"
@@ -414,7 +481,7 @@ class SaxoClient:
                         if "UnderlyingAssetType" in asset
                         else ""
                     )
-                    underlying_close = self.get_historical_price(
+                    underlying_close = await self.get_historical_price(
                         asset["UnderlyingUic"],
                         asset_type=underlying_asset_type,
                         date=date,
@@ -424,13 +491,14 @@ class SaxoClient:
             orders.append(report_order)
         return orders
 
-    def get_historical_price(
+    async def get_historical_price(
         self, saxo_uic: int, date: datetime, asset_type: str
     ) -> float:
-        response = self.session.get(
+        response = await self._request(
+            "GET",
             f"{self.configuration.saxo_url}chart/v3/charts/?Uic={saxo_uic}"
             f"&AssetType={asset_type}&Horizon=1&Mode=From&"
-            f"Count=2&Time={date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            f"Count=2&Time={date.strftime('%Y-%m-%dT%H:%M:%SZ')}",
         )
         if response.status_code == 403 or response.status_code == 404:
             self.logger.warning(
@@ -485,7 +553,7 @@ class SaxoClient:
             date_key = rounded.isoformat()
         return (saxo_uic, asset_type, horizon, count, date_key)
 
-    def get_historical_data(
+    async def get_historical_data(
         self,
         saxo_uic: str | int,
         asset_type: str,
@@ -531,11 +599,12 @@ class SaxoClient:
                 f" count={count}, realcount={real_count}, offset={offset}"
                 f", {date}"
             )
-            response = self.session.get(
+            response = await self._request(
+                "GET",
                 f"{self.configuration.saxo_url}chart/v3/charts/?&Uic="
                 f"{saxo_uic}&AssetType={asset_type}&Horizon={horizon}"
                 f"&Mode=UpTo&Count={real_count}&"
-                f"Time={date.strftime('%Y-%m-%dT%H:%M:00Z')}"
+                f"Time={date.strftime('%Y-%m-%dT%H:%M:00Z')}",
             )
             if response.status_code == 403 or response.status_code == 404:
                 self.logger.warning(
@@ -578,11 +647,11 @@ class SaxoClient:
 
         return data
 
-    def is_day_open(
+    async def is_day_open(
         self, saxo_uic: str, asset_type: str, date: datetime
     ) -> bool:
         end_of_day = date.replace(hour=23, minute=59, second=0, microsecond=0)
-        data = self.get_historical_data(
+        data = await self.get_historical_data(
             saxo_uic, asset_type, 1440, 1, end_of_day
         )
         if len(data) == 0:
@@ -590,16 +659,20 @@ class SaxoClient:
         return data[0]["Time"].day == date.day
 
     @staticmethod
-    def _check_response(response: Response) -> None:
+    def _check_response(response: httpx.Response) -> None:
         if response.status_code == 401:
             raise SaxoException("The access_token is expired")
         if response.status_code == 429:
             logger.warning(f"Rate limiting: {response.headers}")
-        for remaining_key, reset_key in RATE_LIMITING_KEYS:
-            SaxoClient.handle_rate_limiting(response, remaining_key, reset_key)
         if response.text == "":
             raise EmptyResponseException()
-        json = response.json()
+        try:
+            json = response.json()
+        except ValueError:
+            response.raise_for_status()
+            raise SaxoException(
+                f"Saxo returned a non-JSON body ({response.status_code})"
+            )
         if "ErrorInfo" in json:
             raise SaxoException(json["ErrorInfo"]["Message"])
         if response.status_code == 400:
@@ -607,11 +680,12 @@ class SaxoClient:
         response.raise_for_status()
 
     @staticmethod
-    def handle_rate_limiting(response, remaining_key, reset_key):
-        if (
-            remaining_key in response.headers
-            and int(response.headers[remaining_key]) <= 1
-        ):
-            wait_time = int(response.headers[reset_key]) + 1
-            logger.warning(f"Rate limiting: wait {wait_time}")
-            time.sleep(wait_time)
+    async def _wait_for_rate_limit(response: httpx.Response) -> None:
+        for remaining_key, reset_key in RATE_LIMITING_KEYS:
+            if (
+                remaining_key in response.headers
+                and int(response.headers[remaining_key]) <= 1
+            ):
+                wait_time = int(response.headers[reset_key]) + 1
+                logger.warning(f"Rate limiting: wait {wait_time}")
+                await asyncio.sleep(wait_time)
