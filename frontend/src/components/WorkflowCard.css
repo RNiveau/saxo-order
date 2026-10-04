@@ -1,0 +1,224 @@
+.wf-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.wf-card-inactive {
+  opacity: 0.65;
+}
+
+.wf-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #21262d;
+}
+
+.wf-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.wf-title h4 {
+  margin: 0;
+  color: #e6edf3;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.wf-side {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.wf-side-buy {
+  background: rgba(46, 160, 67, 0.15);
+  color: #3fb950;
+}
+
+.wf-side-sell {
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
+}
+
+.wf-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: #8b949e;
+}
+
+.wf-meta-item {
+  white-space: nowrap;
+}
+
+.wf-code {
+  color: #c9d1d9;
+  font-family: monospace;
+}
+
+.wf-expired-date {
+  text-decoration: line-through;
+}
+
+.wf-chip {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+}
+
+.wf-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.wf-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.wf-status-enabled {
+  color: #3fb950;
+}
+
+.wf-status-disabled {
+  color: #f85149;
+}
+
+.wf-status-expired {
+  color: #8b949e;
+}
+
+.wf-status-dry-run {
+  color: #d29922;
+}
+
+.wf-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.wf-flow-arrow {
+  align-self: center;
+  color: #484f58;
+  font-size: 1.25rem;
+}
+
+.wf-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.wf-step-label {
+  color: #8b949e;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.wf-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.wf-line + .wf-line {
+  padding-top: 0.6rem;
+  border-top: 1px dashed #21262d;
+}
+
+.wf-sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  color: #e6edf3;
+  font-size: 0.95rem;
+}
+
+.wf-term {
+  color: #c9d1d9;
+}
+
+.wf-num {
+  color: #e6edf3;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.wf-muted {
+  color: #8b949e;
+  font-size: 0.85rem;
+}
+
+.wf-direction {
+  font-weight: 600;
+  color: #d2a8ff;
+}
+
+.wf-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.wf-ut {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 0 0.35rem;
+}
+
+.wf-order {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.wf-side-text-buy {
+  color: #3fb950;
+}
+
+.wf-side-text-sell {
+  color: #f85149;
+}
+
+@media (max-width: 768px) {
+  .wf-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wf-flow-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+}

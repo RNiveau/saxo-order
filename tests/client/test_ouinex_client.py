@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Optional, Tuple
 from unittest.mock import MagicMock
 
@@ -42,10 +43,9 @@ def client_and_session() -> Tuple[OuinexClient, MagicMock]:
 
 SIGN_IN_OK = {
     "data": {
-        "signIn": {
-            "accessToken": "jwt-token",
-            "refreshToken": "refresh-token",
-            "expiresIn": 3600,
+        "service_signin": {
+            "jwt": "jwt-token",
+            "expires_at": 1848430166000,
         }
     }
 }
@@ -61,14 +61,29 @@ class TestOuinexClientAuth:
         client._sign_in()
 
         assert client._access_token == "jwt-token"
-        assert client._token_expiry > 0
+        assert client._token_expiry == 1848430166
+
+    def test_sign_in_sends_service_signin_credentials(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.return_value = make_response(200, SIGN_IN_OK)
+
+        client._sign_in()
+
+        body = session.post.call_args.kwargs["json"]
+        assert "service_signin(" in body["query"]
+        assert body["variables"] == {"key": "api-key", "secret": "secret-key"}
+
+    def test_parse_expires_at_accepts_seconds(self):
+        assert OuinexClient._parse_expires_at(1848430166) == 1848430166
 
     def test_sign_in_raises_on_missing_token(
         self, client_and_session: Tuple[OuinexClient, MagicMock]
     ):
         client, session = client_and_session
         session.post.return_value = make_response(
-            200, {"data": {"signIn": {}}}
+            200, {"data": {"service_signin": {}}}
         )
 
         with pytest.raises(OuinexException):
@@ -216,34 +231,70 @@ class TestOuinexClientSearch:
         assert client._access_token is None
 
 
+def closed_order(
+    base: str,
+    quote: str,
+    side: str,
+    price: float,
+    quantity: float,
+    total: float,
+    fee: float,
+    fee_currency: str,
+    filled_at: str = "2026-09-07T12:09:43.000Z",
+    status: str = "completed",
+) -> dict:
+    return {
+        "order_id": f"{base}-{side}",
+        "side": side,
+        "status": status,
+        "price": price,
+        "quantity": quantity,
+        "total": total,
+        "created_at": "1788782983000",
+        "updated_at": "1788782983000",
+        "trades": [{"created_at_iso": filled_at}],
+        "instrument": {
+            "base_currency": {"currency_id": base},
+            "quote_currency": {"currency_id": quote},
+        },
+        "fees": [{"currency_id": fee_currency, "amount": fee}],
+    }
+
+
 CLOSED_ORDERS_OK = {
     "data": {
-        "closedOrders": [
-            {
-                "symbol": "BTCUSD",
-                "baseCurrency": "BTC",
-                "quoteCurrency": "USD",
-                "side": "BUY",
-                "price": 50000,
-                "quantity": 0.1,
-                "fee": 0.001,
-                "feeCurrency": "BTC",
-                "executedAt": 1700000000000,
-            },
-            {
-                "symbol": "ETHUSD",
-                "baseCurrency": "ETH",
-                "quoteCurrency": "USD",
-                "side": "SELL",
-                "price": 3000,
-                "quantity": 2,
-                "fee": 1.5,
-                "feeCurrency": "USD",
-                "executedAt": 1700000000000,
-            },
+        "closed_orders": [
+            closed_order(
+                "BTC", "USDC", "buy", 50000, 0.1, 0.099, 0.001, "BTC"
+            ),
+            closed_order("ETH", "USDC", "sell", 3000, 2, 5998.5, 1.5, "USDC"),
         ]
     }
 }
+
+
+NO_CONVERSIONS: dict = {"data": {"conversions": []}}
+
+
+def conversion(
+    source: str,
+    source_amount: float,
+    target: str,
+    target_amount: float,
+    price: float,
+    created_at: str = "2026-08-07T09:37:50.000Z",
+    status: str = "completed",
+) -> dict:
+    return {
+        "conversion_id": f"{source}-{target}",
+        "source_currency_id": source,
+        "source_currency_amount": source_amount,
+        "target_currency_id": target,
+        "target_currency_amount": target_amount,
+        "price": price,
+        "status": status,
+        "created_at_iso": created_at,
+    }
 
 
 class TestOuinexClientReport:
@@ -254,11 +305,15 @@ class TestOuinexClientReport:
         session.post.side_effect = [
             make_response(200, SIGN_IN_OK),
             make_response(200, CLOSED_ORDERS_OK),
+            make_response(200, NO_CONVERSIONS),
         ]
 
-        orders = client.get_report_all("2023/01/01", usdeur_rate=0.5)
+        orders = client.get_report_all("2023-01-01", usdeur_rate=0.5)
 
         assert len(orders) == 2
+        variables = session.post.call_args_list[1].kwargs["json"]["variables"]
+        assert variables["dateRange"]["time_from"] == "2022-10-03T00:00:00Z"
+        assert variables["pager"] == {"limit": 200, "offset": 0}
 
         buy = orders[0]
         assert buy.code == "BTC"
@@ -280,37 +335,234 @@ class TestOuinexClientReport:
         self, client_and_session: Tuple[OuinexClient, MagicMock]
     ):
         # Real example: buy 550 XRP @ 1.1430 USDC, fee 0.5390 XRP.
-        # Final quantity received is 550 - 0.539 = 549.461 XRP and the fee
-        # is reported in EUR at the trade price.
+        # `total` is the net quantity received (550 - 0.539 = 549.461 XRP)
+        # and the fee is reported in EUR at the trade price.
         client, session = client_and_session
         xrp_trade = {
             "data": {
-                "closedOrders": [
-                    {
-                        "symbol": "XRP/USDC",
-                        "baseCurrency": "XRP",
-                        "quoteCurrency": "USDC",
-                        "side": "BUY",
-                        "price": 1.1430,
-                        "quantity": 550,
-                        "fee": 0.5390,
-                        "feeCurrency": "XRP",
-                        "executedAt": 1700000000000,
-                    }
+                "closed_orders": [
+                    closed_order(
+                        "XRP",
+                        "USDC",
+                        "buy",
+                        1.1430,
+                        550,
+                        549.461,
+                        0.539,
+                        "XRP",
+                    )
                 ]
             }
         }
         session.post.side_effect = [
             make_response(200, SIGN_IN_OK),
             make_response(200, xrp_trade),
+            make_response(200, NO_CONVERSIONS),
         ]
 
-        orders = client.get_report_all("2023/01/01", usdeur_rate=0.9)
+        orders = client.get_report_all("2023-01-01", usdeur_rate=0.9)
 
         order = orders[0]
+        assert order.price == pytest.approx(1.1430)
         assert order.quantity == pytest.approx(549.461)
         assert order.taxes is not None
         assert order.taxes.cost == pytest.approx(0.5390 * 1.1430 * 0.9)
+
+    def test_amount_based_buy_rebuilds_quantity_and_price(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        # Real example: market buy for 115 USDC of BTC. `quantity` is the
+        # quote amount spent and `total` the net BTC received.
+        client, session = client_and_session
+        btc_trade = {
+            "data": {
+                "closed_orders": [
+                    closed_order(
+                        "BTC",
+                        "USDC",
+                        "buy",
+                        79492.9,
+                        115,
+                        0.001445252314,
+                        1.417686e-06,
+                        "BTC",
+                    )
+                ]
+            }
+        }
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, btc_trade),
+            make_response(200, NO_CONVERSIONS),
+        ]
+
+        order = client.get_report_all("2023-01-01", usdeur_rate=0.9)[0]
+
+        assert order.price == pytest.approx(115 / 0.00144667, rel=1e-6)
+        assert order.quantity == pytest.approx(0.001445252314)
+        assert order.taxes is not None
+        assert order.taxes.cost == pytest.approx(
+            1.417686e-06 * order.price * 0.9
+        )
+
+    def test_report_uses_fill_date_and_skips_non_completed(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        payload = {
+            "data": {
+                "closed_orders": [
+                    closed_order(
+                        "XRP",
+                        "USDC",
+                        "sell",
+                        1.41,
+                        225,
+                        316.92,
+                        0.33,
+                        "USDC",
+                        filled_at="2026-08-21T09:49:21.000Z",
+                    ),
+                    closed_order(
+                        "ETH",
+                        "USDC",
+                        "sell",
+                        3000,
+                        1,
+                        2999,
+                        1,
+                        "USDC",
+                        filled_at="2026-07-01T09:00:00.000Z",
+                    ),
+                    closed_order(
+                        "SOL",
+                        "USDC",
+                        "buy",
+                        150,
+                        1,
+                        0,
+                        0,
+                        "SOL",
+                        status="cancelled",
+                    ),
+                ]
+            }
+        }
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, payload),
+            make_response(200, NO_CONVERSIONS),
+        ]
+
+        orders = client.get_report_all("2026-08-08", usdeur_rate=0.9)
+
+        assert [order.code for order in orders] == ["XRP"]
+        assert orders[0].date.date() == date(2026, 8, 21)
+
+    def test_report_paginates_closed_orders(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        full_page = [
+            closed_order("BTC", "USDC", "buy", 1, 1, 1, 0, "BTC")
+            for _ in range(200)
+        ]
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, {"data": {"closed_orders": full_page}}),
+            make_response(200, {"data": {"closed_orders": full_page[:1]}}),
+            make_response(200, NO_CONVERSIONS),
+        ]
+
+        orders = client.get_report_all("2023-01-01", usdeur_rate=0.9)
+
+        assert len(orders) == 201
+        offsets = [
+            call.kwargs["json"]["variables"]["pager"]["offset"]
+            for call in session.post.call_args_list[1:3]
+        ]
+        assert offsets == [0, 200]
+
+    def test_conversions_are_reported_as_buys_and_sells(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        # Real example: recurring buy of 115 USDC of BTC quoted at 65219.86,
+        # 0.00176 BTC received - the spread is the commission.
+        client, session = client_and_session
+        conversions = {
+            "data": {
+                "conversions": [
+                    conversion("USDC", 115, "BTC", 0.00176, 65219.86),
+                    conversion(
+                        "XRP",
+                        100,
+                        "USDC",
+                        140.5,
+                        1.41,
+                        created_at="2026-08-21T09:49:21.000Z",
+                    ),
+                    conversion("EUR", 1000, "USDC", 1080, 1.08),
+                    conversion("BTC", 0.01, "ETH", 0.2, 20),
+                    conversion(
+                        "USDC", 50, "SOL", 0.3, 150, status="cancelled"
+                    ),
+                ]
+            }
+        }
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, {"data": {"closed_orders": []}}),
+            make_response(200, conversions),
+        ]
+
+        orders = client.get_report_all("2026-06-01", usdeur_rate=0.9)
+
+        assert [(o.code, o.direction) for o in orders] == [
+            ("BTC", Direction.BUY),
+            ("XRP", Direction.SELL),
+        ]
+        buy, sell = orders
+        assert buy.price == pytest.approx(65219.86)
+        assert buy.quantity == pytest.approx(0.00176)
+        assert buy.taxes is not None
+        assert buy.taxes.cost == pytest.approx(
+            (115 / 65219.86 - 0.00176) * 65219.86 * 0.9
+        )
+        assert sell.quantity == pytest.approx(100)
+        assert sell.taxes is not None
+        assert sell.taxes.cost == pytest.approx((141 - 140.5) * 0.9)
+
+    def test_report_merges_orders_and_conversions_oldest_first(
+        self, client_and_session: Tuple[OuinexClient, MagicMock]
+    ):
+        client, session = client_and_session
+        session.post.side_effect = [
+            make_response(200, SIGN_IN_OK),
+            make_response(200, CLOSED_ORDERS_OK),
+            make_response(
+                200,
+                {
+                    "data": {
+                        "conversions": [
+                            conversion(
+                                "USDC",
+                                115,
+                                "BTC",
+                                0.00182,
+                                62944.68,
+                                created_at="2026-07-05T13:29:18.000Z",
+                            )
+                        ]
+                    }
+                },
+            ),
+        ]
+
+        orders = client.get_report_all("2026-06-01", usdeur_rate=0.9)
+
+        assert len(orders) == 3
+        assert orders[0].price == pytest.approx(62944.68)
+        assert orders[0].date <= orders[1].date <= orders[2].date
 
     def test_get_report_filters_by_symbol(
         self, client_and_session: Tuple[OuinexClient, MagicMock]
@@ -319,9 +571,10 @@ class TestOuinexClientReport:
         session.post.side_effect = [
             make_response(200, SIGN_IN_OK),
             make_response(200, CLOSED_ORDERS_OK),
+            make_response(200, NO_CONVERSIONS),
         ]
 
-        orders = client.get_report("ETH", "2023/01/01", usdeur_rate=0.5)
+        orders = client.get_report("ETH", "2023-01-01", usdeur_rate=0.5)
 
         assert len(orders) == 1
         assert orders[0].code == "ETH"
