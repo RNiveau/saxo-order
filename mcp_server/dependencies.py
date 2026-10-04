@@ -32,6 +32,8 @@ _token_refresh_gate: TTLCache = TTLCache(
     maxsize=1, ttl=TOKEN_REFRESH_TTL_SECONDS
 )
 
+_live_client: Optional[SaxoClient] = None
+
 MARKETS = {
     MarketName.EU: EUMarket,
     MarketName.US: USMarket,
@@ -71,12 +73,32 @@ def resolve_market_client() -> (
         return MockSaxoClient(config), Provenance.SIMULATED
 
     try:
-        return SaxoClient(config), Provenance.LIVE
+        return _shared_live_client(config), Provenance.LIVE
     except Exception as e:
         logger.warning(
             f"Saxo client unavailable ({e}): only simulated data is available"
         )
         return MockSaxoClient(config), Provenance.SIMULATED
+
+
+def _shared_live_client(config: Configuration) -> SaxoClient:
+    """One live client for the server's life, so its connection pool and
+    caches outlive a single tool call. It follows the token just re-read,
+    and is rebuilt only when the configuration itself was replaced."""
+    global _live_client
+    if _live_client is None or _live_client.configuration is not config:
+        _live_client = SaxoClient(config)
+    else:
+        _live_client.set_access_token(config.access_token)
+    return _live_client
+
+
+async def close_market_client() -> None:
+    """Release the live client's connections, at server shutdown."""
+    global _live_client
+    if _live_client is not None:
+        await _live_client.aclose()
+        _live_client = None
 
 
 def _refresh_tokens(config: Configuration) -> None:

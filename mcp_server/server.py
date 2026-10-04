@@ -18,6 +18,7 @@ from mcp.server.mcpserver import Context
 from pydantic import Field
 
 from client.aws_client import AwsClient, DynamoDBClient
+from mcp_server.dependencies import close_market_client
 from mcp_server.errors import market_tool, tool_boundary
 from mcp_server.formatters import DEFAULT_BAR_COUNT, MAX_BAR_COUNT
 from mcp_server.models import (
@@ -77,6 +78,7 @@ async def lifespan(server: MCPServer) -> AsyncIterator[ServerContext]:
     problem.
     """
     async with AsyncExitStack() as stack:
+        stack.push_async_callback(close_market_client)
         store: Optional[DynamoDBClient] = None
         if not AwsClient.is_aws_context():
             logger.warning(

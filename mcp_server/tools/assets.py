@@ -5,9 +5,7 @@ identity every other tool needs, the other shows the price action behind
 the indicators.
 """
 
-import asyncio
 import datetime
-import functools
 from typing import List, Optional
 
 from mcp.server.mcpserver.exceptions import ToolError
@@ -64,7 +62,7 @@ async def search_asset(
             "simulated data is available. Refresh the Saxo access token."
         )
     try:
-        assets = await asyncio.to_thread(client.search, query)
+        assets = await client.search(query)
     except SaxoException as e:
         # The client raises rather than returning [] when nothing matches,
         # so without this every empty search would read as a venue failure.
@@ -147,28 +145,20 @@ async def get_candles(
     # away by to_rows, which caps at the same MAX_BAR_COUNT.
     depth = min(count, formatters.MAX_BAR_COUNT)
 
-    daily = await asyncio.to_thread(
-        functools.partial(
-            candle_source.build_daily_series,
-            client,
-            instrument_id,
-            market=resolved_market,
-            asset_type=asset_type,
-            count=(
-                DAYS_FOR_FORMING_WEEK if unit_time is UnitTime.W else depth
-            ),
-        )
+    daily = await candle_source.build_daily_series(
+        client,
+        instrument_id,
+        market=resolved_market,
+        asset_type=asset_type,
+        count=(DAYS_FOR_FORMING_WEEK if unit_time is UnitTime.W else depth),
     )
     if unit_time is UnitTime.W:
-        candles = await asyncio.to_thread(
-            functools.partial(
-                candle_source.build_weekly_series,
-                client,
-                instrument_id,
-                daily_candles=daily,
-                asset_type=asset_type,
-                count=depth,
-            )
+        candles = await candle_source.build_weekly_series(
+            client,
+            instrument_id,
+            daily_candles=daily,
+            asset_type=asset_type,
+            count=depth,
         )
     else:
         candles = daily

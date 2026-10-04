@@ -32,6 +32,7 @@ from typing import (
     cast,
 )
 
+import httpx
 from botocore.exceptions import BotoCoreError, ClientError
 from mcp.server.mcpserver.exceptions import ToolError
 from requests.exceptions import RequestException
@@ -61,6 +62,7 @@ KNOWN_FAILURES: Tuple[Type[Exception], ...] = (
     SaxoException,
     OuinexException,
     RequestException,
+    httpx.HTTPError,
     DynamoDBOperationError,
     BotoCoreError,
     ClientError,
