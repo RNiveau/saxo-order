@@ -36,6 +36,10 @@ RATE_LIMITING_KEYS = [
     ("X-RateLimit-ChartMinute-Remaining", "X-RateLimit-ChartMinute-Reset"),
 ]
 RETRY_STATUSES = {500, 502, 503, 504}
+IDEMPOTENT_METHODS = frozenset(
+    {"DELETE", "GET", "HEAD", "OPTIONS", "PUT", "TRACE"}
+)
+RETRY_ERRORS = (httpx.ReadError, httpx.ReadTimeout, httpx.RemoteProtocolError)
 MAX_RETRIES = 3
 RETRY_BACKOFF_SECONDS = 0.5
 REQUEST_TIMEOUT_SECONDS = 30.0
@@ -77,19 +81,31 @@ class SaxoClient:
     async def _request(
         self, method: str, url: str, **kwargs: Any
     ) -> httpx.Response:
+        """Send a request, retrying transient failures on idempotent
+        methods only: replaying an order POST could place it twice."""
+        retryable = method.upper() in IDEMPOTENT_METHODS
         for attempt in range(MAX_RETRIES + 1):
-            response = await self.http.request(method, url, **kwargs)
-            if response.status_code == 401:
-                response = await self._retry_after_refresh(
-                    response, method, url, **kwargs
-                )
-            if (
-                response.status_code not in RETRY_STATUSES
-                or attempt == MAX_RETRIES
-            ):
-                break
+            last_attempt = not retryable or attempt == MAX_RETRIES
+            try:
+                response = await self._send(method, url, **kwargs)
+            except RETRY_ERRORS:
+                if last_attempt:
+                    raise
+            else:
+                if response.status_code not in RETRY_STATUSES or last_attempt:
+                    break
             await asyncio.sleep(RETRY_BACKOFF_SECONDS * 2**attempt)
         await self._wait_for_rate_limit(response)
+        return response
+
+    async def _send(
+        self, method: str, url: str, **kwargs: Any
+    ) -> httpx.Response:
+        response = await self.http.request(method, url, **kwargs)
+        if response.status_code == 401:
+            response = await self._retry_after_refresh(
+                response, method, url, **kwargs
+            )
         return response
 
     async def _retry_after_refresh(
@@ -650,7 +666,13 @@ class SaxoClient:
             logger.warning(f"Rate limiting: {response.headers}")
         if response.text == "":
             raise EmptyResponseException()
-        json = response.json()
+        try:
+            json = response.json()
+        except ValueError:
+            response.raise_for_status()
+            raise SaxoException(
+                f"Saxo returned a non-JSON body ({response.status_code})"
+            )
         if "ErrorInfo" in json:
             raise SaxoException(json["ErrorInfo"]["Message"])
         if response.status_code == 400:

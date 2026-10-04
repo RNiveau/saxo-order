@@ -20,7 +20,7 @@ from model import (
 )
 from tests.utils.configuration import MockConfiguration
 from utils.configuration import Configuration
-from utils.exception import SaxoException
+from utils.exception import EmptyResponseException, SaxoException
 
 SAXO_URL = "https://saxo.test/"
 
@@ -415,3 +415,150 @@ class TestSaxoAuthClient:
         )
 
         assert await auth_client.login() == location
+
+
+def _order() -> Order:
+    return Order(
+        asset_type="Stock",
+        code="12345",
+        direction=Direction.BUY,
+        type=OrderType.LIMIT,
+        price=10,
+        quantity=1,
+    )
+
+
+class TestTokenReloadFromS3:
+    @pytest.fixture(autouse=True)
+    def api_mode(self, monkeypatch):
+        monkeypatch.setenv("API_MODE", "true")
+
+    @pytest.fixture
+    def s3_reload(self, mocker):
+        def reload(self):
+            self.access_token = "s3_token"
+            return True
+
+        return mocker.patch.object(
+            Configuration,
+            "reload_tokens_from_s3",
+            autospec=True,
+            side_effect=reload,
+        )
+
+    @pytest.fixture
+    def refresh(self, mocker):
+        mocker.patch.object(Configuration, "save_tokens")
+        return mocker.patch.object(
+            SaxoAuthClient,
+            "refresh_token",
+            new_callable=AsyncMock,
+            return_value=("new_token", "new_refresh_token"),
+        )
+
+    async def test_tokens_reloaded_from_s3_skip_the_refresh(
+        self, s3_reload, refresh
+    ):
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.headers["Authorization"] == "Bearer s3_token":
+                return httpx.Response(200, json={"TotalValue": 1000.0})
+            return httpx.Response(401, json={})
+
+        async with build_client(handler) as client:
+            assert await client.get_total_amount() == 1000.0
+
+        s3_reload.assert_called_once()
+        refresh.assert_not_awaited()
+
+    async def test_a_stale_s3_token_falls_back_to_the_refresh(
+        self, s3_reload, refresh
+    ):
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.headers["Authorization"] == "Bearer new_token":
+                return httpx.Response(200, json={"TotalValue": 1000.0})
+            return httpx.Response(401, json={})
+
+        async with build_client(handler) as client:
+            assert await client.get_total_amount() == 1000.0
+
+        s3_reload.assert_called_once()
+        refresh.assert_awaited_once()
+
+
+class TestOrdersAreNeverReplayed:
+    async def test_a_post_answered_502_is_sent_once(self, no_backoff):
+        calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            return httpx.Response(502 if len(calls) == 1 else 200, json={})
+
+        async with build_client(handler) as client:
+            with pytest.raises(httpx.HTTPStatusError):
+                await client.set_order(
+                    account=Account(key="account", name="account"),
+                    order=_order(),
+                    saxo_uic=12345,
+                )
+
+        assert len(calls) == 1
+        no_backoff.assert_not_awaited()
+
+    async def test_a_post_read_error_is_not_retried(self, no_backoff):
+        calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            raise httpx.ReadError("connection reset", request=request)
+
+        async with build_client(handler) as client:
+            with pytest.raises(httpx.ReadError):
+                await client.set_order(
+                    account=Account(key="account", name="account"),
+                    order=_order(),
+                    saxo_uic=12345,
+                )
+
+        assert len(calls) == 1
+        no_backoff.assert_not_awaited()
+
+    async def test_a_get_read_error_is_retried(self, no_backoff):
+        calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            if len(calls) == 1:
+                raise httpx.ReadTimeout("slow", request=request)
+            return httpx.Response(200, json={"TotalValue": 1000.0})
+
+        async with build_client(handler) as client:
+            assert await client.get_total_amount() == 1000.0
+
+        assert len(calls) == 2
+        no_backoff.assert_awaited_once()
+
+
+class TestNonJsonBodies:
+    async def test_an_html_error_page_raises_an_http_error(self, no_backoff):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(503, text="<html>Unavailable</html>")
+
+        async with build_client(handler) as client:
+            with pytest.raises(httpx.HTTPStatusError):
+                await client.get_total_amount()
+
+    async def test_a_non_json_success_raises_a_saxo_exception(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text="not json")
+
+        async with build_client(handler) as client:
+            with pytest.raises(SaxoException, match="non-JSON"):
+                await client.get_total_amount()
+
+    async def test_an_empty_body_is_still_an_empty_response(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text="")
+
+        async with build_client(handler) as client:
+            with pytest.raises(EmptyResponseException):
+                await client.get_total_amount()
