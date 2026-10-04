@@ -1,7 +1,7 @@
-from operator import attrgetter
+import asyncio
 from typing import Dict, List, Optional
 
-from cachetools import TTLCache, cachedmethod
+from cachetools import TTLCache
 
 from client.gsheet_client import GSheetClient
 from client.saxo_client import SaxoClient
@@ -33,8 +33,7 @@ class ReportService:
             maxsize=128, ttl=300
         )
 
-    @cachedmethod(cache=attrgetter("_account_cache"))
-    def _find_account(self, account_identifier: str) -> Account:
+    async def _find_account(self, account_identifier: str) -> Account:
         """
         Find account by either AccountId or DisplayName.
 
@@ -47,11 +46,18 @@ class ReportService:
         Raises:
             ValueError: If account not found
         """
+        if account_identifier in self._account_cache:
+            return self._account_cache[account_identifier]
         logger.debug(
             f"Cache MISS for _find_account({account_identifier}) "
             f"- fetching from Saxo API"
         )
-        accounts_data = self.client.get_accounts()
+        account = await self._fetch_account(account_identifier)
+        self._account_cache[account_identifier] = account
+        return account
+
+    async def _fetch_account(self, account_identifier: str) -> Account:
+        accounts_data = await self.client.get_accounts()
         accounts = accounts_data.get("Data", [])
 
         # Try to find by AccountId first
@@ -69,7 +75,7 @@ class ReportService:
             for acc in accounts:
                 try:
                     account_key = acc["AccountKey"]
-                    account = self.client.get_account(account_key)
+                    account = await self.client.get_account(account_key)
                     if account.name == account_identifier:
                         return account
                 except Exception:
@@ -79,10 +85,9 @@ class ReportService:
             raise ValueError(f"Account {account_identifier} not found")
 
         # Return full account details with DisplayName
-        return self.client.get_account(account_dict["AccountKey"])
+        return await self.client.get_account(account_dict["AccountKey"])
 
-    @cachedmethod(cache=attrgetter("_report_cache"))
-    def get_orders_report(
+    async def get_orders_report(
         self, account_id: str, from_date: str
     ) -> List[ReportOrder]:
         """
@@ -95,16 +100,16 @@ class ReportService:
         Returns:
             List of ReportOrder objects
         """
+        cache_key = f"{account_id}:{from_date}"
+        if cache_key in self._report_cache:
+            return self._report_cache[cache_key]
         logger.debug(
             f"Cache MISS for get_orders_report({account_id}, {from_date}) "
             f"- fetching from Saxo API"
         )
-        # Get account with full details
-        account = self._find_account(account_id)
-
-        # Get orders from Saxo
-        orders = self.client.get_report(account, from_date)
-
+        account = await self._find_account(account_id)
+        orders = await self.client.get_report(account, from_date)
+        self._report_cache[cache_key] = orders
         return orders
 
     def convert_order_to_eur(
@@ -178,7 +183,7 @@ class ReportService:
             "sell_volume_eur": round(sell_volume_eur, 2),
         }
 
-    def create_gsheet_order(
+    async def create_gsheet_order(
         self,
         account_id: str,
         order: ReportOrder,
@@ -211,7 +216,7 @@ class ReportService:
             raise ValueError("Signal is required when creating a new position")
 
         # Get account with full details including DisplayName
-        account = self._find_account(account_id)
+        account = await self._find_account(account_id)
 
         # Update order with user inputs
         order.stop = stop
@@ -233,11 +238,14 @@ class ReportService:
             )
 
         # Create in Google Sheets
-        self.gsheet_client.create_order(
-            account=account, order=report_order, original_order=order
+        await asyncio.to_thread(
+            self.gsheet_client.create_order,
+            account=account,
+            order=report_order,
+            original_order=order,
         )
 
-    def update_gsheet_order(
+    async def update_gsheet_order(
         self,
         account_id: str,
         order: ReportOrder,
@@ -294,7 +302,8 @@ class ReportService:
             )
 
         # Update in Google Sheets
-        self.gsheet_client.update_order(
+        await asyncio.to_thread(
+            self.gsheet_client.update_order,
             order=report_order,
             original_order=order,
             line_to_update=line_number,

@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 from typing import List, Optional
 
@@ -69,7 +70,7 @@ class IndicatorService:
         else:
             return False
 
-    def get_price_and_variation(
+    async def get_price_and_variation(
         self,
         code: str,
         country_code: Optional[str] = "xpar",
@@ -101,7 +102,7 @@ class IndicatorService:
             saxo_uic = asset_identifier
             saxo_asset_type = asset_type
         else:
-            asset = self.saxo_client.get_asset(code, country_code)
+            asset = await self.saxo_client.get_asset(code, country_code)
             saxo_uic = asset["Identifier"]
             saxo_asset_type = asset["AssetType"]
 
@@ -109,7 +110,7 @@ class IndicatorService:
         horizon = self.HORIZON_MAP[unit_time]
 
         # Fetch only 3 candles (enough for current + previous)
-        data = self.saxo_client.get_historical_data(
+        data = await self.saxo_client.get_historical_data(
             saxo_uic=saxo_uic,
             asset_type=saxo_asset_type,
             horizon=horizon,
@@ -127,7 +128,7 @@ class IndicatorService:
 
         # Get current price from latest minute candle
         try:
-            latest_candle = self.candles_service.get_latest_candle(
+            latest_candle = await self.candles_service.get_latest_candle(
                 code,
                 country_code,
                 asset_identifier=saxo_uic,
@@ -214,11 +215,11 @@ class IndicatorService:
             AssetIndicatorsResponse with all indicator data
         """
         symbol = f"{code}:{country_code}" if country_code else code
-        asset = self.saxo_client.get_asset(code, country_code)
+        asset = await self.saxo_client.get_asset(code, country_code)
 
         horizon = self.HORIZON_MAP[unit_time]
 
-        data = self.saxo_client.get_historical_data(
+        data = await self.saxo_client.get_historical_data(
             saxo_uic=asset["Identifier"],
             asset_type=asset["AssetType"],
             horizon=horizon,
@@ -239,7 +240,7 @@ class IndicatorService:
                 f"({unit_time.value}): {len(candles)}"
             )
 
-        current_price, variation_pct = self.get_price_and_variation(
+        current_price, variation_pct = await self.get_price_and_variation(
             code, country_code, unit_time
         )
 
@@ -306,7 +307,9 @@ class IndicatorService:
         Returns:
             AssetIndicatorsResponse with all indicator data
         """
-        candles = self.binance_client.get_candles(symbol, unit_time, limit=210)
+        candles = await asyncio.to_thread(
+            self.binance_client.get_candles, symbol, unit_time, limit=210
+        )
 
         if len(candles) < 200:
             raise SaxoException(
@@ -314,7 +317,9 @@ class IndicatorService:
                 f"only {len(candles)} candles available, need at least 200"
             )
 
-        latest_candle = self.binance_client.get_latest_candle(symbol)
+        latest_candle = await asyncio.to_thread(
+            self.binance_client.get_latest_candle, symbol
+        )
         current_price = latest_candle.close
 
         previous_close = (

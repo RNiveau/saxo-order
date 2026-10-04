@@ -61,7 +61,7 @@ def get_indicator_types() -> List[IndicatorTypeOption]:
     ]
 
 
-def _compute_inclined_current_value(
+async def _compute_inclined_current_value(
     saxo_client: SaxoClient,
     index_code: str,
     indicator: IndicatorDetail,
@@ -89,17 +89,17 @@ def _compute_inclined_current_value(
         )
         return None
 
-    asset = saxo_client.get_asset(index_code)
+    asset = await saxo_client.get_asset(index_code)
     saxo_uic = asset["Identifier"]
     asset_type = asset["AssetType"]
 
-    x1_to_x2 = number_of_day_between_dates(
+    x1_to_x2 = await number_of_day_between_dates(
         saxo_client, saxo_uic, asset_type, x1_date, x2_date
     )
     if x1_to_x2 == 0:
         return None
 
-    x1_to_now = number_of_day_between_dates(
+    x1_to_now = await number_of_day_between_dates(
         saxo_client, saxo_uic, asset_type, x1_date, get_date_utc0()
     )
 
@@ -112,7 +112,7 @@ def _compute_inclined_current_value(
     )
 
 
-def _build_indicator_info(
+async def _build_indicator_info(
     indicator: IndicatorDetail,
     index_code: str,
     saxo_client: SaxoClient,
@@ -120,7 +120,7 @@ def _build_indicator_info(
     current_value: Optional[float] = None
     if indicator.name == IndicatorType.INCLINED.value:
         try:
-            current_value = _compute_inclined_current_value(
+            current_value = await _compute_inclined_current_value(
                 saxo_client, index_code, indicator
             )
         except Exception as exc:
@@ -137,7 +137,7 @@ def _build_indicator_info(
     )
 
 
-def _convert_detail_to_info(
+async def _convert_detail_to_info(
     detail: WorkflowDetail,
     saxo_client: SaxoClient,
 ) -> WorkflowInfo:
@@ -152,7 +152,7 @@ def _convert_detail_to_info(
         is_us=detail.is_us,
         conditions=[
             WorkflowConditionInfo(
-                indicator=_build_indicator_info(
+                indicator=await _build_indicator_info(
                     cond.indicator, detail.index, saxo_client
                 ),
                 close=WorkflowCloseInfo(
@@ -228,7 +228,7 @@ async def get_asset_workflows(
         symbol = f"{code}:{country_code}" if country_code else code
 
         workflows_info = [
-            _convert_detail_to_info(detail, saxo_client)
+            await _convert_detail_to_info(detail, saxo_client)
             for detail in workflow_details
         ]
 

@@ -107,7 +107,7 @@ class SessionRangeStrategy:
                 if is_below_min_range(
                     definition, day.h1_candle.higher, day.h1_candle.lower
                 )
-                else self._fetch_filter_series(
+                else await self._fetch_filter_series(
                     definition, trading_date, trading_date
                 )
             )
@@ -192,10 +192,10 @@ class SessionRangeStrategy:
         day_summaries: List[DayResultSummary] = []
         all_trades: List[Trade] = []
 
-        daily_candles = self._fetch_daily_candles(
+        daily_candles = await self._fetch_daily_candles(
             definition, start_date, end_date
         )
-        filter_series = self._fetch_filter_series(
+        filter_series = await self._fetch_filter_series(
             definition, start_date, end_date, daily_candles
         )
 
@@ -242,7 +242,7 @@ class SessionRangeStrategy:
         )
         return BacktestRunResult(summary=summary, days=day_summaries)
 
-    def _fetch_daily_candles(
+    async def _fetch_daily_candles(
         self,
         definition: BacktestDefinition,
         start_date: datetime.date,
@@ -274,7 +274,7 @@ class SessionRangeStrategy:
             end_date.year, end_date.month, end_date.day, tzinfo=PARIS_TZ
         )
         try:
-            return self.candles_service.build_candles(
+            return await self.candles_service.build_candles(
                 definition.instrument,
                 UnitTime.D,
                 EUMarket(),
@@ -288,7 +288,7 @@ class SessionRangeStrategy:
             )
             return []
 
-    def _fetch_filter_series(
+    async def _fetch_filter_series(
         self,
         definition: BacktestDefinition,
         start_date: datetime.date,
@@ -309,10 +309,14 @@ class SessionRangeStrategy:
         if ut == UnitTime.D:
             if daily_candles is not None:
                 return daily_candles
-            return self._fetch_daily_candles(definition, start_date, end_date)
-        return self._fetch_h1_filter_candles(definition, start_date, end_date)
+            return await self._fetch_daily_candles(
+                definition, start_date, end_date
+            )
+        return await self._fetch_h1_filter_candles(
+            definition, start_date, end_date
+        )
 
-    def _fetch_h1_filter_candles(
+    async def _fetch_h1_filter_candles(
         self,
         definition: BacktestDefinition,
         start_date: datetime.date,
@@ -345,7 +349,7 @@ class SessionRangeStrategy:
             end_date.year, end_date.month, end_date.day, tzinfo=PARIS_TZ
         ) + datetime.timedelta(days=1)
         try:
-            return self.candles_service.build_candles(
+            return await self.candles_service.build_candles(
                 definition.instrument,
                 UnitTime.H1,
                 EUMarket(),

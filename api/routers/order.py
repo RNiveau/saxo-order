@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from slack_sdk import WebClient
 
@@ -63,7 +65,7 @@ async def create_order(
     """
     try:
         order_service = OrderService(client, configuration)
-        result = order_service.create_order(
+        result = await order_service.create_order(
             code=request.code,
             price=request.price,
             quantity=request.quantity,
@@ -82,11 +84,15 @@ async def create_order(
         if "order" in result:
             account_key = (
                 request.account_key
-                or client.get_accounts()["Data"][0]["AccountKey"]
+                or (await client.get_accounts())["Data"][0]["AccountKey"]
             )
-            account = client.get_account(account_key)
-            _log_order_to_gsheet(
-                gsheet_client, configuration, result["order"], account
+            account = await client.get_account(account_key)
+            await asyncio.to_thread(
+                _log_order_to_gsheet,
+                gsheet_client,
+                configuration,
+                result["order"],
+                account,
             )
 
         return OrderResponse(
@@ -125,7 +131,7 @@ async def create_oco_order(
     """
     try:
         order_service = OrderService(client, configuration)
-        result = order_service.create_oco_order(
+        result = await order_service.create_oco_order(
             code=request.code,
             quantity=request.quantity,
             limit_price=request.limit_price,
@@ -145,11 +151,15 @@ async def create_oco_order(
         if "stop_order" in result:
             account_key = (
                 request.account_key
-                or client.get_accounts()["Data"][0]["AccountKey"]
+                or (await client.get_accounts())["Data"][0]["AccountKey"]
             )
-            account = client.get_account(account_key)
-            _log_order_to_gsheet(
-                gsheet_client, configuration, result["stop_order"], account
+            account = await client.get_account(account_key)
+            await asyncio.to_thread(
+                _log_order_to_gsheet,
+                gsheet_client,
+                configuration,
+                result["stop_order"],
+                account,
             )
 
         return OrderResponse(
@@ -189,7 +199,7 @@ async def create_stop_limit_order(
     """
     try:
         order_service = OrderService(client, configuration)
-        result = order_service.create_stop_limit_order(
+        result = await order_service.create_stop_limit_order(
             code=request.code,
             quantity=request.quantity,
             limit_price=request.limit_price,
@@ -207,11 +217,15 @@ async def create_stop_limit_order(
         if "order" in result:
             account_key = (
                 request.account_key
-                or client.get_accounts()["Data"][0]["AccountKey"]
+                or (await client.get_accounts())["Data"][0]["AccountKey"]
             )
-            account = client.get_account(account_key)
-            _log_order_to_gsheet(
-                gsheet_client, configuration, result["order"], account
+            account = await client.get_account(account_key)
+            await asyncio.to_thread(
+                _log_order_to_gsheet,
+                gsheet_client,
+                configuration,
+                result["order"],
+                account,
             )
 
         return OrderResponse(

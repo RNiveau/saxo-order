@@ -144,7 +144,7 @@ async def add_to_watchlist(
         # For Saxo assets, fetch from API to get real description and metadata
         # For Binance assets, use provided description
         if request.exchange == "saxo":
-            asset = saxo_client.get_asset(
+            asset = await saxo_client.get_asset(
                 request.asset_id, request.country_code
             )
             description = asset["Description"]

@@ -41,7 +41,7 @@ async def get_accounts(client: SaxoClient = Depends(get_saxo_client)):
 
         # Add Saxo accounts
         fund_service = FundService(client)
-        accounts = fund_service.get_accounts()
+        accounts = await fund_service.get_accounts()
 
         for acc in accounts:
             account_key = acc["AccountKey"]
@@ -50,7 +50,7 @@ async def get_accounts(client: SaxoClient = Depends(get_saxo_client)):
                 account_name = acc.get("DisplayName", "NoName")
 
                 # Use get_account to fetch balance details
-                account = client.get_account(account_key)
+                account = await client.get_account(account_key)
                 account_list.append(
                     AccountInfo(
                         account_id=acc["AccountId"],
@@ -96,14 +96,14 @@ async def get_available_fund(
 
         # If no account_id provided, get the default account
         if not account_id:
-            accounts = fund_service.get_accounts()
+            accounts = await fund_service.get_accounts()
             if not accounts:
                 raise HTTPException(
                     status_code=404, detail="No accounts found"
                 )
             account_id = accounts[0]["AccountId"]
 
-        result = fund_service.calculate_available_fund(account_id)
+        result = await fund_service.calculate_available_fund(account_id)
 
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
