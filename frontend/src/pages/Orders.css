@@ -203,3 +203,20 @@
     font-size: 1.5rem;
   }
 }
+
+.order-total {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: #8b949e;
+}
+
+.order-total-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e6edf3;
+  font-variant-numeric: tabular-nums;
+}
