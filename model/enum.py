@@ -112,6 +112,11 @@ class OrderType(EnumWithGetValue):
     MARKET = "market"
 
 
+class TradeLevel(EnumWithGetValue):
+    FULL_TRADING_AND_CHAT = "FullTradingAndChat"
+    ORDERS_ONLY = "OrdersOnly"
+
+
 class LineType(EnumWithGetValue):
     HIGH = "high"
     LOW = "low"

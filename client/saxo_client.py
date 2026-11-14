@@ -17,6 +17,7 @@ from model import (
     Order,
     OrderType,
     ReportOrder,
+    TradeLevel,
     TriggerOrder,
     Underlying,
 )
@@ -275,6 +276,23 @@ class SaxoClient:
         )
         self._check_response(response)
         return response.json()
+
+    async def get_session_capabilities(self) -> Dict:
+        response = await self._request(
+            "GET",
+            f"{self.configuration.saxo_url}root/v1/sessions/capabilities",
+        )
+        self._check_response(response)
+        return response.json()
+
+    async def set_trade_level(self, trade_level: TradeLevel) -> None:
+        response = await self._request(
+            "PATCH",
+            f"{self.configuration.saxo_url}root/v1/sessions/capabilities",
+            json={"TradeLevel": trade_level},
+        )
+        if response.status_code >= 400:
+            self._check_response(response)
 
     async def get_accounts(self):
         response = await self._request(
