@@ -43,6 +43,7 @@ RETRY_ERRORS = (httpx.ReadError, httpx.ReadTimeout, httpx.RemoteProtocolError)
 MAX_RETRIES = 3
 RETRY_BACKOFF_SECONDS = 0.5
 REQUEST_TIMEOUT_SECONDS = 30.0
+MAX_LOGGED_BODY_LENGTH = 2000
 
 
 class SaxoClient:
@@ -385,7 +386,7 @@ class SaxoClient:
         response = await self._request(
             "POST", f"{self.configuration.saxo_url}trade/v2/orders", json=data
         )
-        self._check_response(response)
+        self._check_order_response(response, data)
         return response.json()
 
     async def set_oco_order(
@@ -421,7 +422,7 @@ class SaxoClient:
         response = await self._request(
             "POST", f"{self.configuration.saxo_url}trade/v2/orders", json=data
         )
-        self._check_response(response)
+        self._check_order_response(response, data)
         return response.json()
 
     async def get_asset_detail(
@@ -657,6 +658,45 @@ class SaxoClient:
         if len(data) == 0:
             return False
         return data[0]["Time"].day == date.day
+
+    def _check_order_response(
+        self, response: httpx.Response, payload: Dict[str, Any]
+    ) -> None:
+        status = response.status_code
+        if status < 400 or status == 401:
+            self._check_response(response)
+            return
+        body = response.text[:MAX_LOGGED_BODY_LENGTH]
+        correlation = response.headers.get("X-Correlation", "n/a")
+        self.logger.error(
+            f"Saxo order request failed: HTTP {status}, "
+            f"X-Correlation={correlation}, body={body!r}, payload={payload}"
+        )
+        message = f"HTTP {status} (X-Correlation={correlation})"
+        if body == "":
+            raise EmptyResponseException(f"{message} with an empty body")
+        try:
+            json = response.json()
+        except ValueError:
+            raise httpx.HTTPStatusError(
+                f"{message}: {body}",
+                request=response.request,
+                response=response,
+            )
+        if isinstance(json, dict) and "PreTradeDisclaimers" in json:
+            raise SaxoException(
+                f"{message}: pre-trade disclaimers required: "
+                f"{json['PreTradeDisclaimers']}"
+            )
+        if isinstance(json, dict) and "ErrorInfo" in json:
+            error_info = json["ErrorInfo"]
+            raise SaxoException(
+                f"{message}: {error_info.get('ErrorCode')}: "
+                f"{error_info.get('Message')}"
+            )
+        raise httpx.HTTPStatusError(
+            f"{message}: {body}", request=response.request, response=response
+        )
 
     @staticmethod
     def _check_response(response: httpx.Response) -> None:
