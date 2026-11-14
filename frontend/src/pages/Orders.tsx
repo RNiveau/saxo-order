@@ -358,6 +358,7 @@ export function Orders() {
                 />
               </div>
             </div>
+            <OrderTotal price={regularForm.price} quantity={regularForm.quantity} />
           </div>
 
           <div className="form-section">
@@ -566,6 +567,7 @@ export function Orders() {
                 </select>
               </div>
             </div>
+            <OrderTotal label="Limit total" price={ocoForm.limit_price} quantity={ocoForm.quantity} />
           </div>
 
           <div className="form-section">
@@ -602,6 +604,7 @@ export function Orders() {
                 </select>
               </div>
             </div>
+            <OrderTotal label="Stop total" price={ocoForm.stop_price} quantity={ocoForm.quantity} />
           </div>
 
           <div className="form-section">
@@ -813,6 +816,7 @@ export function Orders() {
                 />
               </div>
             </div>
+            <OrderTotal price={stopLimitForm.limit_price} quantity={stopLimitForm.quantity} />
           </div>
 
           <div className="form-section">
@@ -938,6 +942,20 @@ export function Orders() {
           </button>
         </form>
       )}
+    </div>
+  );
+}
+
+function OrderTotal({ label = 'Total', price, quantity }: { label?: string; price: number; quantity: number }) {
+  const total = price * quantity;
+  return (
+    <div className="order-total">
+      <span>{label}</span>
+      <span className="order-total-value">
+        {total > 0
+          ? total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : '—'}
+      </span>
     </div>
   );
 }
