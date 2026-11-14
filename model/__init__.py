@@ -26,6 +26,7 @@ from model.enum import (  # noqa: F401
     Provenance,
     Signal,
     Strategy,
+    TradeLevel,
     TriggerOrder,
 )
 from model.market import (  # noqa: F401

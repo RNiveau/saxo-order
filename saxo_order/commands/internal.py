@@ -12,7 +12,7 @@ from client.aws_client import S3Client
 from client.client_helper import map_data_to_candles
 from client.saxo_client import SaxoClient
 from engines.workflow_loader import load_workflows
-from model import AssetType, UnitTime
+from model import AssetType, TradeLevel, UnitTime
 from saxo_order.async_utils import create_dynamodb_client, run_async
 from saxo_order.commands import catch_exception
 from utils.configuration import Configuration
@@ -403,3 +403,30 @@ async def migrate_backtest_cache(dry_run: bool):
                 "Every day was migrated, but some v1 entries could not be "
                 "removed. Re-run to clean them up."
             )
+
+
+@click.command()
+@click.option(
+    "--full-trading",
+    is_flag=True,
+    default=False,
+    help="Request the FullTradingAndChat trade level for this session",
+)
+@click.pass_context
+@catch_exception(handle=SaxoException)
+@run_async
+async def session_capabilities(ctx: Context, full_trading: bool):
+    """Show the Saxo session capabilities (trade level) of the current
+    token, and optionally request full trading rights."""
+    configuration = Configuration(ctx.obj["config"])
+    async with SaxoClient(configuration) as client:
+        capabilities = await client.get_session_capabilities()
+        print(f"Session capabilities: {json.dumps(capabilities)}")
+        if not full_trading:
+            return
+        if capabilities.get("TradeLevel") == TradeLevel.FULL_TRADING_AND_CHAT:
+            print("Session already has full trading rights")
+            return
+        await client.set_trade_level(TradeLevel.FULL_TRADING_AND_CHAT)
+        capabilities = await client.get_session_capabilities()
+        print(f"Session capabilities after update: {json.dumps(capabilities)}")
