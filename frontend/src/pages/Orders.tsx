@@ -14,6 +14,9 @@ import './Orders.css';
 
 type OrderType = 'regular' | 'oco' | 'stop-limit';
 
+type OrderFormState = Omit<OrderRequest, 'price'> &
+  Pick<OcoOrderRequest, 'limit_price' | 'limit_direction' | 'stop_price' | 'stop_direction'>;
+
 export function Orders() {
   const [searchParams] = useSearchParams();
   const [orderType, setOrderType] = useState<OrderType>('regular');
@@ -25,12 +28,15 @@ export function Orders() {
   const [strategies, setStrategies] = useState<EnumOption[]>([]);
   const [signals, setSignals] = useState<EnumOption[]>([]);
 
-  const [regularForm, setRegularForm] = useState<OrderRequest>({
+  const [form, setForm] = useState<OrderFormState>({
     code: '',
-    price: 0,
     quantity: 0,
+    limit_price: 0,
+    stop_price: 0,
     order_type: 'limit',
     direction: 'Buy',
+    limit_direction: 'Sell',
+    stop_direction: 'Sell',
     country_code: 'xpar',
     stop: undefined,
     objective: undefined,
@@ -39,6 +45,46 @@ export function Orders() {
     comment: undefined,
     account_key: '',
   });
+
+  const commonFields = {
+    code: form.code,
+    quantity: form.quantity,
+    country_code: form.country_code,
+    stop: form.stop,
+    objective: form.objective,
+    strategy: form.strategy,
+    signal: form.signal,
+    comment: form.comment,
+    account_key: form.account_key,
+  };
+
+  const regularForm: OrderRequest = {
+    ...commonFields,
+    price: form.limit_price,
+    order_type: form.order_type,
+    direction: form.direction,
+  };
+
+  const ocoForm: OcoOrderRequest = {
+    ...commonFields,
+    limit_price: form.limit_price,
+    limit_direction: form.limit_direction,
+    stop_price: form.stop_price,
+    stop_direction: form.stop_direction,
+  };
+
+  const stopLimitForm: StopLimitOrderRequest = {
+    ...commonFields,
+    limit_price: form.limit_price,
+    stop_price: form.stop_price,
+  };
+
+  const setRegularForm = ({ price, ...rest }: OrderRequest) =>
+    setForm(prev => ({ ...prev, ...rest, limit_price: price }));
+
+  const setOcoForm = (next: OcoOrderRequest) => setForm(prev => ({ ...prev, ...next }));
+
+  const setStopLimitForm = (next: StopLimitOrderRequest) => setForm(prev => ({ ...prev, ...next }));
 
   useEffect(() => {
     loadAccounts();
@@ -62,11 +108,11 @@ export function Orders() {
         return accountName.includes(exchange.toLowerCase());
       });
 
-      setRegularForm(prev => ({
+      setForm(prev => ({
         ...prev,
         code: code,
         country_code: countryCode,
-        price: price,
+        limit_price: price,
         account_key: targetAccount?.account_key || prev.account_key
       }));
 
@@ -91,9 +137,7 @@ export function Orders() {
 
       if (data.accounts.length > 0) {
         const defaultAccountKey = data.accounts[0].account_key;
-        setRegularForm(prev => ({ ...prev, account_key: defaultAccountKey }));
-        setOcoForm(prev => ({ ...prev, account_key: defaultAccountKey }));
-        setStopLimitForm(prev => ({ ...prev, account_key: defaultAccountKey }));
+        setForm(prev => ({ ...prev, account_key: defaultAccountKey }));
       }
     } catch (err) {
       console.error('Failed to load accounts:', err);
@@ -112,36 +156,6 @@ export function Orders() {
       console.error('Failed to load config:', err);
     }
   };
-
-  const [ocoForm, setOcoForm] = useState<OcoOrderRequest>({
-    code: '',
-    quantity: 0,
-    limit_price: 0,
-    limit_direction: 'Sell',
-    stop_price: 0,
-    stop_direction: 'Sell',
-    country_code: 'xpar',
-    stop: undefined,
-    objective: undefined,
-    strategy: undefined,
-    signal: undefined,
-    comment: undefined,
-    account_key: '',
-  });
-
-  const [stopLimitForm, setStopLimitForm] = useState<StopLimitOrderRequest>({
-    code: '',
-    quantity: 0,
-    limit_price: 0,
-    stop_price: 0,
-    country_code: 'xpar',
-    stop: undefined,
-    objective: undefined,
-    strategy: undefined,
-    signal: undefined,
-    comment: undefined,
-    account_key: '',
-  });
 
   const handleRegularSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
