@@ -137,14 +137,14 @@ class ZoneWorkflow(AbstractWorkflow):
         )
 
 
-class MA50Workflow(AbstractWorkflow):
+class MovingAverageWorkflow(AbstractWorkflow):
 
-    logger = Logger.get_logger("ma50-workflow", logging.DEBUG)
+    period: int
 
     async def init_workflow(
         self, indicator: Indicator, candles: List[Candle]
     ) -> None:
-        self.indicator_value = mobile_average(candles, 50)
+        self.indicator_value = mobile_average(candles, self.period)
         await super().init_workflow(indicator, candles)
 
     def below_condition(
@@ -170,37 +170,22 @@ class MA50Workflow(AbstractWorkflow):
         return self._is_within_indicator_range_plus_spread(element, spread)
 
 
-class MA7Workflow(AbstractWorkflow):
+class MA7Workflow(MovingAverageWorkflow):
 
     logger = Logger.get_logger("ma7-workflow", logging.DEBUG)
+    period = 7
 
-    async def init_workflow(
-        self, indicator: Indicator, candles: List[Candle]
-    ) -> None:
-        self.indicator_value = mobile_average(candles, 7)
-        await super().init_workflow(indicator, candles)
 
-    def below_condition(
-        self, candle: Candle, spread: float, element: Optional[float] = None
-    ) -> bool:
-        if element is None:
-            return self._is_within_indicator_range_minus_spread(
-                candle.close, spread
-            ) or self._is_within_indicator_range_minus_spread(
-                candle.higher, spread
-            )
-        return self._is_within_indicator_range_minus_spread(element, spread)
+class MA50Workflow(MovingAverageWorkflow):
 
-    def above_condition(
-        self, candle: Candle, spread: float, element: Optional[float] = None
-    ) -> bool:
-        if element is None:
-            return self._is_within_indicator_range_plus_spread(
-                candle.close, spread
-            ) or self._is_within_indicator_range_plus_spread(
-                candle.lower, spread
-            )
-        return self._is_within_indicator_range_plus_spread(element, spread)
+    logger = Logger.get_logger("ma50-workflow", logging.DEBUG)
+    period = 50
+
+
+class MA200Workflow(MovingAverageWorkflow):
+
+    logger = Logger.get_logger("ma200-workflow", logging.DEBUG)
+    period = 200
 
 
 class PolariteWorkflow(AbstractWorkflow):

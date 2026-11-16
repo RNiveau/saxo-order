@@ -198,6 +198,49 @@ class TestWorkflowEngine:
                 channel="#workflows-stock", text=slack_message
             )
 
+    async def test_run_ma_200_workflow_below(
+        self, slack_client, candles_service, make_engine, mocker
+    ):
+        workflow = Workflow(
+            name="Test",
+            index="CAC40.I",
+            cfd="FRA40.I",
+            end_date=datetime.datetime.now().date(),
+            enable=True,
+            dry_run=False,
+            conditions=[
+                Condition(
+                    indicator=Indicator(IndicatorType.MA200, UnitTime.D),
+                    close=Close(
+                        direction=WorkflowDirection.BELOW,
+                        ut=UnitTime.H1,
+                        spread=1.5,
+                    ),
+                    element=WorkflowElement.CLOSE,
+                )
+            ],
+            trigger=Trigger(
+                ut=UnitTime.H1,
+                signal=WorkflowSignal.BREAKOUT,
+                location=WorkflowLocation.LOWER,
+                order_direction=Direction.SELL,
+                quantity=9,
+            ),
+        )
+        average = mocker.patch(
+            "engines.workflows.mobile_average", return_value=12
+        )
+
+        workflow_engine = make_engine([workflow])
+        await workflow_engine.run()
+
+        assert (
+            candles_service.build_candles.call_args_list[0].kwargs["count"]
+            == 205
+        )
+        assert average.call_args.args[1] == 200
+        assert slack_client.chat_postMessage.call_count == 1
+
     async def test_run_ma_7_workflow_below(
         self, slack_client, candles_service, make_engine, mocker
     ):

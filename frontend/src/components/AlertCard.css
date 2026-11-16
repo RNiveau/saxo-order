@@ -266,6 +266,12 @@
   border: 1px solid #db61a2;
 }
 
+.alert-card[data-alert-type="mm200_touch"] .alert-type-badge {
+  background: rgba(163, 113, 247, 0.2);
+  color: #a371f7;
+  border: 1px solid #a371f7;
+}
+
 .alert-card[data-alert-type="mm7_break"] .alert-type-badge {
   background: rgba(219, 109, 40, 0.2);
   color: #db6d28;

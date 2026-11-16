@@ -12,6 +12,7 @@ from engines.workflows import (
     InclinedWorkflow,
     MA7Workflow,
     MA50Workflow,
+    MA200Workflow,
     PolariteWorkflow,
     ZoneWorkflow,
 )
@@ -81,6 +82,7 @@ class WorkflowEngine:
                 workflow_map = {
                     IndicatorType.MA7: MA7Workflow,
                     IndicatorType.MA50: MA50Workflow,
+                    IndicatorType.MA200: MA200Workflow,
                     IndicatorType.COMBO: ComboWorkflow,
                     IndicatorType.BBB: BBWorkflow,
                     IndicatorType.BBH: BBWorkflow,
@@ -193,6 +195,8 @@ class WorkflowEngine:
                     nbr_weeks = 12
                 case IndicatorType.MA50:
                     nbr_weeks = 55
+                case IndicatorType.MA200:
+                    nbr_weeks = 205
                 case IndicatorType.COMBO:
                     nbr_weeks = 750
                 case IndicatorType.BBH | IndicatorType.BBB:
@@ -226,6 +230,8 @@ class WorkflowEngine:
                 count = 12
             case IndicatorType.MA50:
                 count = 55
+            case IndicatorType.MA200:
+                count = 205
             case IndicatorType.COMBO:
                 count = 750
             case IndicatorType.BBH | IndicatorType.BBB:

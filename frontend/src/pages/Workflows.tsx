@@ -239,6 +239,7 @@ function Workflows() {
           >
             <option value="">All</option>
             <option value="ma50">MA50</option>
+            <option value="ma200">MA200</option>
             <option value="combo">Combo</option>
             <option value="bbb">BBB</option>
             <option value="bbh">BBH</option>

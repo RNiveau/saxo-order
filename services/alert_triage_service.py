@@ -143,6 +143,10 @@ this scanner produces. NEVER cite it as confirming a bearish thesis or as \
 "trend-aligned" with a negative slope. If you see mm50_touch alongside a \
 claimed bearish setup, that combination is internally inconsistent - treat it \
 as a red flag on the bearish read, not a supporting signal.
+- mm200_touch: the same pullback-to-a-rising-average setup as mm50_touch, \
+read on the 200-period average (its detector requires a positive 200-MA \
+slope, >= +1% over 10 days). It is a long-term bullish continuation signal. \
+NEVER cite it as confirming a bearish thesis.
 - mm7_break: the close crossing through the 7-period moving average, with a \
 direction in pattern_directions ("Buy" = reclaim from below, "Sell" = \
 breakdown from above). This is a SHORT-TERM TIMING trigger, not a thesis: it \

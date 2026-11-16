@@ -464,6 +464,25 @@ async def run_detection_for_asset(
             )
         )
 
+    mm200_touch_result = detect(
+        AlertType.MM200_TOUCH, partial(indicator_service.mm200_touch, candles)
+    )
+    if mm200_touch_result is not None:
+        asset_alerts.append(
+            Alert(
+                alert_type=AlertType.MM200_TOUCH,
+                date=datetime.datetime.now(),
+                data={
+                    **mm200_touch_result,
+                    "ma50_slope": ma50_slope,
+                },
+                asset_code=asset_code,
+                asset_description=asset_description,
+                exchange=exchange,
+                country_code=country_code,
+            )
+        )
+
     mm7_break_result = detect(
         AlertType.MM7_BREAK, partial(indicator_service.mm7_break, candles)
     )

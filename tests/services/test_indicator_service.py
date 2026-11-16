@@ -34,6 +34,7 @@ from services.indicator_service import (
     macd0lag,
     mm7_break,
     mm50_touch,
+    mm200_touch,
     number_of_day_between_dates,
     slope_percentage,
 )
@@ -65,6 +66,18 @@ def _build_mm50_touch_candles(
       - candles[10..59].close = tail_value (50 candles, sets ma50_first)
     """
     return _make_candles([close] + [head_value] * 9 + [tail_value] * 50)
+
+
+def _build_mm200_touch_candles(
+    close: float, ma_last: float, tail_value: float = 100.0
+) -> List[Candle]:
+    """
+    Build a 210-candle list where candles[0].close = close, candles[10..209]
+    close at tail_value (so ma200_first = tail_value), and candles[1..9] are
+    set so that the latest MA200 equals ma_last.
+    """
+    head_value = (ma_last * 200 - close - tail_value * 190) / 9
+    return _make_candles([close] + [head_value] * 9 + [tail_value] * 200)
 
 
 class TestIndicatorService:
@@ -692,6 +705,33 @@ class TestIndicatorService:
     def test_mm50_touch_returns_none_when_fewer_than_sixty_candles(self):
         candles = _make_candles([100.0] * 59)
         assert mm50_touch(candles) is None
+
+    def test_mm200_touch_match_within_proximity_with_rising_slope(self):
+        candles = _build_mm200_touch_candles(close=100.5, ma_last=100.2)
+        result = mm200_touch(candles)
+        assert result is not None
+        assert result["close"] == 100.5
+        assert result["ma200"] == pytest.approx(100.2, abs=1e-6)
+        assert result["distance_pct"] == pytest.approx(0.2994, abs=1e-3)
+        assert result["slope"] == pytest.approx(1.996, abs=1e-2)
+
+    def test_mm200_touch_match_when_close_below_ma200(self):
+        candles = _build_mm200_touch_candles(close=99.8, ma_last=100.2)
+        result = mm200_touch(candles)
+        assert result is not None
+        assert result["distance_pct"] < 0
+
+    def test_mm200_touch_no_match_when_distance_above_one_percent(self):
+        candles = _build_mm200_touch_candles(close=102.0, ma_last=100.2)
+        assert mm200_touch(candles) is None
+
+    def test_mm200_touch_no_match_when_slope_below_one(self):
+        candles = _build_mm200_touch_candles(close=100.05, ma_last=100.05)
+        assert mm200_touch(candles) is None
+
+    def test_mm200_touch_returns_none_when_fewer_than_210_candles(self):
+        candles = _make_candles([100.0] * 209)
+        assert mm200_touch(candles) is None
 
 
 def _candle(lower: float, higher: float, close: float) -> Candle:
