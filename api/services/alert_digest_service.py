@@ -91,7 +91,10 @@ class AlertDigestService:
             rationale=asset["rationale"],
             patterns=asset["patterns"],
             ma50_slope=to_float(asset.get("ma50_slope")),
-            tradingview_url=tradingview_links.get(asset_id),
+            tradingview_url=(
+                tradingview_links.get(asset["asset_code"])
+                or tradingview_links.get(asset_id)
+            ),
             workflow_triggers=self._to_workflow_triggers(asset),
         )
 
