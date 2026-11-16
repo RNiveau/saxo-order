@@ -68,6 +68,23 @@ class TestListRecent:
             == "https://www.tradingview.com/chart/custom"
         )
 
+    async def test_list_recent_uses_link_stored_under_bare_asset_code(
+        self, service, mock_dynamodb_client
+    ):
+        mock_dynamodb_client.get_alert_digests.return_value = [
+            _item("2026-07-16", 300)
+        ]
+        mock_dynamodb_client.get_all_tradingview_links.return_value = {
+            "SAN": "https://www.tradingview.com/chart/stored"
+        }
+
+        digests = await service.list_recent()
+
+        assert (
+            digests[0].triaged_assets[0].tradingview_url
+            == "https://www.tradingview.com/chart/stored"
+        )
+
     async def test_list_recent_uses_cache_on_second_call(
         self, service, mock_dynamodb_client
     ):
