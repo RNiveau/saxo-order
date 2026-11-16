@@ -40,7 +40,6 @@ def _mm50_touch_candles() -> List[Candle]:
 
 
 def _mm200_touch_candles() -> List[Candle]:
-    # close=100.5 → ~0.3% above ma200_last≈100.2, slope≈2
     return _make_candles([100.5] + [104.4] * 9 + [100.0] * 200)
 
 
@@ -115,7 +114,7 @@ class TestRunDetectionForAssetMM200Touch:
     ):
         patched_alerting.patch(
             "services.candle_source.build_daily_series",
-            return_value=_mm50_touch_candles(),
+            return_value=_make_candles([100.5] + [104.4] * 9 + [100.0] * 199),
         )
 
         alerts = await run_detection_for_asset(

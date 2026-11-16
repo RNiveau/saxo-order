@@ -39,6 +39,8 @@ from utils.exception import SaxoException
 from utils.helper import get_date_utc0, market_name_from_symbol
 from utils.logger import Logger
 
+MA200_CANDLES = MA200Workflow.period + 5
+
 
 class WorkflowEngine:
 
@@ -196,7 +198,7 @@ class WorkflowEngine:
                 case IndicatorType.MA50:
                     nbr_weeks = 55
                 case IndicatorType.MA200:
-                    nbr_weeks = 205
+                    nbr_weeks = MA200_CANDLES
                 case IndicatorType.COMBO:
                     nbr_weeks = 750
                 case IndicatorType.BBH | IndicatorType.BBB:
@@ -231,7 +233,7 @@ class WorkflowEngine:
             case IndicatorType.MA50:
                 count = 55
             case IndicatorType.MA200:
-                count = 205
+                count = MA200_CANDLES
             case IndicatorType.COMBO:
                 count = 750
             case IndicatorType.BBH | IndicatorType.BBB:

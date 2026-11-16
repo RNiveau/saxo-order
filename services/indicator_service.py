@@ -108,8 +108,6 @@ MM50_TOUCH_SLOPE_MIN = 3.0
 
 MM200_PERIOD = 200
 MM200_TOUCH_PROXIMITY = 0.01
-# A 200-period average moves far less than a 50-period one over the same
-# 10 candles, so the MM50 floor of 3 would almost never be reached.
 MM200_TOUCH_SLOPE_MIN = 1.0
 MA_TOUCH_SLOPE_LOOKBACK = 10
 

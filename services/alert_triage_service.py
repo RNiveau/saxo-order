@@ -67,7 +67,8 @@ opportunity - at best it is a reason to stay out of a name, and the trader \
 does not need a ranked brief to tell him about the hundreds of stocks he is \
 not buying today. Concretely:
 - The brief exists to surface BUYABLE setups. Bullish evidence - a "Buy" \
-combo, a "Buy" mm7_break, mm50_touch, double_bottom, a "Buy" workflow \
+combo, a "Buy" mm7_break, mm50_touch, mm200_touch, double_bottom, a "Buy" \
+workflow \
 trigger, a rising 50-MA - is what earns an asset a place in it.
 - Bearish evidence - a "Sell" combo, a "Sell" combo_weekly, a "Sell" \
 mm7_break, double_top, a "Sell" workflow trigger, a falling 50-MA - is NEVER \
@@ -100,8 +101,8 @@ system can produce; say so. A "Sell" trigger is never convergence for this \
 brief - the desk does not short, so it only tells you the trader's own rule \
 wants OUT of this name.
 - A trigger pointing AGAINST the bullish read is a RED FLAG on that read, \
-exactly like mm50_touch on a bearish thesis - not "confluence that overrides \
-a conflict". The trader's own rule disagreeing with your reading is evidence \
+exactly like mm50_touch or mm200_touch on a bearish thesis - not \
+"confluence that overrides a conflict". The trader's own rule disagreeing with your reading is evidence \
 your reading is wrong, not evidence to discount.
 - SEVERAL triggers on one asset still count as ONE point of convergence, not \
 one each. Two triggers disagreeing with each other on direction is an \
@@ -193,7 +194,8 @@ windows).
 double_inside_bar, congestion) add breadth but cannot themselves converge \
 on a direction.
    - a pattern that structurally cannot occur against the claimed trend \
-(e.g. mm50_touch during a "bearish" read) is a red flag, NOT convergence.
+(e.g. mm50_touch or mm200_touch during a "bearish" read) is a red flag, \
+NOT convergence.
    - a "Buy" workflow trigger agreeing with the bullish patterns = ONE point, \
 and the strongest kind (independent mechanism); several triggers on one asset \
 still = ONE point. A "Sell" trigger earns no point and counts against the \
