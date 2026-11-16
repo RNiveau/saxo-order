@@ -261,16 +261,9 @@ async def run_detection_for_asset(
     # Calculate MA50 slope for this asset (used for sorting alerts)
     ma50_slope: Optional[float] = None
     try:
-        lookback = indicator_service.MA_TOUCH_SLOPE_LOOKBACK
         period = indicator_service.MM50_PERIOD
-        if len(candles) >= period + lookback:
-            ma50_last = indicator_service.mobile_average(candles, period)
-            ma50_first = indicator_service.mobile_average(
-                candles[lookback:], period
-            )
-            ma50_slope = indicator_service.slope_percentage(
-                0, ma50_first, lookback, ma50_last
-            )
+        if len(candles) >= period + indicator_service.MA_TOUCH_SLOPE_LOOKBACK:
+            ma50_slope = indicator_service.ma_slope(candles, period)
     except SaxoException:
         logger.warning(
             f"Could not calculate ma50_slope for {asset_code} - "

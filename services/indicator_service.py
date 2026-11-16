@@ -191,6 +191,12 @@ COMBO_SETTINGS: Dict[UnitTime, ComboSettings] = {
 }
 
 
+def ma_slope(candles: List[Candle], period: int) -> float:
+    ma_last = mobile_average(candles, period)
+    ma_first = mobile_average(candles[MA_TOUCH_SLOPE_LOOKBACK:], period)
+    return slope_percentage(0, ma_first, MA_TOUCH_SLOPE_LOOKBACK, ma_last)
+
+
 def _ma_touch(
     candles: List[Candle],
     period: int,
@@ -200,8 +206,7 @@ def _ma_touch(
     if len(candles) < period + MA_TOUCH_SLOPE_LOOKBACK:
         return None
     ma_last = mobile_average(candles, period)
-    ma_first = mobile_average(candles[MA_TOUCH_SLOPE_LOOKBACK:], period)
-    slope = slope_percentage(0, ma_first, MA_TOUCH_SLOPE_LOOKBACK, ma_last)
+    slope = ma_slope(candles, period)
     close = candles[0].close
     if abs(close - ma_last) / ma_last > proximity:
         return None

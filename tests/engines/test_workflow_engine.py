@@ -281,7 +281,7 @@ class TestWorkflowEngine:
         )
 
     async def test_ma_200_workflow_with_short_history_is_skipped(
-        self, slack_client, candles_service, make_engine
+        self, slack_client, candles_service, make_engine, mocker
     ):
         workflow = Workflow(
             name="Test",
@@ -314,8 +314,13 @@ class TestWorkflowEngine:
         ] * 50
         candles_service.build_candles.side_effect = [short_history]
 
-        await make_engine([workflow]).run()
+        workflow_engine = make_engine([workflow])
+        warning = mocker.patch.object(workflow_engine.logger, "warning")
 
+        await workflow_engine.run()
+
+        warning.assert_called_once()
+        assert "Skipping workflow Test" in warning.call_args.args[0]
         assert slack_client.chat_postMessage.call_count == 0
 
     async def test_run_ma_7_workflow_below(

@@ -39,7 +39,10 @@ from utils.exception import SaxoException
 from utils.helper import get_date_utc0, market_name_from_symbol
 from utils.logger import Logger
 
-MA200_CANDLES = MA200Workflow.period + 5
+MA_CANDLES_BUFFER = 5
+MA7_CANDLES = MA7Workflow.period + MA_CANDLES_BUFFER
+MA50_CANDLES = MA50Workflow.period + MA_CANDLES_BUFFER
+MA200_CANDLES = MA200Workflow.period + MA_CANDLES_BUFFER
 
 
 class WorkflowEngine:
@@ -194,9 +197,9 @@ class WorkflowEngine:
         if indicator.ut == UnitTime.W:
             match indicator.name:
                 case IndicatorType.MA7:
-                    nbr_weeks = 12
+                    nbr_weeks = MA7_CANDLES
                 case IndicatorType.MA50:
-                    nbr_weeks = 55
+                    nbr_weeks = MA50_CANDLES
                 case IndicatorType.MA200:
                     nbr_weeks = MA200_CANDLES
                 case IndicatorType.COMBO:
@@ -229,9 +232,9 @@ class WorkflowEngine:
 
         match indicator.name:
             case IndicatorType.MA7:
-                count = 12
+                count = MA7_CANDLES
             case IndicatorType.MA50:
-                count = 55
+                count = MA50_CANDLES
             case IndicatorType.MA200:
                 count = MA200_CANDLES
             case IndicatorType.COMBO:
