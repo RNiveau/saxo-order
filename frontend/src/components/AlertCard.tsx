@@ -94,6 +94,8 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
 
   // Extract MA50 slope from alert data
   const ma50Slope = alert.data?.ma50_slope;
+  const ma200 = alert.data?.ma200;
+  const ma200Slope = alert.data?.slope;
 
   // Directional alerts (mm7_break, combo, combo_weekly) carry which way the
   // signal points; mm7_break also carries how far price closed past the
@@ -183,6 +185,14 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, onExclude }) => {
             {formatSignedPercent(ma50Slope)}
           </span>
         </div>
+        {ma200 !== null && ma200 !== undefined && (
+          <div className="alert-card-ma50">
+            <span className="ma50-label">MA200 Slope:</span>
+            <span className={`ma50-value ${getMA50SlopeClass(ma200Slope)}`}>
+              {formatSignedPercent(ma200Slope)}
+            </span>
+          </div>
+        )}
         {direction !== null && direction !== undefined && (
           <div className="alert-card-ma50">
             <span className="ma50-label">Direction:</span>

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, call
 import pytest
 
 from client.saxo_client import SaxoClient
-from engines.workflow_engine import WorkflowEngine
+from engines.workflow_engine import MA200_CANDLES, WorkflowEngine
 from model import (
     Candle,
     Close,
@@ -240,6 +240,83 @@ class TestWorkflowEngine:
         )
         assert average.call_args.args[1] == 200
         assert slack_client.chat_postMessage.call_count == 1
+
+    async def test_ma_200_weekly_workflow_requests_enough_weeks(
+        self, slack_client, candles_service, make_engine, mocker
+    ):
+        workflow = Workflow(
+            name="Test",
+            index="CAC40.I",
+            cfd="FRA40.I",
+            end_date=datetime.datetime.now().date(),
+            enable=True,
+            dry_run=False,
+            conditions=[
+                Condition(
+                    indicator=Indicator(IndicatorType.MA200, UnitTime.W),
+                    close=Close(
+                        direction=WorkflowDirection.BELOW,
+                        ut=UnitTime.H1,
+                        spread=1.5,
+                    ),
+                    element=WorkflowElement.CLOSE,
+                )
+            ],
+            trigger=Trigger(
+                ut=UnitTime.H1,
+                signal=WorkflowSignal.BREAKOUT,
+                location=WorkflowLocation.LOWER,
+                order_direction=Direction.SELL,
+                quantity=9,
+            ),
+        )
+        candles_service.build_weekly_candles = AsyncMock(return_value=[])
+        mocker.patch("engines.workflows.mobile_average", return_value=12)
+
+        await make_engine([workflow]).run()
+
+        assert (
+            candles_service.build_weekly_candles.call_args.kwargs["nbr_weeks"]
+            == MA200_CANDLES
+        )
+
+    async def test_ma_200_workflow_with_short_history_is_skipped(
+        self, slack_client, candles_service, make_engine
+    ):
+        workflow = Workflow(
+            name="Test",
+            index="CAC40.I",
+            cfd="FRA40.I",
+            end_date=datetime.datetime.now().date(),
+            enable=True,
+            dry_run=False,
+            conditions=[
+                Condition(
+                    indicator=Indicator(IndicatorType.MA200, UnitTime.D),
+                    close=Close(
+                        direction=WorkflowDirection.BELOW,
+                        ut=UnitTime.H1,
+                        spread=1.5,
+                    ),
+                    element=WorkflowElement.CLOSE,
+                )
+            ],
+            trigger=Trigger(
+                ut=UnitTime.H1,
+                signal=WorkflowSignal.BREAKOUT,
+                location=WorkflowLocation.LOWER,
+                order_direction=Direction.SELL,
+                quantity=9,
+            ),
+        )
+        short_history = [
+            Candle(close=10.0, lower=9, higher=11, open=10, ut=UnitTime.D)
+        ] * 50
+        candles_service.build_candles.side_effect = [short_history]
+
+        await make_engine([workflow]).run()
+
+        assert slack_client.chat_postMessage.call_count == 0
 
     async def test_run_ma_7_workflow_below(
         self, slack_client, candles_service, make_engine, mocker
