@@ -102,8 +102,8 @@ brief - the desk does not short, so it only tells you the trader's own rule \
 wants OUT of this name.
 - A trigger pointing AGAINST the bullish read is a RED FLAG on that read, \
 exactly like mm50_touch or mm200_touch on a bearish thesis - not \
-"confluence that overrides a conflict". The trader's own rule disagreeing with your reading is evidence \
-your reading is wrong, not evidence to discount.
+"confluence that overrides a conflict". The trader's own rule disagreeing \
+with your reading is evidence your reading is wrong, not evidence to discount.
 - SEVERAL triggers on one asset still count as ONE point of convergence, not \
 one each. Two triggers disagreeing with each other on direction is an \
 internally inconsistent signal, not doubled conviction.
