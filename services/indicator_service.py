@@ -102,8 +102,14 @@ def mobile_average(candles: List[Candle], period: int) -> float:
     return sum(map(lambda x: x.close, candles[:period])) / period
 
 
+MM50_PERIOD = 50
 MM50_TOUCH_PROXIMITY = 0.01
 MM50_TOUCH_SLOPE_MIN = 3.0
+
+MM200_PERIOD = 200
+MM200_TOUCH_PROXIMITY = 0.01
+MM200_TOUCH_SLOPE_MIN = 1.0
+MA_TOUCH_SLOPE_LOOKBACK = 10
 
 MM7_PERIOD = 7
 # A close that merely grazes the average is not a break: price has to clear it
@@ -185,23 +191,45 @@ COMBO_SETTINGS: Dict[UnitTime, ComboSettings] = {
 }
 
 
-def mm50_touch(candles: List[Candle]) -> Optional[Dict[str, float]]:
-    if len(candles) < 60:
+def ma_slope(candles: List[Candle], period: int) -> float:
+    ma_last = mobile_average(candles, period)
+    ma_first = mobile_average(candles[MA_TOUCH_SLOPE_LOOKBACK:], period)
+    return slope_percentage(0, ma_first, MA_TOUCH_SLOPE_LOOKBACK, ma_last)
+
+
+def _ma_touch(
+    candles: List[Candle],
+    period: int,
+    proximity: float,
+    slope_min: float,
+) -> Optional[Dict[str, float]]:
+    if len(candles) < period + MA_TOUCH_SLOPE_LOOKBACK:
         return None
-    ma50_last = mobile_average(candles, 50)
-    ma50_first = mobile_average(candles[10:], 50)
-    slope = slope_percentage(0, ma50_first, 10, ma50_last)
+    ma_last = mobile_average(candles, period)
+    slope = ma_slope(candles, period)
     close = candles[0].close
-    if abs(close - ma50_last) / ma50_last > MM50_TOUCH_PROXIMITY:
+    if abs(close - ma_last) / ma_last > proximity:
         return None
-    if slope < MM50_TOUCH_SLOPE_MIN:
+    if slope < slope_min:
         return None
     return {
         "close": close,
-        "ma50": ma50_last,
-        "distance_pct": (close - ma50_last) / ma50_last * 100,
+        f"ma{period}": ma_last,
+        "distance_pct": (close - ma_last) / ma_last * 100,
         "slope": slope,
     }
+
+
+def mm50_touch(candles: List[Candle]) -> Optional[Dict[str, float]]:
+    return _ma_touch(
+        candles, MM50_PERIOD, MM50_TOUCH_PROXIMITY, MM50_TOUCH_SLOPE_MIN
+    )
+
+
+def mm200_touch(candles: List[Candle]) -> Optional[Dict[str, float]]:
+    return _ma_touch(
+        candles, MM200_PERIOD, MM200_TOUCH_PROXIMITY, MM200_TOUCH_SLOPE_MIN
+    )
 
 
 def _mm7_at(candles: List[Candle], offset: int) -> float:

@@ -8,6 +8,7 @@ const ALERT_TYPE_LABELS: Record<string, string> = {
   double_inside_bar: 'Double Inside Bar',
   containing_candle: 'Containing Candle',
   mm50_touch: 'MM50 Touch',
+  mm200_touch: 'MM200 Touch',
   mm7_break: 'MM7 Break',
 };
 

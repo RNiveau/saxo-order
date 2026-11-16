@@ -37,6 +37,7 @@ logger = Logger.get_logger("workflow_router")
 _INDICATOR_LABELS: Dict[IndicatorType, str] = {
     IndicatorType.MA7: "MM7",
     IndicatorType.MA50: "MA50",
+    IndicatorType.MA200: "MA200",
     IndicatorType.COMBO: "COMBO",
     IndicatorType.BBB: "BBB",
     IndicatorType.BBH: "BBH",

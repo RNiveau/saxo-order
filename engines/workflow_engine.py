@@ -12,6 +12,7 @@ from engines.workflows import (
     InclinedWorkflow,
     MA7Workflow,
     MA50Workflow,
+    MA200Workflow,
     PolariteWorkflow,
     ZoneWorkflow,
 )
@@ -37,6 +38,11 @@ from services.candles_service import CandlesService
 from utils.exception import SaxoException
 from utils.helper import get_date_utc0, market_name_from_symbol
 from utils.logger import Logger
+
+MA_CANDLES_BUFFER = 5
+MA7_CANDLES = MA7Workflow.period + MA_CANDLES_BUFFER
+MA50_CANDLES = MA50Workflow.period + MA_CANDLES_BUFFER
+MA200_CANDLES = MA200Workflow.period + MA_CANDLES_BUFFER
 
 
 class WorkflowEngine:
@@ -81,6 +87,7 @@ class WorkflowEngine:
                 workflow_map = {
                     IndicatorType.MA7: MA7Workflow,
                     IndicatorType.MA50: MA50Workflow,
+                    IndicatorType.MA200: MA200Workflow,
                     IndicatorType.COMBO: ComboWorkflow,
                     IndicatorType.BBB: BBWorkflow,
                     IndicatorType.BBH: BBWorkflow,
@@ -190,9 +197,11 @@ class WorkflowEngine:
         if indicator.ut == UnitTime.W:
             match indicator.name:
                 case IndicatorType.MA7:
-                    nbr_weeks = 12
+                    nbr_weeks = MA7_CANDLES
                 case IndicatorType.MA50:
-                    nbr_weeks = 55
+                    nbr_weeks = MA50_CANDLES
+                case IndicatorType.MA200:
+                    nbr_weeks = MA200_CANDLES
                 case IndicatorType.COMBO:
                     nbr_weeks = 750
                 case IndicatorType.BBH | IndicatorType.BBB:
@@ -223,9 +232,11 @@ class WorkflowEngine:
 
         match indicator.name:
             case IndicatorType.MA7:
-                count = 12
+                count = MA7_CANDLES
             case IndicatorType.MA50:
-                count = 55
+                count = MA50_CANDLES
+            case IndicatorType.MA200:
+                count = MA200_CANDLES
             case IndicatorType.COMBO:
                 count = 750
             case IndicatorType.BBH | IndicatorType.BBB:

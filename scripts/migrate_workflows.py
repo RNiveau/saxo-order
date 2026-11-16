@@ -49,7 +49,15 @@ def validate_workflows(workflows: List[Dict[str, Any]]) -> None:
         ValueError: If validation fails
     """
     seen_names: Set[str] = set()
-    supported_indicators = {"ma50", "combo", "bbb", "bbh", "polarite", "zone"}
+    supported_indicators = {
+        "ma50",
+        "ma200",
+        "combo",
+        "bbb",
+        "bbh",
+        "polarite",
+        "zone",
+    }
 
     for idx, workflow in enumerate(workflows):
         name = workflow.get("name")

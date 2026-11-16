@@ -39,6 +39,10 @@ def _mm50_touch_candles() -> List[Candle]:
     return _make_candles([100.5] + [102.1666666667] * 9 + [99.5] * 50)
 
 
+def _mm200_touch_candles() -> List[Candle]:
+    return _make_candles([100.5] + [104.4] * 9 + [100.0] * 200)
+
+
 @pytest.fixture
 def saxo_client():
     return MagicMock(spec=SaxoClient)
@@ -73,6 +77,57 @@ def patched_alerting(mocker):
         return_value=None,
     )
     return mocker
+
+
+class TestRunDetectionForAssetMM200Touch:
+
+    async def test_emits_mm200_touch_when_conditions_met(
+        self, saxo_client, dynamodb_client, patched_alerting
+    ):
+        patched_alerting.patch(
+            "services.candle_source.build_daily_series",
+            return_value=_mm200_touch_candles(),
+        )
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        mm200_alerts = [
+            a for a in alerts if a.alert_type == AlertType.MM200_TOUCH
+        ]
+        assert len(mm200_alerts) == 1
+        data = mm200_alerts[0].data
+        assert "ma200" in data
+        assert "distance_pct" in data
+        assert "slope" in data
+        assert "ma50_slope" in data
+
+    async def test_no_mm200_touch_with_fewer_than_210_candles(
+        self, saxo_client, dynamodb_client, patched_alerting
+    ):
+        patched_alerting.patch(
+            "services.candle_source.build_daily_series",
+            return_value=_make_candles([100.5] + [104.4] * 9 + [100.0] * 199),
+        )
+
+        alerts = await run_detection_for_asset(
+            asset_code="TST",
+            country_code="xpar",
+            exchange="saxo",
+            asset_description="Test Asset",
+            saxo_uic=12345,
+            saxo_client=saxo_client,
+            dynamodb_client=dynamodb_client,
+        )
+
+        assert all(a.alert_type != AlertType.MM200_TOUCH for a in alerts)
 
 
 class TestRunDetectionForAssetMM50Touch:

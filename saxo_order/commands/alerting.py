@@ -261,12 +261,9 @@ async def run_detection_for_asset(
     # Calculate MA50 slope for this asset (used for sorting alerts)
     ma50_slope: Optional[float] = None
     try:
-        if len(candles) >= 60:  # Need at least 60 candles for MA50 calculation
-            ma50_last = indicator_service.mobile_average(candles, 50)
-            ma50_first = indicator_service.mobile_average(candles[10:], 50)
-            ma50_slope = indicator_service.slope_percentage(
-                0, ma50_first, 10, ma50_last
-            )
+        period = indicator_service.MM50_PERIOD
+        if len(candles) >= period + indicator_service.MA_TOUCH_SLOPE_LOOKBACK:
+            ma50_slope = indicator_service.ma_slope(candles, period)
     except SaxoException:
         logger.warning(
             f"Could not calculate ma50_slope for {asset_code} - "
@@ -445,24 +442,26 @@ async def run_detection_for_asset(
                 )
             )
 
-    mm50_touch_result = detect(
-        AlertType.MM50_TOUCH, partial(indicator_service.mm50_touch, candles)
-    )
-    if mm50_touch_result is not None:
-        asset_alerts.append(
-            Alert(
-                alert_type=AlertType.MM50_TOUCH,
-                date=datetime.datetime.now(),
-                data={
-                    **mm50_touch_result,
-                    "ma50_slope": ma50_slope,
-                },
-                asset_code=asset_code,
-                asset_description=asset_description,
-                exchange=exchange,
-                country_code=country_code,
+    for touch_type, touch_detector in (
+        (AlertType.MM50_TOUCH, indicator_service.mm50_touch),
+        (AlertType.MM200_TOUCH, indicator_service.mm200_touch),
+    ):
+        touch_result = detect(touch_type, partial(touch_detector, candles))
+        if touch_result is not None:
+            asset_alerts.append(
+                Alert(
+                    alert_type=touch_type,
+                    date=datetime.datetime.now(),
+                    data={
+                        **touch_result,
+                        "ma50_slope": ma50_slope,
+                    },
+                    asset_code=asset_code,
+                    asset_description=asset_description,
+                    exchange=exchange,
+                    country_code=country_code,
+                )
             )
-        )
 
     mm7_break_result = detect(
         AlertType.MM7_BREAK, partial(indicator_service.mm7_break, candles)
